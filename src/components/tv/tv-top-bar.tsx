@@ -2,12 +2,139 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import { GlassSearchModal } from "@/components/glass/glass-search-modal";
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
-import { Settings } from "lucide-react";
+import { useAuth } from "@/features/auth/auth-context";
+import { LogOut, Settings, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+function avatarLetter(username: string | undefined): string {
+  const t = username?.trim() ?? "";
+  if (!t) return "?";
+  return t.charAt(0).toUpperCase();
+}
+
+function HeaderUserMenu({ compact }: { compact: boolean }) {
+  const { user, authEnabled, logout } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (wrapRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const letter = avatarLetter(user?.username);
+
+  if (!authEnabled) {
+    return (
+      <div
+        className="relative outline-none"
+        title="Sign-in disabled"
+        aria-hidden
+      >
+        <ZenedeGlass variant="iconChip" className="size-9 opacity-60">
+          <span className="flex size-9 items-center justify-center text-white/55">
+            <User size={18} strokeWidth={2.25} aria-hidden />
+          </span>
+        </ZenedeGlass>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="relative outline-none" aria-hidden>
+        <ZenedeGlass variant="iconChip" className="size-9 opacity-60">
+          <span className="flex size-9 items-center justify-center text-white/55">
+            <User size={18} strokeWidth={2.25} aria-hidden />
+          </span>
+        </ZenedeGlass>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative" ref={wrapRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        disabled={signingOut}
+        className="group relative outline-none disabled:opacity-60"
+        aria-label={`Account menu (${user.username})`}
+        aria-expanded={open}
+        aria-haspopup="menu"
+      >
+        <ZenedeGlass variant="iconChip" className="size-9">
+          <span
+            className={cn(
+              "flex size-9 items-center justify-center text-[13px] font-semibold text-white/95 transition-colors group-hover:text-white group-focus-visible:text-white",
+              compact && "text-[12px]",
+            )}
+            aria-hidden
+          >
+            {letter}
+          </span>
+        </ZenedeGlass>
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          aria-label="Account"
+          className={cn(
+            "absolute right-0 top-[calc(100%+8px)] z-[60] min-w-[11.5rem] overflow-hidden rounded-xl",
+            "border border-white/[0.12] bg-black/85 shadow-[0_20px_48px_-16px_rgba(0,0,0,0.75)]",
+            "backdrop-blur-xl backdrop-saturate-150 ring-1 ring-white/[0.06]",
+          )}
+        >
+          <p className="border-b border-white/[0.08] px-3 py-2 text-[12px] text-white/45">
+            Signed in as{" "}
+            <span className="font-medium text-white/90">{user.username}</span>
+          </p>
+          <button
+            type="button"
+            role="menuitem"
+            disabled={signingOut}
+            onClick={() => {
+              setSigningOut(true);
+              void logout().finally(() => {
+                setSigningOut(false);
+                setOpen(false);
+              });
+            }}
+            className={cn(
+              "flex w-full items-center gap-2 px-3 py-2.5 text-left text-[14px] font-medium outline-none transition-colors",
+              "text-white/85 hover:bg-white/[0.08] focus-visible:bg-white/[0.08] disabled:opacity-50",
+            )}
+          >
+            <LogOut className="size-4 shrink-0 opacity-80" aria-hidden />
+            {signingOut ? "Signing out…" : "Sign out"}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 /** Vertical clearance for page content below the floating nav (Tailwind `pt-20` / `top-20`). */
 export const TV_BROWSE_TOP_PAD_CLASS = "pt-20";
@@ -184,17 +311,7 @@ export function TvTopBar() {
                     </span>
                   </ZenedeGlass>
                 </Link>
-                <Link
-                  href="/library"
-                  className="group relative outline-none"
-                  aria-label="Library"
-                >
-                  <ZenedeGlass variant="iconChip" className="size-9">
-                    <span className="flex size-9 items-center justify-center text-[13px] font-semibold text-white/95 transition-colors group-hover:text-white">
-                      Lib
-                    </span>
-                  </ZenedeGlass>
-                </Link>
+                <HeaderUserMenu compact={compact} />
               </div>
             </div>
           </div>

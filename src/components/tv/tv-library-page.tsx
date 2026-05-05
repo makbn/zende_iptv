@@ -237,7 +237,10 @@ export function TvLibraryPage() {
                     <input
                       ref={searchInputRef}
                       id="channel-search"
-                      type="search"
+                      type="text"
+                      inputMode="search"
+                      enterKeyHint="search"
+                      role="searchbox"
                       placeholder="Search name, category, or language…"
                       autoComplete="off"
                       value={query}

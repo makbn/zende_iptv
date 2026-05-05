@@ -1,0 +1,131 @@
+import type { M3uChannel } from "@/core/playlist/m3u-parse";
+
+const STORAGE_KEY = "zenede.favorites.v1";
+
+export type FavoriteChannel = {
+  url: string;
+  name: string;
+  tvgLogo?: string;
+  groupTitle?: string;
+  addedAt: number;
+};
+
+type Store = {
+  favorites: FavoriteChannel[];
+};
+
+const MAX_FAVORITES = 500;
+
+function readStore(): Store {
+  if (typeof window === "undefined") return { favorites: [] };
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return { favorites: [] };
+    const parsed = JSON.parse(raw) as Store;
+    if (!Array.isArray(parsed?.favorites)) return { favorites: [] };
+    return { favorites: parsed.favorites };
+  } catch {
+    return { favorites: [] };
+  }
+}
+
+function writeStore(store: Store) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+  } catch {
+    /* quota */
+  }
+}
+
+export function listFavorites(): FavoriteChannel[] {
+  return readStore()
+    .favorites.slice()
+    .sort((a, b) => b.addedAt - a.addedAt);
+}
+
+export function isFavorite(url: string): boolean {
+  if (!url) return false;
+  return readStore().favorites.some((f) => f.url === url);
+}
+
+export function addFavorite(
+  input: Pick<M3uChannel, "url" | "name"> &
+    Partial<Pick<M3uChannel, "tvgLogo" | "groupTitle">>,
+): void {
+  const store = readStore();
+  const url = input.url;
+  if (!url) return;
+  const idx = store.favorites.findIndex((f) => f.url === url);
+  const row: FavoriteChannel = {
+    url,
+    name: input.name?.trim() || "Channel",
+    ...(input.tvgLogo ? { tvgLogo: input.tvgLogo } : {}),
+    ...(input.groupTitle ? { groupTitle: input.groupTitle } : {}),
+    addedAt: Date.now(),
+  };
+  if (idx >= 0) {
+    store.favorites[idx] = {
+      ...store.favorites[idx]!,
+      ...row,
+      addedAt: store.favorites[idx]!.addedAt,
+    };
+  } else {
+    store.favorites.unshift(row);
+    if (store.favorites.length > MAX_FAVORITES) {
+      store.favorites = store.favorites.slice(0, MAX_FAVORITES);
+    }
+  }
+  writeStore(store);
+  notifyFavoritesUpdated();
+}
+
+export function removeFavorite(url: string): void {
+  const store = readStore();
+  store.favorites = store.favorites.filter((f) => f.url !== url);
+  writeStore(store);
+  notifyFavoritesUpdated();
+}
+
+export function toggleFavorite(
+  input: Pick<M3uChannel, "url" | "name"> &
+    Partial<Pick<M3uChannel, "tvgLogo" | "groupTitle">>,
+): boolean {
+  if (isFavorite(input.url)) {
+    removeFavorite(input.url);
+    return false;
+  }
+  addFavorite(input);
+  return true;
+}
+
+export function notifyFavoritesUpdated(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event("zenede-favorites-update"));
+}
+
+export function subscribeFavorites(onChange: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const run = () => onChange();
+  window.addEventListener("storage", run);
+  window.addEventListener("zenede-favorites-update", run);
+  return () => {
+    window.removeEventListener("storage", run);
+    window.removeEventListener("zenede-favorites-update", run);
+  };
+}
+
+/** Merge stored favorite with live catalog row when available. */
+export function enrichFavoriteWithCatalog(
+  fav: FavoriteChannel,
+  catalog: M3uChannel[],
+): M3uChannel {
+  const live = catalog.find((c) => c.url === fav.url);
+  if (live) return live;
+  return {
+    url: fav.url,
+    name: fav.name,
+    duration: -1,
+    ...(fav.tvgLogo ? { tvgLogo: fav.tvgLogo } : {}),
+    ...(fav.groupTitle ? { groupTitle: fav.groupTitle } : {}),
+  };
+}

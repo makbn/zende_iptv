@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Auth: optional app login. When enabled, most routes require a valid session.
+model AuthConfig {
+  id        Int      @id @default(1)
+  enabled   Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+model User {
+  id               String         @id @default(cuid())
+  username         String         @unique
+  passwordHash     String
+  role             UserRole       @default(USER)
+  /// The original administrator created at bootstrap — cannot be deleted; password/username can be reset via API or server script.
+  isBootstrapAdmin Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  refreshTokens    RefreshToken[]
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+/// Registered stream URLs (synced from clients). Used for nightly/on-demand probes.
+model ChannelRegistryEntry {
+  urlHash   String   @id
+  url       String
+  label     String?
+  presetId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  probes    HealthProbe[]
+  aggregate HealthAggregate?
+}
+
+model HealthProbe {
+  id         String   @id @default(cuid())
+  urlHash    String
+  channel    ChannelRegistryEntry @relation(fields: [urlHash], references: [urlHash], onDelete: Cascade)
+  checkedAt  DateTime @default(now())
+  ok         Boolean
+  latencyMs  Int?
+  httpStatus Int?
+  error      String?
+
+  @@index([urlHash, checkedAt])
+}
+
+model HealthAggregate {
+  urlHash     String   @id
+  channel     ChannelRegistryEntry @relation(fields: [urlHash], references: [urlHash], onDelete: Cascade)
+  tier        String
+  successRate Float
+  sampleCount Int
+  windowDays  Int      @default(7)
+  updatedAt   DateTime @updatedAt
+}

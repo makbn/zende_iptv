@@ -1,0 +1,32 @@
+services:
+  zende:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: zende
+    ports:
+      - "${PORT:-8077}:${PORT:-8077}"
+    environment:
+      # Required for Prisma (SQLite). Path must match the volume mount below.
+      DATABASE_URL: "file:/data/zende.db"
+      LOG_LEVEL: info
+      NODE_ENV: production
+      PORT: "${PORT:-8077}"
+      # Required for production auth: signs JWT access/refresh tokens (Settings → Authentication).
+      # AUTH_JWT_SECRET: "change-me-to-a-long-random-string"
+      # Optional: Bearer for cron, registry sync, health sweep APIs (Settings → Server).
+      # CRON_SECRET: "change-me-to-a-long-random-string"
+    volumes:
+      # Persists SQLite across container rebuilds (channels registry, auth users, etc.).
+      - zende-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:$$PORT/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+volumes:
+  zende-data:
+    name: zende-data

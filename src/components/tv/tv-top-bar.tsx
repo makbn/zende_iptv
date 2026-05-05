@@ -1,0 +1,205 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useState, useSyncExternalStore } from "react";
+
+import { GlassSearchModal } from "@/components/glass/glass-search-modal";
+import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { Settings } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+/** Vertical clearance for page content below the floating nav (Tailwind `pt-20` / `top-20`). */
+export const TV_BROWSE_TOP_PAD_CLASS = "pt-20";
+export const TV_BROWSE_STICKY_TOP_CLASS = "top-20";
+
+function subscribeHash(onStoreChange: () => void) {
+  const run = () => onStoreChange();
+  window.addEventListener("hashchange", run);
+  window.addEventListener("popstate", run);
+  return () => {
+    window.removeEventListener("hashchange", run);
+    window.removeEventListener("popstate", run);
+  };
+}
+
+function getHashSnapshot() {
+  return window.location.hash;
+}
+
+export function TvTopBar() {
+  const pathname = usePathname();
+  const hash = useSyncExternalStore(
+    subscribeHash,
+    getHashSnapshot,
+    () => "",
+  );
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [scrollY, setScrollY] = useState(0);
+
+  useEffect(() => {
+    const fn = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", fn);
+    return () => window.removeEventListener("keydown", fn);
+  }, []);
+
+  useEffect(() => {
+    const onScroll = () => {
+      setScrollY(window.scrollY || document.documentElement.scrollTop);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  /** 0 = top of page, 1 = fully “scrolled” look */
+  const scrollT = Math.min(1, scrollY / 72);
+  const compact = scrollY > 8;
+
+  const homeActive = pathname === "/" && hash !== "#live";
+  const liveActive = pathname === "/" && hash === "#live";
+  const libraryActive = pathname === "/library";
+  const favoritesActive = pathname === "/favorites";
+
+  const navLink = (
+    label: string,
+    active: boolean,
+    href: string,
+    id?: string,
+  ) => (
+    <Link
+      key={id ?? href}
+      href={href}
+      className={cn(
+        "rounded-lg px-3 py-1.5 text-[15px] font-medium outline-none transition-[color,transform] duration-300",
+        "focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black/80",
+        active ? "text-white" : "text-white/45 hover:text-white/75",
+        compact && active && "scale-[1.02]",
+      )}
+    >
+      {label}
+    </Link>
+  );
+
+  return (
+    <>
+      <GlassSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <header className="pointer-events-none fixed inset-x-0 top-0 z-50">
+        <div
+          className={cn(
+            "pointer-events-auto mx-auto max-w-[min(100%-1.25rem,1920px)] transition-[padding] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:max-w-[min(100%-2rem,1920px)]",
+            compact ? "px-2.5 pt-2 sm:px-3" : "px-3 pt-3 sm:px-4 sm:pt-4",
+          )}
+        >
+          <div
+            className={cn(
+              "border border-white/[0.12] bg-black/45 ring-1 ring-white/[0.06]",
+              "backdrop-blur-2xl backdrop-saturate-150 supports-[backdrop-filter]:bg-black/35",
+              "transition-[border-radius,box-shadow,transform,background-color,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform",
+              compact
+                ? "rounded-[1.125rem] shadow-[0_14px_44px_-10px_rgba(0,0,0,0.62)]"
+                : "rounded-[1.65rem] shadow-[0_20px_56px_-18px_rgba(0,0,0,0.48)]",
+            )}
+            style={{
+              transform: `scale(${1 - scrollT * 0.012}) translateY(${scrollT * -1}px)`,
+            }}
+          >
+            <div
+              className={cn(
+                "mx-auto flex max-w-[1920px] items-center justify-between transition-[height,padding] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                compact ? "h-[48px] px-3 sm:px-5" : "h-[52px] px-4 sm:px-6 lg:px-8 xl:px-10",
+              )}
+            >
+              <Link
+                href="/"
+                aria-label="Zenede home"
+                className="flex shrink-0 items-center gap-2 outline-none transition-opacity duration-300 hover:opacity-95 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:gap-2.5"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- local brand SVG */}
+                {/* block + aspect-ratio avoids baseline clipping; removed overflow-hidden on chrome (was cropping) */}
+                <img
+                  src="/zenede-logo.svg"
+                  alt=""
+                  width={225}
+                  height={82}
+                  className="block aspect-[225/82] h-auto w-8 max-h-none shrink-0 object-contain object-center"
+                  decoding="async"
+                  fetchPriority="high"
+                />
+                <span className="text-[17px] font-semibold tracking-tight text-white">
+                  Zenede
+                </span>
+                <span className="hidden text-[13px] font-medium tracking-wide text-white/35 md:inline">
+                  IPTV
+                </span>
+              </Link>
+              <nav
+                className="absolute left-1/2 flex max-w-[calc(100vw-10rem)] -translate-x-1/2 items-center gap-0.5 overflow-x-auto md:gap-1 [&::-webkit-scrollbar]:hidden"
+                style={{ scrollbarWidth: "none" }}
+                aria-label="Main"
+              >
+                {navLink("Home", homeActive, "/", "nav-home")}
+                {navLink("Live TV", liveActive, "/#live", "nav-live")}
+                {navLink("Library", libraryActive, "/library", "nav-library")}
+                {navLink("Favorites", favoritesActive, "/favorites", "nav-favorites")}
+              </nav>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSearchOpen(true)}
+                  className="group relative outline-none"
+                  aria-label="Search channels"
+                >
+                  <ZenedeGlass variant="iconChip" className="size-9">
+                    <span className="flex size-9 items-center justify-center text-white/80 transition-colors group-hover:text-white">
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.25"
+                        strokeLinecap="round"
+                        aria-hidden
+                      >
+                        <circle cx="11" cy="11" r="7.25" />
+                        <path d="m20 20-4.2-4.2" />
+                      </svg>
+                    </span>
+                  </ZenedeGlass>
+                </button>
+                <Link
+                  href="/settings"
+                  className="group relative outline-none"
+                  aria-label="Settings"
+                >
+                  <ZenedeGlass variant="iconChip" className="size-9">
+                    <span className="flex size-9 items-center justify-center text-white/80 transition-colors group-hover:text-white">
+                      <Settings size={18} strokeWidth={2.25} aria-hidden />
+                    </span>
+                  </ZenedeGlass>
+                </Link>
+                <Link
+                  href="/library"
+                  className="group relative outline-none"
+                  aria-label="Library"
+                >
+                  <ZenedeGlass variant="iconChip" className="size-9">
+                    <span className="flex size-9 items-center justify-center text-[13px] font-semibold text-white/95 transition-colors group-hover:text-white">
+                      Lib
+                    </span>
+                  </ZenedeGlass>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+    </>
+  );
+}

@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Plain Node scripts (CommonJS for docker exec)
+    "scripts/**/*.cjs",
   ]),
 ]);
 

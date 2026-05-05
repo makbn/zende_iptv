@@ -1,0 +1,15 @@
+node_modules
+.next
+prisma/dev.db
+prisma/*.db
+.git
+.gitignore
+.cursor
+*.md
+!.env.example
+.env
+.env.*
+.env.local
+.env.*.local
+npm-debug.log*
+.DS_Store

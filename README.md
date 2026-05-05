@@ -2,7 +2,7 @@
 
 ## Screenshots
 
-| ![Home](docs/screenshot-home.svg) | ![Library](docs/screenshot-library.svg) | ![Watch](docs/screenshot-watch.svg) |
+| ![Home](docs/home.png) | ![Library](docs/library.png) | ![Watch](docs/player.png) |
 | :---: | :---: | :---: |
 
 Zenede is a web application for browsing M3U playlists and playing stream URLs in the browser. It does not host or transcode video. The default catalog integration uses the public **iptv-org** index as a fixed, allowlisted playlist source.

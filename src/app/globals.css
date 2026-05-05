@@ -193,6 +193,58 @@
     }
   }
 
+  @keyframes zende-mexican-wave-bar {
+    0%,
+    100% {
+      transform: scaleY(0.76);
+      opacity: 0.42;
+    }
+    42% {
+      transform: scaleY(1.14);
+      opacity: 1;
+    }
+    58% {
+      transform: scaleY(1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes zende-logo-shimmer-sweep {
+    0% {
+      transform: translateX(-130%) skewX(-14deg);
+    }
+    100% {
+      transform: translateX(340%) skewX(-14deg);
+    }
+  }
+
+  .zende-wave-bar {
+    transform-box: fill-box;
+    transform-origin: bottom center;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .zende-wave-bar {
+      animation: zende-mexican-wave-bar 1.28s cubic-bezier(0.42, 0.08, 0.58, 1) infinite;
+    }
+
+    .zende-logo-shimmer {
+      animation: zende-logo-shimmer-sweep 2.35s ease-in-out infinite;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .zende-wave-bar {
+      opacity: 1;
+      transform: none;
+    }
+
+    .zende-logo-shimmer {
+      opacity: 0;
+      animation: none;
+    }
+  }
+
   .motion-safe\:animate-watch-channel-peek {
     animation: watch-channel-peek 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
   }

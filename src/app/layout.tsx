@@ -3,6 +3,8 @@ import { Suspense } from "react";
 
 import "./globals.css";
 import { AppProviders } from "@/components/providers/app-providers";
+import { FullPageLoadOverlay } from "@/components/loading/full-page-load-overlay";
+import { ZenedeLogoWave } from "@/components/loading/zenede-logo-wave";
 import { WatchBrowseOriginTracker } from "@/lib/navigation/watch-browse-origin";
 
 export const metadata: Metadata = {
@@ -22,10 +24,12 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark h-full">
       <body className="flex min-h-full flex-col">
+        <FullPageLoadOverlay />
         <Suspense
           fallback={
-            <div className="flex min-h-screen items-center justify-center bg-[var(--tv-page-bg)] text-[15px] text-white/50">
-              Loading…
+            <div className="flex min-h-screen items-center justify-center bg-[var(--tv-page-bg)]">
+              <span className="sr-only">Loading</span>
+              <ZenedeLogoWave size="lg" />
             </div>
           }
         >

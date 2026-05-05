@@ -20,13 +20,17 @@ if (!process.env.DATABASE_URL?.trim()) {
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined };
 
+function prismaLogLevels(): Array<"query" | "info" | "warn" | "error"> {
+  if (process.env.NODE_ENV === "production") return ["error"];
+  const q = process.env.PRISMA_LOG_QUERIES?.trim();
+  if (q === "1" || q === "true") return ["query", "warn", "error"];
+  return ["warn", "error"];
+}
+
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
-    log:
-      process.env.NODE_ENV === "development"
-        ? ["query", "error", "warn"]
-        : ["error"],
+    log: prismaLogLevels(),
   });
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;

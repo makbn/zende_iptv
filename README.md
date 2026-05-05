@@ -61,13 +61,25 @@ From the repository root:
 docker compose up --build
 ```
 
-Then open **http://localhost:8077**.
+Then open **http://localhost:8077** (if you change **`PORT`**, use that port in the URL).
 
 On first start the container adjusts ownership of the `/data` volume for SQLite, runs `npx prisma db push`, then starts the application.
 
+### Publish on a specific host IP
+
+By default Compose maps the container port to **all** interfaces on the host (same as **`0.0.0.0`**). To listen only on a chosen address (loopback, a LAN IP, or a VPN interface), put a **`.env`** file next to **`docker-compose.yml`** and set **`DOCKER_PUBLISH`** to Docker’s three-part form **`host_ip:host_port:container_port`**. The third number must match **`PORT`** (the app inside the container).
+
+| Goal | Example **`.env`** lines |
+|------|---------------------------|
+| Localhost only | `PORT=8077` and `DOCKER_PUBLISH=127.0.0.1:8077:8077` |
+| One LAN address | `PORT=8077` and `DOCKER_PUBLISH=192.168.1.50:8077:8077` |
+| Custom port on an IP | `PORT=9000` and `DOCKER_PUBLISH=192.168.1.50:9000:9000` |
+
+Then run **`docker compose up`** as usual and open **`http://`** plus that IP and host port (for example **`http://192.168.1.50:8077`**). Omit **`DOCKER_PUBLISH`** to keep the default **`${PORT}:${PORT}`** mapping on every interface.
+
 | Topic | Detail |
 |-------|--------|
-| HTTP port | Host **8077** maps to container **8077** (override in Compose if needed). |
+| HTTP port | **`PORT`** on host and in the container (default **8077**). Optional **`DOCKER_PUBLISH`** overrides how the host binds (**`ip:host_port:container_port`**). |
 | Database file | **`/data/zende.db`** in the container for registry, health data, and optional auth users. |
 | Volume | Named volume **`zende-data`** mounted at **`/data`** persists across `docker compose down`; remove data only with `docker compose down -v`. |
 | Browser state | Viewing statistics, tokens, and UI preferences remain in the browser, not in SQLite. |
@@ -78,6 +90,7 @@ Set environment variables under `services.zende.environment` or via `env_file`:
 |----------|----------|---------|
 | `DATABASE_URL` | Yes (defaults in Compose) | Prisma SQLite URL; use `file:/data/zende.db` with the bundled volume. |
 | `PORT` | Optional | HTTP port inside the container and on the host (default **8077**). |
+| `DOCKER_PUBLISH` | Optional | Compose only: full **`host_ip:host_port:container_port`** to bind a specific IP; container port must match **`PORT`**. |
 | `AUTH_JWT_SECRET` | Strongly recommended in production | Signs JWTs when authentication is enabled. |
 | `CRON_SECRET` | Optional | `Authorization: Bearer` for cron and related HTTP APIs. |
 | `LOG_LEVEL` | Optional | Server log level (e.g. `info`). |

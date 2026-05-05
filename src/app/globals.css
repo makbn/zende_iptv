@@ -209,15 +209,6 @@
     }
   }
 
-  @keyframes zende-logo-shimmer-sweep {
-    0% {
-      transform: translateX(-130%) skewX(-14deg);
-    }
-    100% {
-      transform: translateX(340%) skewX(-14deg);
-    }
-  }
-
   .zende-wave-bar {
     transform-box: fill-box;
     transform-origin: bottom center;
@@ -227,21 +218,12 @@
     .zende-wave-bar {
       animation: zende-mexican-wave-bar 1.28s cubic-bezier(0.42, 0.08, 0.58, 1) infinite;
     }
-
-    .zende-logo-shimmer {
-      animation: zende-logo-shimmer-sweep 2.35s ease-in-out infinite;
-    }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .zende-wave-bar {
       opacity: 1;
       transform: none;
-    }
-
-    .zende-logo-shimmer {
-      opacity: 0;
-      animation: none;
     }
   }
 

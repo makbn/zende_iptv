@@ -39,7 +39,7 @@ export function ZenedeLogoWave({
         viewBox="14 5 225 82"
         fill="none"
         className={cn(
-          "relative z-0 block h-auto text-[#fd367e]",
+          "relative block h-auto text-[#fd367e]",
           WIDTH_CLASS[size],
         )}
         aria-hidden
@@ -57,12 +57,6 @@ export function ZenedeLogoWave({
           ))}
         </g>
       </svg>
-      <div
-        className="pointer-events-none absolute inset-0 z-[1] overflow-hidden rounded-[2px]"
-        aria-hidden
-      >
-        <div className="zende-logo-shimmer absolute inset-y-[-15%] left-0 w-[48%] bg-gradient-to-r from-transparent via-white/40 to-transparent opacity-[0.85] mix-blend-screen" />
-      </div>
     </div>
   );
 }

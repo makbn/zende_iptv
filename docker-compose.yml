@@ -5,7 +5,8 @@ services:
       dockerfile: Dockerfile
     container_name: zende
     ports:
-      - "${PORT:-8077}:${PORT:-8077}"
+      # Default: all interfaces. Set DOCKER_PUBLISH in .env for a specific host IP, e.g. 192.168.1.50:8077:8077
+      - "${DOCKER_PUBLISH:-${PORT:-8077}:${PORT:-8077}}"
     environment:
       # Required for Prisma (SQLite). Path must match the volume mount below.
       DATABASE_URL: "file:/data/zende.db"

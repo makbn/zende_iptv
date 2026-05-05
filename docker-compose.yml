@@ -14,7 +14,7 @@ services:
       NODE_ENV: production
       PORT: "${PORT:-8077}"
       # Required for production auth: signs JWT access/refresh tokens (Settings → Authentication).
-      # AUTH_JWT_SECRET: "change-me-to-a-long-random-string"
+      AUTH_JWT_SECRET: "zende-local-dev-jwt-secret-change-in-prod"
       # Optional: Bearer for cron, registry sync, health sweep APIs (Settings → Server).
       # CRON_SECRET: "change-me-to-a-long-random-string"
     volumes:

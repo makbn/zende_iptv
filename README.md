@@ -116,6 +116,72 @@ docker compose logs -f zende
 docker compose exec zende sh
 ```
 
+## VPN Proxies
+
+Some streams are geo-blocked or rate-limited by IP. Zenede can route individual channels through an HTTP/SOCKS5 proxy or a containerized VPN — all managed from **Settings → VPN Proxies**.
+
+### How it works
+
+When a channel is assigned to a proxy, every segment, manifest, and key request for that channel passes through the proxy server. The proxy is applied only at the stream session layer — the player itself makes no direct upstream connections.
+
+For VPN-backed proxies, Zenede launches a **[Gluetun](https://github.com/qdm12/gluetun)** Docker container that establishes the VPN tunnel and exposes a local HTTP proxy port on `127.0.0.1`. Zenede then routes the channel's stream traffic through that port.
+
+### Proxy types
+
+| Type | When to use |
+|------|-------------|
+| **Direct proxy** | You already have an HTTP, HTTPS, or SOCKS5 proxy server (e.g. Squid, Dante, or a paid proxy service). Enter the host, port, and optional credentials. |
+| **Gluetun VPN** | You want an isolated VPN tunnel per proxy slot. Requires Docker on the host running Zenede. |
+
+### Supported VPN providers (Gluetun)
+
+| Provider | Credentials needed |
+|----------|--------------------|
+| NordVPN | OpenVPN username + password, target countries |
+| ExpressVPN | Activation code, target countries |
+| ProtonVPN | OpenVPN username + password, target countries |
+| Custom OpenVPN | `.ovpn` config file + optional username/password + any referenced cert/key files |
+| Custom WireGuard | Private key, peer public key, endpoint IP + port, tunnel addresses |
+
+### Custom OpenVPN setup
+
+1. Paste your `.ovpn` file contents into the config field.
+2. If the config references external files (`ca`, `cert`, `key`, `tls-auth`, etc.) by filename, extra fields appear automatically — one per referenced file.
+3. Drag and drop each cert/key file directly onto its field to load it, or paste the PEM content manually.
+4. Enter your OpenVPN username and password if the server requires them.
+5. Click **Add VPN**. Zenede resolves any hostnames in `remote` lines to IPs (Gluetun requires IP addresses) and rewrites file paths before writing them into the container.
+
+### Docker requirements for Gluetun
+
+- Docker must be installed and the socket accessible to the Zenede process (`/var/run/docker.sock`).
+- The Gluetun image (`ghcr.io/qdm12/gluetun:latest`) is pulled automatically on first launch.
+- The host kernel must expose `/dev/net/tun` (standard on Linux; required for the OpenVPN TUN interface inside the container).
+- When running Zenede itself in Docker, mount the Docker socket and `/dev/net/tun` into the Zenede container:
+
+```yaml
+volumes:
+  - /var/run/docker.sock:/var/run/docker.sock
+  - /dev/net/tun:/dev/net/tun
+devices:
+  - /dev/net/tun
+cap_add:
+  - NET_ADMIN
+```
+
+### Assigning channels to a proxy
+
+Open a proxy in **Settings → VPN Proxies** and click the **Channels** button. A dialog lets you search all catalog channels and assign them to that proxy. Assigned channels route through the proxy whenever a stream session starts; unassigned channels connect directly.
+
+### Container lifecycle
+
+| Action | What happens |
+|--------|-------------|
+| **Launch** | Gluetun container starts; status shows `starting` while the tunnel negotiates, then `running` once healthy. |
+| **Stop** | Container is stopped and removed; the DB entry retains the configuration. |
+| **Relaunch** | Previous container is removed and a fresh one is created with the current config. |
+
+A proxy in `error` or `stopped` state blocks playback for channels assigned to it — Zenede returns a clear message rather than silently timing out.
+
 ## Authentication (optional)
 
 The application runs without login by default. **Settings → Authentication** can require sign-in, create the initial administrator account, and manage additional users.

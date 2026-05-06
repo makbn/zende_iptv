@@ -10,9 +10,10 @@ import {
 } from "react";
 
 import { GlassSearchModal } from "@/components/glass/glass-search-modal";
+import { WatchTogetherDialog } from "@/components/tv/watch-together-dialog";
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
 import { useAuth } from "@/features/auth/auth-context";
-import { LogOut, Settings, User } from "lucide-react";
+import { LayoutGrid, LogOut, Settings, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function avatarLetter(username: string | undefined): string {
@@ -162,6 +163,7 @@ export function TvTopBar() {
     () => "",
   );
   const [searchOpen, setSearchOpen] = useState(false);
+  const [boardOpen, setBoardOpen] = useState(false);
   const [scrollY, setScrollY] = useState(0);
 
   useEffect(() => {
@@ -216,6 +218,7 @@ export function TvTopBar() {
   return (
     <>
       <GlassSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <WatchTogetherDialog open={boardOpen} onClose={() => setBoardOpen(false)} />
       <header className="pointer-events-none fixed inset-x-0 top-0 z-50">
         <div
           className={cn(
@@ -276,6 +279,18 @@ export function TvTopBar() {
                 {navLink("Favorites", favoritesActive, "/favorites", "nav-favorites")}
               </nav>
               <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBoardOpen(true)}
+                  className="group relative outline-none"
+                  aria-label="Watch multiple channels"
+                >
+                  <ZenedeGlass variant="iconChip" className="size-9">
+                    <span className="flex size-9 items-center justify-center text-white/80 transition-colors group-hover:text-white">
+                      <LayoutGrid size={18} strokeWidth={2.25} aria-hidden />
+                    </span>
+                  </ZenedeGlass>
+                </button>
                 <button
                   type="button"
                   onClick={() => setSearchOpen(true)}

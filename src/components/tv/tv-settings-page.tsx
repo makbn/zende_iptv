@@ -7,6 +7,7 @@ import { TvCatalogSetupStrip } from "@/components/tv/tv-catalog-setup-strip";
 import { TvManualChannelsSection } from "@/components/tv/tv-manual-channels-section";
 import { TvSettingsAuthPanel } from "@/components/tv/tv-settings-auth-panel";
 import { TvSettingsIntegrationsPanel } from "@/components/tv/tv-settings-integrations-panel";
+import { TvSettingsProxiesPanel } from "@/components/tv/tv-settings-proxies-panel";
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { createClientLogger } from "@/core/logging/client";
@@ -22,7 +23,7 @@ const log = createClientLogger("shell.TvSettingsPage");
 
 const source = BUILTIN_PLAYLIST_SOURCES[0]!;
 
-type SettingsTab = "catalog" | "authentication" | "integrations" | "server";
+type SettingsTab = "catalog" | "authentication" | "integrations" | "proxies" | "server";
 
 export function TvSettingsPage() {
   const [tab, setTab] = useState<SettingsTab>("catalog");
@@ -140,6 +141,7 @@ export function TvSettingsPage() {
                 ["catalog", "Catalog"],
                 ["authentication", "Authentication"],
                 ["integrations", "Integrations"],
+                ["proxies", "VPN Proxies"],
                 ["server", "Server & reliability"],
               ] as const
             ).map(([id, label]) => (
@@ -183,14 +185,20 @@ export function TvSettingsPage() {
         ) : null}
 
         {tab === "authentication" ? (
-          <div className="mx-auto mt-8 max-w-[960px] px-6 sm:px-10 lg:px-14 xl:px-20">
+          <div className="mx-auto mt-8 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
             <TvSettingsAuthPanel />
           </div>
         ) : null}
 
         {tab === "integrations" ? (
-          <div className="mx-auto mt-8 max-w-[960px] px-6 sm:px-10 lg:px-14 xl:px-20">
+          <div className="mx-auto mt-8 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
             <TvSettingsIntegrationsPanel />
+          </div>
+        ) : null}
+
+        {tab === "proxies" ? (
+          <div className="mx-auto mt-8 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
+            <TvSettingsProxiesPanel />
           </div>
         ) : null}
 

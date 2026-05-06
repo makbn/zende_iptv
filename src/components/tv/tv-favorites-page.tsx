@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { NavErrorBanner } from "@/components/nav/nav-error-banner";
+import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
 import {
   startTransition,
   useCallback,
@@ -32,7 +33,6 @@ import {
 import { useChannelHealthLookup } from "@/features/health/use-channel-health";
 import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
-import { watchHref } from "@/lib/navigation/watch-url";
 import { cn } from "@/lib/utils";
 import {
   ArrowRight,
@@ -55,7 +55,7 @@ const PAGE_STEP = 60;
 type SortMode = "recent" | "name" | "group";
 
 export function TvFavoritesPage() {
-  const router = useRouter();
+  const { openChannel, navError, clearNavError } = useWatchNavigation();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [favEpoch, setFavEpoch] = useState(0);
 
@@ -159,12 +159,6 @@ export function TvFavoritesPage() {
   const hasMore = filtered.length > visible.length;
   const activeFilters = Boolean(query.trim() || groupFilter);
 
-  const openChannel = useCallback(
-    (ch: M3uChannel) => {
-      router.push(watchHref(ch));
-    },
-    [router],
-  );
 
   const onSearchKeyDown = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape") {
@@ -671,6 +665,7 @@ export function TvFavoritesPage() {
           )}
         </div>
       </main>
+      {navError && <NavErrorBanner message={navError} onDismiss={clearNavError} />}
     </div>
   );
 }

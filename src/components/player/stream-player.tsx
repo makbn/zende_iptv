@@ -6,7 +6,6 @@ import {
   forwardRef,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useRef,
 } from "react";
 
@@ -35,7 +34,11 @@ type Props = {
 };
 
 function looksLikeHls(url: string): boolean {
-  return /\.m3u8([?#]|$)/i.test(url) || url.includes("format=m3u8");
+  return (
+    /\.m3u8([?#]|$)/i.test(url) ||
+    url.includes("format=m3u8") ||
+    (url.includes("/api/stream/proxy/") && !/\.(mp4|webm|mkv)(\?|$)/i.test(url))
+  );
 }
 
 function parseHeightFromResolution(res?: string): number | undefined {
@@ -73,10 +76,15 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
     }, []);
 
     const onSessionChangeRef = useRef(onSessionChange);
-    useLayoutEffect(() => {
+    useEffect(() => {
       onSessionChangeRef.current = onSessionChange;
     });
 
+    /**
+     * Run after paint and defer `loadSource` one frame so rapid mount/unmount (e.g. React 19
+     * `reappearLayoutEffects` / navigation) does not leave two HLS instances fetching the same
+     * manifest or overlapping segment requests.
+     */
     useEffect(() => {
       const video = innerRef.current;
       if (!video || !src) return;
@@ -84,6 +92,7 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
       let hls: Hls | null = null;
       const hlsMode = looksLikeHls(src);
       let isNativeHls = false;
+      let cancelled = false;
 
       const bumpSession = () => {
         onSessionChangeRef.current?.(buildSession());
@@ -115,28 +124,41 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
         },
       });
 
-      if (hlsMode && Hls.isSupported()) {
-        hls = new Hls({
-          ...getStreamHlsConfig(),
-          ...hlsConfigExtra,
-        });
-        hls.on(Hls.Events.MANIFEST_PARSED, bumpSession);
-        hls.on(Hls.Events.LEVEL_SWITCHED, bumpSession);
-        hls.loadSource(src);
-        hls.attachMedia(video);
-      } else if (hlsMode && video.canPlayType("application/vnd.apple.mpegurl")) {
-        isNativeHls = true;
-        video.src = src;
-      } else {
-        video.src = src;
-      }
+      const startPlayback = () => {
+        if (cancelled) return;
 
-      onSessionChangeRef.current?.(buildSession());
+        if (hlsMode && Hls.isSupported()) {
+          hls = new Hls({
+            ...getStreamHlsConfig(),
+            ...hlsConfigExtra,
+          });
+          hls.on(Hls.Events.MANIFEST_PARSED, bumpSession);
+          hls.on(Hls.Events.LEVEL_SWITCHED, bumpSession);
+          hls.loadSource(src);
+          hls.attachMedia(video);
+        } else if (hlsMode && video.canPlayType("application/vnd.apple.mpegurl")) {
+          isNativeHls = true;
+          video.src = src;
+        } else {
+          video.src = src;
+        }
+
+        onSessionChangeRef.current?.(buildSession());
+      };
+
+      let deferredRafId: number | null = null;
+      const raf1 = requestAnimationFrame(() => {
+        deferredRafId = requestAnimationFrame(startPlayback);
+      });
 
       return () => {
+        cancelled = true;
+        cancelAnimationFrame(raf1);
+        if (deferredRafId !== null) cancelAnimationFrame(deferredRafId);
         if (hls) {
           hls.off(Hls.Events.MANIFEST_PARSED, bumpSession);
           hls.off(Hls.Events.LEVEL_SWITCHED, bumpSession);
+          hls.stopLoad();
           hls.destroy();
           hls = null;
         }

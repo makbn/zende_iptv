@@ -53,11 +53,22 @@ export async function POST(request: Request) {
     })),
   );
 
+  /** Same URL twice in one payload → duplicate PK in a single INSERT → SQLite UNIQUE error. */
+  const deduped = new Map<
+    string,
+    { urlHash: string; url: string; label: string | null; presetId: string | null }
+  >();
+  for (const r of rows) {
+    deduped.set(r.urlHash, r);
+  }
+  const uniqueRows = [...deduped.values()];
+
   let upserted = 0;
-  for (let i = 0; i < rows.length; i += REGISTRY_UPSERT_CHUNK) {
-    const chunk = rows.slice(i, i + REGISTRY_UPSERT_CHUNK);
-    const now = new Date();
-    await prisma.$executeRaw`
+  try {
+    for (let i = 0; i < uniqueRows.length; i += REGISTRY_UPSERT_CHUNK) {
+      const chunk = uniqueRows.slice(i, i + REGISTRY_UPSERT_CHUNK);
+      const now = new Date();
+      await prisma.$executeRaw`
       INSERT INTO "ChannelRegistryEntry" ("urlHash", "url", "label", "presetId", "createdAt", "updatedAt")
       VALUES ${Prisma.join(
         chunk.map(
@@ -71,7 +82,13 @@ export async function POST(request: Request) {
         "presetId" = excluded."presetId",
         "updatedAt" = excluded."updatedAt"
     `;
-    upserted += chunk.length;
+      upserted += chunk.length;
+    }
+  } catch (e) {
+    log.error("Registry sync failed", {
+      error: e instanceof Error ? e.message : String(e),
+    });
+    return NextResponse.json({ error: "Registry sync failed." }, { status: 500 });
   }
 
   log.info("Registry sync", { upserted });

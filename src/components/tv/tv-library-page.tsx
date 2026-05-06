@@ -26,7 +26,8 @@ import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { useChannelHealthLookup } from "@/features/health/use-channel-health";
 import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
-import { watchHref } from "@/lib/navigation/watch-url";
+import { NavErrorBanner } from "@/components/nav/nav-error-banner";
+import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
 import { cn } from "@/lib/utils";
 import {
   ChevronRight,
@@ -47,6 +48,7 @@ const PAGE_STEP = 200;
 export function TvLibraryPage() {
   const router = useRouter();
   const pathname = usePathname();
+  const { openChannel, navError, clearNavError } = useWatchNavigation();
   const searchParams = useSearchParams();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -168,13 +170,6 @@ export function TvLibraryPage() {
     query.trim() || groupFilter || languageFilter,
   );
 
-  const openChannel = useCallback(
-    (ch: M3uChannel) => {
-      log.debug("Library play navigation", { name: ch.name });
-      router.push(watchHref(ch));
-    },
-    [router],
-  );
 
   const onSearchKeyDown = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape") {
@@ -667,6 +662,7 @@ export function TvLibraryPage() {
           Third-party streams. You are responsible for content you access.
         </p>
       </footer>
+      {navError && <NavErrorBanner message={navError} onDismiss={clearNavError} />}
     </div>
   );
 }

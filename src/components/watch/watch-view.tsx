@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { Menu } from "@base-ui/react/menu";
 import Link from "next/link";
 import {
@@ -38,12 +39,19 @@ import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { getParsedPlaylist } from "@/lib/storage/playlist-cache-db";
 import { padFrequentRingWithCatalog } from "@/lib/watch/watch-channel-ring";
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
-import {
-  StreamPlayer,
-  type PlayerSession,
-} from "@/components/player/stream-player";
+import type { PlayerSession } from "@/components/player/stream-player";
+
+const StreamPlayer = dynamic(
+  () =>
+    import("@/components/player/stream-player").then((m) => m.StreamPlayer),
+  { ssr: false },
+);
 import { getWatchReturnHref } from "@/lib/navigation/watch-browse-origin";
-import { watchHref } from "@/lib/navigation/watch-url";
+import {
+  createWatchUrl,
+  fetchWatchSessionMeta,
+  type WatchSessionMeta,
+} from "@/lib/navigation/watch-url";
 import { cn } from "@/lib/utils";
 import {
   FrequentChannelPeek,
@@ -77,28 +85,19 @@ function formatClock(seconds: number): string {
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-function entryHref(entry: ViewingEntry): string {
-  return watchHref({
-    url: entry.url,
-    name: entry.name,
-    ...(entry.tvgLogo ? { tvgLogo: entry.tvgLogo } : {}),
-    ...(entry.groupTitle ? { groupTitle: entry.groupTitle } : {}),
-  });
-}
-
-function navigateRing(
+function navigateRingEntry(
   ring: ViewingEntry[],
-  currentUrl: string,
+  currentCanonicalUrl: string | null,
   delta: number,
-): string | null {
-  if (ring.length === 0) return null;
-  let idx = ring.findIndex((e) => e.url === currentUrl);
+): ViewingEntry | null {
+  if (!currentCanonicalUrl || ring.length === 0) return null;
+  let idx = ring.findIndex((e) => e.url === currentCanonicalUrl);
   if (idx < 0) {
     idx = delta > 0 ? -1 : ring.length;
   }
   const nextIdx =
     (((idx + delta) % ring.length) + ring.length) % ring.length;
-  return entryHref(ring[nextIdx]!);
+  return ring[nextIdx] ?? null;
 }
 
 function bufferedAheadRatio(
@@ -123,23 +122,118 @@ function bufferedAheadRatio(
 export function WatchView() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const rawUrl = searchParams.get("url");
-  const title = searchParams.get("title")?.trim() || "Live";
-  const logo = searchParams.get("logo")?.trim();
-  const group = searchParams.get("group")?.trim();
+  const sessionId = searchParams.get("id");
+  const legacyUrlEncoded = searchParams.get("url");
+
+  const decodedLegacyUrl = useMemo(() => {
+    if (!legacyUrlEncoded) return null;
+    try {
+      return decodeURIComponent(legacyUrlEncoded);
+    } catch {
+      return legacyUrlEncoded;
+    }
+  }, [legacyUrlEncoded]);
+
+  const [sessionMeta, setSessionMeta] = useState<WatchSessionMeta | null>(null);
+  const [sessionMetaError, setSessionMetaError] = useState<string | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(Boolean(sessionId));
+  /** Old bookmarks used `?url=`; migrate to `?id=` so playback uses the proxy and the bar stays clean. */
+  const [legacyBridge, setLegacyBridge] = useState<
+    "none" | "working" | "aborted"
+  >("none");
+
+  useEffect(() => {
+    if (sessionId || !decodedLegacyUrl) {
+      setLegacyBridge("none");
+      return;
+    }
+    setLegacyBridge("working");
+    let cancelled = false;
+    void (async () => {
+      try {
+        const t = searchParams.get("title")?.trim() || "Live";
+        const lg = searchParams.get("logo")?.trim();
+        const grp = searchParams.get("group")?.trim();
+        const href = await createWatchUrl({
+          url: decodedLegacyUrl,
+          name: t,
+          ...(lg ? { tvgLogo: lg } : {}),
+          ...(grp ? { groupTitle: grp } : {}),
+        });
+        if (!cancelled) router.replace(href);
+      } catch {
+        if (!cancelled) setLegacyBridge("aborted");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, decodedLegacyUrl, router, searchParams]);
+
+  useEffect(() => {
+    if (!sessionId) {
+      setSessionLoading(false);
+      setSessionMeta(null);
+      setSessionMetaError(null);
+      return;
+    }
+    let cancelled = false;
+    setSessionLoading(true);
+    void fetchWatchSessionMeta(sessionId)
+      .then((m) => {
+        if (!cancelled) {
+          setSessionMeta(m);
+          setSessionMetaError(null);
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setSessionMetaError(
+            e instanceof Error ? e.message : "Playback session expired.",
+          );
+          setSessionMeta(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setSessionLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
+
+  const title =
+    sessionMeta?.title ?? searchParams.get("title")?.trim() ?? "Live";
+  const logo =
+    sessionMeta?.logo?.trim() ??
+    searchParams.get("logo")?.trim() ??
+    undefined;
+  const group =
+    sessionMeta?.group?.trim() ??
+    searchParams.get("group")?.trim() ??
+    undefined;
+
+  const playbackSrc = useMemo(() => {
+    if (legacyBridge === "working") return null;
+    if (sessionMeta?.playbackUrl) return sessionMeta.playbackUrl;
+    if (sessionId && sessionLoading) return null;
+    if (decodedLegacyUrl) return decodedLegacyUrl;
+    return null;
+  }, [
+    legacyBridge,
+    sessionMeta,
+    sessionId,
+    sessionLoading,
+    decodedLegacyUrl,
+  ]);
+
+  const canonicalUrl = useMemo(() => {
+    if (sessionMeta?.canonicalUrl) return sessionMeta.canonicalUrl;
+    return decodedLegacyUrl;
+  }, [sessionMeta, decodedLegacyUrl]);
 
   const { displayName: titleDisplay, resolutionLabel: titleResolutionBadge } =
     useMemo(() => parseChannelLabel(title), [title]);
-
-  const streamUrl = rawUrl
-    ? (() => {
-        try {
-          return decodeURIComponent(rawUrl);
-        } catch {
-          return rawUrl;
-        }
-      })()
-    : null;
 
   const lastRecordedUrl = useRef<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -214,21 +308,26 @@ export function WatchView() {
   }, [catalogMergeEpoch]);
 
   useEffect(() => {
-    if (!streamUrl || lastRecordedUrl.current === streamUrl) return;
-    lastRecordedUrl.current = streamUrl;
+    if (
+      !playbackSrc ||
+      !canonicalUrl ||
+      lastRecordedUrl.current === canonicalUrl
+    )
+      return;
+    lastRecordedUrl.current = canonicalUrl;
     recordPlaybackStart({
-      url: streamUrl,
+      url: canonicalUrl,
       name: title,
       ...(logo ? { tvgLogo: logo } : {}),
       ...(group ? { groupTitle: group } : {}),
     });
     notifyViewingStatsUpdated();
     queuePlaybackHealthProbe({
-      url: streamUrl,
+      url: canonicalUrl,
       label: title,
       presetId: BUILTIN_PLAYLIST_SOURCES[0]?.presetId,
     });
-  }, [streamUrl, title, logo, group]);
+  }, [playbackSrc, canonicalUrl, title, logo, group]);
 
   useEffect(() => {
     const onFs = () => setFs(Boolean(document.fullscreenElement));
@@ -247,7 +346,7 @@ export function WatchView() {
       v.removeEventListener("enterpictureinpicture", onEnter);
       v.removeEventListener("leavepictureinpicture", onLeave);
     };
-  }, [streamUrl]);
+  }, [playbackSrc]);
 
   const clearChromeIdleTimer = useCallback(() => {
     if (chromeIdleTimerRef.current) {
@@ -291,28 +390,47 @@ export function WatchView() {
     };
   }, [revealChrome, clearChromeIdleTimer]);
 
-  const ringNavAvailable = frequentRing.length > 0 && Boolean(streamUrl);
+  const ringNavAvailable = frequentRing.length > 0 && Boolean(canonicalUrl);
 
-  const prevHref =
-    ringNavAvailable && streamUrl
-      ? navigateRing(frequentRing, streamUrl, -1)
+  const prevEntry =
+    ringNavAvailable && canonicalUrl
+      ? navigateRingEntry(frequentRing, canonicalUrl, -1)
       : null;
-  const nextHref =
-    ringNavAvailable && streamUrl
-      ? navigateRing(frequentRing, streamUrl, 1)
+  const nextEntry =
+    ringNavAvailable && canonicalUrl
+      ? navigateRingEntry(frequentRing, canonicalUrl, 1)
       : null;
+
+  const jumpToRingChannel = useCallback(
+    (entry: ViewingEntry) => {
+      void (async () => {
+        try {
+          const href = await createWatchUrl({
+            url: entry.url,
+            name: entry.name,
+            ...(entry.tvgLogo ? { tvgLogo: entry.tvgLogo } : {}),
+            ...(entry.groupTitle ? { groupTitle: entry.groupTitle } : {}),
+          });
+          router.replace(href);
+        } catch {
+          /* ignore */
+        }
+      })();
+    },
+    [router],
+  );
 
   const watchFavoriteChannel = useMemo(
     () =>
-      streamUrl
+      canonicalUrl
         ? {
-            url: streamUrl,
+            url: canonicalUrl,
             name: title,
             ...(logo ? { tvgLogo: logo } : {}),
             ...(group ? { groupTitle: group } : {}),
           }
         : null,
-    [streamUrl, title, logo, group],
+    [canonicalUrl, title, logo, group],
   );
 
   const seekRatio =
@@ -380,7 +498,7 @@ export function WatchView() {
 
   useEffect(() => {
     return bindVideo();
-  }, [bindVideo, streamUrl]);
+  }, [bindVideo, playbackSrc]);
 
   const togglePlay = useCallback(() => {
     const v = videoRef.current;
@@ -471,12 +589,12 @@ export function WatchView() {
       if (e.code === "Space") {
         e.preventDefault();
         togglePlay();
-      } else if (e.code === "ArrowLeft" && prevHref && !e.shiftKey) {
+      } else if (e.code === "ArrowLeft" && prevEntry && !e.shiftKey) {
         e.preventDefault();
-        router.replace(prevHref);
-      } else if (e.code === "ArrowRight" && nextHref && !e.shiftKey) {
+        jumpToRingChannel(prevEntry);
+      } else if (e.code === "ArrowRight" && nextEntry && !e.shiftKey) {
         e.preventDefault();
-        router.replace(nextHref);
+        jumpToRingChannel(nextEntry);
       } else if (e.code === "ArrowLeft" && e.shiftKey) {
         e.preventDefault();
         skipSeconds(-10);
@@ -502,8 +620,9 @@ export function WatchView() {
     toggleFullscreen,
     togglePip,
     router,
-    prevHref,
-    nextHref,
+    prevEntry,
+    nextEntry,
+    jumpToRingChannel,
     skipSeconds,
     revealChrome,
   ]);
@@ -535,7 +654,30 @@ export function WatchView() {
   const isVod =
     Number.isFinite(duration) && duration > 0 && duration !== Infinity;
 
-  if (!streamUrl) {
+  if ((sessionId && sessionLoading) || legacyBridge === "working") {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-black px-8 text-center text-white">
+        <Loader2 className="h-10 w-10 animate-spin text-white/80" aria-hidden />
+        <p className="text-[15px] text-white/55">Preparing playback…</p>
+      </div>
+    );
+  }
+
+  if (sessionMetaError) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-black px-8 text-center text-white">
+        <p className="text-[17px] text-white/70">{sessionMetaError}</p>
+        <Link
+          href="/library"
+          className="rounded-full bg-white px-6 py-2.5 text-[15px] font-semibold text-black"
+        >
+          Back to Library
+        </Link>
+      </div>
+    );
+  }
+
+  if (!playbackSrc) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-black px-8 text-center text-white">
         <p className="text-[17px] text-white/70">No stream was selected.</p>
@@ -567,7 +709,7 @@ export function WatchView() {
         <div className="absolute inset-0">
           <StreamPlayer
             ref={videoRef}
-            src={streamUrl}
+            src={playbackSrc}
             controls={false}
             onSessionChange={setPlayerSession}
             className="absolute inset-0 h-full w-full object-contain"
@@ -665,15 +807,16 @@ export function WatchView() {
           <div className="mx-auto flex w-full max-w-[min(100vw,1920px)] flex-col gap-2 sm:gap-2.5 px-3 sm:px-4">
             {ringPeekClientReady &&
             ringNavAvailable &&
-            prevHref &&
-            nextHref ? (
+            prevEntry &&
+            nextEntry ? (
               <div className="pointer-events-auto relative z-[1]">
                 <FrequentChannelPeek
                   ring={frequentRing}
-                  streamUrl={streamUrl}
+                  streamUrl={canonicalUrl}
                   nowTitle={title}
                   nowLogo={logo}
                   nowGroup={group}
+                  onJumpChannel={jumpToRingChannel}
                 />
               </div>
             ) : null}

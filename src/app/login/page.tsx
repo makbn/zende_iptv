@@ -43,10 +43,18 @@ function LoginForm() {
         Enter your account details to continue.
       </p>
 
-      <div className="mt-10 space-y-4">
+      <form
+        id="zenede-login"
+        className="mt-10 space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit();
+        }}
+      >
         <label className="block">
           <span className="text-[13px] font-medium text-white/55">Username</span>
           <input
+            name="username"
             autoComplete="username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
@@ -59,20 +67,18 @@ function LoginForm() {
         <label className="block">
           <span className="text-[13px] font-medium text-white/55">Password</span>
           <input
+            name="password"
             type="password"
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void submit();
-            }}
             className={cn(
               "mt-1.5 h-12 w-full rounded-xl border border-white/[0.12] bg-black/30 px-4",
               "text-[16px] text-white outline-none focus-visible:ring-2 focus-visible:ring-white",
             )}
           />
         </label>
-      </div>
+      </form>
 
       {error ? (
         <p className="mt-4 text-[14px] text-amber-300/95" role="alert">
@@ -82,9 +88,9 @@ function LoginForm() {
 
       <div className="mt-8 flex flex-wrap gap-3">
         <button
-          type="button"
+          type="submit"
+          form="zenede-login"
           disabled={busy}
-          onClick={() => void submit()}
           className="outline-none disabled:opacity-50"
         >
           <ZenedeGlass variant="ctaPill">

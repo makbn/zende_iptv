@@ -5,21 +5,38 @@ import { useEffect, useState } from "react";
 import { ZenedeLogoWave } from "@/components/loading/zenede-logo-wave";
 import { cn } from "@/lib/utils";
 
-/** Covers the viewport until `window` fires `load` (full document + resources). */
+/**
+ * Hides once the HTML document is parsed (`DOMContentLoaded`), not `window` `load`.
+ * Waiting for `load` in dev waits on every pending script chunk — the overlay can sit
+ * for minutes behind a slow/competing chunk request; incognito often “fixes” it by cache.
+ */
 export function FullPageLoadOverlay() {
   const [visible, setVisible] = useState(true);
   const [mounted, setMounted] = useState(true);
 
   useEffect(() => {
-    const done = () => setVisible(false);
+    let cancelled = false;
+    const reveal = () => {
+      if (cancelled) return;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (!cancelled) setVisible(false);
+        });
+      });
+    };
 
-    if (document.readyState === "complete") {
-      done();
-      return;
+    if (document.readyState !== "loading") {
+      reveal();
+    } else {
+      document.addEventListener("DOMContentLoaded", reveal, { once: true });
     }
 
-    window.addEventListener("load", done);
-    return () => window.removeEventListener("load", done);
+    const failSafe = window.setTimeout(reveal, 2500);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(failSafe);
+    };
   }, []);
 
   useEffect(() => {

@@ -5,9 +5,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { BuiltinPlaylistSource } from "@/config/builtin-playlist-sources";
 import { createClientLogger } from "@/core/logging/client";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
-import { parseM3u } from "@/core/playlist/m3u-parse";
 import { mergeBuiltinAndManual } from "@/lib/channels/merge-catalog";
 import {
+  hydrateManualChannelsFromApiOnce,
   listManualChannelEntries,
   subscribeManualChannels,
 } from "@/lib/channels/manual-channels-store";
@@ -16,11 +16,14 @@ import {
   upsertRegisteredBuiltin,
 } from "@/lib/playlists/source-registry";
 import {
+  fetchPlaylistCatalogFromApi,
+  refreshPlaylistCatalogOnServer,
+} from "@/lib/playlists/server-catalog-api";
+import {
   getParsedPlaylist,
   putParsedPlaylist,
 } from "@/lib/storage/playlist-cache-db";
 import { syncChannelRegistry } from "@/features/health/registry-sync";
-import { zendeFetch } from "@/lib/auth/zende-fetch";
 
 const log = createClientLogger("features.iptv.catalogBootstrap");
 
@@ -33,6 +36,11 @@ export function useCatalogBootstrap(source: BuiltinPlaylistSource) {
 
   useEffect(() => subscribeManualChannels(() => setManualEpoch((n) => n + 1)), []);
 
+  /** Restore manual streams from server once (also mirrors into localStorage). */
+  useEffect(() => {
+    void hydrateManualChannelsFromApiOnce();
+  }, []);
+
   const channels = useMemo(() => {
     const manual = listManualChannelEntries().map((e) => e.channel);
     return mergeBuiltinAndManual(baseChannels, manual);
@@ -41,6 +49,21 @@ export function useCatalogBootstrap(source: BuiltinPlaylistSource) {
   const channelCount = catalogLoaded ? channels.length : null;
 
   const reloadFromCache = useCallback(async () => {
+    try {
+      const server = await fetchPlaylistCatalogFromApi(source.presetId);
+      if (server.channels.length > 0) {
+        setBaseChannels(server.channels);
+        await putParsedPlaylist({
+          presetId: source.presetId,
+          updatedAt: server.updatedAt ?? Date.now(),
+          channels: server.channels,
+        });
+        setCatalogLoaded(true);
+        return;
+      }
+    } catch {
+      /* fall through to IndexedDB */
+    }
     const cached = await getParsedPlaylist(source.presetId);
     const list = cached?.channels ?? [];
     setBaseChannels(list);
@@ -49,15 +72,28 @@ export function useCatalogBootstrap(source: BuiltinPlaylistSource) {
 
   useEffect(() => {
     let cancelled = false;
-    void getParsedPlaylist(source.presetId)
-      .then((cached) => {
+    void (async () => {
+      try {
+        const server = await fetchPlaylistCatalogFromApi(source.presetId);
         if (cancelled) return;
-        const list = cached?.channels ?? [];
-        setBaseChannels(list);
-      })
-      .finally(() => {
-        if (!cancelled) setCatalogLoaded(true);
-      });
+        if (server.channels.length > 0) {
+          setBaseChannels(server.channels);
+          await putParsedPlaylist({
+            presetId: source.presetId,
+            updatedAt: server.updatedAt ?? Date.now(),
+            channels: server.channels,
+          });
+          setCatalogLoaded(true);
+          return;
+        }
+      } catch {
+        /* fall through */
+      }
+      const cached = await getParsedPlaylist(source.presetId);
+      if (cancelled) return;
+      setBaseChannels(cached?.channels ?? []);
+      setCatalogLoaded(true);
+    })();
     return () => {
       cancelled = true;
     };
@@ -75,24 +111,17 @@ export function useCatalogBootstrap(source: BuiltinPlaylistSource) {
     setBusy(true);
     setError(null);
     try {
-      const res = await zendeFetch(`/api/playlists/builtin/${source.presetId}`, {
-        method: "GET",
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(
-          typeof body?.error === "string" ? body.error : `HTTP ${res.status}`,
-        );
-      }
-      const text = await res.text();
-      const parsed = parseM3u(text);
+      await refreshPlaylistCatalogOnServer(source.presetId);
+      const { channels: parsed, updatedAt } = await fetchPlaylistCatalogFromApi(
+        source.presetId,
+      );
       if (parsed.length === 0) {
-        throw new Error("Playlist parsed with zero channels — check upstream.");
+        throw new Error("No channels after refresh — check server logs.");
       }
 
       await putParsedPlaylist({
         presetId: source.presetId,
-        updatedAt: Date.now(),
+        updatedAt: updatedAt ?? Date.now(),
         channels: parsed,
       });
 
@@ -105,7 +134,7 @@ export function useCatalogBootstrap(source: BuiltinPlaylistSource) {
       });
 
       setBaseChannels(parsed);
-      log.info("Catalog cached locally", {
+      log.info("Catalog persisted (server + IndexedDB mirror)", {
         presetId: source.presetId,
         channelCount: parsed.length,
       });

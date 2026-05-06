@@ -11,8 +11,8 @@ export function getStreamHlsConfig(): Partial<HlsConfig> {
     enableWorker: true,
     lowLatencyMode: false,
 
-    // Softer live edge: stay slightly behind the manifest edge for stability.
-    liveSyncDurationCount: 3,
+    // Softer live edge: stay slightly behind the manifest edge so fewer requests hit expired segments (upstream 404).
+    liveSyncDurationCount: 6,
     liveMaxLatencyDurationCount: 120,
 
     // Larger forward buffer reduces “always buffering” on uneven segment delivery.

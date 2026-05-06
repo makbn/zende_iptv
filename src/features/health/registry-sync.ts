@@ -30,11 +30,20 @@ export async function syncChannelRegistry(
   if (channels.length === 0) return;
 
   for (let i = 0; i < channels.length; i += BATCH) {
-    const slice = channels.slice(i, i + BATCH).map((c) => ({
-      url: c.url,
-      label: c.name?.slice(0, 512),
-      presetId,
-    }));
+    const segment = channels.slice(i, i + BATCH);
+    const seenUrl = new Set<string>();
+    const slice = [];
+    for (const c of segment) {
+      const u = c.url.trim();
+      if (seenUrl.has(u)) continue;
+      seenUrl.add(u);
+      slice.push({
+        url: c.url,
+        label: c.name?.slice(0, 512),
+        presetId,
+      });
+    }
+    if (slice.length === 0) continue;
 
     const res = await zendeFetch("/api/channel-registry/sync", {
       method: "POST",

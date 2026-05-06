@@ -14,7 +14,8 @@ import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { useChannelHealthLookup } from "@/features/health/use-channel-health";
 import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
-import { watchHref } from "@/lib/navigation/watch-url";
+import { NavErrorBanner } from "@/components/nav/nav-error-banner";
+import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
 import { addFavorite } from "@/lib/favorites/favorites-store";
 import {
   listRecentPlayback,
@@ -41,6 +42,7 @@ function dedupeChannels(list: M3uChannel[]): M3uChannel[] {
 
 export function TvHome() {
   const router = useRouter();
+  const { openChannel, navError, clearNavError } = useWatchNavigation();
   const catalog = useCatalogBootstrap(source);
 
   const {
@@ -138,7 +140,7 @@ export function TvHome() {
       router.push("/library");
       return;
     }
-    router.push(watchHref(featured));
+    openChannel(featured);
   }
 
   function handleSecondary() {
@@ -213,12 +215,12 @@ export function TvHome() {
                 healthScore={getScoreForChannel(ch)}
                 onSelect={(c) => {
                   log.debug("Open from recent", { name: c.name });
-                  router.push(watchHref(c));
+                  openChannel(c);
                 }}
                 contextMenu={{
                   onPlay: () => {
                     log.debug("Play from recent menu", { name: ch.name });
-                    router.push(watchHref(ch));
+                    openChannel(ch);
                   },
                   onAddFavorite: () => addFavorite(ch),
                   onRemoveFromRecent: () => removeViewingEntry(ch.url),
@@ -261,7 +263,7 @@ export function TvHome() {
                 healthScore={getScoreForChannel(ch)}
                 onSelect={(c) => {
                   log.debug("Open from frequent", { name: c.name });
-                  router.push(watchHref(c));
+                  openChannel(c);
                 }}
               />
             ))}
@@ -284,7 +286,7 @@ export function TvHome() {
               healthScore={getScoreForChannel(ch)}
               onSelect={(c) => {
                 log.debug("Open from discover", { name: c.name });
-                router.push(watchHref(c));
+                openChannel(c);
               }}
             />
           ))}
@@ -329,6 +331,7 @@ export function TvHome() {
           Third-party streams. You are responsible for content you access.
         </p>
       </footer>
+      {navError && <NavErrorBanner message={navError} onDismiss={clearNavError} />}
     </div>
   );
 }

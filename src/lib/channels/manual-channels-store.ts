@@ -1,6 +1,11 @@
+"use client";
+
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
+import { zendeFetch } from "@/lib/auth/zende-fetch";
 
 const STORAGE_KEY = "zenede.manualChannels.v1";
+
+let hydrateOnce: Promise<void> | null = null;
 
 export type ManualChannelEntry = {
   id: string;
@@ -31,6 +36,48 @@ function writeStore(store: Store) {
   } catch {
     /* quota */
   }
+}
+
+async function syncManualToServer(): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    const entries = readStore().entries;
+    await zendeFetch("/api/channels/manual", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entries }),
+    });
+  } catch {
+    /* offline */
+  }
+}
+
+/**
+ * Load manual streams from server DB once per session (survives clearing site data).
+ * If the server row is empty but localStorage has entries, uploads local → server.
+ */
+export async function hydrateManualChannelsFromApiOnce(): Promise<void> {
+  if (hydrateOnce) return hydrateOnce;
+  hydrateOnce = (async () => {
+    try {
+      const res = await zendeFetch("/api/channels/manual");
+      if (!res.ok) return;
+
+      const data = (await res.json()) as { entries?: ManualChannelEntry[] };
+      const serverEntries = Array.isArray(data.entries) ? data.entries : [];
+      const local = readStore();
+
+      if (serverEntries.length > 0) {
+        writeStore({ entries: serverEntries });
+        notifyManualChannelsUpdated();
+      } else if (local.entries.length > 0) {
+        await syncManualToServer();
+      }
+    } catch {
+      hydrateOnce = null;
+    }
+  })();
+  return hydrateOnce;
 }
 
 export function isAllowedManualStreamUrl(raw: string): boolean {
@@ -77,6 +124,7 @@ export function upsertManualChannel(channel: M3uChannel): ManualChannelEntry {
   }
   writeStore(store);
   notifyManualChannelsUpdated();
+  void syncManualToServer();
   return row;
 }
 
@@ -85,6 +133,7 @@ export function removeManualChannelEntry(id: string): void {
   store.entries = store.entries.filter((e) => e.id !== id);
   writeStore(store);
   notifyManualChannelsUpdated();
+  void syncManualToServer();
 }
 
 export function notifyManualChannelsUpdated(): void {

@@ -49,59 +49,6 @@ async function safeParseJson<T>(res: Response): Promise<T | undefined> {
   }
 }
 
-async function fetchMe(): Promise<{
-  authEnabled: boolean;
-  user: AuthUser | null;
-}> {
-  const access =
-    typeof window !== "undefined" ? localStorage.getItem(Z_ACCESS) : null;
-  const refresh =
-    typeof window !== "undefined" ? localStorage.getItem(Z_REFRESH) : null;
-
-  const headers: HeadersInit = {};
-  if (access) headers.Authorization = `Bearer ${access}`;
-
-  let res = await fetch("/api/auth/me", { headers });
-  let parsed = await safeParseJson<{
-    authEnabled?: boolean;
-    user?: AuthUser | null;
-  }>(res);
-  let data: { authEnabled: boolean; user: AuthUser | null } = {
-    authEnabled: Boolean(parsed?.authEnabled),
-    user: parsed?.user ?? null,
-  };
-
-  if (data.authEnabled && !data.user && refresh) {
-    const r2 = await fetch("/api/auth/refresh", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken: refresh }),
-    });
-    if (r2.ok) {
-      const t = await safeParseJson<{
-        accessToken?: string;
-        refreshToken?: string;
-      }>(r2);
-      if (t?.accessToken && t?.refreshToken) {
-        setStoredTokens(t.accessToken, t.refreshToken);
-        res = await fetch("/api/auth/me", {
-          headers: { Authorization: `Bearer ${t.accessToken}` },
-        });
-        parsed = await safeParseJson<{
-          authEnabled?: boolean;
-          user?: AuthUser | null;
-        }>(res);
-        data = {
-          authEnabled: Boolean(parsed?.authEnabled),
-          user: parsed?.user ?? null,
-        };
-      }
-    }
-  }
-
-  return data;
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [authEnabled, setAuthEnabled] = useState(false);
@@ -110,24 +57,78 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [canBootstrap, setCanBootstrap] = useState(false);
 
   const refresh = useCallback(async () => {
-    const statusRes = await fetch("/api/auth/status");
-    const status = await safeParseJson<{
-      userCount?: number;
-      canBootstrap?: boolean;
-    }>(statusRes);
-    const uc =
-      typeof status?.userCount === "number" ? status.userCount : 0;
-    setUserCount(uc);
-    /** If JSON failed (empty/HTML error), assume bootstrap allowed iff zero users. */
-    setCanBootstrap(
-      typeof status?.canBootstrap === "boolean"
-        ? status.canBootstrap
-        : uc === 0,
-    );
-    const me = await fetchMe();
-    setAuthEnabled(Boolean(me.authEnabled));
-    setUser(me.user);
-    setReady(true);
+    try {
+      const access =
+        typeof window !== "undefined" ? localStorage.getItem(Z_ACCESS) : null;
+      const refreshTok =
+        typeof window !== "undefined" ? localStorage.getItem(Z_REFRESH) : null;
+
+      const meHeaders: HeadersInit = {};
+      if (access) meHeaders.Authorization = `Bearer ${access}`;
+
+      const [statusRes, meRes] = await Promise.all([
+        fetch("/api/auth/status"),
+        fetch("/api/auth/me", { headers: meHeaders }),
+      ]);
+
+      const status = await safeParseJson<{
+        userCount?: number;
+        canBootstrap?: boolean;
+      }>(statusRes);
+      const uc =
+        typeof status?.userCount === "number" ? status.userCount : 0;
+      setUserCount(uc);
+      setCanBootstrap(
+        typeof status?.canBootstrap === "boolean"
+          ? status.canBootstrap
+          : uc === 0,
+      );
+
+      let parsed = await safeParseJson<{
+        authEnabled?: boolean;
+        user?: AuthUser | null;
+      }>(meRes);
+      let data: { authEnabled: boolean; user: AuthUser | null } = {
+        authEnabled: Boolean(parsed?.authEnabled),
+        user: parsed?.user ?? null,
+      };
+
+      if (data.authEnabled && !data.user && refreshTok) {
+        const r2 = await fetch("/api/auth/refresh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken: refreshTok }),
+        });
+        if (r2.ok) {
+          const t = await safeParseJson<{
+            accessToken?: string;
+            refreshToken?: string;
+          }>(r2);
+          if (t?.accessToken && t?.refreshToken) {
+            setStoredTokens(t.accessToken, t.refreshToken);
+            const res3 = await fetch("/api/auth/me", {
+              headers: { Authorization: `Bearer ${t.accessToken}` },
+            });
+            parsed = await safeParseJson<{
+              authEnabled?: boolean;
+              user?: AuthUser | null;
+            }>(res3);
+            data = {
+              authEnabled: Boolean(parsed?.authEnabled),
+              user: parsed?.user ?? null,
+            };
+          }
+        }
+      }
+
+      setAuthEnabled(Boolean(data.authEnabled));
+      setUser(data.user);
+    } catch {
+      setAuthEnabled(false);
+      setUser(null);
+    } finally {
+      setReady(true);
+    }
   }, []);
 
   useEffect(() => {

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   useEffect,
   useMemo,
@@ -12,7 +11,6 @@ import {
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
 import { ChannelResolutionBadge } from "@/components/tv/channel-resolution-badge";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
-import { watchHref } from "@/lib/navigation/watch-url";
 import type { ViewingEntry } from "@/lib/watch/viewing-stats";
 import { cn } from "@/lib/utils";
 
@@ -48,15 +46,6 @@ function hueFromString(s: string): number {
     h = (h * 33 + s.charCodeAt(i) * 17) % 360;
   }
   return h;
-}
-
-function entryToHref(entry: ViewingEntry): string {
-  return watchHref({
-    url: entry.url,
-    name: entry.name,
-    ...(entry.tvgLogo ? { tvgLogo: entry.tvgLogo } : {}),
-    ...(entry.groupTitle ? { groupTitle: entry.groupTitle } : {}),
-  });
 }
 
 function ChannelArt({
@@ -148,7 +137,6 @@ type StripSlot =
       key: string;
       kind: "jump";
       entry: ViewingEntry;
-      href: string;
     };
 
 function effectiveHalfWidth(ringLen: number): number {
@@ -232,7 +220,6 @@ function buildStripSlots(
           key: `j-${entry.url}-${o}`,
           kind: "jump",
           entry,
-          href: entryToHref(entry),
         });
       }
     }
@@ -247,7 +234,6 @@ function buildStripSlots(
       key: `L-${e.url}`,
       kind: "jump",
       entry: e,
-      href: entryToHref(e),
     });
   }
   slots.push({
@@ -260,7 +246,6 @@ function buildStripSlots(
       key: `R-${e.url}`,
       kind: "jump",
       entry: e,
-      href: entryToHref(e),
     });
   }
 
@@ -303,11 +288,13 @@ function StripTile({
   centerRef,
   layout,
   ringOpacity,
+  onJumpChannel,
 }: {
   slot: StripSlot;
   centerRef?: RefObject<HTMLDivElement | null>;
   layout: "sheet" | "rail";
   ringOpacity: number;
+  onJumpChannel: (entry: ViewingEntry) => void;
 }) {
   const parsed = useMemo(
     () => parseChannelLabel(slot.entry.name),
@@ -383,13 +370,13 @@ function StripTile({
   }
 
   return (
-    <Link
-      href={slot.href}
-      prefetch
-      replace
+    <button
+      type="button"
+      onClick={() => onJumpChannel(slot.entry)}
+      aria-label={`Open ${slot.entry.name}`}
       style={{ opacity: ringOpacity }}
       className={cn(
-        "group min-h-0 outline-none transition-[transform,opacity] duration-300 ease-out",
+        "group min-h-0 cursor-pointer border-none bg-transparent p-0 text-left outline-none transition-[transform,opacity] duration-300 ease-out",
         layout === "rail" &&
           "w-[min(108px,26vw)] shrink-0 snap-center snap-always sm:w-[118px]",
         layout === "rail" && "hover:-translate-y-px active:scale-[0.99]",
@@ -414,7 +401,7 @@ function StripTile({
           {body}
         </div>
       </ZenedeGlass>
-    </Link>
+    </button>
   );
 }
 
@@ -424,12 +411,14 @@ export function FrequentChannelPeek({
   nowTitle,
   nowLogo,
   nowGroup,
+  onJumpChannel,
 }: {
   ring: ViewingEntry[];
   streamUrl: string | null;
   nowTitle: string;
   nowLogo?: string | null;
   nowGroup?: string | null;
+  onJumpChannel: (entry: ViewingEntry) => void;
 }) {
   const centerRef = useRef<HTMLDivElement>(null);
 
@@ -490,6 +479,7 @@ export function FrequentChannelPeek({
               centerRef={slot.kind === "current" ? centerRef : undefined}
               layout="sheet"
               ringOpacity={stripSlotOpacity(i, centerIndex, stripLen)}
+              onJumpChannel={onJumpChannel}
             />
           ))}
         </div>
@@ -510,6 +500,7 @@ export function FrequentChannelPeek({
                 centerRef={slot.kind === "current" ? centerRef : undefined}
                 layout="rail"
                 ringOpacity={stripSlotOpacity(i, centerIndex, stripLen)}
+                onJumpChannel={onJumpChannel}
               />
             ))}
           </div>

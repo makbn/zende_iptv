@@ -38,6 +38,7 @@ function rowToResponse(r: NonNullable<Awaited<ReturnType<typeof getProxy>>>, cha
     port: r.port,
     username: r.username,
     vpnProvider: r.vpnProvider,
+    vpnConfigJson: r.vpnConfigJson,
     gluetunStatus: r.gluetunStatus,
     gluetunHostPort: r.gluetunHostPort,
     channelCount,

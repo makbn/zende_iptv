@@ -2,6 +2,7 @@ import "server-only";
 
 import net from "net";
 import dns from "dns/promises";
+import dnsCallback from "dns";
 import { mkdir, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -172,6 +173,25 @@ function rewriteOvpnFilePaths(ovpn: string, mountDir: string): string {
 
 // Gluetun requires IP addresses in `remote` lines, not hostnames.
 // Walk each `remote <host> [port] [proto]` line and resolve the host if needed.
+async function resolveHost(host: string): Promise<string> {
+  // Try dns.resolve4 first (pure DNS), then dns.lookup (OS resolver / /etc/hosts)
+  try {
+    const [ip] = await dns.resolve4(host);
+    return ip;
+  } catch {
+    // dns.resolve4 failed — fall back to the OS resolver
+  }
+  return new Promise((resolve, reject) => {
+    dnsCallback.lookup(host, 4, (err, address) => {
+      if (err) {
+        reject(new Error(`Could not resolve hostname "${host}" to an IP address. Gluetun requires IP addresses in remote lines. Check DNS connectivity or replace the hostname with its IP in your .ovpn config.`));
+      } else {
+        resolve(address);
+      }
+    });
+  });
+}
+
 async function resolveOvpnRemotes(ovpn: string): Promise<string> {
   const lines = ovpn.split("\n");
   const resolved = await Promise.all(
@@ -182,14 +202,9 @@ async function resolveOvpnRemotes(ovpn: string): Promise<string> {
       // parts: ["remote", host, port?, proto?]
       const host = parts[1];
       if (!host || net.isIP(host)) return line;
-      try {
-        const [ip] = await dns.resolve4(host);
-        parts[1] = ip;
-        return (line.startsWith(" ") || line.startsWith("\t") ? line.match(/^\s+/)?.[0] ?? "" : "") + parts.join(" ");
-      } catch {
-        // If resolution fails, leave the line as-is and let Gluetun error clearly
-        return line;
-      }
+      const ip = await resolveHost(host);
+      parts[1] = ip;
+      return (line.startsWith(" ") || line.startsWith("\t") ? line.match(/^\s+/)?.[0] ?? "" : "") + parts.join(" ");
     }),
   );
   return resolved.join("\n");

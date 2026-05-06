@@ -39,6 +39,7 @@ type ProxyItem = {
   port: number;
   username: string | null;
   vpnProvider: string | null;
+  vpnConfigJson?: string | null;
   gluetunStatus: GluetunStatus;
   gluetunHostPort: number | null;
   channelCount: number;
@@ -233,6 +234,25 @@ function gluetunFormToConfigJson(f: GluetunFormState): string {
     case "custom_wireguard":
       return JSON.stringify({ provider: "custom_wireguard", privateKey: f.wgPrivateKey, addresses: f.wgAddresses, peerPublicKey: f.wgPeerPublicKey, peerEndpoint: f.wgPeerEndpoint, peerPort: parseInt(f.wgPeerPort, 10) });
   }
+}
+
+function configJsonToGluetunForm(vpnProvider: VpnProvider, json: string | null | undefined): GluetunFormState {
+  if (!json) return { ...EMPTY_GLUETUN, vpnProvider };
+  try {
+    const cfg = JSON.parse(json) as Record<string, unknown>;
+    switch (vpnProvider) {
+      case "nordvpn":
+      case "protonvpn":
+        return { ...EMPTY_GLUETUN, vpnProvider, username: String(cfg.username ?? ""), password: String(cfg.password ?? ""), countries: String(cfg.countries ?? "") };
+      case "expressvpn":
+        return { ...EMPTY_GLUETUN, vpnProvider, activationCode: String(cfg.activationCode ?? ""), countries: String(cfg.countries ?? "") };
+      case "custom_openvpn":
+        return { ...EMPTY_GLUETUN, vpnProvider, ovpnConfig: String(cfg.ovpnConfig ?? ""), username: String(cfg.username ?? ""), password: String(cfg.password ?? ""), ovpnExtraFiles: (cfg.extraFiles as Record<string, string>) ?? {} };
+      case "custom_wireguard":
+        return { ...EMPTY_GLUETUN, vpnProvider, wgPrivateKey: String(cfg.privateKey ?? ""), wgAddresses: String(cfg.addresses ?? ""), wgPeerPublicKey: String(cfg.peerPublicKey ?? ""), wgPeerEndpoint: String(cfg.peerEndpoint ?? ""), wgPeerPort: String(cfg.peerPort ?? 51820) };
+    }
+  } catch {}
+  return { ...EMPTY_GLUETUN, vpnProvider };
 }
 
 function isGluetunFormValid(f: GluetunFormState): boolean {
@@ -469,7 +489,7 @@ function ProxyForm({
   );
   const [gluetunForm, setGluetunForm] = useState<GluetunFormState>(
     initial?.vpnProvider
-      ? { ...EMPTY_GLUETUN, vpnProvider: initial.vpnProvider as VpnProvider }
+      ? configJsonToGluetunForm(initial.vpnProvider as VpnProvider, initial.vpnConfigJson)
       : EMPTY_GLUETUN,
   );
   const [name, setName] = useState(initial?.name ?? "");
@@ -763,6 +783,50 @@ function ProxyForm({
         <button type="button" onClick={onCancel} className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.12] bg-white/[0.05] px-4 py-2.5 text-[14px] font-medium text-white/55 outline-none hover:text-white/80">
           Cancel
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Proxy Form Dialog ─────────────────────────────────────────────────────────
+
+function ProxyFormDialog({
+  open,
+  editing,
+  onSave,
+  onClose,
+}: {
+  open: boolean;
+  editing?: ProxyItem;
+  onSave: (item: ProxyItem) => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", fn);
+    return () => window.removeEventListener("keydown", fn);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto px-4 py-8 sm:px-6"
+      role="presentation"
+    >
+      <button
+        type="button"
+        aria-label="Dismiss"
+        className="fixed inset-0 bg-black/65 backdrop-blur-md motion-safe:animate-[glass-backdrop-in_0.28s_ease-out_both]"
+        onClick={onClose}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="relative z-10 w-full max-w-2xl my-auto motion-safe:animate-[glass-modal-pop_0.38s_cubic-bezier(0.16,1,0.3,1)_both]"
+      >
+        <ProxyForm initial={editing} onSave={onSave} onCancel={onClose} />
       </div>
     </div>
   );
@@ -1152,6 +1216,7 @@ export function TvSettingsProxiesPanel() {
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ProxyItem | null>(null);
+  const [editLoading, setEditLoading] = useState<string | null>(null);
   const [managingProxy, setManagingProxy] = useState<ProxyItem | null>(null);
 
   const loadProxies = useCallback(async () => {
@@ -1164,7 +1229,13 @@ export function TvSettingsProxiesPanel() {
   useEffect(() => { void loadProxies(); }, [loadProxies]);
 
   const openCreate = useCallback(() => { setEditing(null); setFormOpen(true); }, []);
-  const openEdit = useCallback((p: ProxyItem) => { setEditing(p); setFormOpen(true); }, []);
+  const openEdit = useCallback(async (p: ProxyItem) => {
+    setEditLoading(p.id);
+    const { ok, body } = await apiFetch(`/api/proxies/${p.id}`);
+    setEditLoading(null);
+    setEditing(ok ? (body as ProxyItem) : p);
+    setFormOpen(true);
+  }, []);
   const closeForm = useCallback(() => { setFormOpen(false); setEditing(null); }, []);
 
   const onSaved = useCallback((item: ProxyItem) => {
@@ -1217,12 +1288,6 @@ export function TvSettingsProxiesPanel() {
             </ZenedeGlass>
           </button>
         </div>
-
-        {formOpen && (
-          <div className="mt-6">
-            <ProxyForm initial={editing ?? undefined} onSave={onSaved} onCancel={closeForm} />
-          </div>
-        )}
 
         {loading ? (
           <p className="mt-8 text-[14px] text-white/40">Loading…</p>
@@ -1282,10 +1347,11 @@ export function TvSettingsProxiesPanel() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => openEdit(proxy)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.12] bg-white/[0.06] px-3 py-2 text-[13px] font-medium text-white/75 outline-none hover:bg-white/[0.1]"
+                    onClick={() => void openEdit(proxy)}
+                    disabled={editLoading === proxy.id}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.12] bg-white/[0.06] px-3 py-2 text-[13px] font-medium text-white/75 outline-none hover:bg-white/[0.1] disabled:opacity-50"
                   >
-                    <Pencil className="h-3.5 w-3.5" />
+                    {editLoading === proxy.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pencil className="h-3.5 w-3.5" />}
                     Edit
                   </button>
                   <button
@@ -1302,6 +1368,13 @@ export function TvSettingsProxiesPanel() {
           </ul>
         )}
       </section>
+
+      <ProxyFormDialog
+        open={formOpen}
+        editing={editing ?? undefined}
+        onSave={onSaved}
+        onClose={closeForm}
+      />
 
       <ChannelAssignmentDialog
         proxy={managingProxy}

@@ -53,68 +53,65 @@ Copy **`.env.example`** to **`.env`** if you need to override `DATABASE_URL` (de
 
 ## Docker
 
-**Requirements:** Docker with Compose v2 (`docker compose`).
+**Requirements:** Docker Engine 24+ with Compose v2 (`docker compose`).
 
-From the repository root:
+### Quick start
 
 ```bash
+# Create the Gluetun config directory on the host (required even if you never
+# use VPN proxies — Compose mounts it unconditionally).
+mkdir -p /opt/zende/gluetun-work
+
 docker compose up --build
 ```
 
-Then open **http://localhost:8077** (if you change **`PORT`**, use that port in the URL).
+Then open **http://localhost:8077**.
 
-On first start the container adjusts ownership of the `/data` volume for SQLite, runs `npx prisma db push`, then starts the application.
+On first start the container adjusts ownership of the `/data` volume, runs `npx prisma db push`, detects the Docker socket GID and grants the app user access to it, then starts the application.
 
 ### Publish on a specific host IP
 
-By default Compose maps the container port to **all** interfaces on the host (same as **`0.0.0.0`**). To listen only on a chosen address (loopback, a LAN IP, or a VPN interface), put a **`.env`** file next to **`docker-compose.yml`** and set **`DOCKER_PUBLISH`** to Docker’s three-part form **`host_ip:host_port:container_port`**. The third number must match **`PORT`** (the app inside the container).
+By default Compose maps the container port to **all** interfaces (`0.0.0.0`). To bind a specific address, put a **`.env`** file next to `docker-compose.yml` and set `DOCKER_PUBLISH`:
 
-| Goal | Example **`.env`** lines |
-|------|---------------------------|
-| Localhost only | `PORT=8077` and `DOCKER_PUBLISH=127.0.0.1:8077:8077` |
-| One LAN address | `PORT=8077` and `DOCKER_PUBLISH=192.168.1.50:8077:8077` |
+| Goal | `.env` |
+|------|--------|
+| Localhost only | `DOCKER_PUBLISH=127.0.0.1:8077:8077` |
+| One LAN address | `DOCKER_PUBLISH=192.168.1.50:8077:8077` |
 | Custom port on an IP | `PORT=9000` and `DOCKER_PUBLISH=192.168.1.50:9000:9000` |
 
-Then run **`docker compose up`** as usual and open **`http://`** plus that IP and host port (for example **`http://192.168.1.50:8077`**). Omit **`DOCKER_PUBLISH`** to keep the default **`${PORT}:${PORT}`** mapping on every interface.
+### Environment variables
 
-| Topic | Detail |
-|-------|--------|
-| HTTP port | **`PORT`** on host and in the container (default **8077**). Optional **`DOCKER_PUBLISH`** overrides how the host binds (**`ip:host_port:container_port`**). |
-| Database file | **`/data/zende.db`** in the container for registry, health data, and optional auth users. |
-| Volume | Named volume **`zende-data`** mounted at **`/data`** persists across `docker compose down`; remove data only with `docker compose down -v`. |
-| Browser state | Viewing statistics, tokens, and UI preferences remain in the browser, not in SQLite. |
+| Variable | Required | Default | Purpose |
+|----------|----------|---------|---------|
+| `DATABASE_URL` | Yes | set in Compose | Prisma SQLite path; keep `file:/data/zende.db` with the bundled volume. |
+| `PORT` | No | `8077` | HTTP port inside the container and on the host. |
+| `DOCKER_PUBLISH` | No | `PORT:PORT` | Compose-only: full `host_ip:host_port:container_port` to bind a specific IP. |
+| `AUTH_JWT_SECRET` | Strongly recommended | insecure default | Signs JWT tokens when authentication is enabled. |
+| `CRON_SECRET` | No | — | `Authorization: Bearer` guard for cron and registry APIs. |
+| `LOG_LEVEL` | No | `info` | Server log verbosity. |
+| `GLUETUN_HOST_WORKDIR` | No | `/opt/zende/gluetun-work` | **Host** path where Gluetun OpenVPN/WireGuard config dirs are stored. Must be a real host path (not a named volume) — see [VPN Proxies](#vpn-proxies). |
+| `GLUETUN_CONTAINER_WORKDIR` | No | `/gluetun-work` | Path inside the Zenede container where the same directory is mounted. Do not change unless you edit `docker-compose.yml`. |
 
-Set environment variables under `services.zende.environment` or via `env_file`:
+Do not commit secrets; inject them via the host environment or your orchestrator.
 
-| Variable | Required | Purpose |
-|----------|----------|---------|
-| `DATABASE_URL` | Yes (defaults in Compose) | Prisma SQLite URL; use `file:/data/zende.db` with the bundled volume. |
-| `PORT` | Optional | HTTP port inside the container and on the host (default **8077**). |
-| `DOCKER_PUBLISH` | Optional | Compose only: full **`host_ip:host_port:container_port`** to bind a specific IP; container port must match **`PORT`**. |
-| `AUTH_JWT_SECRET` | Strongly recommended in production | Signs JWTs when authentication is enabled. |
-| `CRON_SECRET` | Optional | `Authorization: Bearer` for cron and related HTTP APIs. |
-| `LOG_LEVEL` | Optional | Server log level (e.g. `info`). |
+### Volumes and mounts
 
-Do not commit secrets; inject them via the host or your orchestrator.
+| Mount | Purpose |
+|-------|---------|
+| `zende-data:/data` | Named volume — persists SQLite across rebuilds. Remove with `docker compose down -v`. |
+| `/var/run/docker.sock` | Docker socket — lets Zenede start/stop Gluetun sibling containers. Required for VPN proxy feature. |
+| `GLUETUN_HOST_WORKDIR:/gluetun-work` | Shared config directory — Zenede writes OpenVPN/WireGuard files here; Gluetun containers mount sub-directories from the **host** side of this path. |
 
-Stop containers while keeping the volume:
-
-```bash
-docker compose down
-```
-
-Stop and delete the named volume (wipes server-side SQLite):
-
-```bash
-docker compose down -v
-```
-
-Compose includes a **healthcheck** on `GET /api/health`. Wait until the service is **healthy** before routing production traffic.
+### Common commands
 
 ```bash
 docker compose logs -f zende
 docker compose exec zende sh
+docker compose down          # stop, keep volume
+docker compose down -v       # stop + wipe SQLite
 ```
+
+Compose includes a **healthcheck** on `GET /api/health`; wait until the service is **healthy** before routing traffic.
 
 ## VPN Proxies
 
@@ -153,20 +150,18 @@ For VPN-backed proxies, Zenede launches a **[Gluetun](https://github.com/qdm12/g
 
 ### Docker requirements for Gluetun
 
-- Docker must be installed and the socket accessible to the Zenede process (`/var/run/docker.sock`).
-- The Gluetun image (`ghcr.io/qdm12/gluetun:latest`) is pulled automatically on first launch.
-- The host kernel must expose `/dev/net/tun` (standard on Linux; required for the OpenVPN TUN interface inside the container).
-- When running Zenede itself in Docker, mount the Docker socket and `/dev/net/tun` into the Zenede container:
+| Requirement | Where it applies | Notes |
+|-------------|-----------------|-------|
+| Docker socket `/var/run/docker.sock` | Zenede container | Already mounted by `docker-compose.yml`. The entrypoint detects the socket GID at runtime and grants the app user access — no hardcoded group needed. |
+| `/dev/net/tun` device | **Host kernel** | Standard on Linux. Gluetun containers request it via `HostConfig.Devices` when spawned; Zenede itself does **not** need this device. |
+| `NET_ADMIN` capability | **Gluetun containers** | Granted automatically when Zenede starts each Gluetun container. Zenede itself does **not** need `cap_add: [NET_ADMIN]`. |
+| `GLUETUN_HOST_WORKDIR` directory | Host filesystem | Create it once: `mkdir -p /opt/zende/gluetun-work`. Used only for Custom OpenVPN/WireGuard — providers like NordVPN need no config files. |
 
-```yaml
-volumes:
-  - /var/run/docker.sock:/var/run/docker.sock
-  - /dev/net/tun:/dev/net/tun
-devices:
-  - /dev/net/tun
-cap_add:
-  - NET_ADMIN
-```
+The Gluetun image (`ghcr.io/qdm12/gluetun:latest`) is pulled automatically on first launch.
+
+#### Why the work directory matters
+
+Gluetun containers are spawned as **siblings** on the host Docker daemon (not nested inside Zenede). Bind-mount paths in `HostConfig.Binds` must resolve on the **host** filesystem. Zenede writes OpenVPN/WireGuard config files to `GLUETUN_CONTAINER_WORKDIR` (inside the container), which is the same physical path as `GLUETUN_HOST_WORKDIR` on the host via the bind mount. When creating the Gluetun container, Zenede passes the host-side path so Docker resolves it correctly.
 
 ### Assigning channels to a proxy
 

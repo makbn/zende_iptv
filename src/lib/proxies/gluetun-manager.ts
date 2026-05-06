@@ -12,6 +12,20 @@ const docker = new Docker();
 const GLUETUN_IMAGE = "ghcr.io/qdm12/gluetun:latest";
 const PROXY_INTERNAL_PORT = 8888;
 
+// When running inside Docker, Gluetun containers are launched as siblings on
+// the host daemon. Bind-mount paths in HostConfig.Binds must be HOST paths,
+// not paths inside this container.
+//
+//   GLUETUN_HOST_WORKDIR      — path on the HOST where config dirs are stored
+//   GLUETUN_CONTAINER_WORKDIR — where that same directory is mounted here
+//
+// Both default to os.tmpdir() for local (non-Docker) development where the
+// host and container share the same filesystem.
+const HOST_WORKDIR =
+  process.env.GLUETUN_HOST_WORKDIR ?? tmpdir();
+const CONTAINER_WORKDIR =
+  process.env.GLUETUN_CONTAINER_WORKDIR ?? tmpdir();
+
 // ── VPN config types ──────────────────────────────────────────────────────────
 
 export type GluetunVpnConfig =
@@ -197,21 +211,25 @@ export async function startGluetunContainer(
 
   const binds: string[] = [];
   if (cfg.provider === "custom_openvpn") {
-    const dir = join(tmpdir(), `gluetun-${proxyId}`);
-    await mkdir(dir, { recursive: true });
+    // Write config files to the container-side path so the running process can
+    // access them. The bind mount passed to the Gluetun container must use the
+    // HOST-side path because Gluetun runs as a sibling on the host daemon.
+    const containerDir = join(CONTAINER_WORKDIR, `gluetun-${proxyId}`);
+    const hostDir = join(HOST_WORKDIR, `gluetun-${proxyId}`);
+    await mkdir(containerDir, { recursive: true });
     const resolvedConfig = rewriteOvpnFilePaths(
       await resolveOvpnRemotes(cfg.ovpnConfig),
       "/gluetun",
     );
-    await writeFile(join(dir, "custom.conf"), resolvedConfig, "utf8");
+    await writeFile(join(containerDir, "custom.conf"), resolvedConfig, "utf8");
     if (cfg.extraFiles) {
       await Promise.all(
         Object.entries(cfg.extraFiles).map(([name, content]) =>
-          writeFile(join(dir, name), content, "utf8"),
+          writeFile(join(containerDir, name), content, "utf8"),
         ),
       );
     }
-    binds.push(`${dir}:/gluetun`);
+    binds.push(`${hostDir}:/gluetun`);
   }
 
   const container = await docker.createContainer({

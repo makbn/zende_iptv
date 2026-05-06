@@ -14,12 +14,35 @@ services:
       NODE_ENV: production
       PORT: "${PORT:-8077}"
       # Required for production auth: signs JWT access/refresh tokens (Settings → Authentication).
-      AUTH_JWT_SECRET: "zende-local-dev-jwt-secret-change-in-prod"
+      AUTH_JWT_SECRET: "${AUTH_JWT_SECRET:-zende-local-dev-jwt-secret-change-in-prod}"
       # Optional: Bearer for cron, registry sync, health sweep APIs (Settings → Server).
       # CRON_SECRET: "change-me-to-a-long-random-string"
+
+      # ── VPN proxy (Gluetun) ────────────────────────────────────────────────
+      # HOST path that is bind-mounted below. Gluetun sibling containers are
+      # created by the host Docker daemon, so bind-mount paths must resolve on
+      # the host, not inside this container.
+      GLUETUN_HOST_WORKDIR: "${GLUETUN_HOST_WORKDIR:-/opt/zende/gluetun-work}"
+      # Where the same directory is mounted inside *this* container.
+      GLUETUN_CONTAINER_WORKDIR: "/gluetun-work"
+
     volumes:
-      # Persists SQLite across container rebuilds (channels registry, auth users, etc.).
+      # Persists SQLite across container rebuilds.
       - zende-data:/data
+
+      # ── Docker socket (required for VPN proxy containers) ──────────────────
+      # Allows Zenede to start/stop Gluetun sibling containers via the host
+      # Docker daemon. Remove this line if you do not use the VPN proxy feature.
+      - /var/run/docker.sock:/var/run/docker.sock
+
+      # ── Gluetun config directory ───────────────────────────────────────────
+      # The app writes OpenVPN/WireGuard config files here. The path on the
+      # HOST (GLUETUN_HOST_WORKDIR) must match what this container sees so
+      # that bind mounts created for sibling Gluetun containers resolve on the
+      # host filesystem. Create the directory before starting if it does not
+      # already exist: mkdir -p /opt/zende/gluetun-work
+      - "${GLUETUN_HOST_WORKDIR:-/opt/zende/gluetun-work}:/gluetun-work"
+
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:$$PORT/api/health || exit 1"]

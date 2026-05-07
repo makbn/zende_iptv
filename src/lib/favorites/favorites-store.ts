@@ -1,4 +1,5 @@
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
+import { zendeFetch } from "@/lib/auth/zende-fetch";
 
 const STORAGE_KEY = "zenede.favorites.v1";
 
@@ -36,6 +37,59 @@ function writeStore(store: Store) {
     /* quota */
   }
 }
+
+// ── Server sync helpers ──────────────────────────────────────────────────────
+
+/** Fire-and-forget: push a mutation to the server without blocking UI. */
+function serverAdd(fav: FavoriteChannel) {
+  void zendeFetch("/api/user/favorites", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      url: fav.url,
+      name: fav.name,
+      tvgLogo: fav.tvgLogo,
+      groupTitle: fav.groupTitle,
+    }),
+  }).catch(() => {/* best-effort */});
+}
+
+function serverRemove(url: string) {
+  void zendeFetch(`/api/user/favorites?url=${encodeURIComponent(url)}`, {
+    method: "DELETE",
+  }).catch(() => {/* best-effort */});
+}
+
+/**
+ * Fetch favorites from the server and merge into localStorage.
+ * Server is the source of truth — replaces local copy on hydration.
+ */
+export async function hydrateFavoritesFromServer(): Promise<void> {
+  try {
+    const res = await zendeFetch("/api/user/favorites");
+    if (!res.ok) return;
+    const rows = (await res.json()) as Array<{
+      url: string;
+      name: string;
+      tvgLogo?: string | null;
+      groupTitle?: string | null;
+      addedAt: string;
+    }>;
+    const favorites: FavoriteChannel[] = rows.map((r) => ({
+      url: r.url,
+      name: r.name,
+      ...(r.tvgLogo ? { tvgLogo: r.tvgLogo } : {}),
+      ...(r.groupTitle ? { groupTitle: r.groupTitle } : {}),
+      addedAt: new Date(r.addedAt).getTime(),
+    }));
+    writeStore({ favorites });
+    notifyFavoritesUpdated();
+  } catch {
+    /* network offline — keep localStorage */
+  }
+}
+
+// ── Public API ───────────────────────────────────────────────────────────────
 
 export function listFavorites(): FavoriteChannel[] {
   return readStore()
@@ -77,6 +131,7 @@ export function addFavorite(
   }
   writeStore(store);
   notifyFavoritesUpdated();
+  serverAdd(row);
 }
 
 export function removeFavorite(url: string): void {
@@ -84,6 +139,7 @@ export function removeFavorite(url: string): void {
   store.favorites = store.favorites.filter((f) => f.url !== url);
   writeStore(store);
   notifyFavoritesUpdated();
+  serverRemove(url);
 }
 
 export function toggleFavorite(

@@ -1,4 +1,5 @@
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
+import { zendeFetch } from "@/lib/auth/zende-fetch";
 
 const STORAGE_KEY = "zenede.viewing.v1";
 
@@ -37,6 +38,60 @@ function writeStore(store: Store) {
     /* ignore quota */
   }
 }
+
+// ── Server sync helpers ──────────────────────────────────────────────────────
+
+function serverRecord(entry: {
+  url: string;
+  name: string;
+  tvgLogo?: string;
+  groupTitle?: string;
+}) {
+  void zendeFetch("/api/user/history", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(entry),
+  }).catch(() => {/* best-effort */});
+}
+
+function serverRemoveEntry(url: string) {
+  void zendeFetch(`/api/user/history?url=${encodeURIComponent(url)}`, {
+    method: "DELETE",
+  }).catch(() => {/* best-effort */});
+}
+
+/**
+ * Fetch viewing history from the server and replace localStorage.
+ * Server is the source of truth — replaces local copy on hydration.
+ */
+export async function hydrateHistoryFromServer(): Promise<void> {
+  try {
+    const res = await zendeFetch("/api/user/history?sort=recent");
+    if (!res.ok) return;
+    const rows = (await res.json()) as Array<{
+      url: string;
+      name: string;
+      tvgLogo?: string | null;
+      groupTitle?: string | null;
+      lastOpenedAt: string;
+      openCount: number;
+    }>;
+    const entries: ViewingEntry[] = rows.map((r) => ({
+      url: r.url,
+      name: r.name,
+      ...(r.tvgLogo ? { tvgLogo: r.tvgLogo } : {}),
+      ...(r.groupTitle ? { groupTitle: r.groupTitle } : {}),
+      lastOpenedAt: new Date(r.lastOpenedAt).getTime(),
+      openCount: r.openCount,
+    }));
+    writeStore({ entries });
+    notifyViewingStatsUpdated();
+  } catch {
+    /* network offline — keep localStorage */
+  }
+}
+
+// ── Public API ───────────────────────────────────────────────────────────────
 
 /**
  * Call when a stream is opened. Updates recency, play counts, and optional artwork.
@@ -77,6 +132,7 @@ export function recordPlaybackStart(input: {
     store.entries = store.entries.slice(0, MAX_ENTRIES);
   }
   writeStore(store);
+  serverRecord(input);
 }
 
 export function listRecentPlayback(limit: number): ViewingEntry[] {
@@ -87,7 +143,7 @@ export function listRecentPlayback(limit: number): ViewingEntry[] {
     .slice(0, Math.max(0, limit));
 }
 
-/** Channels you open often — tuned for “Because You Watch” style shelves. */
+/** Channels you open often — tuned for "Because You Watch" style shelves. */
 export function listTopByPlayCount(limit: number): ViewingEntry[] {
   const { entries } = readStore();
   return entries
@@ -97,7 +153,7 @@ export function listTopByPlayCount(limit: number): ViewingEntry[] {
     .slice(0, Math.max(0, limit));
 }
 
-/** Top N channels by play count (includes first-time opens) — for watch “frequent” strip. */
+/** Top N channels by play count (includes first-time opens) — for watch "frequent" strip. */
 export function listTopFrequentChannels(limit: number): ViewingEntry[] {
   const { entries } = readStore();
   return entries
@@ -143,11 +199,12 @@ export function notifyViewingStatsUpdated(): void {
   window.dispatchEvent(new Event("zenede-viewing-update"));
 }
 
-/** Drop one URL from local playback history (e.g. “Recently watched”). */
+/** Drop one URL from local playback history (e.g. "Recently watched"). */
 export function removeViewingEntry(url: string): void {
   if (!url) return;
   const store = readStore();
   store.entries = store.entries.filter((e) => e.url !== url);
   writeStore(store);
   notifyViewingStatsUpdated();
+  serverRemoveEntry(url);
 }

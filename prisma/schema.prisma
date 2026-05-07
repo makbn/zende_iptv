@@ -30,6 +30,8 @@ model User {
   updatedAt        DateTime       @updatedAt
   refreshTokens    RefreshToken[]
   proxyConfigs     ProxyConfig[]
+  favorites        UserFavorite[]
+  viewingHistory   UserViewingHistory[]
 }
 
 model RefreshToken {
@@ -140,6 +142,40 @@ model ChannelProxyAssignment {
   createdAt DateTime    @default(now())
 
   @@index([proxyId])
+}
+
+/// Per-user (or global when auth is off) favorites list.
+/// userId = "__guest__" when auth is disabled (single-user mode).
+model UserFavorite {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  url        String
+  name       String
+  tvgLogo    String?
+  groupTitle String?
+  addedAt    DateTime @default(now())
+
+  @@unique([userId, url])
+  @@index([userId, addedAt])
+}
+
+/// Per-user playback history — recency + play counts.
+/// userId = "__guest__" when auth is disabled (single-user mode).
+model UserViewingHistory {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  url          String
+  name         String
+  tvgLogo      String?
+  groupTitle   String?
+  lastOpenedAt DateTime @default(now())
+  openCount    Int      @default(1)
+
+  @@unique([userId, url])
+  @@index([userId, lastOpenedAt])
+  @@index([userId, openCount])
 }
 
 /// Parsed built-in playlist (iptv-org index, etc.) — survives browser clears / new devices.

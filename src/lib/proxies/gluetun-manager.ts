@@ -264,6 +264,16 @@ export async function startGluetunContainer(
     binds.push(`${hostDir}:/gluetun`);
   }
 
+  // Detect the network(s) this process belongs to so the Gluetun container
+  // is placed on the same network at creation time. Gluetun applies its
+  // iptables INPUT rules (including FIREWALL_INPUT_PORTS) to the interfaces
+  // that exist at startup — joining a network post-start would add a second
+  // interface that the firewall never opens port 8888 on.
+  const selfNetworks = await getSelfNetworks();
+  // Use the first detected network as the creation-time network; any extras
+  // are connected after start (rare in practice).
+  const primaryNetwork = selfNetworks[0];
+
   const container = await docker.createContainer({
     Image: GLUETUN_IMAGE,
     name: containerName(proxyId),
@@ -279,14 +289,15 @@ export async function startGluetunContainer(
       },
       Binds: binds,
     },
+    ...(primaryNetwork ? {
+      NetworkingConfig: { EndpointsConfig: { [primaryNetwork]: {} } },
+    } : {}),
   });
 
   await container.start();
 
-  // Connect the Gluetun container to the same Docker network(s) as this process
-  // so getGluetunContainerAddress can reach it via a shared network IP.
-  const selfNetworks = await getSelfNetworks();
-  for (const networkName of selfNetworks) {
+  // Connect to any additional networks beyond the first
+  for (const networkName of selfNetworks.slice(1)) {
     try {
       await docker.getNetwork(networkName).connect({ Container: container.id });
     } catch {

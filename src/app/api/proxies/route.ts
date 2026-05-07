@@ -28,7 +28,14 @@ const gluetunSchema = z.object({
   vpnConfigJson: z.string().min(2),
 });
 
-const createSchema = z.union([directSchema, gluetunSchema]);
+const smartDnsSchema = z.object({
+  name: z.string().min(1).max(128),
+  vpnType: z.literal("smartdns"),
+  dnsServer: z.string().min(7).max(45),
+  dnsServer2: z.string().min(7).max(45).optional(),
+});
+
+const createSchema = z.union([directSchema, gluetunSchema, smartDnsSchema]);
 
 function rowToResponse(r: Awaited<ReturnType<typeof createProxy>>, channelCount: number) {
   return {
@@ -80,7 +87,13 @@ export async function POST(request: Request) {
 
   try {
     const createdByUserId = "user" in gate ? gate.user.id : null;
-    const row = await createProxy({ ...parsed.data, createdByUserId });
+    const data = parsed.data;
+    // Serialize Smart DNS server IPs into vpnConfigJson so they survive in the DB.
+    const vpnConfigJson =
+      data.vpnType === "smartdns"
+        ? JSON.stringify({ dnsServer: data.dnsServer, dnsServer2: data.dnsServer2 ?? undefined })
+        : "vpnConfigJson" in data ? data.vpnConfigJson : undefined;
+    const row = await createProxy({ ...data, vpnConfigJson, createdByUserId });
     return NextResponse.json(rowToResponse(row, 0), { status: 201 });
   } catch {
     return NextResponse.json({ error: PUBLIC_INTERNAL_ERROR }, { status: 500 });

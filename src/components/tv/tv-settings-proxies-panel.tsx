@@ -27,7 +27,7 @@ import { cn } from "@/lib/utils";
 // ── Types ────────────────────────────────────────────────────────────────────
 
 type Protocol = "http" | "https" | "socks5";
-type VpnType = "direct" | "gluetun";
+type VpnType = "direct" | "gluetun" | "smartdns";
 type GluetunStatus = "stopped" | "starting" | "running" | "error";
 type VpnProvider = "nordvpn" | "expressvpn" | "protonvpn" | "custom_openvpn" | "custom_wireguard";
 
@@ -53,7 +53,7 @@ type ChannelItem = {
   label: string | null;
 };
 
-type TestResult = { ok: boolean; ip?: string; error?: string } | null;
+type TestResult = { ok: boolean; ip?: string; resolvedHost?: string; resolvedIp?: string; error?: string } | null;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -460,6 +460,28 @@ function GluetunProviderFields({
   }
 }
 
+// ── Smart DNS form ────────────────────────────────────────────────────────────
+
+type SmartDnsFormState = {
+  dnsServer: string;
+  dnsServer2: string;
+};
+
+const EMPTY_SMART_DNS: SmartDnsFormState = { dnsServer: "", dnsServer2: "" };
+
+type SmartDnsProvider = {
+  label: string;
+  hint: string;
+  url: string;
+};
+
+const SMART_DNS_PROVIDERS: SmartDnsProvider[] = [
+  { label: "SmartDNSProxy", hint: "Log in → Dashboard → DNS Servers to get your assigned IPs.", url: "https://www.smartdnsproxy.com" },
+  { label: "Unlocator", hint: "Log in → Setup → DNS Addresses.", url: "https://unlocator.com" },
+  { label: "OverPlay", hint: "Log in → My Account → DNS Addresses.", url: "https://www.overplay.net" },
+  { label: "ProxyDNS", hint: "Log in → Account → DNS IPs.", url: "https://www.proxydns.com" },
+];
+
 // ── Proxy Form (Add / Edit) ───────────────────────────────────────────────────
 
 type DirectFormState = {
@@ -494,6 +516,15 @@ function ProxyForm({
       ? configJsonToGluetunForm(initial.vpnProvider as VpnProvider, initial.vpnConfigJson)
       : EMPTY_GLUETUN,
   );
+  const [smartDnsForm, setSmartDnsForm] = useState<SmartDnsFormState>(() => {
+    if (initial?.vpnType === "smartdns" && initial.vpnConfigJson) {
+      try {
+        const cfg = JSON.parse(initial.vpnConfigJson) as { dnsServer?: string; dnsServer2?: string };
+        return { dnsServer: cfg.dnsServer ?? "", dnsServer2: cfg.dnsServer2 ?? "" };
+      } catch { /* fall through */ }
+    }
+    return EMPTY_SMART_DNS;
+  });
   const [name, setName] = useState(initial?.name ?? "");
 
   const [busy, setBusy] = useState(false);
@@ -521,7 +552,10 @@ function ProxyForm({
   const gluetunValid = vpnType === "gluetun"
     ? (name.trim() && isGluetunFormValid(gluetunForm))
     : false;
-  const valid = directValid || gluetunValid;
+  const smartDnsValid = vpnType === "smartdns"
+    ? (name.trim() && /^\d{1,3}(\.\d{1,3}){3}$/.test(smartDnsForm.dnsServer.trim()))
+    : false;
+  const valid = directValid || gluetunValid || smartDnsValid;
 
   const inputCls = cn(
     "h-11 w-full rounded-xl border border-white/[0.12] bg-black/30 px-4",
@@ -530,15 +564,22 @@ function ProxyForm({
   );
 
   const handleTest = useCallback(async () => {
-    if (vpnType !== "direct" || !directValid) return;
+    if (vpnType !== "direct" && vpnType !== "smartdns") return;
+    if (vpnType === "direct" && !directValid) return;
+    if (vpnType === "smartdns" && !smartDnsValid) return;
     setTesting(true);
     setTestResult(null);
-    const payload = { protocol: directForm.protocol, host: directForm.host.trim(), port: portNum, username: directForm.username.trim() || undefined, password: directForm.password || undefined };
+    let payload: Record<string, unknown>;
+    if (vpnType === "smartdns") {
+      payload = { vpnType: "smartdns", dnsServer: smartDnsForm.dnsServer.trim(), ...(smartDnsForm.dnsServer2.trim() ? { dnsServer2: smartDnsForm.dnsServer2.trim() } : {}) };
+    } else {
+      payload = { protocol: directForm.protocol, host: directForm.host.trim(), port: portNum, username: directForm.username.trim() || undefined, password: directForm.password || undefined };
+    }
     const url = initial ? `/api/proxies/${initial.id}/test` : "/api/proxies/test-config";
     const { ok, body } = await apiFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     setTestResult(ok ? body : { ok: false, error: body?.error ?? "Request failed" });
     setTesting(false);
-  }, [directForm, portNum, directValid, vpnType, initial]);
+  }, [directForm, smartDnsForm, portNum, directValid, smartDnsValid, vpnType, initial]);
 
   const handleSubmit = useCallback(async () => {
     if (!valid) return;
@@ -550,6 +591,9 @@ function ProxyForm({
       payload = { name: name.trim(), vpnType: "direct", protocol: directForm.protocol, host: directForm.host.trim(), port: portNum };
       if (directForm.username.trim()) payload.username = directForm.username.trim();
       if (directForm.password) payload.password = directForm.password;
+    } else if (vpnType === "smartdns") {
+      payload = { name: name.trim(), vpnType: "smartdns", dnsServer: smartDnsForm.dnsServer.trim() };
+      if (smartDnsForm.dnsServer2.trim()) payload.dnsServer2 = smartDnsForm.dnsServer2.trim();
     } else {
       payload = {
         name: name.trim(),
@@ -576,7 +620,7 @@ function ProxyForm({
   return (
     <div className="rounded-2xl border border-white/[0.12] bg-white/[0.05] p-6">
       <h3 className="text-[17px] font-semibold text-white">
-        {initial ? "Edit proxy" : "Add VPN proxy"}
+        {initial ? "Edit proxy" : vpnType === "smartdns" ? "Add Smart DNS" : vpnType === "gluetun" ? "Add VPN (Gluetun)" : "Add proxy"}
       </h3>
 
       {/* Name */}
@@ -591,7 +635,7 @@ function ProxyForm({
       {!initial && (
         <div className="mt-5">
           <p className="mb-2 text-[13px] font-medium text-white/60">Type</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <button
               type="button"
               onClick={() => setVpnType("direct")}
@@ -604,6 +648,19 @@ function ProxyForm({
             >
               <p className="text-[14px] font-semibold">Direct proxy</p>
               <p className="mt-0.5 text-[12px] text-white/50">SOCKS5 / HTTP — point at NordVPN, ExpressVPN, Ghost VPN, or any proxy server</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setVpnType("smartdns")}
+              className={cn(
+                "rounded-xl border px-4 py-3 text-left outline-none transition-colors",
+                vpnType === "smartdns"
+                  ? "border-white/25 bg-white/[0.1] text-white"
+                  : "border-white/[0.08] bg-white/[0.03] text-white/50 hover:text-white/75",
+              )}
+            >
+              <p className="text-[14px] font-semibold">Smart DNS</p>
+              <p className="mt-0.5 text-[12px] text-white/50">Override DNS only — fastest option, no tunnelling. Works with SmartDNSProxy, Unlocator, OverPlay, ProxyDNS.</p>
             </button>
             <button
               type="button"
@@ -700,6 +757,65 @@ function ProxyForm({
         </>
       )}
 
+      {/* Smart DNS form */}
+      {vpnType === "smartdns" && (
+        <>
+          <div className="mt-4 rounded-xl border border-blue-400/20 bg-blue-500/[0.07] px-4 py-3">
+            <p className="text-[13px] font-semibold text-blue-200/80">How Smart DNS works</p>
+            <p className="mt-1 text-[13px] leading-relaxed text-blue-200/65">
+              Only DNS lookups go through the provider — TCP connections stay direct. This gives full stream speed with no
+              VPN overhead. The provider's DNS server returns proxy IPs for geo-blocked domains so their servers see an
+              allowed country. Your real IP is unchanged.
+            </p>
+          </div>
+
+          <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-500/[0.07] px-4 py-3">
+            <p className="text-[13px] font-semibold text-amber-200/80">Get your DNS server IPs</p>
+            <p className="mt-1 text-[12px] leading-relaxed text-amber-200/65 mb-2">
+              Log in to your Smart DNS service and copy the DNS IPs assigned to your account. They are typically found in Dashboard → Setup or DNS Addresses.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {SMART_DNS_PROVIDERS.map((p) => (
+                <a
+                  key={p.label}
+                  href={p.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-[12px] font-medium text-amber-300/90 hover:bg-amber-500/15 transition-colors"
+                >
+                  {p.label}
+                </a>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <label>
+              <span className="mb-1.5 block text-[13px] font-medium text-white/60">
+                Primary DNS server <span className="text-red-400/70">*</span>
+              </span>
+              <input
+                className={inputCls}
+                placeholder="e.g. 45.55.184.161"
+                value={smartDnsForm.dnsServer}
+                onChange={(e) => setSmartDnsForm((f) => ({ ...f, dnsServer: e.target.value }))}
+              />
+            </label>
+            <label>
+              <span className="mb-1.5 block text-[13px] font-medium text-white/60">
+                Secondary DNS server <span className="text-white/35">(optional)</span>
+              </span>
+              <input
+                className={inputCls}
+                placeholder="e.g. 104.197.28.121"
+                value={smartDnsForm.dnsServer2}
+                onChange={(e) => setSmartDnsForm((f) => ({ ...f, dnsServer2: e.target.value }))}
+              />
+            </label>
+          </div>
+        </>
+      )}
+
       {/* Gluetun form */}
       {vpnType === "gluetun" && (
         <>
@@ -752,11 +868,15 @@ function ProxyForm({
         </>
       )}
 
-      {/* Test result (direct only) */}
-      {testResult && vpnType === "direct" && (
+      {/* Test result (direct / smart DNS) */}
+      {testResult && (vpnType === "direct" || vpnType === "smartdns") && (
         <div className={cn("mt-4 flex items-center gap-2 rounded-xl px-4 py-3 text-[14px]", testResult.ok ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300")}>
           {testResult.ok ? <CheckCircle className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
-          {testResult.ok ? `Connected — exit IP: ${testResult.ip}` : `Connection failed: ${testResult.error}`}
+          {testResult.ok
+            ? testResult.resolvedIp
+              ? `DNS responding — resolved ${testResult.resolvedHost} → ${testResult.resolvedIp}`
+              : `Connected — exit IP: ${testResult.ip}`
+            : `Failed: ${testResult.error}`}
         </div>
       )}
 
@@ -771,15 +891,15 @@ function ProxyForm({
             </span>
           </ZenedeGlass>
         </button>
-        {vpnType === "direct" && (
+        {(vpnType === "direct" || vpnType === "smartdns") && (
           <button
             type="button"
             onClick={handleTest}
-            disabled={!directValid || testing}
+            disabled={vpnType === "direct" ? (!directValid || testing) : (!smartDnsValid || testing)}
             className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.12] bg-white/[0.05] px-4 py-2.5 text-[14px] font-medium text-white/75 outline-none hover:bg-white/[0.08] disabled:opacity-40"
           >
             {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Shield className="h-3.5 w-3.5" />}
-            Test connection
+            {vpnType === "smartdns" ? "Test DNS" : "Test connection"}
           </button>
         )}
         <button type="button" onClick={onCancel} className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.12] bg-white/[0.05] px-4 py-2.5 text-[14px] font-medium text-white/55 outline-none hover:text-white/80">
@@ -1318,6 +1438,10 @@ export function TvSettingsProxiesPanel() {
                     {proxy.vpnType === "gluetun" ? (
                       <span className="rounded-md bg-white/[0.07] px-2 py-0.5 text-[12px] text-white/55">
                         {GLUETUN_PROVIDERS[proxy.vpnProvider as VpnProvider]?.label ?? proxy.vpnProvider}
+                      </span>
+                    ) : proxy.vpnType === "smartdns" ? (
+                      <span className="rounded-md bg-sky-500/[0.12] px-2 py-0.5 text-[12px] text-sky-300/80">
+                        Smart DNS
                       </span>
                     ) : (
                       <span className="rounded-md bg-white/[0.07] px-2 py-0.5 font-mono text-[12px] text-white/55">

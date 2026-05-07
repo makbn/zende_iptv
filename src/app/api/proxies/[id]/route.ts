@@ -28,6 +28,12 @@ const updateGluetunSchema = z.object({
   vpnConfigJson: z.string().min(2).optional(),
 });
 
+const updateSmartDnsSchema = z.object({
+  name: z.string().min(1).max(128).optional(),
+  dnsServer: z.string().min(7).max(45).optional(),
+  dnsServer2: z.string().min(7).max(45).nullable().optional(),
+});
+
 function rowToResponse(r: NonNullable<Awaited<ReturnType<typeof getProxy>>>, channelCount: number) {
   return {
     id: r.id,
@@ -95,14 +101,33 @@ export async function PUT(
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const schema = existing.vpnType === "gluetun" ? updateGluetunSchema : updateDirectSchema;
+  const schema =
+    existing.vpnType === "gluetun"
+      ? updateGluetunSchema
+      : existing.vpnType === "smartdns"
+        ? updateSmartDnsSchema
+        : updateDirectSchema;
   const parsed = schema.safeParse(json);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
   try {
-    const row = await updateProxy(id, parsed.data);
+    let updateData: Parameters<typeof updateProxy>[1] = parsed.data;
+    // Merge updated DNS IPs back into vpnConfigJson for Smart DNS proxies.
+    if (existing.vpnType === "smartdns") {
+      const d = parsed.data as { name?: string; dnsServer?: string; dnsServer2?: string | null };
+      let current: { dnsServer?: string; dnsServer2?: string } = {};
+      try { current = JSON.parse(existing.vpnConfigJson ?? "{}") as typeof current; } catch { /* ok */ }
+      const merged = {
+        dnsServer: d.dnsServer ?? current.dnsServer ?? "",
+        ...(d.dnsServer2 !== undefined
+          ? (d.dnsServer2 ? { dnsServer2: d.dnsServer2 } : {})
+          : (current.dnsServer2 ? { dnsServer2: current.dnsServer2 } : {})),
+      };
+      updateData = { name: d.name, vpnConfigJson: JSON.stringify(merged) };
+    }
+    const row = await updateProxy(id, updateData);
     return NextResponse.json(rowToResponse(row, await countProxyChannels(id)));
   } catch {
     return NextResponse.json({ error: PUBLIC_INTERNAL_ERROR }, { status: 500 });

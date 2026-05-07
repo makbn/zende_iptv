@@ -23,12 +23,16 @@ export type ProxyConfigRow = {
 
 export type StoredProxyConfig = {
   id: string;
-  vpnType?: "direct" | "gluetun";
+  vpnType?: "direct" | "gluetun" | "smartdns";
   protocol: string;
   host: string;
   port: number;
   username?: string;
   password?: string;
+  /** Smart DNS only — primary DNS server IP (e.g. "45.55.184.161"). */
+  dnsServer?: string;
+  /** Smart DNS only — optional secondary/failover DNS server IP. */
+  dnsServer2?: string;
 };
 
 export function parseProxyConfigJson(raw: string | null): StoredProxyConfig | null {
@@ -128,6 +132,25 @@ export async function getProxyForChannel(urlHash: string): Promise<StoredProxyCo
   });
   if (!row) return null;
   const p = row.proxy;
+
+  if (p.vpnType === "smartdns") {
+    let cfg: { dnsServer?: string; dnsServer2?: string } = {};
+    try { cfg = JSON.parse(p.vpnConfigJson ?? "{}") as typeof cfg; } catch { /* fall through */ }
+    if (!cfg.dnsServer?.trim()) {
+      throw new ProxyNotReadyError(
+        `Smart DNS proxy "${p.name}" has no DNS server configured.`,
+      );
+    }
+    return {
+      id: p.id,
+      vpnType: "smartdns",
+      protocol: "",
+      host: "",
+      port: 0,
+      dnsServer: cfg.dnsServer.trim(),
+      dnsServer2: cfg.dnsServer2?.trim() || undefined,
+    };
+  }
 
   if (p.vpnType === "gluetun") {
     // Allow "starting" as well as "running" — the HTTP proxy port is bound and

@@ -418,8 +418,10 @@ export async function GET(
     });
   }
 
-  // AES-128 keys are exactly 16 bytes. Log them so we can inspect what the CDN actually returned.
+  const respHeaders = forwardUpstreamHeaders(upstream);
+
   if (buf.byteLength <= 32) {
+    // AES-128 keys are exactly 16 bytes — log hex so we can verify the CDN returned the real key.
     const hex = Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join(" ");
     log.info("Small binary response (possible AES key)", {
       sessionId,
@@ -428,12 +430,21 @@ export async function GET(
       contentType: ct ?? "(none)",
       hex,
     });
-  }
-
-  const respHeaders = forwardUpstreamHeaders(upstream);
-  // Ensure key responses have an explicit binary content-type so hls.js gets raw bytes.
-  if (!respHeaders.get("content-type")) {
-    respHeaders.set("content-type", "application/octet-stream");
+    // Ensure key responses carry an explicit binary content-type.
+    if (!respHeaders.get("content-type")) {
+      respHeaders.set("content-type", "application/octet-stream");
+    }
+  } else {
+    // Large binary — log enough to confirm segments are flowing (size, CDN content-type, sync byte).
+    const firstByte = new Uint8Array(buf)[0];
+    log.info("Binary response (segment)", {
+      sessionId,
+      fetchUrl,
+      byteLength: buf.byteLength,
+      contentType: ct ?? "(none)",
+      // 0x47 = MPEG-TS sync byte; absent on AES-128 encrypted segments (expected).
+      startsWithTsSync: firstByte === 0x47,
+    });
   }
 
   return new NextResponse(buf, {

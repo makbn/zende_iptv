@@ -66,7 +66,13 @@ async function findFreePort(): Promise<number> {
 }
 
 function buildEnv(cfg: GluetunVpnConfig): string[] {
-  const base = ["HTTPPROXY=on", "HTTPPROXY_LOG=off"];
+  const base = [
+    "HTTPPROXY=on",
+    "HTTPPROXY_LOG=off",
+    // Allow inbound connections on the HTTP proxy port through Gluetun's
+    // internal iptables firewall so container-to-container traffic is not dropped.
+    `FIREWALL_INPUT_PORTS=${PROXY_INTERNAL_PORT}`,
+  ];
   switch (cfg.provider) {
     case "nordvpn":
       return [

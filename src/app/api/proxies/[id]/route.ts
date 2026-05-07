@@ -41,10 +41,22 @@ function rowToResponse(r: NonNullable<Awaited<ReturnType<typeof getProxy>>>, cha
     vpnConfigJson: r.vpnConfigJson,
     gluetunStatus: r.gluetunStatus,
     gluetunHostPort: r.gluetunHostPort,
+    createdByUserId: r.createdByUserId,
     channelCount,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
   };
+}
+
+/** Returns true when the requester may mutate this proxy. */
+function canMutate(
+  gate: Awaited<ReturnType<typeof gateApiRequest>>,
+  proxyCreatedByUserId: string | null,
+): boolean {
+  // Auth disabled — everyone can mutate.
+  if (!gate.authEnabled) return true;
+  if (!("user" in gate)) return false;
+  return gate.user.role === "ADMIN" || gate.user.id === proxyCreatedByUserId;
 }
 
 export async function GET(
@@ -71,6 +83,10 @@ export async function PUT(
   const { id } = await context.params;
   const existing = await getProxy(id);
   if (!existing) return NextResponse.json({ error: "Not found." }, { status: 404 });
+
+  if (!canMutate(gate, existing.createdByUserId)) {
+    return NextResponse.json({ error: "Forbidden. You can only edit proxies you created." }, { status: 403 });
+  }
 
   let json: unknown;
   try {
@@ -104,8 +120,11 @@ export async function DELETE(
   const existing = await getProxy(id);
   if (!existing) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
+  if (!canMutate(gate, existing.createdByUserId)) {
+    return NextResponse.json({ error: "Forbidden. You can only delete proxies you created." }, { status: 403 });
+  }
+
   try {
-    // Stop Gluetun container before deleting the DB row
     if (existing.vpnType === "gluetun" && existing.gluetunContainerId) {
       await stopGluetunContainer(existing.gluetunContainerId).catch(() => null);
     }

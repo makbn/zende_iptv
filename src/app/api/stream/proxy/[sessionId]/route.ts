@@ -27,17 +27,25 @@ const log = createServerLogger("api.stream.proxy");
 
 /**
  * Circuit breaker: remembers the HTTP status (or 502 for network failures) the
- * first time a URL fails, then replays that status instantly for BREAKER_TTL_MS.
+ * first time a URL fails, then replays that status instantly for the TTL.
  *
  * Storing the original status is critical: returning 502 for a 403 upstream
  * causes hls.js to treat it as a transient error and retry at full speed.
  * Returning the real 403 tells hls.js "this variant is forbidden → fall back."
+ *
+ * TTL is intentionally shorter for transient errors (timeout / network drop)
+ * than for hard auth/server failures so the player can retry quickly once the
+ * VPN reconnects, without hammering a definitively broken variant.
  */
 const breakerCache = new Map<string, { expiry: number; status: number }>();
-const BREAKER_TTL_MS = 60_000;
+/** Hard errors (403, 5xx): hold for 60 s so hls.js stops retrying immediately. */
+const BREAKER_TTL_HARD_MS = 60_000;
+/** Transient errors (timeout, connection refused): hold for only 8 s. */
+const BREAKER_TTL_TRANSIENT_MS = 8_000;
 
-function breakerTrip(sessionId: string, url: string, status: number): void {
-  breakerCache.set(`${sessionId}:${url}`, { expiry: Date.now() + BREAKER_TTL_MS, status });
+function breakerTrip(sessionId: string, url: string, status: number, transient = false): void {
+  const ttl = transient ? BREAKER_TTL_TRANSIENT_MS : BREAKER_TTL_HARD_MS;
+  breakerCache.set(`${sessionId}:${url}`, { expiry: Date.now() + ttl, status });
 }
 
 function breakerStatus(sessionId: string, url: string): number | null {
@@ -62,8 +70,9 @@ const FETCH_TIMEOUT_MS = 5_000;
  * Timeout for proxied fetches (HTTP CONNECT tunnel + TLS handshake + VPN latency
  * on top of the normal request). Must stay well above undici's internal connect
  * timeout so our AbortSignal fires first and the error is classified as timedOut.
+ * 30 s gives slow VPN exit nodes headroom without hanging the player too long.
  */
-const FETCH_TIMEOUT_PROXY_MS = 20_000;
+const FETCH_TIMEOUT_PROXY_MS = 30_000;
 
 /** Maximum number of 3xx hops before giving up. */
 const MAX_REDIRECT_HOPS = 10;
@@ -328,8 +337,9 @@ export async function GET(
       cause: cause instanceof Error ? `${cause.name}: ${cause.message}` : cause ? String(cause) : undefined,
       timedOut: isTimeout,
     });
-    // Trip the breaker with 502 (network failure) so retries return instantly.
-    breakerTrip(sessionId, fetchUrl, 502);
+    // Trip the breaker with 502 (network failure). Mark transient so the
+    // player can retry after 8 s once the VPN reconnects.
+    breakerTrip(sessionId, fetchUrl, 502, /* transient */ true);
     return NextResponse.json(
       { error: isTimeout ? "Upstream timed out." : "Upstream fetch failed." },
       { status: 502 },

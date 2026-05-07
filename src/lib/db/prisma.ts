@@ -18,7 +18,10 @@ if (!process.env.DATABASE_URL?.trim()) {
   process.env.DATABASE_URL = defaultDevDatabaseUrl();
 }
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined };
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+  prismaReady: boolean;
+};
 
 function prismaLogLevels(): Array<"query" | "info" | "warn" | "error"> {
   if (process.env.NODE_ENV === "production") return ["error"];
@@ -34,3 +37,28 @@ export const prisma =
   });
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+
+/**
+ * Apply SQLite performance pragmas once at module load time.
+ *
+ * - WAL journal mode: readers never block writers; writers never block readers.
+ *   Eliminates SQLITE_BUSY under concurrent HLS segment + alias-write load.
+ * - synchronous=NORMAL: safe with WAL (fsync on checkpoint, not every write).
+ * - busy_timeout: instead of immediately raising SQLITE_BUSY (→ Prisma P1008),
+ *   SQLite retries for up to 10 s waiting for the lock to release.
+ *
+ * These pragmas persist for the lifetime of the SQLite file (WAL) or the
+ * connection (busy_timeout), so they only need to run once at startup.
+ */
+if (!globalForPrisma.prismaReady) {
+  globalForPrisma.prismaReady = true;
+  void (async () => {
+    try {
+      await prisma.$executeRawUnsafe("PRAGMA journal_mode=WAL");
+      await prisma.$executeRawUnsafe("PRAGMA synchronous=NORMAL");
+      await prisma.$executeRawUnsafe("PRAGMA busy_timeout=10000");
+    } catch {
+      // Non-fatal — e.g. unit-test in-memory DB or unsupported driver
+    }
+  })();
+}

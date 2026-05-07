@@ -42,6 +42,7 @@ function rowToResponse(r: Awaited<ReturnType<typeof createProxy>>, channelCount:
     vpnProvider: r.vpnProvider,
     gluetunStatus: r.gluetunStatus,
     gluetunHostPort: r.gluetunHostPort,
+    createdByUserId: r.createdByUserId,
     channelCount,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
@@ -78,7 +79,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const row = await createProxy(parsed.data);
+    const createdByUserId = "user" in gate ? gate.user.id : null;
+    const row = await createProxy({ ...parsed.data, createdByUserId });
     return NextResponse.json(rowToResponse(row, 0), { status: 201 });
   } catch {
     return NextResponse.json({ error: PUBLIC_INTERNAL_ERROR }, { status: 500 });

@@ -9,6 +9,29 @@ import { parseProxyConfigJson, type StoredProxyConfig } from "@/lib/proxies/prox
 /** Sliding TTL — refreshed on each proxy / metadata request. */
 const SESSION_IDLE_MS = 6 * 60 * 60 * 1000;
 
+/**
+ * How often touchSession writes expiresAt back to the DB (per session).
+ * Every segment request calls touchSession; writing on every one causes
+ * SQLite write contention under HLS load. One write per minute is enough
+ * to keep a 6-hour sliding TTL alive.
+ */
+const SESSION_TOUCH_WRITE_INTERVAL_MS = 60_000;
+
+/**
+ * In-memory read cache TTL. Deduplicates the burst of concurrent DB reads
+ * that arrive when an HLS player fetches several segments in parallel.
+ */
+const SESSION_READ_CACHE_TTL_MS = 3_000;
+
+type CachedSessionEntry = { record: StreamSessionRecord; fetchedAt: number };
+const sessionReadCache = new Map<string, CachedSessionEntry>();
+const sessionLastTouchWrite = new Map<string, number>();
+
+/** Evict a session from the read cache (call after updating aliases or cookies). */
+export function evictSessionCache(id: string): void {
+  sessionReadCache.delete(id);
+}
+
 /** `{ origin: { name: value } }` — replayed as `Cookie` on later fetches to that origin. */
 export type CookieJar = Record<string, Record<string, string>>;
 
@@ -154,6 +177,7 @@ export async function persistCookieJar(
       data: { cookieJarJson: JSON.stringify(existing) },
     });
   });
+  evictSessionCache(sessionId);
 }
 
 const WARMUP_UA =
@@ -244,28 +268,49 @@ export async function createStreamSession(input: {
 
 /**
  * Loads the session, deletes if expired, otherwise extends `expiresAt`.
+ *
+ * Read path: served from a 3-second in-memory cache to absorb the burst of
+ * parallel segment requests that arrive together under HLS load.
+ *
+ * Write path: expiresAt is updated in the DB at most once per 60 seconds
+ * per session, fire-and-forget — a slow DB write never blocks a segment
+ * response and SQLite write contention is eliminated.
  */
 export async function touchSession(
   id: string,
 ): Promise<StreamSessionRecord | null> {
-  const row = await prisma.streamProxySession.findUnique({
-    where: { id },
-  });
-  if (!row) return null;
-
   const now = Date.now();
-  if (row.expiresAt.getTime() < now) {
-    await prisma.streamProxySession.delete({ where: { id } }).catch(() => {});
+
+  // Serve from cache when it's fresh — skips both the findUnique and update.
+  const cached = sessionReadCache.get(id);
+  if (cached && now - cached.fetchedAt < SESSION_READ_CACHE_TTL_MS) {
+    // Still schedule a fire-and-forget write if the interval has elapsed,
+    // so the session stays alive even while the cache absorbs all reads.
+    const lastWrite = sessionLastTouchWrite.get(id) ?? 0;
+    if (now - lastWrite > SESSION_TOUCH_WRITE_INTERVAL_MS) {
+      sessionLastTouchWrite.set(id, now);
+      prisma.streamProxySession
+        .update({ where: { id }, data: { expiresAt: new Date(now + SESSION_IDLE_MS) } })
+        .catch(() => {});
+    }
+    return cached.record;
+  }
+
+  const row = await prisma.streamProxySession.findUnique({ where: { id } });
+  if (!row) {
+    sessionReadCache.delete(id);
+    sessionLastTouchWrite.delete(id);
     return null;
   }
 
-  const nextExpiry = new Date(Date.now() + SESSION_IDLE_MS);
-  await prisma.streamProxySession.update({
-    where: { id },
-    data: { expiresAt: nextExpiry },
-  });
+  if (row.expiresAt.getTime() < now) {
+    prisma.streamProxySession.delete({ where: { id } }).catch(() => {});
+    sessionReadCache.delete(id);
+    sessionLastTouchWrite.delete(id);
+    return null;
+  }
 
-  return {
+  const record: StreamSessionRecord = {
     upstreamRootUrl: row.upstreamRootUrl,
     title: row.title,
     logo: row.logo ?? undefined,
@@ -274,9 +319,21 @@ export async function touchSession(
     aliasReferers: parseReferersJson(row.aliasReferersJson ?? "{}"),
     cookieJar: parseCookieJarJson(row.cookieJarJson),
     lastRefererUrl: row.lastRefererUrl ?? null,
-    lastAccessAt: Date.now(),
+    lastAccessAt: now,
     proxyConfig: parseProxyConfigJson(row.proxyConfigJson ?? null),
   };
+
+  sessionReadCache.set(id, { record, fetchedAt: now });
+
+  const lastWrite = sessionLastTouchWrite.get(id) ?? 0;
+  if (now - lastWrite > SESSION_TOUCH_WRITE_INTERVAL_MS) {
+    sessionLastTouchWrite.set(id, now);
+    prisma.streamProxySession
+      .update({ where: { id }, data: { expiresAt: new Date(now + SESSION_IDLE_MS) } })
+      .catch(() => {});
+  }
+
+  return record;
 }
 
 /** Persist alias map after rewriting a playlist. Merges with DB so concurrent playlist fetches cannot drop each other's hashes or referers. */
@@ -310,6 +367,7 @@ export async function persistUrlAliases(
       },
     });
   });
+  evictSessionCache(sessionId);
 }
 
 export function resolveAlias(

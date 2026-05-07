@@ -20,6 +20,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { useAuth } from "@/features/auth/auth-context";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +44,7 @@ type ProxyItem = {
   gluetunStatus: GluetunStatus;
   gluetunHostPort: number | null;
   channelCount: number;
+  createdByUserId: string | null;
 };
 
 type ChannelItem = {
@@ -1212,6 +1214,7 @@ function ChannelAssignmentDialog({
 // ── Main Panel ────────────────────────────────────────────────────────────────
 
 export function TvSettingsProxiesPanel() {
+  const { authEnabled, user } = useAuth();
   const [proxies, setProxies] = useState<ProxyItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
@@ -1247,6 +1250,12 @@ export function TvSettingsProxiesPanel() {
     setFormOpen(false);
     setEditing(null);
   }, []);
+
+  const canEditProxy = useCallback((proxy: ProxyItem): boolean => {
+    if (!authEnabled) return true;
+    if (!user) return false;
+    return user.role === "ADMIN" || user.id === proxy.createdByUserId;
+  }, [authEnabled, user]);
 
   const handleDelete = useCallback(async (id: string) => {
     if (!confirm("Delete this proxy? All channel assignments will be removed.")) return;
@@ -1345,23 +1354,27 @@ export function TvSettingsProxiesPanel() {
                       </span>
                     )}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => void openEdit(proxy)}
-                    disabled={editLoading === proxy.id}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.12] bg-white/[0.06] px-3 py-2 text-[13px] font-medium text-white/75 outline-none hover:bg-white/[0.1] disabled:opacity-50"
-                  >
-                    {editLoading === proxy.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pencil className="h-3.5 w-3.5" />}
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleDelete(proxy.id)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-red-400/25 bg-red-500/10 px-3 py-2 text-[13px] font-medium text-red-200/90 outline-none hover:bg-red-500/15"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    Delete
-                  </button>
+                  {canEditProxy(proxy) && (
+                    <button
+                      type="button"
+                      onClick={() => void openEdit(proxy)}
+                      disabled={editLoading === proxy.id}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.12] bg-white/[0.06] px-3 py-2 text-[13px] font-medium text-white/75 outline-none hover:bg-white/[0.1] disabled:opacity-50"
+                    >
+                      {editLoading === proxy.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pencil className="h-3.5 w-3.5" />}
+                      Edit
+                    </button>
+                  )}
+                  {canEditProxy(proxy) && (
+                    <button
+                      type="button"
+                      onClick={() => void handleDelete(proxy.id)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-400/25 bg-red-500/10 px-3 py-2 text-[13px] font-medium text-red-200/90 outline-none hover:bg-red-500/15"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Delete
+                    </button>
+                  )}
                 </div>
               </li>
             ))}

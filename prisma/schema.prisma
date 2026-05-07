@@ -29,6 +29,7 @@ model User {
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   refreshTokens    RefreshToken[]
+  proxyConfigs     ProxyConfig[]
 }
 
 model RefreshToken {
@@ -122,6 +123,9 @@ model ProxyConfig {
   gluetunHostPort    Int?
   /// "stopped" | "starting" | "running" | "error"
   gluetunStatus      String   @default("stopped")
+  /// User who created this proxy — null when auth is disabled or row was created before this field was added.
+  createdByUserId    String?
+  createdBy          User?    @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

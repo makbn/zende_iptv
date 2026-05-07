@@ -40,6 +40,9 @@ yarn-error.log*
 *.db
 /prisma/*.db
 
+# gluetun VPN work directory — contains credentials and certs, never commit
+/gluetun-work/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

@@ -16,6 +16,7 @@ export type ProxyConfigRow = {
   gluetunContainerId: string | null;
   gluetunHostPort: number | null;
   gluetunStatus: string;
+  createdByUserId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -57,6 +58,7 @@ export async function createProxy(input: {
   password?: string;
   vpnProvider?: string;
   vpnConfigJson?: string;
+  createdByUserId?: string | null;
 }): Promise<ProxyConfigRow> {
   return prisma.proxyConfig.create({
     data: {
@@ -69,6 +71,7 @@ export async function createProxy(input: {
       password: input.password || null,
       vpnProvider: input.vpnProvider ?? null,
       vpnConfigJson: input.vpnConfigJson ?? null,
+      createdByUserId: input.createdByUserId ?? null,
     },
   });
 }

@@ -19,11 +19,12 @@ services:
       # CRON_SECRET: "change-me-to-a-long-random-string"
 
       # ── VPN proxy (Gluetun) ────────────────────────────────────────────────
-      # Absolute HOST path bind-mounted below. Gluetun sibling containers are
-      # created by the host Docker daemon, so this must be a real host path.
-      # Set GLUETUN_HOST_WORKDIR in .env to an absolute path on your host, e.g.:
-      #   GLUETUN_HOST_WORKDIR=/home/user/zende/gluetun-work
-      # If unset, the ./gluetun-work directory next to docker-compose.yml is used.
+      # Absolute HOST path for Gluetun sibling containers. Must be a real host
+      # filesystem path (not a named volume) — Docker resolves bind mounts on the
+      # host daemon, not inside this container.
+      # Set GLUETUN_HOST_WORKDIR in .env before using VPN proxies, e.g.:
+      #   GLUETUN_HOST_WORKDIR=/your/host/path/to/gluetun-work
+      # If unset, the app falls back to the OS temp dir (local dev only).
       GLUETUN_HOST_WORKDIR: "${GLUETUN_HOST_WORKDIR:-}"
       # Where the same directory is mounted inside *this* container.
       GLUETUN_CONTAINER_WORKDIR: "/gluetun-work"

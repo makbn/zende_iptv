@@ -23,9 +23,9 @@ const PROXY_INTERNAL_PORT = 8888;
 // Both default to os.tmpdir() for local (non-Docker) development where the
 // host and container share the same filesystem.
 const HOST_WORKDIR =
-  process.env.GLUETUN_HOST_WORKDIR ?? tmpdir();
+  process.env.GLUETUN_HOST_WORKDIR || tmpdir();
 const CONTAINER_WORKDIR =
-  process.env.GLUETUN_CONTAINER_WORKDIR ?? tmpdir();
+  process.env.GLUETUN_CONTAINER_WORKDIR || tmpdir();
 
 // ── VPN config types ──────────────────────────────────────────────────────────
 

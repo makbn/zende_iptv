@@ -19,10 +19,12 @@ services:
       # CRON_SECRET: "change-me-to-a-long-random-string"
 
       # ── VPN proxy (Gluetun) ────────────────────────────────────────────────
-      # HOST path that is bind-mounted below. Gluetun sibling containers are
-      # created by the host Docker daemon, so bind-mount paths must resolve on
-      # the host, not inside this container.
-      GLUETUN_HOST_WORKDIR: "${GLUETUN_HOST_WORKDIR:-/opt/zende/gluetun-work}"
+      # Absolute HOST path bind-mounted below. Gluetun sibling containers are
+      # created by the host Docker daemon, so this must be a real host path.
+      # Set GLUETUN_HOST_WORKDIR in .env to an absolute path on your host, e.g.:
+      #   GLUETUN_HOST_WORKDIR=/home/user/zende/gluetun-work
+      # If unset, the ./gluetun-work directory next to docker-compose.yml is used.
+      GLUETUN_HOST_WORKDIR: "${GLUETUN_HOST_WORKDIR:-}"
       # Where the same directory is mounted inside *this* container.
       GLUETUN_CONTAINER_WORKDIR: "/gluetun-work"
 
@@ -36,12 +38,10 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
 
       # ── Gluetun config directory ───────────────────────────────────────────
-      # The app writes OpenVPN/WireGuard config files here. The path on the
-      # HOST (GLUETUN_HOST_WORKDIR) must match what this container sees so
-      # that bind mounts created for sibling Gluetun containers resolve on the
-      # host filesystem. Create the directory before starting if it does not
-      # already exist: mkdir -p /opt/zende/gluetun-work
-      - "${GLUETUN_HOST_WORKDIR:-/opt/zende/gluetun-work}:/gluetun-work"
+      # Relative path resolves to <project-dir>/gluetun-work when GLUETUN_HOST_WORKDIR
+      # is not set. Override with an absolute path via GLUETUN_HOST_WORKDIR in .env.
+      # Create the directory first: mkdir -p ./gluetun-work
+      - "${GLUETUN_HOST_WORKDIR:-./gluetun-work}:/gluetun-work"
 
     restart: unless-stopped
     healthcheck:

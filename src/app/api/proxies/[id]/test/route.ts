@@ -23,7 +23,7 @@ export async function POST(
   });
 }
 
-export async function testProxyConfig(cfg: {
+async function testProxyConfig(cfg: {
   id: string;
   protocol: string;
   host: string;

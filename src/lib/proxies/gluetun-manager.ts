@@ -4,7 +4,7 @@ import net from "net";
 import dns from "dns/promises";
 import dnsCallback from "dns";
 import { mkdir, writeFile } from "fs/promises";
-import { tmpdir } from "os";
+import { tmpdir, hostname } from "os";
 import { join } from "path";
 import Docker from "dockerode";
 
@@ -120,6 +120,17 @@ function buildEnv(cfg: GluetunVpnConfig): string[] {
 
 function containerName(proxyId: string): string {
   return `gluetun-${proxyId}`;
+}
+
+// Returns the Docker network names the current process's container is attached to.
+// When running outside Docker (local dev) this inspect will fail and return [].
+async function getSelfNetworks(): Promise<string[]> {
+  try {
+    const self = await docker.getContainer(hostname()).inspect();
+    return Object.keys(self.NetworkSettings?.Networks ?? {});
+  } catch {
+    return [];
+  }
 }
 
 // Remove any existing container with this proxy's name (idempotent restart)
@@ -265,6 +276,18 @@ export async function startGluetunContainer(
   });
 
   await container.start();
+
+  // Connect the Gluetun container to the same Docker network(s) as this process
+  // so getGluetunContainerAddress can reach it via a shared network IP.
+  const selfNetworks = await getSelfNetworks();
+  for (const networkName of selfNetworks) {
+    try {
+      await docker.getNetwork(networkName).connect({ Container: container.id });
+    } catch {
+      // already connected or network gone — ignore
+    }
+  }
+
   return { containerId: container.id, hostPort };
 }
 
@@ -304,9 +327,17 @@ export async function getGluetunContainerAddress(
   containerId: string,
 ): Promise<{ host: string; port: number } | null> {
   try {
-    const info = await docker.getContainer(containerId).inspect();
-    // Walk all networks to find a routable IP
+    const [selfNetworks, info] = await Promise.all([
+      getSelfNetworks(),
+      docker.getContainer(containerId).inspect(),
+    ]);
     const networks = info.NetworkSettings?.Networks ?? {};
+    // Prefer an IP on a network shared with the current process
+    for (const name of selfNetworks) {
+      const ip = (networks[name] as { IPAddress?: string } | undefined)?.IPAddress;
+      if (ip) return { host: ip, port: PROXY_INTERNAL_PORT };
+    }
+    // Fall back to any available IP (local dev where getSelfNetworks returns [])
     for (const net of Object.values(networks)) {
       const ip = (net as { IPAddress?: string }).IPAddress;
       if (ip) return { host: ip, port: PROXY_INTERNAL_PORT };

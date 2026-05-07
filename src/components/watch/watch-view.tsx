@@ -39,7 +39,7 @@ import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { getParsedPlaylist } from "@/lib/storage/playlist-cache-db";
 import { padFrequentRingWithCatalog } from "@/lib/watch/watch-channel-ring";
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
-import type { PlayerSession } from "@/components/player/stream-player";
+import type { PlayerError, PlayerSession } from "@/components/player/stream-player";
 
 const StreamPlayer = dynamic(
   () =>
@@ -251,6 +251,7 @@ export function WatchView() {
   const [playerSession, setPlayerSession] = useState<PlayerSession | null>(
     null,
   );
+  const [playerFatalError, setPlayerFatalError] = useState<PlayerError | null>(null);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [pipActive, setPipActive] = useState(false);
   const [chromeVisible, setChromeVisible] = useState(true);
@@ -497,6 +498,7 @@ export function WatchView() {
   }, []);
 
   useEffect(() => {
+    setPlayerFatalError(null);
     return bindVideo();
   }, [bindVideo, playbackSrc]);
 
@@ -712,13 +714,17 @@ export function WatchView() {
             src={playbackSrc}
             controls={false}
             onSessionChange={setPlayerSession}
+            onError={(err) => {
+              console.warn("[player] hls error", err);
+              if (err.fatal) setPlayerFatalError(err);
+            }}
             className="absolute inset-0 h-full w-full object-contain"
           />
 
           <div
             className={cn(
               "pointer-events-none absolute inset-0 z-10 flex items-center justify-center transition-opacity duration-300",
-              buffering ? "opacity-100" : "opacity-0",
+              buffering && !playerFatalError ? "opacity-100" : "opacity-0",
             )}
           >
             <ZenedeGlass variant="panelCompact" className="pointer-events-none">
@@ -738,6 +744,22 @@ export function WatchView() {
               </div>
             </ZenedeGlass>
           </div>
+
+          {playerFatalError && (
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+              <ZenedeGlass variant="panelCompact" className="pointer-events-none max-w-sm">
+                <div className="px-5 py-4 text-left">
+                  <p className="text-[14px] font-semibold text-red-400">
+                    Playback failed
+                  </p>
+                  <p className="mt-1 font-mono text-[11px] text-white/60 break-all">
+                    {playerFatalError.details}
+                    {playerFatalError.reason ? ` — ${playerFatalError.reason}` : ""}
+                  </p>
+                </div>
+              </ZenedeGlass>
+            </div>
+          )}
 
           <div
             className={cn(

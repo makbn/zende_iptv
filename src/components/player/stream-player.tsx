@@ -22,6 +22,13 @@ export type PlayerSession = {
   setQualityLevel(levelIndex: number): void;
 };
 
+export type PlayerError = {
+  type: string;
+  details: string;
+  fatal: boolean;
+  reason?: string;
+};
+
 type Props = {
   src: string;
   className?: string;
@@ -29,6 +36,8 @@ type Props = {
   controls?: boolean;
   /** Invoked after each attach (and when manifest / levels change). Pass `null` on teardown. */
   onSessionChange?: (session: PlayerSession | null) => void;
+  /** Invoked when hls.js fires an error — fatal errors mean hls.js has stopped. */
+  onError?: (err: PlayerError) => void;
   /** Optional extra HLS options merged after defaults (advanced). */
   hlsConfig?: Partial<HlsConfig>;
 };
@@ -66,6 +75,7 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
       className,
       controls = true,
       onSessionChange,
+      onError,
       hlsConfig: hlsConfigExtra,
     },
     ref,
@@ -78,6 +88,11 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
     const onSessionChangeRef = useRef(onSessionChange);
     useEffect(() => {
       onSessionChangeRef.current = onSessionChange;
+    });
+
+    const onErrorRef = useRef(onError);
+    useEffect(() => {
+      onErrorRef.current = onError;
     });
 
     /**
@@ -134,6 +149,17 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
           });
           hls.on(Hls.Events.MANIFEST_PARSED, bumpSession);
           hls.on(Hls.Events.LEVEL_SWITCHED, bumpSession);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          hls.on(Hls.Events.ERROR, (_evt: string, data: any) => {
+            const err: PlayerError = {
+              type: String(data.type ?? ""),
+              details: String(data.details ?? ""),
+              fatal: Boolean(data.fatal),
+              reason: data.error?.message ?? data.reason ?? undefined,
+            };
+            console.error("[hls.js]", err.type, err.details, err.fatal ? "(FATAL)" : "", err.reason ?? "");
+            onErrorRef.current?.(err);
+          });
           hls.loadSource(src);
           hls.attachMedia(video);
         } else if (hlsMode && video.canPlayType("application/vnd.apple.mpegurl")) {
@@ -158,6 +184,7 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
         if (hls) {
           hls.off(Hls.Events.MANIFEST_PARSED, bumpSession);
           hls.off(Hls.Events.LEVEL_SWITCHED, bumpSession);
+          hls.off(Hls.Events.ERROR);
           hls.stopLoad();
           hls.destroy();
           hls = null;

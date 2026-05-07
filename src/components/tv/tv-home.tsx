@@ -292,7 +292,7 @@ export function TvHome() {
           ))}
         </TvContentRow>
 
-        <div className="mx-auto max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
+        <div className="px-6 sm:px-10 lg:px-14 xl:px-20">
           <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
             <p className="text-[15px] leading-relaxed text-white/55">
               <span className="font-medium text-white/80">Library</span> has search,

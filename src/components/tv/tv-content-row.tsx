@@ -32,7 +32,6 @@ export function TvContentRow({
     <section id={id} className={cn("w-full", className)} aria-label={title}>
       <div
         className={cn(
-          "mx-auto max-w-[1920px]",
           !bleed && "px-6 sm:px-10 lg:px-14 xl:px-20",
         )}
       >

@@ -78,7 +78,7 @@ export function TvHeroFeature({
         )}
       />
 
-      <div className="relative z-10 mx-auto flex min-h-[min(72vh,760px)] max-w-[1920px] flex-col justify-end px-6 pb-40 sm:px-10 sm:pb-44 lg:px-14 lg:pb-48 xl:px-20">
+      <div className="relative z-10 flex min-h-[min(72vh,760px)] flex-col justify-end px-6 pb-40 sm:px-10 sm:pb-44 lg:px-14 lg:pb-48 xl:px-20">
         <div className="max-w-[820px]">
           <p className="mb-2 text-[13px] font-semibold uppercase tracking-[0.14em] text-white/55">
             {eyebrow}

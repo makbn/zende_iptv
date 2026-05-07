@@ -64,8 +64,12 @@ function breakerStatus(sessionId: string, url: string): number | null {
 const UPSTREAM_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
-/** Timeout for direct upstream fetches — enough for any healthy CDN. */
-const FETCH_TIMEOUT_MS = 5_000;
+/**
+ * Timeout for direct upstream fetches. Live HLS CDNs (e.g. Akamai) long-poll
+ * at the live edge — holding the request up to one segment duration (~6 s)
+ * before responding. 20 s matches the proxy timeout and gives enough headroom.
+ */
+const FETCH_TIMEOUT_MS = 20_000;
 /**
  * Timeout for proxied fetches (HTTP CONNECT tunnel + TLS handshake + VPN latency
  * on top of the normal request). Must stay well above undici's internal connect
@@ -414,8 +418,26 @@ export async function GET(
     });
   }
 
+  // AES-128 keys are exactly 16 bytes. Log them so we can inspect what the CDN actually returned.
+  if (buf.byteLength <= 32) {
+    const hex = Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join(" ");
+    log.info("Small binary response (possible AES key)", {
+      sessionId,
+      fetchUrl,
+      byteLength: buf.byteLength,
+      contentType: ct ?? "(none)",
+      hex,
+    });
+  }
+
+  const respHeaders = forwardUpstreamHeaders(upstream);
+  // Ensure key responses have an explicit binary content-type so hls.js gets raw bytes.
+  if (!respHeaders.get("content-type")) {
+    respHeaders.set("content-type", "application/octet-stream");
+  }
+
   return new NextResponse(buf, {
     status: upstream.status,
-    headers: forwardUpstreamHeaders(upstream),
+    headers: respHeaders,
   });
 }

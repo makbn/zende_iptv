@@ -54,9 +54,10 @@ if (!globalForPrisma.prismaReady) {
   globalForPrisma.prismaReady = true;
   void (async () => {
     try {
-      await prisma.$executeRawUnsafe("PRAGMA journal_mode=WAL");
-      await prisma.$executeRawUnsafe("PRAGMA synchronous=NORMAL");
-      await prisma.$executeRawUnsafe("PRAGMA busy_timeout=10000");
+      // All three pragmas return a result row in SQLite — use $queryRawUnsafe.
+      await prisma.$queryRawUnsafe("PRAGMA journal_mode=WAL");
+      await prisma.$queryRawUnsafe("PRAGMA synchronous=NORMAL");
+      await prisma.$queryRawUnsafe("PRAGMA busy_timeout=10000");
     } catch {
       // Non-fatal — e.g. unit-test in-memory DB or unsupported driver
     }

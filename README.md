@@ -58,9 +58,9 @@ Copy **`.env.example`** to **`.env`** if you need to override `DATABASE_URL` (de
 ### Quick start
 
 ```bash
-# Create the Gluetun config directory on the host (required even if you never
-# use VPN proxies — Compose mounts it unconditionally).
-mkdir -p /opt/zende/gluetun-work
+# Create the Gluetun config directory next to docker-compose.yml (required even
+# if you never use VPN proxies — Compose mounts it unconditionally).
+mkdir -p ./gluetun-work
 
 docker compose up --build
 ```
@@ -89,7 +89,7 @@ By default Compose maps the container port to **all** interfaces (`0.0.0.0`). To
 | `AUTH_JWT_SECRET` | Strongly recommended | insecure default | Signs JWT tokens when authentication is enabled. |
 | `CRON_SECRET` | No | — | `Authorization: Bearer` guard for cron and registry APIs. |
 | `LOG_LEVEL` | No | `info` | Server log verbosity. |
-| `GLUETUN_HOST_WORKDIR` | No | `/opt/zende/gluetun-work` | **Host** path where Gluetun OpenVPN/WireGuard config dirs are stored. Must be a real host path (not a named volume) — see [VPN Proxies](#vpn-proxies). |
+| `GLUETUN_HOST_WORKDIR` | No | `./gluetun-work` (relative to project dir) | **Host** path where Gluetun OpenVPN/WireGuard config dirs are stored. Must be an absolute host path when running inside Docker — set it in `.env`, e.g. `GLUETUN_HOST_WORKDIR=/your/host/path/gluetun-work`. See [VPN Proxies](#vpn-proxies). |
 | `GLUETUN_CONTAINER_WORKDIR` | No | `/gluetun-work` | Path inside the Zenede container where the same directory is mounted. Do not change unless you edit `docker-compose.yml`. |
 
 Do not commit secrets; inject them via the host environment or your orchestrator.

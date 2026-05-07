@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db/prisma";
+import { getGluetunContainerAddress } from "@/lib/proxies/gluetun-manager";
 
 export type ProxyConfigRow = {
   id: string;
@@ -129,8 +130,15 @@ export async function getProxyForChannel(urlHash: string): Promise<StoredProxyCo
     // Allow "starting" as well as "running" — the HTTP proxy port is bound and
     // reachable even while the VPN tunnel is still negotiating. Reject only when
     // the container was never started (no port) or has definitively failed/stopped.
-    if ((p.gluetunStatus === "running" || p.gluetunStatus === "starting") && p.gluetunHostPort) {
-      return { id: p.id, vpnType: "gluetun", protocol: "http", host: "127.0.0.1", port: p.gluetunHostPort };
+    if ((p.gluetunStatus === "running" || p.gluetunStatus === "starting") && p.gluetunContainerId) {
+      // Inspect the container to get its direct bridge IP and internal port.
+      // This works regardless of whether Zende itself runs in Docker or not,
+      // and avoids relying on host-mapped ports or host.docker.internal.
+      const addr = await getGluetunContainerAddress(p.gluetunContainerId);
+      if (!addr) throw new ProxyNotReadyError(
+        `VPN container "${p.name}" is running but its IP could not be resolved. Try relaunching it from Settings → VPN Proxies.`,
+      );
+      return { id: p.id, vpnType: "gluetun", protocol: "http", host: addr.host, port: addr.port };
     }
     throw new ProxyNotReadyError(
       `VPN container "${p.name}" is not running (status: ${p.gluetunStatus}). ` +

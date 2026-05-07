@@ -300,6 +300,23 @@ export async function getGluetunContainerStatus(
   }
 }
 
+export async function getGluetunContainerAddress(
+  containerId: string,
+): Promise<{ host: string; port: number } | null> {
+  try {
+    const info = await docker.getContainer(containerId).inspect();
+    // Walk all networks to find a routable IP
+    const networks = info.NetworkSettings?.Networks ?? {};
+    for (const net of Object.values(networks)) {
+      const ip = (net as { IPAddress?: string }).IPAddress;
+      if (ip) return { host: ip, port: PROXY_INTERNAL_PORT };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function isDockerAvailable(): Promise<boolean> {
   try {
     await docker.ping();

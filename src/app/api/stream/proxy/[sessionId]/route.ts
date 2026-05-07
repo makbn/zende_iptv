@@ -56,13 +56,14 @@ function breakerStatus(sessionId: string, url: string): number | null {
 const UPSTREAM_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
-/**
- * Abort upstream fetch after this many ms.
- * Must be below Node.js undici's default connect timeout (~10 s) so our
- * AbortSignal fires first and the error is classified as timedOut:true.
- * 5 s is enough for any healthy CDN; dead hosts fail at this boundary instead of 10 s.
- */
+/** Timeout for direct upstream fetches — enough for any healthy CDN. */
 const FETCH_TIMEOUT_MS = 5_000;
+/**
+ * Timeout for proxied fetches (HTTP CONNECT tunnel + TLS handshake + VPN latency
+ * on top of the normal request). Must stay well above undici's internal connect
+ * timeout so our AbortSignal fires first and the error is classified as timedOut.
+ */
+const FETCH_TIMEOUT_PROXY_MS = 20_000;
 
 /** Maximum number of 3xx hops before giving up. */
 const MAX_REDIRECT_HOPS = 10;
@@ -302,7 +303,7 @@ export async function GET(
       fetchUrl,
       baseHeaders,
       cookieJar,
-      AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      AbortSignal.timeout(proxyAgent ? FETCH_TIMEOUT_PROXY_MS : FETCH_TIMEOUT_MS),
       proxyAgent,
     );
     upstream = result.response;

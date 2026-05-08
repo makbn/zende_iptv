@@ -33,8 +33,19 @@ function parseExtInfAttributes(attrPart: string): Pick<
   };
 }
 
+/** Advance past comment lines to find the next URL in the line array. */
+function nextUrl(lines: string[], from: number): { url: string; index: number } | null {
+  for (let j = from; j < lines.length; j++) {
+    const u = lines[j]?.trim();
+    if (!u || u.startsWith("#")) continue;
+    return { url: u, index: j };
+  }
+  return null;
+}
+
 /**
  * Parse raw M3U text into channel rows. Invalid lines are skipped.
+ * Supports both standard M3U (#EXTINF) and HLS master playlists (#EXT-X-STREAM-INF).
  */
 export function parseM3u(text: string): M3uChannel[] {
   const lines = text.split(/\r?\n/);
@@ -42,37 +53,57 @@ export function parseM3u(text: string): M3uChannel[] {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]?.trim();
-    if (!line || !line.startsWith("#EXTINF")) continue;
+    if (!line) continue;
 
-    const m = line.match(/^#EXTINF:([-\d.]+)\s*(.*)$/);
-    if (!m) continue;
+    // ── Standard M3U channel entry ──────────────────────────────────────────
+    if (line.startsWith("#EXTINF")) {
+      const m = line.match(/^#EXTINF:([-\d.]+)\s*(.*)$/);
+      if (!m) continue;
 
-    const duration = Number.parseFloat(m[1]);
-    const rest = m[2] ?? "";
-    const comma = rest.lastIndexOf(",");
-    if (comma === -1) continue;
+      const duration = Number.parseFloat(m[1]);
+      const rest = m[2] ?? "";
+      const comma = rest.lastIndexOf(",");
+      if (comma === -1) continue;
 
-    const attrPart = rest.slice(0, comma);
-    const name = rest.slice(comma + 1).trim();
-    if (!name) continue;
+      const attrPart = rest.slice(0, comma);
+      const name = rest.slice(comma + 1).trim();
+      if (!name) continue;
 
-    let url = "";
-    for (let j = i + 1; j < lines.length; j++) {
-      const u = lines[j]?.trim();
-      if (!u || u.startsWith("#")) continue;
-      url = u;
-      i = j;
-      break;
+      const next = nextUrl(lines, i + 1);
+      if (!next) continue;
+
+      channels.push({
+        name,
+        url: next.url,
+        duration: Number.isFinite(duration) ? duration : -1,
+        ...parseExtInfAttributes(attrPart),
+      });
+      i = next.index;
+      continue;
     }
 
-    if (!url) continue;
+    // ── HLS master playlist variant stream ──────────────────────────────────
+    if (line.startsWith("#EXT-X-STREAM-INF:")) {
+      const attrs = line.slice("#EXT-X-STREAM-INF:".length);
+      const resolution = attrs.match(/\bRESOLUTION=(\d+x\d+)/i)?.[1];
+      const bandwidth = attrs.match(/\bBANDWIDTH=(\d+)/i)?.[1];
 
-    channels.push({
-      name,
-      url,
-      duration: Number.isFinite(duration) ? duration : -1,
-      ...parseExtInfAttributes(attrPart),
-    });
+      // Skip audio-only renditions (no RESOLUTION attribute).
+      if (!resolution) continue;
+
+      const height = resolution.split("x")[1] ?? resolution;
+      const mbps = bandwidth
+        ? (Number(bandwidth) / 1_000_000).toFixed(1)
+        : null;
+      const name = mbps ? `${height}p · ${mbps} Mbps` : `${height}p`;
+
+      const next = nextUrl(lines, i + 1);
+      if (!next) continue;
+
+      channels.push({ name, url: next.url, duration: -1 });
+      i = next.index;
+      continue;
+    }
   }
 
   return channels;

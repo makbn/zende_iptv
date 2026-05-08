@@ -77,6 +77,10 @@ export function rewriteM3u8Playlist(args: {
     return s;
   };
 
+  // Ad-insertion cue tags that cause hls.js to stall waiting for SSAI/DAI handling.
+  // Strip them so the player sees a clean live stream without ad-break signals.
+  const AD_CUE_TAG = /^#EXT-X-(CUE-OUT|CUE-OUT-CONT|CUE-IN|SCTE35|ASSET|DATERANGE|OATCLS-SCTE35|SPLICEPOINT-SCTE35)\b/i;
+
   for (const line of lines) {
     const trimmedEnd = line.replace(/\r$/, "");
     if (trimmedEnd.trim() === "") {
@@ -84,6 +88,7 @@ export function rewriteM3u8Playlist(args: {
       continue;
     }
     if (trimmedEnd.startsWith("#")) {
+      if (AD_CUE_TAG.test(trimmedEnd)) continue; // strip ad/SCTE-35 cue tags
       out.push(rewriteUriAttr(trimmedEnd));
       continue;
     }

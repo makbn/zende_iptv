@@ -137,7 +137,9 @@ function forwardUpstreamHeaders(upstream: Response): Headers {
   const h = new Headers();
   for (const k of [
     "content-type",
-    "content-length",
+    // content-length intentionally omitted: Next.js 16 miscalculates it for ArrayBuffer bodies,
+    // causing a content-length mismatch that Cloudflare treats as a 520. We set it explicitly
+    // to buf.byteLength at the call site instead.
     "cache-control",
     "accept-ranges",
     "content-range",
@@ -387,10 +389,9 @@ export async function GET(
   const buf = await upstream.arrayBuffer();
 
   if (looksLikeTsPacket(buf)) {
-    return new NextResponse(buf, {
-      status: upstream.status,
-      headers: forwardUpstreamHeaders(upstream),
-    });
+    const h = forwardUpstreamHeaders(upstream);
+    h.set("content-length", String(buf.byteLength));
+    return new NextResponse(buf, { status: upstream.status, headers: h });
   }
 
   const text = new TextDecoder("utf-8", { fatal: false }).decode(buf);
@@ -447,6 +448,7 @@ export async function GET(
     });
   }
 
+  respHeaders.set("content-length", String(buf.byteLength));
   return new NextResponse(buf, {
     status: upstream.status,
     headers: respHeaders,

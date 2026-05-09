@@ -13,6 +13,9 @@ services:
       LOG_LEVEL: info
       NODE_ENV: production
       PORT: "${PORT:-8077}"
+      # Optional: force public origin for HLS rewrite if your proxy omits Host / X-Forwarded-* / Forwarded.
+      # Normally the same host as get.php is taken from each request automatically.
+      PUBLIC_APP_URL: "${PUBLIC_APP_URL:-}"
       # Required for production auth: signs JWT access/refresh tokens (Settings → Authentication).
       AUTH_JWT_SECRET: "${AUTH_JWT_SECRET:-zende-local-dev-jwt-secret-change-in-prod}"
       # Optional: Bearer for cron, registry sync, health sweep APIs (Settings → Server).

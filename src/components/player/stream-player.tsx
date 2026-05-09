@@ -105,6 +105,7 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
       if (!video || !src) return;
 
       let hls: Hls | null = null;
+      let networkRetryTimer: ReturnType<typeof setTimeout> | null = null;
       const hlsMode = looksLikeHls(src);
       let isNativeHls = false;
       let cancelled = false;
@@ -143,6 +144,14 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
         if (cancelled) return;
 
         if (hlsMode && Hls.isSupported()) {
+          let mediaErrorRecoveries = 0;
+          let networkRetries = 0;
+
+          if (networkRetryTimer) {
+            clearTimeout(networkRetryTimer);
+            networkRetryTimer = null;
+          }
+
           hls = new Hls({
             ...getStreamHlsConfig(),
             ...hlsConfigExtra,
@@ -158,6 +167,37 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
               reason: data.error?.message ?? data.reason ?? undefined,
             };
             console.error("[hls.js]", err.type, err.details, err.fatal ? "(FATAL)" : "", err.reason ?? "");
+
+            if (!data.fatal) {
+              // Non-fatal: hls.js handles internally; just surface to parent for logging.
+              onErrorRef.current?.(err);
+              return;
+            }
+
+            // ── Fatal error recovery ──────────────────────────────────────────
+            if (data.type === Hls.ErrorTypes.MEDIA_ERROR && mediaErrorRecoveries < 2) {
+              mediaErrorRecoveries++;
+              if (mediaErrorRecoveries === 1) {
+                hls!.recoverMediaError();
+              } else {
+                // Second attempt: swap codec then recover.
+                hls!.swapAudioCodec();
+                hls!.recoverMediaError();
+              }
+              return; // Not yet fatal to parent — give recovery a chance.
+            }
+
+            if (data.type === Hls.ErrorTypes.NETWORK_ERROR && networkRetries < 3) {
+              networkRetries++;
+              // Back-off: 3 s, 6 s, 9 s — restarts the load pipeline.
+              networkRetryTimer = setTimeout(() => {
+                networkRetryTimer = null;
+                if (!cancelled && hls) hls.startLoad();
+              }, 3_000 * networkRetries);
+              return;
+            }
+
+            // All recovery exhausted — report truly fatal to parent.
             onErrorRef.current?.(err);
           });
           hls.loadSource(src);
@@ -179,6 +219,7 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
 
       return () => {
         cancelled = true;
+        if (networkRetryTimer) clearTimeout(networkRetryTimer);
         cancelAnimationFrame(raf1);
         if (deferredRafId !== null) cancelAnimationFrame(deferredRafId);
         if (hls) {

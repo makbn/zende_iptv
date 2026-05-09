@@ -237,6 +237,10 @@ export async function GET(
 
   const session = await touchSession(sessionId);
   if (!session) {
+    log.warn("Unknown or expired stream session", {
+      sessionId,
+      hint: "Clients must refresh /live bootstrap if idle beyond session TTL.",
+    });
     return NextResponse.json(
       { error: "Unknown or expired session." },
       { status: 404 },
@@ -270,6 +274,20 @@ export async function GET(
     }
   } else {
     fetchUrl = session.upstreamRootUrl;
+  }
+
+  if (!hParam && !uParam) {
+    log.info("stream proxy bootstrap (master/root playlist)", {
+      sessionId: sessionId.slice(0, 14),
+      upstreamHost: (() => {
+        try {
+          return new URL(session.upstreamRootUrl).hostname;
+        } catch {
+          return "(bad-url)";
+        }
+      })(),
+      ua: request.headers.get("user-agent")?.slice(0, 140),
+    });
   }
 
   // touchSession returns a fresh object parsed from the DB row on every call,

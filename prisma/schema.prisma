@@ -32,6 +32,23 @@ model User {
   proxyConfigs     ProxyConfig[]
   favorites        UserFavorite[]
   viewingHistory   UserViewingHistory[]
+  iptvCredentials IptvClientCredential[]
+}
+
+/// Long-lived portal login for Xtream-compatible IPTV apps (e.g. TiviMate): `portalUsername` + secret map to Xtream username/password.
+model IptvClientCredential {
+  id             String   @id @default(cuid())
+  label          String   @default("")
+  portalUsername String   @unique
+  passwordHash   String
+  /// When app auth is enabled, the signed-in user who created this credential. Null when auth is off (single-household mode).
+  ownerUserId    String?
+  owner          User?    @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  lastUsedAt     DateTime?
+
+  @@index([ownerUserId])
 }
 
 model RefreshToken {

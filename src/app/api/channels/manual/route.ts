@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { gateApiRequest } from "@/lib/auth/gate-api";
+import { invalidateXtreamCatalogCache } from "@/lib/iptv/aggregated-channels";
 import { prisma } from "@/lib/db/prisma";
 
 export const runtime = "nodejs";
@@ -76,6 +77,7 @@ export async function PUT(request: Request) {
       entriesJson: JSON.stringify(parsed.data.entries),
     },
   });
+  invalidateXtreamCatalogCache();
 
   return NextResponse.json({ ok: true });
 }

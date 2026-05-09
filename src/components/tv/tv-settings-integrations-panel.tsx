@@ -1,99 +1,167 @@
 "use client";
 
-import { Pencil, Plus, Trash2 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { Copy, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
-import {
-  INTEGRATION_KIND_LABEL,
-  TvIntegrationWizardModal,
-} from "@/components/tv/tv-integration-wizard-modal";
-import type { StoredIntegration } from "@/lib/integrations/types";
-import {
-  loadIntegrations,
-  removeIntegration,
-  upsertIntegration,
-} from "@/lib/integrations/storage";
+import { createClientLogger } from "@/core/logging/client";
+import { useAuth } from "@/features/auth/auth-context";
+import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { cn } from "@/lib/utils";
 
-const GUIDE = [
-  {
-    id: "plex",
-    title: "Plex",
-    body: [
-      "Plex is a media server with optional Live TV & DVR when paired with a tuner or provider. Zenede is a browser IPTV client: it plays stream URLs from M3U-style catalogs and optional XMLTV guides — it does not embed the full Plex client.",
-      "Typical workflow: export or generate an M3U that lists the channels you care about, load that list under Catalog in Zenede, and keep Plex running your library and tuners on the network. When official APIs or companion scripts are added, you will be able to sync metadata without retyping URLs.",
-    ],
-  },
-  {
-    id: "jellyfin",
-    title: "Jellyfin",
-    body: [
-      "Jellyfin is a self-hosted media stack. Its Live TV section can use HDHomeRun, M3U tuners, or other sources depending on your plugins.",
-      "Point Zenede at the same M3U/XMLTV endpoints you trust for live streams (Settings → Catalog). Jellyfin continues to handle libraries, users, and transcoding policies on the server while Zenede focuses on lean full-screen playback in the browser.",
-    ],
-  },
-  {
-    id: "emby",
-    title: "Emby",
-    body: [
-      "Emby is closely related to Jellyfin in spirit: a server-backed library with live TV options when configured.",
-      "Use Zenede for the lean IPTV watching surface; keep Emby as the administration and recording hub. Store Emby’s base URL in an integration entry so you remember which household or VPS this browser profile targets.",
-    ],
-  },
-  {
-    id: "generic",
-    title: "Generic — standards-based",
-    body: [
-      "Most IPTV tooling speaks a small set of open formats:",
-      "M3U / Extended M3U (EXTINF lines) for channel lists and stream URLs.",
-      "XMLTV for electronic program guide (EPG) windows.",
-      "HLS (m3u8) and progressive HTTP streams that the browser can open directly.",
-      "Choose “Generic — IPTV standards” in the wizard when your app is not branded above but still exposes M3U/XMLTV or plain HTTPS streams. Paste stable URLs into the integration record and again under Catalog / EPG when you wire playback.",
-    ],
-  },
-] as const;
+const log = createClientLogger("shell.TvSettingsIntegrationsPanel");
+
+type CredentialRow = {
+  id: string;
+  label: string;
+  portalUsername: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  ownerUserId: string | null;
+  ownerUsername?: string | null;
+};
+
+async function parseJsonSafely(res: Response): Promise<unknown> {
+  try {
+    return await res.json();
+  } catch {
+    return {};
+  }
+}
 
 export function TvSettingsIntegrationsPanel() {
-  const [rows, setRows] = useState<StoredIntegration[]>(() => loadIntegrations());
-  const [wizardOpen, setWizardOpen] = useState(false);
-  const [editing, setEditing] = useState<StoredIntegration | null>(null);
+  const { authEnabled, user } = useAuth();
+  const [rows, setRows] = useState<CredentialRow[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [createBusy, setCreateBusy] = useState(false);
+  const [hint, setHint] = useState<string | null>(null);
+  const [label, setLabel] = useState("");
+  const [portalUsernameCustom, setPortalUsernameCustom] = useState("");
+  const [revealed, setRevealed] = useState<{
+    portalUsername: string;
+    portalPassword: string;
+  } | null>(null);
 
-  const sorted = useMemo(
-    () => [...rows].sort((a, b) => b.updatedAt - a.updatedAt),
-    [rows],
-  );
-
-  const refresh = useCallback(() => {
-    setRows(loadIntegrations());
+  const portalBaseUrl = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    return window.location.origin;
   }, []);
 
-  const openCreate = useCallback(() => {
-    setEditing(null);
-    setWizardOpen(true);
+  const load = useCallback(async () => {
+    setBusy(true);
+    try {
+      const res = await zendeFetch("/api/iptv-clients/credentials");
+      const data = (await parseJsonSafely(res)) as {
+        credentials?: CredentialRow[];
+        error?: unknown;
+      };
+      if (!res.ok) {
+        setHint(
+          typeof data?.error === "string"
+            ? data.error
+            : "Could not load portal credentials.",
+        );
+        setRows([]);
+        return;
+      }
+      setRows(Array.isArray(data.credentials) ? data.credentials : []);
+      setHint(null);
+    } catch (e) {
+      log.warn("credentials load failed", {
+        message: e instanceof Error ? e.message : String(e),
+      });
+      setHint("Could not load portal credentials.");
+    } finally {
+      setBusy(false);
+    }
   }, []);
 
-  const openEdit = useCallback((row: StoredIntegration) => {
-    setEditing(row);
-    setWizardOpen(true);
-  }, []);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-  const onSave = useCallback(
-    (entry: StoredIntegration) => {
-      upsertIntegration(entry);
-      refresh();
+  const onCreate = useCallback(async () => {
+    setCreateBusy(true);
+    setHint(null);
+    try {
+      const trimmedUser = portalUsernameCustom.trim();
+      const body =
+        trimmedUser || label.trim()
+          ? {
+              ...(label.trim() ? { label: label.trim() } : {}),
+              ...(trimmedUser ? { portalUsername: trimmedUser } : {}),
+            }
+          : {};
+      const res = await zendeFetch("/api/iptv-clients/credentials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = (await parseJsonSafely(res)) as {
+        portalPassword?: string;
+        credential?: { portalUsername: string };
+        error?: unknown;
+      };
+      if (!res.ok) {
+        const err =
+          data?.error &&
+          typeof data.error === "object" &&
+          data.error !== null &&
+          "formErrors" in (data.error as object)
+            ? "Check username format (3–48 letters, numbers, _ or -)."
+            : typeof data?.error === "string"
+              ? data.error
+              : "Could not create credential.";
+        setHint(err);
+        return;
+      }
+      if (data.credential?.portalUsername && data.portalPassword) {
+        setRevealed({
+          portalUsername: data.credential.portalUsername,
+          portalPassword: data.portalPassword,
+        });
+        setLabel("");
+        setPortalUsernameCustom("");
+      }
+      await load();
+    } catch {
+      setHint("Could not create credential.");
+    } finally {
+      setCreateBusy(false);
+    }
+  }, [label, portalUsernameCustom, load]);
+
+  const onDelete = useCallback(
+    async (id: string) => {
+      if (!confirm("Revoke this portal login? TiviMate and other apps using it will stop working.")) {
+        return;
+      }
+      const res = await zendeFetch(`/api/iptv-clients/credentials/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        setHint("Could not delete credential.");
+        return;
+      }
+      setHint(null);
+      await load();
     },
-    [refresh],
+    [load],
   );
 
-  const onRemove = useCallback(
-    (id: string) => {
-      if (!confirm("Remove this integration record from this browser?")) return;
-      removeIntegration(id);
-      refresh();
-    },
-    [refresh],
-  );
+  const copy = useCallback((text: string) => {
+    void navigator.clipboard.writeText(text).catch(() => {
+      setHint("Clipboard blocked — copy manually.");
+    });
+  }, []);
+
+  const authGate =
+    authEnabled && !user ? (
+      <p className="rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-[14px] text-amber-100/90">
+        Sign in to create and manage IPTV portal keys. External players can still use keys you
+        created earlier.
+      </p>
+    ) : null;
 
   return (
     <div className="space-y-10">
@@ -101,128 +169,241 @@ export function TvSettingsIntegrationsPanel() {
         className={cn(
           "rounded-2xl border border-white/[0.1] bg-white/[0.04] p-6 ring-1 ring-white/[0.04]",
         )}
-        aria-labelledby="integrations-guide-heading"
+        aria-labelledby="iptv-players-heading"
       >
         <h2
-          id="integrations-guide-heading"
+          id="iptv-players-heading"
           className="text-[18px] font-semibold text-white"
         >
-          How integrations work
+          IPTV players (TiviMate, etc.)
         </h2>
         <p className="mt-2 text-[15px] leading-relaxed text-white/50">
-          Zenede stays a lightweight IPTV front-end. Plex, Jellyfin, Emby, and other apps
-          usually remain the system of record for libraries, users, and tuners. The entries
-          you save below are reminders and bookmarks for{" "}
-          <span className="text-white/70">this device</span> — useful before deeper API
-          bridges ship.
+          Zenede exposes an <span className="text-white/70">Xtream Codes–compatible</span> portal on
+          the same host as the web app. Your catalog is whatever is wired in Settings → Catalog plus
+          manual channels: live categories and streams mirror that merged lineup. Playlist URLs use
+          the classic <span className="font-mono text-[13px] text-white/60">player_api.php</span>,{" "}
+          <span className="font-mono text-[13px] text-white/60">get.php</span>,{" "}
+          <span className="font-mono text-[13px] text-white/60">xmltv.php</span>, and Xtream-style{" "}
+          <span className="font-mono text-[13px] text-white/60">/live/…</span> playback (relayed
+          through the same proxy path as Watch in the browser). Movies/Series stubs return empty lists
+          for now — add VOD shaping later if you standardize hosted media.
         </p>
 
-        <div className="mt-8 space-y-6">
-          {GUIDE.map((g) => (
-            <article
-              key={g.id}
-              className="rounded-xl border border-white/[0.08] bg-black/25 px-5 py-4"
-            >
-              <h3 className="text-[16px] font-semibold text-white">{g.title}</h3>
-              <div className="mt-3 space-y-3 text-[14px] leading-relaxed text-white/48">
-                {g.body.map((p, i) => (
-                  <p key={i}>{p}</p>
-                ))}
-              </div>
-            </article>
-          ))}
-        </div>
+        <ul className="mt-5 list-disc space-y-2 pl-5 text-[14px] text-white/45">
+          <li>
+            <span className="text-white/65">TiviMate</span> → add playlist →{" "}
+            <span className="text-white/65">Xtream Codes API</span>. Server = your site origin (
+            <span className="font-mono text-[12px] text-white/55">{portalBaseUrl || "…"}</span>
+            ), username + password = a portal key from below.
+          </li>
+          <li>
+            <span className="text-white/65">M3U URL</span> → use the template with{" "}
+            <span className="font-mono text-[12px] text-white/55">get.php</span> (see per-key
+            examples after you create a key).
+          </li>
+        </ul>
       </section>
 
       <section
         className={cn(
           "rounded-2xl border border-white/[0.1] bg-white/[0.04] p-6 ring-1 ring-white/[0.04]",
         )}
-        aria-labelledby="integrations-saved-heading"
+        aria-labelledby="portal-keys-heading"
       >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2
-              id="integrations-saved-heading"
-              className="text-[18px] font-semibold text-white"
-            >
-              Your integrations
-            </h2>
-            <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-white/50">
-              Run the wizard to pick an app type, then save URLs and notes. Edit or remove
-              entries anytime — nothing is sent to Zenede’s server until you use features
-              that explicitly fetch playlists.
-            </p>
+        <h2
+          id="portal-keys-heading"
+          className="text-[18px] font-semibold text-white"
+        >
+          Portal API keys
+        </h2>
+        <p className="mt-2 max-w-3xl text-[15px] leading-relaxed text-white/50">
+          Each key is a long-lived <span className="text-white/70">username + password</span> pair
+          (password is generated and stored hashed). Revoke a key anytime — it is independent of your
+          web login session.
+        </p>
+
+        {authGate}
+
+        {hint ? (
+          <p className="mt-4 rounded-lg border border-red-400/20 bg-red-500/10 px-3 py-2 text-[13px] text-red-100/90">
+            {hint}
+          </p>
+        ) : null}
+
+        <div className="mt-6 flex flex-col gap-4 rounded-xl border border-white/[0.08] bg-black/25 p-4 sm:flex-row sm:items-end">
+          <div className="min-w-0 flex-1 space-y-3">
+            <label className="block text-[13px] font-medium text-white/55">
+              Label (optional)
+              <input
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                placeholder="Living room TV"
+                className="mt-1 w-full rounded-lg border border-white/[0.12] bg-black/40 px-3 py-2 text-[14px] text-white outline-none placeholder:text-white/30 focus-visible:ring-2 focus-visible:ring-white"
+              />
+            </label>
+            <label className="block text-[13px] font-medium text-white/55">
+              Portal username (optional — auto-generated if empty)
+              <input
+                value={portalUsernameCustom}
+                onChange={(e) => setPortalUsernameCustom(e.target.value)}
+                placeholder="my_tivimate_slot"
+                className="mt-1 w-full rounded-lg border border-white/[0.12] bg-black/40 px-3 py-2 font-mono text-[13px] text-white outline-none placeholder:text-white/30 focus-visible:ring-2 focus-visible:ring-white"
+              />
+              <span className="mt-1 block text-[11px] text-white/38">
+                3–48 characters: letters, digits, underscores, hyphen.
+              </span>
+            </label>
           </div>
-          <button type="button" onClick={() => openCreate()} className="shrink-0 outline-none">
+          <button
+            type="button"
+            disabled={createBusy || (authEnabled && !user)}
+            onClick={() => void onCreate()}
+            className="shrink-0 outline-none disabled:opacity-40"
+          >
             <ZenedeGlass variant="ctaPill">
               <span className="flex items-center gap-2 px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
-                <Plus className="h-4 w-4" aria-hidden />
-                New integration
+                {createBusy ? "Creating…" : "New portal key"}
               </span>
             </ZenedeGlass>
           </button>
         </div>
 
-        {sorted.length === 0 ? (
-          <p className="mt-8 rounded-xl border border-dashed border-white/[0.12] bg-black/20 px-5 py-8 text-center text-[14px] text-white/40">
-            No integrations yet — use{" "}
-            <span className="text-white/60">New integration</span> to walk through the
-            stepper (choose app → details → confirm).
+        {busy ? (
+          <p className="mt-6 text-[14px] text-white/40">Loading…</p>
+        ) : rows.length === 0 ? (
+          <p className="mt-6 rounded-xl border border-dashed border-white/[0.12] bg-black/20 px-5 py-8 text-center text-[14px] text-white/40">
+            No portal keys yet. Create one — the password appears once; store it where TiviMate or
+            your notes app keeps credentials.
           </p>
         ) : (
-          <ul className="mt-8 space-y-3">
-            {sorted.map((row) => (
-              <li
-                key={row.id}
-                className="flex flex-col gap-3 rounded-xl border border-white/[0.1] bg-black/30 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-white">{row.name}</p>
-                  <p className="mt-1 text-[13px] text-white/45">
-                    {INTEGRATION_KIND_LABEL[row.kind]}
-                    <span className="text-white/25"> · </span>
-                    Updated {new Date(row.updatedAt).toLocaleString()}
-                  </p>
-                  {row.serverBaseUrl ? (
-                    <p className="mt-2 truncate text-[12px] text-white/38" title={row.serverBaseUrl}>
-                      {row.serverBaseUrl}
-                    </p>
+          <ul className="mt-8 space-y-4">
+            {rows.map((r) => {
+              const xtreamTester = portalBaseUrl
+                ? `${portalBaseUrl}/player_api.php?username=${encodeURIComponent(r.portalUsername)}&password=YOUR_PASSWORD`
+                : "";
+              const m3uTemplate = portalBaseUrl
+                ? `${portalBaseUrl}/get.php?username=${encodeURIComponent(r.portalUsername)}&password=YOUR_PASSWORD&type=m3u_plus&output=m3u8`
+                : "";
+              const xmltvTemplate = portalBaseUrl
+                ? `${portalBaseUrl}/xmltv.php?username=${encodeURIComponent(r.portalUsername)}&password=YOUR_PASSWORD`
+                : "";
+              return (
+                <li
+                  key={r.id}
+                  className="rounded-xl border border-white/[0.1] bg-black/30 px-4 py-4"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-white">
+                        {r.label?.trim() || r.portalUsername}
+                      </p>
+                      <p className="mt-1 font-mono text-[13px] text-emerald-200/90">
+                        {r.portalUsername}
+                      </p>
+                      {r.ownerUsername ? (
+                        <p className="mt-1 text-[12px] text-white/38">
+                          Owner: {r.ownerUsername}
+                        </p>
+                      ) : null}
+                      <p className="mt-2 text-[12px] text-white/35">
+                        Created {new Date(r.createdAt).toLocaleString()}
+                        {r.lastUsedAt
+                          ? ` · Last used ${new Date(r.lastUsedAt).toLocaleString()}`
+                          : ""}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void onDelete(r.id)}
+                      disabled={authEnabled && !user}
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-red-400/25 bg-red-500/10 px-3 py-2 text-[13px] font-medium text-red-200/95 outline-none hover:bg-red-500/15 focus-visible:ring-2 focus-visible:ring-red-300 disabled:opacity-40"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                      Revoke
+                    </button>
+                  </div>
+                  {portalBaseUrl ? (
+                    <div className="mt-4 space-y-2 text-[12px] text-white/42">
+                      <p className="text-white/55">Reference URLs (replace YOUR_PASSWORD):</p>
+                      <div className="flex flex-col gap-2">
+                        {[
+                          ["Xtream API", xtreamTester],
+                          ["M3U (get.php)", m3uTemplate],
+                          ["XMLTV", xmltvTemplate],
+                        ].map(([k, u]) => (
+                          <div
+                            key={k}
+                            className="flex flex-col gap-1 rounded-lg border border-white/[0.06] bg-black/40 p-2 sm:flex-row sm:items-center sm:gap-2"
+                          >
+                            <span className="w-36 shrink-0 text-white/50">{k}</span>
+                            <code className="min-w-0 flex-1 break-all font-mono text-[11px] text-white/60">
+                              {u}
+                            </code>
+                            <button
+                              type="button"
+                              onClick={() => copy(u)}
+                              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-white/[0.1] px-2 py-1 text-[11px] text-white/70 outline-none hover:bg-white/[0.06]"
+                            >
+                              <Copy className="h-3 w-3" aria-hidden />
+                              Copy
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   ) : null}
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openEdit(row)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.12] bg-white/[0.06] px-3 py-2 text-[13px] font-medium text-white/85 outline-none hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-white"
-                  >
-                    <Pencil className="h-3.5 w-3.5" aria-hidden />
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onRemove(row.id)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-red-400/25 bg-red-500/10 px-3 py-2 text-[13px] font-medium text-red-200/95 outline-none hover:bg-red-500/15 focus-visible:ring-2 focus-visible:ring-red-300"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                    Remove
-                  </button>
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
 
-      <TvIntegrationWizardModal
-        open={wizardOpen}
-        onClose={() => {
-          setWizardOpen(false);
-          setEditing(null);
-        }}
-        editing={editing}
-        onSave={onSave}
-      />
+      {revealed ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          role="dialog"
+          aria-modal
+          aria-labelledby="reveal-key-title"
+        >
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/[0.12] bg-zinc-950 p-6 shadow-xl">
+            <h3 id="reveal-key-title" className="text-lg font-semibold text-white">
+              Save this password now
+            </h3>
+            <p className="mt-2 text-[14px] text-white/55">
+              It is not shown again. Use it as the Xtream / M3U password for this portal username.
+            </p>
+            <dl className="mt-4 space-y-3 text-[13px]">
+              <div>
+                <dt className="text-white/45">Portal username</dt>
+                <dd className="mt-1 break-all font-mono text-emerald-200">{revealed.portalUsername}</dd>
+              </div>
+              <div>
+                <dt className="text-white/45">Portal password</dt>
+                <dd className="mt-1 break-all font-mono text-amber-200">{revealed.portalPassword}</dd>
+              </div>
+            </dl>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  copy(`${revealed.portalUsername}\t${revealed.portalPassword}`)
+                }
+                className="rounded-lg bg-white/[0.1] px-4 py-2 text-[13px] text-white outline-none hover:bg-white/[0.14]"
+              >
+                Copy username + password
+              </button>
+              <button
+                type="button"
+                onClick={() => setRevealed(null)}
+                className="rounded-lg bg-emerald-500/90 px-4 py-2 text-[13px] font-semibold text-zinc-950 outline-none hover:bg-emerald-400"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

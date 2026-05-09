@@ -39,6 +39,8 @@ yarn-error.log*
 # prisma / sqlite local
 *.db
 /prisma/*.db
+*.db-wal
+*.db-shm
 
 # gluetun VPN work directory — contains credentials and certs, never commit
 /gluetun-work/

@@ -38,7 +38,27 @@ if [ "$(id -u)" -eq 0 ]; then
   fi
 fi
 
-# Apply schema (SQLite tables). Runs as non-root after chown above.
-su-exec nextjs npx prisma db push --skip-generate
+# Apply pending SQL migrations (SQLite under DATABASE_URL). Runs as non-root after chown.
+# Legacy volumes created with `db push` only hit P3005 (schema exists but no _prisma_migrations):
+# sync once with db push, mark bundled migrations applied, then future boots use migrate deploy only.
+echo "Applying database schema..."
+set +e
+DEPLOY_OUT=$(su-exec nextjs npx prisma migrate deploy 2>&1)
+DEPLOY_RC=$?
+set -e
+printf '%s\n' "$DEPLOY_OUT"
+if [ "$DEPLOY_RC" -eq 0 ]; then
+  :
+elif printf '%s\n' "$DEPLOY_OUT" | grep -q P3005; then
+  echo "docker-entrypoint: existing DB without migration history (P3005) — prisma db push + migrate resolve baseline." >&2
+  su-exec nextjs npx prisma db push --skip-generate
+  for mig_dir in /app/prisma/migrations/*/; do
+    [ -d "$mig_dir" ] || continue
+    name=$(basename "$mig_dir")
+    su-exec nextjs npx prisma migrate resolve --applied "$name" || true
+  done
+else
+  exit "$DEPLOY_RC"
+fi
 
 exec su-exec nextjs "$@"

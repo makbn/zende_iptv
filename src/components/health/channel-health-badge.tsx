@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 
 const styles: Record<string, string> = {
   STABLE: "bg-emerald-500/90 text-black shadow-emerald-500/30",
+  MOODY: "bg-lime-400/95 text-black shadow-lime-400/25",
   FLAKY: "bg-amber-400/95 text-black shadow-amber-400/25",
   UNSTABLE: "bg-orange-500/90 text-white shadow-orange-500/30",
   DOWN: "bg-red-600/95 text-white shadow-red-600/35",

@@ -9,6 +9,7 @@ import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { cn } from "@/lib/utils";
 import {
   CalendarClock,
+  ChevronDown,
   ChevronRight,
   Radio,
   RefreshCw,
@@ -40,6 +41,64 @@ function formatWindow(slot: Slot): string {
   return `${formatClock(slot.startMs)} – ${formatClock(slot.stopMs)}`;
 }
 
+const CAROUSEL_CARD_W = "min(calc(100vw - 3rem), 292px)";
+
+const EPG_SESSION_KEY = "zenede.fav-epg.v1";
+
+type EpgSessionPayload = {
+  idsKey: string;
+  programs: Record<string, ChannelPrograms>;
+  fetchedAt: number;
+};
+
+function readEpgSession(idsKey: string): EpgSessionPayload | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(EPG_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as EpgSessionPayload;
+    if (parsed.idsKey !== idsKey || !parsed.programs) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeEpgSession(payload: EpgSessionPayload): void {
+  try {
+    sessionStorage.setItem(EPG_SESSION_KEY, JSON.stringify(payload));
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+function EpgCardSkeleton({ i }: { i: number }) {
+  return (
+    <div
+      className={cn(
+        "motion-safe:animate-fav-epg-card shrink-0 rounded-2xl border border-white/[0.06] bg-white/[0.04] p-4 ring-1 ring-white/[0.04]",
+        "motion-reduce:animate-none motion-reduce:opacity-100",
+      )}
+      style={{
+        width: CAROUSEL_CARD_W,
+        animationDelay: `${i * 55}ms`,
+      }}
+    >
+      <div className="flex gap-3">
+        <div className="size-11 shrink-0 animate-pulse rounded-xl bg-white/[0.08]" />
+        <div className="min-w-0 flex-1 space-y-2 pt-0.5">
+          <div className="h-3.5 w-3/4 animate-pulse rounded-md bg-white/[0.08]" />
+          <div className="h-3 w-1/2 animate-pulse rounded-md bg-white/[0.06]" />
+        </div>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="h-[4.5rem] animate-pulse rounded-xl bg-violet-500/10" />
+        <div className="h-[4.5rem] animate-pulse rounded-xl bg-white/[0.06]" />
+      </div>
+    </div>
+  );
+}
+
 export function FavoritesEpgTimeline({
   channels,
   onSelectChannel,
@@ -56,6 +115,7 @@ export function FavoritesEpgTimeline({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   const rows = useMemo(() => {
     const list = channels.slice();
@@ -77,49 +137,80 @@ export function FavoritesEpgTimeline({
     return ids;
   }, [rows]);
 
-  const fetchPrograms = useCallback(async () => {
-    if (idPayload.length === 0) {
-      setPrograms({});
-      setFetchedAt(null);
-      setError(null);
-      setHasLoadedOnce(false);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await zendeFetch("/api/epg/programs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: idPayload }),
-      });
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
+  const withGuideId = useMemo(
+    () => rows.filter((c) => Boolean(c.tvgId?.trim())),
+    [rows],
+  );
+
+  const fetchPrograms = useCallback(
+    async (mode: "full" | "background" | "force" = "full") => {
+      if (idPayload.length === 0) {
+        setPrograms({});
+        setFetchedAt(null);
+        setError(null);
+        setHasLoadedOnce(false);
+        return;
       }
-      const data = (await res.json()) as {
-        programs?: Record<string, ChannelPrograms>;
-        fetchedAt?: number;
-      };
-      setPrograms(data.programs ?? {});
-      setFetchedAt(typeof data.fetchedAt === "number" ? data.fetchedAt : Date.now());
-      setHasLoadedOnce(true);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load guide");
-      setPrograms({});
-      setFetchedAt(null);
-      setHasLoadedOnce(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [idPayload]);
+
+      const idsKey = idPayload.join("\0");
+
+      if (mode === "full") {
+        const cached = readEpgSession(idsKey);
+        if (cached) {
+          setPrograms(cached.programs);
+          setFetchedAt(cached.fetchedAt);
+          setHasLoadedOnce(true);
+          setError(null);
+          void fetchPrograms("background");
+          return;
+        }
+      }
+
+      if (mode === "full" || mode === "force") {
+        setLoading(true);
+      }
+      setError(null);
+      try {
+        const res = await zendeFetch("/api/epg/programs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: idPayload }),
+        });
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const data = (await res.json()) as {
+          programs?: Record<string, ChannelPrograms>;
+          fetchedAt?: number;
+        };
+        const programs = data.programs ?? {};
+        const at =
+          typeof data.fetchedAt === "number" ? data.fetchedAt : Date.now();
+        setPrograms(programs);
+        setFetchedAt(at);
+        setHasLoadedOnce(true);
+        writeEpgSession({ idsKey, programs, fetchedAt: at });
+      } catch (e) {
+        if (mode === "full" || mode === "force") {
+          setError(e instanceof Error ? e.message : "Could not load guide");
+          setPrograms({});
+          setFetchedAt(null);
+          setHasLoadedOnce(true);
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [idPayload],
+  );
 
   useEffect(() => {
-    void fetchPrograms();
+    void fetchPrograms("full");
   }, [fetchPrograms]);
 
   useEffect(() => {
     const id = window.setInterval(
-      () => void fetchPrograms(),
+      () => void fetchPrograms("background"),
       10 * 60 * 1000,
     );
     return () => window.clearInterval(id);
@@ -131,57 +222,94 @@ export function FavoritesEpgTimeline({
 
   return (
     <section
-      className={cn("mb-10", className)}
+      className={cn(
+        "motion-safe:animate-fav-epg-strip motion-reduce:animate-none",
+        className,
+      )}
       aria-labelledby="favorites-epg-heading"
     >
       <ZenedeGlass
         variant="panel"
         className={cn(
-          "overflow-hidden shadow-[0_24px_70px_-34px_rgba(0,0,0,0.88)]",
+          "w-full overflow-hidden shadow-[0_24px_70px_-34px_rgba(0,0,0,0.88)]",
           "ring-1 ring-white/[0.07]",
+          "transition-[box-shadow] duration-500 ease-out",
         )}
       >
-        <div className="border-b border-white/[0.06] px-5 py-4 sm:px-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <span className="mt-0.5 flex size-10 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/25 to-fuchsia-500/15 ring-1 ring-white/[0.12]">
+        <div className="border-b border-white/[0.06] px-4 py-3.5 sm:px-6 sm:py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setExpanded((e) => !e)}
+              className={cn(
+                "group flex min-w-0 flex-1 items-start gap-3 rounded-2xl text-left outline-none",
+                "transition-colors duration-200 hover:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-white sm:items-center",
+              )}
+              aria-expanded={expanded}
+              aria-controls="favorites-epg-carousel"
+            >
+              <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/25 to-fuchsia-500/15 ring-1 ring-white/[0.12] sm:mt-0">
                 <Radio className="size-5 text-violet-200/95" aria-hidden />
               </span>
-              <div>
-                <h2
-                  id="favorites-epg-heading"
-                  className="text-[18px] font-semibold tracking-tight text-white"
-                >
-                  What&apos;s on
-                </h2>
-                <p className="mt-1 max-w-xl text-[14px] leading-relaxed text-white/45">
-                  For each favorite that has a{" "}
-                  <span className="text-white/55">tvg-id</span> in the playlist, we
-                  look up the current and following show from the XMLTV guides
-                  configured for this app.
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2
+                    id="favorites-epg-heading"
+                    className="text-[17px] font-semibold tracking-tight text-white sm:text-[18px]"
+                  >
+                    What&apos;s on
+                  </h2>
+                  <ChevronDown
+                    className={cn(
+                      "size-5 shrink-0 text-white/40 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                      expanded && "rotate-180",
+                    )}
+                    aria-hidden
+                  />
+                </div>
+                <p className="mt-0.5 text-[13px] leading-snug text-white/45 sm:text-[14px]">
+                  {hasGuideIds ? (
+                    <>
+                      <span className="tabular-nums text-white/55">
+                        {withGuideId.length}
+                      </span>
+                      {" of "}
+                      <span className="tabular-nums text-white/55">
+                        {rows.length}
+                      </span>
+                      {" favorites have guide data — scroll sideways for now & next."}
+                    </>
+                  ) : (
+                    <>
+                      No <span className="text-white/60">tvg-id</span> on these
+                      channels yet — programme titles won&apos;t appear until the
+                      playlist includes guide IDs.
+                    </>
+                  )}
                 </p>
               </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
+            </button>
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
               {fetchedAt ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-black/25 px-3 py-1.5 text-[12px] tabular-nums text-white/40">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-black/25 px-3 py-1.5 text-[11px] tabular-nums text-white/40 sm:text-[12px]">
                   <CalendarClock className="size-3.5 opacity-70" aria-hidden />
-                  Updated {formatClock(fetchedAt)}
+                  {formatClock(fetchedAt)}
                 </span>
               ) : null}
               <button
                 type="button"
-                onClick={() => void fetchPrograms()}
+                onClick={() => void fetchPrograms("force")}
                 disabled={loading || idPayload.length === 0}
                 className={cn(
                   "inline-flex items-center gap-2 rounded-full border border-white/[0.12] bg-white/[0.06]",
-                  "px-4 py-2 text-[13px] font-semibold text-white/85 outline-none transition-colors",
+                  "px-3.5 py-2 text-[12px] font-semibold text-white/85 outline-none transition-all duration-200",
                   "hover:bg-white/[0.1] disabled:opacity-40",
                   "focus-visible:ring-2 focus-visible:ring-white",
+                  "active:scale-[0.98]",
                 )}
               >
                 <RefreshCw
-                  className={cn("size-4", loading && "animate-spin")}
+                  className={cn("size-3.5 sm:size-4", loading && "animate-spin")}
                   aria-hidden
                 />
                 Refresh
@@ -190,175 +318,185 @@ export function FavoritesEpgTimeline({
           </div>
         </div>
 
-        <div className="px-4 py-5 sm:px-6 sm:py-6">
-          {!hasGuideIds ? (
-            <p className="rounded-2xl border border-dashed border-white/[0.12] bg-black/20 px-5 py-8 text-center text-[15px] leading-relaxed text-white/48">
-              None of these favorites include a{" "}
-              <span className="text-white/70">tvg-id</span> from the playlist.
-              When the provider adds guide IDs, a schedule line appears here
-              automatically.
-            </p>
-          ) : (
-            <>
-              {error ? (
-                <p className="mb-4 rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-[14px] text-rose-100/90">
-                  {error}
-                </p>
-              ) : null}
-
-              <div className="relative">
-                <div
-                  className="pointer-events-none absolute bottom-2 left-[21px] top-2 w-px bg-gradient-to-b from-violet-400/35 via-white/15 to-fuchsia-400/25 sm:left-[25px]"
-                  aria-hidden
-                />
-
-                <ul className="flex flex-col gap-0">
-                  {rows.map((ch, idx) => {
-                    const parsed = parseChannelLabel(ch.name ?? "");
-                    const gid = ch.tvgId?.trim();
-                    const prog = gid ? programs[gid] : undefined;
-                    const hasData =
-                      prog &&
-                      (prog.current !== null || prog.next !== null);
-
-                    return (
-                      <li key={`${ch.url}-${idx}`} className="relative">
-                        <div className="flex gap-3 py-4 sm:gap-5">
-                          <div className="relative z-[1] flex w-11 shrink-0 justify-center sm:w-[52px]">
-                            <span
-                              className={cn(
-                                "mt-1.5 size-3 rounded-full ring-4 ring-[var(--tv-page-bg)] sm:size-3.5",
-                                hasData
-                                  ? "bg-gradient-to-br from-violet-400 to-fuchsia-400 shadow-[0_0_14px_rgba(167,139,250,0.45)]"
-                                  : "bg-white/25",
-                              )}
-                              aria-hidden
-                            />
-                          </div>
-
-                          <div className="min-w-0 flex-1">
-                            <button
-                              type="button"
-                              onClick={() => onSelectChannel(ch)}
-                              className={cn(
-                                "group mb-3 flex w-full max-w-full items-center gap-3 rounded-2xl text-left outline-none",
-                                "transition-colors hover:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-white sm:gap-4",
-                              )}
-                            >
-                              <div
-                                className={cn(
-                                  "relative size-11 shrink-0 overflow-hidden rounded-xl sm:size-12",
-                                  "bg-zinc-800 ring-1 ring-white/[0.08]",
-                                )}
-                              >
-                                {ch.tvgLogo ? (
-                                  <>
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                      src={ch.tvgLogo}
-                                      alt=""
-                                      className="size-full object-contain p-1.5"
-                                      loading="lazy"
-                                    />
-                                  </>
-                                ) : (
-                                  <div className="flex size-full items-center justify-center bg-gradient-to-br from-white/12 to-black/35 text-[11px] font-bold text-white/45">
-                                    {(parsed.displayName ?? "?")
-                                      .slice(0, 2)
-                                      .toUpperCase()}
-                                  </div>
-                                )}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-[16px] font-semibold text-white group-hover:text-white">
-                                  {parsed.displayName ||
-                                    ch.name ||
-                                    "Channel"}
-                                </p>
-                                <p className="mt-0.5 truncate text-[13px] text-white/42">
-                                  {ch.groupTitle ?? "Live TV"}
-                                  {gid ? (
-                                    <span className="text-white/28">
-                                      {" "}
-                                      · {gid}
-                                    </span>
-                                  ) : null}
-                                </p>
-                              </div>
-                              <ChevronRight
-                                className="size-5 shrink-0 text-white/35 transition-transform group-hover:translate-x-0.5 group-hover:text-white/55"
-                                aria-hidden
-                              />
-                            </button>
-
-                            {!gid ? (
-                              <p className="text-[13px] leading-relaxed text-white/38">
-                                No guide ID on this stream — programme titles
-                                aren&apos;t available.
-                              </p>
-                            ) : loading && !hasLoadedOnce ? (
-                              <div className="grid gap-2 sm:grid-cols-2">
-                                <div className="h-[72px] animate-pulse rounded-2xl bg-white/[0.06]" />
-                                <div className="h-[72px] animate-pulse rounded-2xl bg-white/[0.05]" />
-                              </div>
-                            ) : (
-                              <div className="grid gap-3 sm:grid-cols-2">
-                                <div
-                                  className={cn(
-                                    "rounded-2xl border px-4 py-3 sm:py-3.5",
-                                    prog?.current
-                                      ? "border-violet-400/25 bg-gradient-to-br from-violet-500/15 to-transparent"
-                                      : "border-white/[0.08] bg-black/25",
-                                  )}
-                                >
-                                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-violet-200/75">
-                                    Now
-                                  </p>
-                                  <p className="mt-1 line-clamp-2 text-[15px] font-semibold leading-snug text-white">
-                                    {prog?.current?.title ?? "—"}
-                                  </p>
-                                  {prog?.current ? (
-                                    <p className="mt-1 text-[12px] tabular-nums text-white/45">
-                                      {formatWindow(prog.current)}
-                                    </p>
-                                  ) : (
-                                    <p className="mt-1 text-[12px] text-white/35">
-                                      No match in configured guides
-                                    </p>
-                                  )}
-                                </div>
-                                <div
-                                  className={cn(
-                                    "rounded-2xl border border-white/[0.08] bg-black/20 px-4 py-3 sm:py-3.5",
-                                  )}
-                                >
-                                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/38">
-                                    Next
-                                  </p>
-                                  <p className="mt-1 line-clamp-2 text-[15px] font-semibold leading-snug text-white/85">
-                                    {prog?.next?.title ?? "—"}
-                                  </p>
-                                  {prog?.next ? (
-                                    <p className="mt-1 text-[12px] tabular-nums text-white/40">
-                                      {formatWindow(prog.next)}
-                                    </p>
-                                  ) : (
-                                    <p className="mt-1 text-[12px] text-white/35">
-                                      —
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            </>
+        <div
+          id="favorites-epg-carousel"
+          className={cn(
+            "grid transition-[grid-template-rows] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+            expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
           )}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="px-0 pb-5 pt-1 sm:px-2 sm:pb-6 sm:pt-2">
+              {!hasGuideIds ? (
+                <p className="mx-4 rounded-2xl border border-dashed border-white/[0.12] bg-black/20 px-5 py-8 text-center text-[14px] leading-relaxed text-white/48 sm:mx-6 sm:text-[15px]">
+                  When providers add <span className="text-white/70">tvg-id</span>{" "}
+                  metadata, a compact schedule strip appears here — no extra setup.
+                </p>
+              ) : (
+                <>
+                  {error ? (
+                    <p className="mx-4 mb-4 rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-[13px] text-rose-100/90 sm:mx-6 sm:text-[14px]">
+                      {error}
+                    </p>
+                  ) : null}
+
+                  <div
+                    className={cn(
+                      "relative",
+                      "before:pointer-events-none before:absolute before:inset-y-0 before:left-0 before:z-10 before:w-8 before:bg-gradient-to-r before:from-[var(--tv-page-bg)] before:to-transparent",
+                      "after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:z-10 after:w-10 after:bg-gradient-to-l after:from-[var(--tv-page-bg)] after:to-transparent",
+                    )}
+                  >
+                    <ul
+                      className={cn(
+                        "tv-row-scroll flex snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden px-4 pb-2 pt-1 sm:gap-4 sm:px-6 sm:pb-3",
+                        "scroll-px-4 sm:scroll-px-6",
+                        "[scroll-padding-inline:1rem]",
+                      )}
+                      role="list"
+                      aria-label="Now and next by channel"
+                    >
+                      {loading && !hasLoadedOnce
+                        ? Array.from({ length: 7 }, (_, i) => (
+                            <li key={`sk-${i}`} className="snap-start" role="presentation">
+                              <EpgCardSkeleton i={i} />
+                            </li>
+                          ))
+                        : rows.map((ch, idx) => {
+                            const parsed = parseChannelLabel(ch.name ?? "");
+                            const gid = ch.tvgId?.trim();
+                            const prog = gid ? programs[gid] : undefined;
+                            const hasData =
+                              prog &&
+                              (prog.current !== null || prog.next !== null);
+
+                            return (
+                              <li
+                                key={`${ch.url}-${idx}`}
+                                className="snap-start"
+                                style={{
+                                  animationDelay: `${Math.min(idx, 20) * 45}ms`,
+                                }}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => onSelectChannel(ch)}
+                                  className={cn(
+                                    "motion-safe:animate-fav-epg-card motion-reduce:animate-none motion-reduce:opacity-100",
+                                    "group flex h-full w-[min(calc(100vw-3rem),292px)] flex-col rounded-2xl border text-left outline-none",
+                                    "border-white/[0.09] bg-gradient-to-b from-white/[0.07] to-black/30 ring-1 ring-white/[0.05]",
+                                    "transition-[transform,box-shadow,border-color,background-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                                    "hover:border-violet-400/30 hover:from-white/[0.09] hover:shadow-[0_20px_50px_-24px_rgba(0,0,0,0.75)]",
+                                    "focus-visible:ring-2 focus-visible:ring-violet-400/80",
+                                    "motion-safe:group-hover:-translate-y-0.5",
+                                  )}
+                                >
+                                  <div className="flex items-center gap-3 border-b border-white/[0.06] p-3.5 sm:p-4">
+                                    <div
+                                      className={cn(
+                                        "relative size-11 shrink-0 overflow-hidden rounded-xl sm:size-12",
+                                        "bg-zinc-800 ring-1 ring-white/[0.08]",
+                                        "transition-transform duration-300 group-hover:scale-[1.03]",
+                                      )}
+                                    >
+                                      {ch.tvgLogo ? (
+                                        /* eslint-disable-next-line @next/next/no-img-element */
+                                        <img
+                                          src={ch.tvgLogo}
+                                          alt=""
+                                          className="size-full object-contain p-1.5"
+                                          loading="lazy"
+                                        />
+                                      ) : (
+                                        <div className="flex size-full items-center justify-center bg-gradient-to-br from-white/12 to-black/35 text-[11px] font-bold text-white/45">
+                                          {(parsed.displayName ?? "?")
+                                            .slice(0, 2)
+                                            .toUpperCase()}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate text-[15px] font-semibold leading-tight text-white">
+                                        {parsed.displayName ||
+                                          ch.name ||
+                                          "Channel"}
+                                      </p>
+                                      <p className="mt-0.5 truncate text-[12px] text-white/40">
+                                        {ch.groupTitle ?? "Live"}
+                                      </p>
+                                    </div>
+                                    <ChevronRight
+                                      className="size-4 shrink-0 text-white/30 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:text-violet-300/90"
+                                      aria-hidden
+                                    />
+                                  </div>
+
+                                  <div className="grid flex-1 grid-cols-1 gap-2 p-3 sm:grid-cols-2 sm:gap-2.5 sm:p-3.5">
+                                    {!gid ? (
+                                      <p className="col-span-full py-3 text-center text-[12px] text-white/38">
+                                        No guide ID
+                                      </p>
+                                    ) : loading && !hasLoadedOnce ? (
+                                      <>
+                                        <div className="h-16 animate-pulse rounded-xl bg-violet-500/10" />
+                                        <div className="h-16 animate-pulse rounded-xl bg-white/[0.06]" />
+                                      </>
+                                    ) : (
+                                      <>
+                                        <div
+                                          className={cn(
+                                            "rounded-xl border px-3 py-2.5 transition-colors duration-200",
+                                            prog?.current
+                                              ? "border-violet-400/28 bg-gradient-to-br from-violet-500/18 to-transparent"
+                                              : "border-white/[0.07] bg-black/25",
+                                          )}
+                                        >
+                                          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-200/75">
+                                            Now
+                                          </p>
+                                          <p className="mt-1 line-clamp-2 min-h-[2.5rem] text-[13px] font-semibold leading-snug text-white">
+                                            {prog?.current?.title ?? "—"}
+                                          </p>
+                                          {prog?.current ? (
+                                            <p className="mt-1 text-[11px] tabular-nums text-white/42">
+                                              {formatWindow(prog.current)}
+                                            </p>
+                                          ) : (
+                                            <p className="mt-1 text-[11px] text-white/32">
+                                              No match
+                                            </p>
+                                          )}
+                                        </div>
+                                        <div className="rounded-xl border border-white/[0.07] bg-black/22 px-3 py-2.5">
+                                          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/35">
+                                            Next
+                                          </p>
+                                          <p className="mt-1 line-clamp-2 min-h-[2.5rem] text-[13px] font-semibold leading-snug text-white/82">
+                                            {prog?.next?.title ?? "—"}
+                                          </p>
+                                          {prog?.next ? (
+                                            <p className="mt-1 text-[11px] tabular-nums text-white/38">
+                                              {formatWindow(prog.next)}
+                                            </p>
+                                          ) : (
+                                            <p className="mt-1 text-[11px] text-white/28">
+                                              —
+                                            </p>
+                                          )}
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                </button>
+                              </li>
+                            );
+                          })}
+                    </ul>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </ZenedeGlass>
     </section>

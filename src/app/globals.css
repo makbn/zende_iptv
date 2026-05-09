@@ -193,6 +193,51 @@
     }
   }
 
+  @keyframes fav-page-tile-in {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fav-epg-strip-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fav-epg-card-in {
+    from {
+      opacity: 0;
+      transform: translateX(18px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0) scale(1);
+    }
+  }
+
+  .motion-safe\:animate-fav-page-tile {
+    animation: fav-page-tile-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .motion-safe\:animate-fav-epg-strip {
+    animation: fav-epg-strip-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .motion-safe\:animate-fav-epg-card {
+    animation: fav-epg-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
   @keyframes zende-mexican-wave-bar {
     0%,
     100% {
@@ -240,6 +285,13 @@
     }
     .motion-safe\:animate-watch-channel-peek {
       animation: none !important;
+    }
+    .motion-safe\:animate-fav-page-tile,
+    .motion-safe\:animate-fav-epg-strip,
+    .motion-safe\:animate-fav-epg-card {
+      animation: none !important;
+      opacity: 1 !important;
+      transform: none !important;
     }
   }
 

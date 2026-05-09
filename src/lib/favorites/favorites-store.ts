@@ -6,6 +6,7 @@ const STORAGE_KEY = "zenede.favorites.v1";
 export type FavoriteChannel = {
   url: string;
   name: string;
+  tvgId?: string;
   tvgLogo?: string;
   groupTitle?: string;
   addedAt: number;
@@ -48,6 +49,7 @@ function serverAdd(fav: FavoriteChannel) {
     body: JSON.stringify({
       url: fav.url,
       name: fav.name,
+      tvgId: fav.tvgId,
       tvgLogo: fav.tvgLogo,
       groupTitle: fav.groupTitle,
     }),
@@ -71,6 +73,7 @@ export async function hydrateFavoritesFromServer(): Promise<void> {
     const rows = (await res.json()) as Array<{
       url: string;
       name: string;
+      tvgId?: string | null;
       tvgLogo?: string | null;
       groupTitle?: string | null;
       addedAt: string;
@@ -78,6 +81,7 @@ export async function hydrateFavoritesFromServer(): Promise<void> {
     const favorites: FavoriteChannel[] = rows.map((r) => ({
       url: r.url,
       name: r.name,
+      ...(r.tvgId?.trim() ? { tvgId: r.tvgId.trim() } : {}),
       ...(r.tvgLogo ? { tvgLogo: r.tvgLogo } : {}),
       ...(r.groupTitle ? { groupTitle: r.groupTitle } : {}),
       addedAt: new Date(r.addedAt).getTime(),
@@ -104,7 +108,7 @@ export function isFavorite(url: string): boolean {
 
 export function addFavorite(
   input: Pick<M3uChannel, "url" | "name"> &
-    Partial<Pick<M3uChannel, "tvgLogo" | "groupTitle">>,
+    Partial<Pick<M3uChannel, "tvgId" | "tvgLogo" | "groupTitle">>,
 ): void {
   const store = readStore();
   const url = input.url;
@@ -113,6 +117,7 @@ export function addFavorite(
   const row: FavoriteChannel = {
     url,
     name: input.name?.trim() || "Channel",
+    ...(input.tvgId?.trim() ? { tvgId: input.tvgId.trim() } : {}),
     ...(input.tvgLogo ? { tvgLogo: input.tvgLogo } : {}),
     ...(input.groupTitle ? { groupTitle: input.groupTitle } : {}),
     addedAt: Date.now(),
@@ -144,7 +149,7 @@ export function removeFavorite(url: string): void {
 
 export function toggleFavorite(
   input: Pick<M3uChannel, "url" | "name"> &
-    Partial<Pick<M3uChannel, "tvgLogo" | "groupTitle">>,
+    Partial<Pick<M3uChannel, "tvgId" | "tvgLogo" | "groupTitle">>,
 ): boolean {
   if (isFavorite(input.url)) {
     removeFavorite(input.url);
@@ -176,11 +181,18 @@ export function enrichFavoriteWithCatalog(
   catalog: M3uChannel[],
 ): M3uChannel {
   const live = catalog.find((c) => c.url === fav.url);
-  if (live) return live;
+  if (live) {
+    const fid = fav.tvgId?.trim();
+    if (fid && !live.tvgId?.trim()) {
+      return { ...live, tvgId: fid };
+    }
+    return live;
+  }
   return {
     url: fav.url,
     name: fav.name,
     duration: -1,
+    ...(fav.tvgId?.trim() ? { tvgId: fav.tvgId.trim() } : {}),
     ...(fav.tvgLogo ? { tvgLogo: fav.tvgLogo } : {}),
     ...(fav.groupTitle ? { groupTitle: fav.groupTitle } : {}),
   };

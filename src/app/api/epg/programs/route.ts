@@ -3,27 +3,22 @@ import { NextResponse } from "next/server";
 import { createServerLogger } from "@/core/logging/server";
 import { gateApiRequest } from "@/lib/auth/gate-api";
 import {
-  assertAllowedEpgUrl,
-  listEpgGuideUrls,
-} from "@/lib/epg/epg-sources";
+  EPG_MAX_IDS,
+  loadEpgMergeForIds,
+  materializeProgramsFromMerge,
+} from "@/lib/epg/build-epg-programs";
 import {
-  getIptvOrgSiteIdLookup,
-  resolveXmltvSiteId,
-} from "@/lib/epg/iptv-org-channel-map";
-import { collectProgrammesForXmltvIds } from "@/lib/epg/iptvx-noarch-stream";
-import {
-  expandChannelIdVariants,
-  parseXmltvProgrammes,
-  pickNowNextForChannels,
-  type XmltvNowNext,
-} from "@/lib/epg/xmltv-parse";
+  getEpgMergeCacheEntry,
+  scheduleEpgCacheRefresh,
+  setEpgMergeCache,
+  shouldRefreshEpgInBackground,
+  stableEpgCacheKey,
+} from "@/lib/epg/epg-response-cache";
 
 export const runtime = "nodejs";
 
 /** Allow consolidated iptvx scan + guides.json fetch on cold start. */
 export const maxDuration = 120;
-
-const MAX_IDS = 48;
 
 type Body = {
   ids?: unknown;
@@ -52,107 +47,31 @@ export async function POST(request: Request) {
 
   const ids = [...new Set(rawIds.map((s) => s.trim()).filter(Boolean))].slice(
     0,
-    MAX_IDS,
+    EPG_MAX_IDS,
   );
 
   if (ids.length === 0) {
     return NextResponse.json({
-      programs: {} as Record<string, XmltvNowNext>,
+      programs: {},
       sources: [] as string[],
       fetchedAt: Date.now(),
     });
   }
 
-  const programmes = [];
+  ids.sort();
+  const cacheKey = stableEpgCacheKey(ids);
+  const hit = getEpgMergeCacheEntry(cacheKey);
 
-  const urls = listEpgGuideUrls().filter((u) => assertAllowedEpgUrl(u));
-
-  for (const url of urls) {
-    try {
-      const res = await fetch(url, {
-        headers: {
-          Accept: "application/xml, text/xml, */*",
-          "User-Agent":
-            "Zenede/0.1 (EPG; https://github.com/iptv-org/epg community guides)",
-        },
-        next: { revalidate: 900 },
-      });
-      if (!res.ok) {
-        log.warn("EPG guide fetch failed", { url, status: res.status });
-        continue;
-      }
-      const xml = await res.text();
-      programmes.push(...parseXmltvProgrammes(xml));
-    } catch (e) {
-      log.warn("EPG guide fetch error", {
-        url,
-        error: e instanceof Error ? e.message : String(e),
-      });
+  if (hit) {
+    if (shouldRefreshEpgInBackground(hit.ageMs)) {
+      scheduleEpgCacheRefresh(cacheKey, ids, log);
     }
+    const payload = await materializeProgramsFromMerge(hit.merge, ids, log);
+    return NextResponse.json(payload);
   }
 
-  let lookup: Record<string, string> = {};
-  try {
-    lookup = await getIptvOrgSiteIdLookup();
-  } catch (e) {
-    log.warn("iptv-org guides.json lookup failed", {
-      error: e instanceof Error ? e.message : String(e),
-    });
-  }
-
-  const siteIdsForIptvx = new Set<string>();
-  for (const id of ids) {
-    const sid = resolveXmltvSiteId(id, lookup);
-    if (sid) siteIdsForIptvx.add(sid);
-  }
-
-  if (siteIdsForIptvx.size > 0) {
-    try {
-      const iptvxRows = await collectProgrammesForXmltvIds(siteIdsForIptvx);
-      programmes.push(...iptvxRows);
-    } catch (e) {
-      log.warn("iptvx consolidated EPG stream failed", {
-        error: e instanceof Error ? e.message : String(e),
-      });
-    }
-  }
-
-  const channelIdsInXml = new Set(programmes.map((p) => p.channelId));
-  const nowMs = Date.now();
-  const programs: Record<string, XmltvNowNext> = {};
-
-  for (const requested of ids) {
-    const resolvedSite = resolveXmltvSiteId(requested, lookup);
-    const variants = [
-      ...expandChannelIdVariants(requested),
-      ...(resolvedSite ? [resolvedSite] : []),
-    ];
-    const resolved = variants.find((v) => channelIdsInXml.has(v));
-    if (!resolved) {
-      programs[requested] = { current: null, next: null };
-      continue;
-    }
-    const forChannel = programmes.filter((p) => p.channelId === resolved);
-    const map = pickNowNextForChannels(forChannel, [resolved], nowMs);
-    programs[requested] =
-      map.get(resolved) ??
-      ({ current: null, next: null } satisfies XmltvNowNext);
-  }
-
-  const safeSourceRefs = urls.map((u) => {
-    try {
-      return new URL(u).hostname;
-    } catch {
-      return "guide";
-    }
-  });
-
-  return NextResponse.json({
-    programs,
-    sources: [
-      ...safeSourceRefs,
-      ...(siteIdsForIptvx.size > 0 ? ["iptvx-consolidated"] : []),
-    ],
-    fetchedAt: Date.now(),
-  });
+  const merge = await loadEpgMergeForIds(ids, log);
+  setEpgMergeCache(cacheKey, merge);
+  const payload = await materializeProgramsFromMerge(merge, ids, log);
+  return NextResponse.json(payload);
 }

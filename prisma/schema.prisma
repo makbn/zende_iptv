@@ -169,6 +169,8 @@ model UserFavorite {
   user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   url        String
   name       String
+  /// XMLTV / iptv-org channel id from playlist (tvg-id) — persisted for EPG and server-side cache warm.
+  tvgId      String?
   tvgLogo    String?
   groupTitle String?
   addedAt    DateTime @default(now())

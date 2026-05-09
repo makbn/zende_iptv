@@ -25,6 +25,7 @@ export async function GET(request: Request) {
     select: {
       url: true,
       name: true,
+      tvgId: true,
       tvgLogo: true,
       groupTitle: true,
       addedAt: true,
@@ -38,7 +39,13 @@ export async function POST(request: Request) {
   const userId = await resolveUserId(request);
   if (userId instanceof Response) return userId;
 
-  let body: { url?: string; name?: string; tvgLogo?: string; groupTitle?: string };
+  let body: {
+    url?: string;
+    name?: string;
+    tvgId?: string;
+    tvgLogo?: string;
+    groupTitle?: string;
+  };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -55,11 +62,15 @@ export async function POST(request: Request) {
       userId,
       url: body.url,
       name: (body.name ?? "").trim() || "Channel",
+      tvgId: body.tvgId?.trim() ? body.tvgId.trim() : null,
       tvgLogo: body.tvgLogo ?? null,
       groupTitle: body.groupTitle ?? null,
     },
     update: {
       name: (body.name ?? "").trim() || "Channel",
+      ...(body.tvgId !== undefined
+        ? { tvgId: body.tvgId.trim() ? body.tvgId.trim() : null }
+        : {}),
       tvgLogo: body.tvgLogo ?? null,
       groupTitle: body.groupTitle ?? null,
     },

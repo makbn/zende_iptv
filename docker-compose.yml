@@ -21,6 +21,12 @@ services:
       # Optional: Bearer for cron, registry sync, health sweep APIs (Settings → Server).
       # CRON_SECRET: "change-me-to-a-long-random-string"
 
+      # Optional EPG: comma-separated HTTPS XMLTV URLs (e.g. self-hosted guide from
+      # https://github.com/iptv-org/epg — publish guide.xml and allowlist the hostname).
+      # ZENDE_EPG_GUIDE_URLS: "https://your-host/guide.xml"
+      # Optional: extra iptv-org channel ids for GET /api/cron/epg-refresh warm-up.
+      # ZENDE_EPG_WARM_IDS: "BBCOne.uk,TSN1.ca"
+
       # ── VPN proxy (Gluetun) ────────────────────────────────────────────────
       # Absolute HOST path for Gluetun sibling containers. Must be a real host
       # filesystem path (not a named volume) — Docker resolves bind mounts on the

@@ -1,6 +1,8 @@
 /**
  * Allowlisted upstream XMLTV guide URLs (HTTPS only). Extend via ZENDE_EPG_GUIDE_URLS
- * (comma-separated) for self-hosted guides.
+ * (comma-separated). Self-host with the [iptv-org/epg](https://github.com/iptv-org/epg)
+ * Docker image (`ghcr.io/iptv-org/epg:master`) and point this env at your published
+ * `guide.xml` (HTTPS reverse proxy in front of the container).
  */
 
 const EXTRA = process.env.ZENDE_EPG_GUIDE_URLS ?? "";

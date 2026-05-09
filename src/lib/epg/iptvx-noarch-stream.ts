@@ -26,7 +26,7 @@ export async function collectProgrammesForXmltvIds(
       "User-Agent":
         "Zenede/0.1 (EPG merge; iptvx consolidated guide; +https://iptvx.one)",
     },
-    next: { revalidate: 900 },
+    cache: "no-store",
   });
 
   if (!res.ok || !res.body) {

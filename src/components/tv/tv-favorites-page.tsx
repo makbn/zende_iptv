@@ -52,6 +52,10 @@ const source = BUILTIN_PLAYLIST_SOURCES[0]!;
 const VIEW_STORAGE = "zenede.favoritesView";
 const PAGE_STEP = 60;
 
+/** Full-bleed content width — matches hero/sticky for pixel-aligned layout */
+const FAV_PAGE_GUTTER =
+  "mx-auto w-full max-w-[min(100%,2400px)] px-4 sm:px-6 lg:px-10 xl:px-14 2xl:px-16";
+
 type SortMode = "recent" | "name" | "group";
 
 export function TvFavoritesPage() {
@@ -178,7 +182,7 @@ export function TvFavoritesPage() {
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_55%_40%_at_85%_35%,oklch(0.32_0.1_285),transparent_52%)]" />
           </div>
 
-          <header className="relative mx-auto max-w-[1920px] px-6 pb-8 pt-10 sm:px-10 sm:pb-10 lg:px-14 lg:pb-12 xl:px-20">
+          <header className={cn("relative pb-8 pt-10 sm:pb-10 lg:pb-12", FAV_PAGE_GUTTER)}>
             <div className="flex flex-wrap items-center gap-3">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-[12px] font-semibold uppercase tracking-[0.14em] text-amber-200/90">
                 <Star className="size-3.5 fill-amber-400/90 text-amber-300" aria-hidden />
@@ -241,7 +245,7 @@ export function TvFavoritesPage() {
             "bg-[color-mix(in_oklab,var(--tv-page-bg)_88%,transparent)] backdrop-blur-xl backdrop-saturate-150",
           )}
         >
-          <div className="mx-auto max-w-[1920px] px-6 py-4 sm:px-10 lg:px-14 xl:px-20">
+          <div className={cn("py-4", FAV_PAGE_GUTTER)}>
             <ZenedeGlass
               variant="panel"
               className={cn(
@@ -463,14 +467,7 @@ export function TvFavoritesPage() {
           </div>
         </div>
 
-        <div className="mx-auto mt-8 max-w-[1920px] px-6 sm:px-10 lg:mt-10 lg:px-14 xl:px-20">
-          {filtered.length > 0 ? (
-            <FavoritesEpgTimeline
-              channels={filtered}
-              onSelectChannel={openChannel}
-              className="max-lg:mb-8 lg:mb-10"
-            />
-          ) : null}
+        <div className={cn("mt-8 lg:mt-10", FAV_PAGE_GUTTER)}>
           {favCount === 0 ? (
             <div className="relative overflow-hidden rounded-[28px] border border-white/[0.1] bg-gradient-to-br from-white/[0.07] via-white/[0.03] to-transparent px-8 py-20 text-center ring-1 ring-white/[0.06] sm:px-14 sm:py-24">
               <div className="pointer-events-none absolute inset-0 opacity-[0.45]" aria-hidden>
@@ -511,7 +508,7 @@ export function TvFavoritesPage() {
               </div>
             </div>
           ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-3xl border border-white/[0.08] bg-white/[0.03] px-8 py-20 text-center">
+            <div className="flex flex-col items-center justify-center rounded-3xl border border-white/[0.08] bg-white/[0.03] px-8 py-20 text-center transition-opacity duration-300">
               <Search className="mb-4 size-10 text-white/25" aria-hidden />
               <p className="text-[18px] font-semibold text-white">No matches</p>
               <p className="mt-2 max-w-sm text-[15px] leading-relaxed text-white/45">
@@ -529,22 +526,46 @@ export function TvFavoritesPage() {
               </button>
             </div>
           ) : view === "posters" ? (
-            <div className="flex flex-col gap-10">
+            <div className="flex flex-col gap-8 lg:gap-10">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/38">
+                    Library
+                  </p>
+                  <h2 className="mt-1 text-[clamp(1.35rem,2.8vw,1.85rem)] font-semibold tracking-tight text-white">
+                    Your channels
+                  </h2>
+                  <p className="mt-1 text-[14px] text-white/42">
+                    {filtered.length.toLocaleString()} in view
+                    {activeFilters ? " · filtered" : ""}
+                  </p>
+                </div>
+              </div>
               <div
                 className={cn(
-                  "grid gap-x-4 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5",
-                  "justify-items-start",
+                  "grid w-full gap-x-4 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5",
+                  "justify-items-stretch",
                 )}
               >
                 {visible.map((ch, i) => (
-                  <TvChannelTile
+                  <div
                     key={`${ch.url}-${i}`}
-                    channel={ch}
-                    healthScore={getScoreForChannel(ch)}
-                    onSelect={openChannel}
-                    showFavoriteStar
-                    className="w-full max-w-[320px] justify-self-center sm:justify-self-start"
-                  />
+                    className={cn(
+                      "motion-safe:animate-fav-page-tile motion-reduce:animate-none motion-reduce:opacity-100",
+                      "flex justify-center sm:justify-start",
+                    )}
+                    style={{
+                      animationDelay: `${Math.min(i, 28) * 38}ms`,
+                    }}
+                  >
+                    <TvChannelTile
+                      channel={ch}
+                      healthScore={getScoreForChannel(ch)}
+                      onSelect={openChannel}
+                      showFavoriteStar
+                      className="w-full max-w-[320px] sm:max-w-none"
+                    />
+                  </div>
                 ))}
               </div>
               {hasMore ? (
@@ -569,18 +590,38 @@ export function TvFavoritesPage() {
               ) : null}
             </div>
           ) : (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-6">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/38">
+                  Library
+                </p>
+                <h2 className="mt-1 text-[clamp(1.35rem,2.8vw,1.85rem)] font-semibold tracking-tight text-white">
+                  Your channels
+                </h2>
+                <p className="mt-1 text-[14px] text-white/42">
+                  {filtered.length.toLocaleString()} in view
+                </p>
+              </div>
               <ul className="flex flex-col gap-2" aria-label="Favorites compact list">
                 {visible.map((ch, i) => {
                   const parsed = parseChannelLabel(ch.name ?? "");
                   return (
-                    <li key={`${ch.url}-${i}`}>
+                    <li
+                      key={`${ch.url}-${i}`}
+                      className={cn(
+                        "motion-safe:animate-fav-page-tile motion-reduce:animate-none motion-reduce:opacity-100",
+                      )}
+                      style={{
+                        animationDelay: `${Math.min(i, 28) * 32}ms`,
+                      }}
+                    >
                       <div
                         className={cn(
                           "group flex w-full items-center gap-3 rounded-2xl border border-white/[0.08]",
                           "bg-white/[0.04] p-3 ring-1 ring-white/[0.04]",
-                          "transition-[transform,background-color,box-shadow] duration-200",
-                          "hover:border-white/[0.14] hover:bg-white/[0.07]",
+                          "transition-[transform,background-color,box-shadow,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                          "hover:border-white/[0.14] hover:bg-white/[0.07] hover:shadow-lg hover:shadow-black/25",
+                          "motion-safe:hover:-translate-y-px",
                         )}
                       >
                         <button
@@ -663,6 +704,14 @@ export function TvFavoritesPage() {
               ) : null}
             </div>
           )}
+
+          {filtered.length > 0 ? (
+            <FavoritesEpgTimeline
+              channels={filtered}
+              onSelectChannel={openChannel}
+              className="mt-10 lg:mt-14"
+            />
+          ) : null}
         </div>
       </main>
       {navError && <NavErrorBanner message={navError} onDismiss={clearNavError} />}

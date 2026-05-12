@@ -22,7 +22,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV HOSTNAME=0.0.0.0
 ENV PORT=8077
 
-RUN apk add --no-cache su-exec wget \
+RUN apk add --no-cache su-exec wget ffmpeg \
   && addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
 

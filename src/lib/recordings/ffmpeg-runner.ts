@@ -7,6 +7,8 @@ import type { RecordingStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/db/prisma";
 
+import { internalRelayFfmpegHeadersBlock } from "@/lib/stream/internal-relay-request";
+
 import { ffmpegCommand } from "./ffmpeg-binary";
 
 type ActiveEntry = {
@@ -24,7 +26,6 @@ export type FfmpegRecordingStart = {
   upstreamUrl: string;
   durationSec: number;
   outputPath: string;
-  httpProxy?: string;
 };
 
 function buildFfmpegArgs(input: FfmpegRecordingStart): string[] {
@@ -37,11 +38,18 @@ function buildFfmpegArgs(input: FfmpegRecordingStart): string[] {
     "-rw_timeout",
     "20000000",
     "-user_agent",
-    "Mozilla/5.0 (compatible; ZenedeRecorder/1.0)",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "-headers",
+    internalRelayFfmpegHeadersBlock(),
+    "-protocol_whitelist",
+    "file,http,https,tcp,tls,crypto,data",
+    "-reconnect",
+    "1",
+    "-reconnect_streamed",
+    "1",
+    "-reconnect_delay_max",
+    "5",
   ];
-  if (input.httpProxy) {
-    args.push("-http_proxy", input.httpProxy);
-  }
   args.push(
     "-i",
     input.upstreamUrl,

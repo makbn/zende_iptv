@@ -1,3 +1,7 @@
+import {
+  isInternalRelayRequest,
+} from "@/lib/stream/internal-relay-request";
+
 /** True when Host is loopback / container bind — not safe for absolute URLs in HLS playlists. */
 function isLoopbackOrWildcardHost(host: string): boolean {
   const h = host.split(":")[0]?.replace(/^\[|\]$/g, "").toLowerCase() ?? "";
@@ -66,6 +70,11 @@ function parseForwardedHeader(request: Request): {
  * `http://127.0.0.1:...` inside the container.
  */
 export function getRequestOrigin(request: Request): string {
+  /** Server-side ffmpeg: keep HLS absolute URLs on loopback, not PUBLIC_APP_URL. */
+  if (isInternalRelayRequest(request)) {
+    return new URL(request.url).origin;
+  }
+
   const fromEnv = process.env.PUBLIC_APP_URL?.trim().replace(/\/$/, "");
   if (fromEnv) {
     return fromEnv;

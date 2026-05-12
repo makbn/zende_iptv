@@ -6,11 +6,9 @@ import { hashStreamUrl } from "@/lib/health/url-hash";
 import {
   getProxyForChannel,
   ProxyNotReadyError,
-  type StoredProxyConfig,
 } from "@/lib/proxies/proxy-store";
 import { applyPublicCorsProxyUnwrap } from "@/lib/stream/public-cors-proxy-url";
-
-import { httpProxyUrlForFfmpeg } from "./ffmpeg-proxy";
+import { createStreamSession } from "@/lib/stream/stream-session-store";
 
 export class RecordingPrepError extends Error {
   constructor(
@@ -24,9 +22,16 @@ export class RecordingPrepError extends Error {
 
 export type PreparedRecordingSource = {
   rawChannelUrl: string;
+  /** HLS entry URL for ffmpeg — always this app's `/api/stream/proxy/{session}` (VPN/cookies upstream). */
   upstreamUrl: string;
-  httpProxy?: string;
+  /** Opaque stream session backing the relay (same row as watch). */
+  relaySessionId: string;
 };
+
+function loopbackRelayBase(): string {
+  const port = process.env.PORT?.trim() || "8077";
+  return `http://127.0.0.1:${port}`;
+}
 
 export async function prepareRecordingSource(
   rawChannelUrl: string,
@@ -44,7 +49,7 @@ export async function prepareRecordingSource(
   }
 
   const urlHash = await hashStreamUrl(trimmed);
-  let proxy: StoredProxyConfig | null;
+  let proxy;
   try {
     proxy = await getProxyForChannel(urlHash);
   } catch (err) {
@@ -61,12 +66,19 @@ export async function prepareRecordingSource(
     );
   }
 
-  const httpProxy = httpProxyUrlForFfmpeg(proxy);
+  const relaySessionId = await createStreamSession({
+    upstreamRootUrl: upstream.href,
+    title: "Recording",
+    proxyConfig: proxy ?? undefined,
+  });
+
+  const relayBase = loopbackRelayBase();
+  const upstreamUrl = `${relayBase}/api/stream/proxy/${relaySessionId}`;
 
   return {
     rawChannelUrl: trimmed,
-    upstreamUrl: upstream.href,
-    ...(httpProxy ? { httpProxy } : {}),
+    upstreamUrl,
+    relaySessionId,
   };
 }
 

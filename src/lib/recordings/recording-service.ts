@@ -202,7 +202,6 @@ export async function startImmediateRecording(input: {
     upstreamUrl: prep.upstreamUrl,
     durationSec,
     outputPath: absPath,
-    httpProxy: prep.httpProxy,
   });
 
   return { id };
@@ -289,7 +288,6 @@ export async function tryDispatchSchedule(scheduleId: string): Promise<boolean> 
       upstreamUrl: prep.upstreamUrl,
       durationSec: payload.durationSec,
       outputPath: absPath,
-      httpProxy: prep.httpProxy,
     });
   } catch (e) {
     const msg =

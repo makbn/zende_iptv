@@ -21,7 +21,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useReducer,
   useRef,
   useState,
   useSyncExternalStore,
@@ -144,10 +143,10 @@ export function WatchView() {
 
   useEffect(() => {
     if (sessionId || !decodedLegacyUrl) {
-      setLegacyBridge("none");
+      queueMicrotask(() => setLegacyBridge("none"));
       return;
     }
-    setLegacyBridge("working");
+    queueMicrotask(() => setLegacyBridge("working"));
     let cancelled = false;
     void (async () => {
       try {
@@ -172,13 +171,15 @@ export function WatchView() {
 
   useEffect(() => {
     if (!sessionId) {
-      setSessionLoading(false);
-      setSessionMeta(null);
-      setSessionMetaError(null);
+      queueMicrotask(() => {
+        setSessionLoading(false);
+        setSessionMeta(null);
+        setSessionMetaError(null);
+      });
       return;
     }
     let cancelled = false;
-    setSessionLoading(true);
+    queueMicrotask(() => setSessionLoading(true));
     void fetchWatchSessionMeta(sessionId)
       .then((m) => {
         if (!cancelled) {
@@ -247,7 +248,7 @@ export function WatchView() {
   const [duration, setDuration] = useState(0);
   const [fs, setFs] = useState(false);
   const [buffering, setBuffering] = useState(false);
-  const [, bumpBuffered] = useReducer((n: number) => n + 1, 0);
+  const [bufferRatio, setBufferRatio] = useState(0);
   const [playerSession, setPlayerSession] = useState<PlayerSession | null>(
     null,
   );
@@ -265,6 +266,7 @@ export function WatchView() {
   const [catalogMergeEpoch, setCatalogMergeEpoch] = useState(0);
 
   const frequentRing = useMemo(() => {
+    void statsEpoch;
     const base = listTopFrequentChannels(FREQUENT_RING);
     if (catalogChannels.length === 0) return base;
     return padFrequentRingWithCatalog(base, catalogChannels, {
@@ -280,7 +282,7 @@ export function WatchView() {
   }, []);
 
   useEffect(() => {
-    setRingPeekClientReady(true);
+    queueMicrotask(() => setRingPeekClientReady(true));
   }, []);
 
   useEffect(() => {
@@ -380,7 +382,7 @@ export function WatchView() {
   }, [scheduleChromeHide]);
 
   useEffect(() => {
-    revealChrome();
+    queueMicrotask(revealChrome);
     const onActivity = () => revealChrome();
     window.addEventListener("mousemove", onActivity, { passive: true });
     window.addEventListener("touchstart", onActivity, { passive: true });
@@ -439,19 +441,23 @@ export function WatchView() {
       ? Math.min(1, Math.max(0, currentTime / duration))
       : null;
 
-  const bufferRatio =
-    videoRef.current &&
-    seekRatio !== null &&
-    Number.isFinite(duration) &&
-    duration > 0
-      ? bufferedAheadRatio(videoRef.current, duration, currentTime)
-      : 0;
-
   const bindVideo = useCallback(() => {
     const v = videoRef.current;
     if (!v) return;
+    const syncBuffer = () => {
+      const nextDuration = v.duration;
+      const nextTime = v.currentTime;
+      setBufferRatio(
+        Number.isFinite(nextDuration) && nextDuration > 0
+          ? bufferedAheadRatio(v, nextDuration, nextTime)
+          : 0,
+      );
+    };
     const onTime = () => setCurrentTime(v.currentTime);
-    const onMeta = () => setDuration(v.duration);
+    const onMeta = () => {
+      setDuration(v.duration);
+      syncBuffer();
+    };
     const onPlay = () => setPlaying(true);
     const onPause = () => setPlaying(false);
     const onVol = () => {
@@ -462,7 +468,7 @@ export function WatchView() {
     const onPlaying = () => setBuffering(false);
     const onCanPlay = () => setBuffering(false);
     const onRate = () => setPlaybackRate(v.playbackRate);
-    const onProgress = () => bumpBuffered();
+    const onProgress = () => syncBuffer();
     v.addEventListener("timeupdate", onTime);
     v.addEventListener("loadedmetadata", onMeta);
     v.addEventListener("durationchange", onMeta);
@@ -481,6 +487,7 @@ export function WatchView() {
     setDuration(v.duration);
     setCurrentTime(v.currentTime);
     setPlaybackRate(v.playbackRate);
+    syncBuffer();
     return () => {
       v.removeEventListener("timeupdate", onTime);
       v.removeEventListener("loadedmetadata", onMeta);
@@ -498,7 +505,7 @@ export function WatchView() {
   }, []);
 
   useEffect(() => {
-    setPlayerFatalError(null);
+    queueMicrotask(() => setPlayerFatalError(null));
     return bindVideo();
   }, [bindVideo, playbackSrc]);
 
@@ -779,7 +786,7 @@ export function WatchView() {
               </GlassTextButton>
               <div className="min-w-0 flex-1">
                 <div className="flex min-w-0 items-center gap-2">
-                  <h1 className="truncate text-[17px] font-semibold tracking-tight">
+              <h1 className="truncate text-[15px] font-semibold tracking-tight sm:text-[17px]">
                     {titleDisplay}
                   </h1>
                   {titleResolutionBadge ? (
@@ -810,7 +817,7 @@ export function WatchView() {
             <Link
               href="/library"
               className={cn(
-                "pointer-events-auto shrink-0 rounded-full px-3 py-2 text-[15px] font-medium",
+                "pointer-events-auto hidden min-h-11 shrink-0 items-center rounded-full px-3 py-2 text-[15px] font-medium sm:flex",
                 "text-white/70 outline-none hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-white",
               )}
             >
@@ -826,7 +833,7 @@ export function WatchView() {
           onMouseEnter={onChromePointerEnter}
           onMouseLeave={onChromePointerLeave}
         >
-          <div className="mx-auto flex w-full max-w-[min(100vw,1920px)] flex-col gap-2 sm:gap-2.5 px-3 sm:px-4">
+          <div className="mx-auto flex w-full max-w-[min(100vw,1920px)] flex-col gap-2 px-2 sm:gap-2.5 sm:px-4">
             {ringPeekClientReady &&
             ringNavAvailable &&
             prevEntry &&
@@ -850,7 +857,7 @@ export function WatchView() {
                 "shadow-[0_-18px_48px_-24px_rgba(0,0,0,0.85)]",
               )}
             >
-              <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4">
+              <div className="px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-4 sm:pt-4">
                 {seekRatio !== null ? (
                   <SeekBar
                     ratio={seekRatio}
@@ -869,7 +876,7 @@ export function WatchView() {
                   </div>
                 )}
 
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3 sm:gap-4">
                   <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-between">
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   {isVod ? (
@@ -1057,7 +1064,7 @@ export function WatchView() {
                 </div>
               </div>
 
-              <p className="text-center text-[11px] leading-relaxed text-white/35">
+              <p className="hidden text-center text-[11px] leading-relaxed text-white/35 sm:block">
                 Skip ±10s: Shift+← → · PiP: Shift+P · If playback fails, the
                 stream may be unsupported in this browser.
               </p>
@@ -1116,7 +1123,7 @@ function GlassIconButton({
         disabled={disabled}
         onClick={onClick}
         className={cn(
-          "flex h-11 min-w-11 items-center justify-center rounded-full text-white outline-none transition",
+          "flex h-12 min-w-12 items-center justify-center rounded-full text-white outline-none transition sm:h-11 sm:min-w-11",
           "hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-white",
           "disabled:cursor-not-allowed disabled:opacity-35",
         )}
@@ -1143,7 +1150,7 @@ function GlassPrimaryButton({
         aria-label={ariaLabel}
         onClick={onClick}
         className={cn(
-          "flex h-14 min-w-14 items-center justify-center rounded-full text-black outline-none",
+          "flex h-16 min-w-16 items-center justify-center rounded-full text-black outline-none sm:h-14 sm:min-w-14",
           "focus-visible:ring-2 focus-visible:ring-white",
         )}
       >
@@ -1171,7 +1178,7 @@ function GlassIconMenuTrigger({
         disabled={disabled}
         aria-label={ariaLabel}
         className={cn(
-          "flex h-11 min-w-11 items-center justify-center rounded-full bg-transparent text-white outline-none",
+          "flex h-12 min-w-12 items-center justify-center rounded-full bg-transparent text-white outline-none sm:h-11 sm:min-w-11",
           "hover:bg-white/8 focus-visible:ring-2 focus-visible:ring-white",
           "disabled:cursor-not-allowed disabled:opacity-35",
           "data-[popup-open]:bg-white/12",
@@ -1214,7 +1221,7 @@ function SeekBar({
       aria-valuemax={100}
       aria-valuenow={Math.round(ratio * 100)}
       className={cn(
-        "group relative mb-4 h-2.5 w-full cursor-pointer overflow-hidden rounded-full bg-white/12",
+        "group relative mb-4 h-4 w-full cursor-pointer overflow-hidden rounded-full bg-white/12 sm:h-2.5",
         disabled && "cursor-default opacity-50",
       )}
       onPointerDown={(e) => {

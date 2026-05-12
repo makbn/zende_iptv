@@ -22,14 +22,16 @@ const StreamPlayer = dynamic(
 
 function gridClass(n: number) {
   if (n === 1) return "grid-cols-1";
-  if (n === 2) return "grid-cols-2";
-  if (n <= 4) return "grid-cols-2";
-  return "grid-cols-3";
+  if (n === 2) return "grid-cols-1 sm:grid-cols-2";
+  if (n <= 4) return "grid-cols-1 sm:grid-cols-2";
+  return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
 }
 
 function cellClass(n: number, idx: number) {
   // For 3 streams: lone third cell is centred at half-width
-  if (n === 3 && idx === 2) return "col-span-2 w-1/2 justify-self-center";
+  if (n === 3 && idx === 2) {
+    return "sm:col-span-2 sm:w-1/2 sm:justify-self-center";
+  }
   return "";
 }
 
@@ -62,8 +64,11 @@ export function BoardView() {
   // ── fetch sessions ─────────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (ids.length === 0) { setLoading(false); return; }
-    setLoading(true);
+    if (ids.length === 0) {
+      queueMicrotask(() => setLoading(false));
+      return;
+    }
+    queueMicrotask(() => setLoading(true));
     Promise.all(
       ids.map(async (id) => ({ ...(await fetchWatchSessionMeta(id)), id })),
     )
@@ -146,19 +151,19 @@ export function BoardView() {
     <div className="fixed inset-0 flex flex-col bg-black text-white">
 
       {/* ── header ── */}
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-white/[0.08] px-4">
+      <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-white/[0.08] px-3 py-2 sm:h-12 sm:px-4 sm:py-0">
         {/* Left: back + title */}
         <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="flex items-center gap-1.5 text-[13px] text-white/50 outline-none transition-colors hover:text-white"
+            className="flex min-h-10 items-center gap-1.5 rounded-full px-2 text-[13px] text-white/50 outline-none transition-colors hover:text-white"
             aria-label="Back to home"
           >
             <ArrowLeft className="h-4 w-4" />
             Back
           </Link>
-          <span className="text-white/[0.15]">|</span>
-          <p className="text-[13px] font-medium text-white/60">
+          <span className="hidden text-white/[0.15] sm:inline">|</span>
+          <p className="hidden text-[13px] font-medium text-white/60 sm:block">
             Board &mdash;{" "}
             <span className="text-white/90">
               {n} channel{n !== 1 ? "s" : ""}
@@ -173,7 +178,7 @@ export function BoardView() {
             onClick={() => setAudioMenuOpen((v) => !v)}
             aria-label="Select audio source"
             className={cn(
-              "flex items-center gap-2 rounded-full px-3 py-1.5 text-[13px] font-medium outline-none transition-colors",
+              "flex min-h-10 items-center gap-2 rounded-full px-3 py-1.5 text-[13px] font-medium outline-none transition-colors",
               "border border-white/[0.10] bg-white/[0.06] hover:bg-white/[0.10]",
               audioMenuOpen && "bg-white/[0.12]",
             )}
@@ -183,7 +188,7 @@ export function BoardView() {
             ) : (
               <VolumeX className="h-4 w-4 text-white/40" />
             )}
-            <span className="max-w-[160px] truncate text-white/80">
+            <span className="max-w-[118px] truncate text-white/80 sm:max-w-[160px]">
               {activeSession ? activeSession.title : "All muted"}
             </span>
           </button>
@@ -192,7 +197,7 @@ export function BoardView() {
           {audioMenuOpen && (
             <div
               className={cn(
-                "absolute right-0 top-[calc(100%+6px)] z-50 min-w-[200px] overflow-hidden rounded-xl py-1",
+                "absolute right-0 top-[calc(100%+6px)] z-50 min-w-[min(82vw,240px)] overflow-hidden rounded-xl py-1",
                 "border border-white/[0.12] bg-black/90 shadow-2xl backdrop-blur-2xl",
               )}
             >
@@ -267,7 +272,7 @@ export function BoardView() {
               className={cn(
                 "pointer-events-none absolute inset-x-0 bottom-0 flex items-end gap-2",
                 "bg-gradient-to-t from-black/80 via-black/30 to-transparent p-3",
-                "opacity-0 transition-opacity duration-200 group-hover:opacity-100",
+                "opacity-100 transition-opacity duration-200 sm:opacity-0 sm:group-hover:opacity-100",
               )}
             >
               {session.logo ? (

@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 
+import { MobileLibraryPage } from "@/components/mobile/mobile-library-page";
+import { ResponsivePage } from "@/components/mobile/responsive-page";
 import { TvLibraryPage } from "@/components/tv/tv-library-page";
 
 export default function Library() {
@@ -12,7 +14,10 @@ export default function Library() {
         />
       }
     >
-      <TvLibraryPage />
+      <ResponsivePage
+        mobile={<MobileLibraryPage />}
+        desktop={<TvLibraryPage />}
+      />
     </Suspense>
   );
 }

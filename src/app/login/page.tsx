@@ -32,7 +32,7 @@ function LoginForm() {
   }, [login, username, password, router, searchParams]);
 
   return (
-    <div className="mx-auto w-full max-w-[420px]">
+    <div className="mx-auto flex min-h-[calc(100svh-6rem)] w-full max-w-[420px] flex-col justify-center sm:min-h-0">
       <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-white/45">
         Zenede
       </p>
@@ -45,7 +45,7 @@ function LoginForm() {
 
       <form
         id="zenede-login"
-        className="mt-10 space-y-4"
+        className="mt-8 space-y-4 sm:mt-10"
         onSubmit={(e) => {
           e.preventDefault();
           void submit();
@@ -59,7 +59,7 @@ function LoginForm() {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             className={cn(
-              "mt-1.5 h-12 w-full rounded-xl border border-white/[0.12] bg-black/30 px-4",
+              "mt-1.5 h-[52px] w-full rounded-2xl border border-white/[0.12] bg-black/30 px-4 sm:h-12 sm:rounded-xl",
               "text-[16px] text-white outline-none focus-visible:ring-2 focus-visible:ring-white",
             )}
           />
@@ -73,7 +73,7 @@ function LoginForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className={cn(
-              "mt-1.5 h-12 w-full rounded-xl border border-white/[0.12] bg-black/30 px-4",
+              "mt-1.5 h-[52px] w-full rounded-2xl border border-white/[0.12] bg-black/30 px-4 sm:h-12 sm:rounded-xl",
               "text-[16px] text-white outline-none focus-visible:ring-2 focus-visible:ring-white",
             )}
           />
@@ -86,22 +86,22 @@ function LoginForm() {
         </p>
       ) : null}
 
-      <div className="mt-8 flex flex-wrap gap-3">
+      <div className="mt-8 grid gap-3 sm:flex sm:flex-wrap">
         <button
           type="submit"
           form="zenede-login"
           disabled={busy}
           className="outline-none disabled:opacity-50"
         >
-          <ZenedeGlass variant="ctaPill">
-            <span className="flex items-center px-6 py-2.5 text-[15px] font-semibold text-zinc-950">
+          <ZenedeGlass variant="ctaPill" className="w-full sm:w-auto">
+            <span className="flex min-h-[52px] items-center justify-center px-6 py-2.5 text-[15px] font-semibold text-zinc-950 sm:min-h-0">
               {busy ? "Signing in…" : "Continue"}
             </span>
           </ZenedeGlass>
         </button>
         <Link
           href="/"
-          className="flex items-center px-4 py-2 text-[15px] font-medium text-white/55 underline-offset-4 hover:text-white/85 hover:underline"
+          className="flex min-h-[48px] items-center justify-center rounded-2xl px-4 py-2 text-[15px] font-medium text-white/55 underline-offset-4 hover:text-white/85 hover:underline sm:min-h-0 sm:justify-start"
         >
           Cancel
         </Link>
@@ -112,7 +112,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--tv-page-bg)] px-6 py-16 text-foreground">
+    <div className="flex min-h-screen flex-col bg-[var(--tv-page-bg)] px-4 py-[max(2rem,env(safe-area-inset-top))] text-foreground sm:px-6 sm:py-16">
       <Suspense
         fallback={
           <div className="mx-auto text-[15px] text-white/50">Loading…</div>

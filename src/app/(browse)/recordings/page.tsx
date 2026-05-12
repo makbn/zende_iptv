@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 
+import { MobileRecordingsPage } from "@/components/mobile/mobile-recordings-page";
+import { ResponsivePage } from "@/components/mobile/responsive-page";
 import { TvRecordingsPage } from "@/components/tv/tv-recordings-page";
 
 export default function RecordingsPage() {
@@ -12,7 +14,10 @@ export default function RecordingsPage() {
         />
       }
     >
-      <TvRecordingsPage />
+      <ResponsivePage
+        mobile={<MobileRecordingsPage />}
+        desktop={<TvRecordingsPage />}
+      />
     </Suspense>
   );
 }

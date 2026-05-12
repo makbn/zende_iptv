@@ -208,7 +208,7 @@ export function MobileFavoritesPage() {
                 ) : null}
               </label>
 
-              <div className="tv-row-scroll mt-3 flex gap-2 overflow-x-auto pb-0.5">
+              <div className="tv-row-scroll zen-stagger-row mt-3 flex gap-2 overflow-x-auto pb-0.5">
                 {(
                   [
                     ["recent", "Recent"],

@@ -64,7 +64,7 @@ function MobileShelf({
           {description}
         </p>
       </div>
-      <div className="tv-row-scroll mt-3 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-4 pb-2 sm:gap-3">
+      <div className="tv-row-scroll zen-stagger-row mt-3 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-4 pb-2 sm:gap-3">
         {channels.map((channel, index) => (
           <MobileChannelCard
             key={`${title}-${channel.url}-${index}`}

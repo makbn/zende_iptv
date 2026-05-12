@@ -33,7 +33,7 @@ export function TvHeroFeature({
       className="relative min-h-[min(52svh,560px)] w-full overflow-hidden pt-20 sm:min-h-[min(54svh,600px)]"
       aria-labelledby="hero-title"
     >
-      <div className="pointer-events-none absolute inset-0 tv-hero-ambient">
+      <div className="pointer-events-none absolute inset-0 tv-hero-ambient zen-hero-ambient-breathe">
         <div
           className={cn(
             "absolute inset-0 opacity-90",
@@ -79,8 +79,8 @@ export function TvHeroFeature({
       />
 
       <div className="relative z-10 flex min-h-[min(46svh,480px)] flex-col justify-end px-6 pb-24 sm:min-h-[min(48svh,520px)] sm:px-10 sm:pb-28 lg:px-14 lg:pb-32 xl:px-20">
-        <div className="max-w-[min(100%,820px)] motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100">
-          <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-white/52 sm:text-[13px]">
+        <div className="flex max-w-[min(100%,820px)] flex-col gap-2 sm:gap-2.5 zen-stagger-row">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/52 sm:text-[13px]">
             {eyebrow}
           </p>
           <h1
@@ -92,10 +92,10 @@ export function TvHeroFeature({
           >
             {title}
           </h1>
-          <p className="mt-3 max-w-[560px] text-pretty text-[16px] leading-snug text-white/70 sm:mt-3.5 sm:text-[17px]">
+          <p className="max-w-[560px] text-pretty text-[16px] leading-snug text-white/70 sm:text-[17px]">
             {subtitle}
           </p>
-          <div className="mt-6 flex flex-wrap items-center gap-2.5 sm:mt-8 sm:gap-3">
+          <div className="mt-2 flex flex-wrap items-center gap-2.5 sm:mt-3 sm:gap-3">
             <button
               type="button"
               onClick={onPrimary}
@@ -104,7 +104,7 @@ export function TvHeroFeature({
             >
               <ZenedeGlass
                 variant="heroPrimary"
-                className="inline-block transition-transform duration-200 group-hover:scale-[1.02] group-active:scale-[0.98] group-disabled:group-hover:scale-100"
+                className="inline-block transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform motion-safe:group-hover:scale-[1.03] motion-safe:group-active:scale-[0.97] group-disabled:group-hover:scale-100"
               >
                 <span className="flex min-h-[48px] min-w-[148px] items-center justify-center px-8 text-[17px] font-semibold text-zinc-950">
                   {primaryLabel}
@@ -120,7 +120,7 @@ export function TvHeroFeature({
               >
                 <ZenedeGlass
                   variant="heroSecondary"
-                  className="inline-block transition-transform duration-200 group-hover:scale-[1.02] group-active:scale-[0.98]"
+                  className="inline-block transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform motion-safe:group-hover:scale-[1.03] motion-safe:group-active:scale-[0.97]"
                 >
                   <span className="flex min-h-[48px] min-w-[148px] items-center justify-center px-8 text-[17px] font-semibold text-white">
                     {secondaryLabel}

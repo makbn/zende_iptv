@@ -427,7 +427,7 @@ export function MobileRecordingsPage() {
             />
           </label>
 
-          <div className="tv-row-scroll mt-3 flex gap-2 overflow-x-auto pb-1">
+          <div className="tv-row-scroll zen-stagger-row mt-3 flex gap-2 overflow-x-auto pb-1">
             {filteredChannels.map((channel) => {
               const label = parseChannelLabel(channel.name).displayName;
               const active = selected?.url === channel.url;
@@ -627,7 +627,7 @@ export function MobileRecordingsPage() {
                 show the server error and cannot be played or downloaded.
               </p>
             ) : (
-              <div className="mt-3 grid gap-3">
+              <div className="mt-3 grid gap-3 zen-stagger-row">
                 {overview.library.map((item) => {
                   const isFailed = item.status === "FAILED";
                   return (

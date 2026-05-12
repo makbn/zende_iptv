@@ -18,7 +18,9 @@ export function BrowseChrome({ children }: { children: ReactNode }) {
         ref={shellRef}
         className="relative min-h-screen overflow-x-hidden selection:bg-white/20"
       >
-        {children}
+        <div className="motion-safe:animate-zen-browse-mount motion-reduce:animate-none motion-reduce:opacity-100 min-h-screen">
+          {children}
+        </div>
       </div>
     </BrowseShellRefContext.Provider>
   );

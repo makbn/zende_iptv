@@ -298,7 +298,7 @@ export function MobileLibraryPage() {
           ) : null}
         </div>
 
-        <div className="grid gap-3">
+        <div className="grid gap-3 zen-stagger-row">
           {visible.map((channel, index) => (
             <MobileChannelCard
               key={`${channel.url}-${index}`}

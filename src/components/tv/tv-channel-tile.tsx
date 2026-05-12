@@ -96,8 +96,8 @@ export function TvChannelTile({
             "relative aspect-video w-full overflow-hidden rounded-2xl",
             "bg-zinc-900/90 ring-1 ring-white/[0.08]",
             "shadow-[0_16px_48px_-12px_rgba(0,0,0,0.75)]",
-            "transition-[transform,box-shadow] duration-300 ease-out",
-            "group-hover:shadow-[0_24px_56px_-16px_rgba(0,0,0,0.85)] motion-safe:group-hover:scale-[1.02]",
+            "transition-[transform,box-shadow,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform",
+            "group-hover:shadow-[0_28px_60px_-14px_rgba(0,0,0,0.88)] motion-safe:group-hover:scale-[1.025] motion-safe:group-hover:ring-white/[0.12]",
           )}
         >
           {channel.tvgLogo ? (

@@ -380,7 +380,7 @@ export function TvFavoritesPage() {
                     </p>
                     <div
                       className={cn(
-                        "flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none]",
+                        "zen-stagger-row flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none]",
                         "[&::-webkit-scrollbar]:hidden",
                       )}
                       role="tablist"
@@ -597,7 +597,7 @@ export function TvFavoritesPage() {
                   {filtered.length.toLocaleString()} in view
                 </p>
               </div>
-              <ul className="flex flex-col gap-2" aria-label="Favorites compact list">
+              <ul className="zen-stagger-row flex flex-col gap-2" aria-label="Favorites compact list">
                 {visible.map((ch, i) => {
                   const parsed = parseChannelLabel(ch.name ?? "");
                   return (

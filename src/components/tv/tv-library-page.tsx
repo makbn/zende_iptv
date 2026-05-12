@@ -531,7 +531,7 @@ export function TvLibraryPage() {
             <div className="flex flex-col gap-10">
               <div
                 className={cn(
-                  "grid gap-x-4 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5",
+                  "grid zen-stagger-row gap-x-4 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5",
                   "justify-items-start",
                 )}
               >
@@ -569,7 +569,7 @@ export function TvLibraryPage() {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              <ul className="flex flex-col gap-2" aria-label="Channels compact list">
+              <ul className="zen-stagger-row flex flex-col gap-2" aria-label="Channels compact list">
                 {visible.map((ch, i) => {
                   const parsed = parseChannelLabel(ch.name ?? "");
                   return (

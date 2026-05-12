@@ -1,24 +1,26 @@
 # Zenede
 
-Web IPTV client: browse M3U catalogs, watch in the browser, and optionally route **each channel** through its own VPN or HTTP proxy. Zenede does not host or transcode video.
+**Zenede** is a self-hosted **IPTV hub**: a Next.js app that combines a TV-style web UI with a **server-side stream relay**, **per-channel VPN / proxy routing**, **scheduled and ad-hoc recordings** (ffmpeg), **channel health probes**, **EPG** for favorites, and **Xtream-compatible** URLs for external players (e.g. TiviMate). The browser does not pull raw provider URLs for playback—sessions go through **`/api/stream/proxy/...`**, where the server applies your proxy, cookies, and HLS rewrites. Zenede does not host or transcode third-party streams; it orchestrates access to URLs you supply.
 
 ## Screenshots
 
 | ![Home](docs/home.png) | ![Library](docs/library.png) | ![Watch](docs/player.png) |
 | :---: | :---: | :---: |
 
-## Main features
+## What it does
 
-| Feature | What it does |
-|--------|----------------|
-| **Catalog & library** | Loads allowlisted M3U sources (default: [iptv-org](https://github.com/iptv-org/iptv) world index), search, categories, grid/list, optional health hints when the server stores scores. |
-| **Playback** | HLS-oriented live playback in the browser; stream URLs come from your catalog. Cookie-aware relay for picky CDNs. |
-| **VPN / proxy per channel** | In **Settings → VPN Proxies**, define **direct HTTP/SOCKS proxies** or spin up **Gluetun** VPN containers (NordVPN, ExpressVPN, ProtonVPN, custom OpenVPN/WireGuard). Use **Channels** on a proxy to assign **specific streams**; only those channels exit through that tunnel. Unassigned channels stay direct. |
-| **IPTV players** | **Settings → Integrations**: portal keys for **Xtream-style** apps (e.g. TiviMate) — `player_api.php`, `get.php`, `xmltv.php`, `/live/...` URLs on the same host. |
-| **Auth & multi-user** | Optional login (JWT), admin user management, per-user favorites and history when enabled. |
-| **Persistence** | SQLite (local or Docker volume) for catalog cache, registry, proxies, portal credentials, sessions. |
+| Area | Details |
+|------|---------|
+| **Stream relay** | Registers an upstream URL in a short-lived **stream session**; the player and tools use **`/api/stream/proxy/{id}`**. Upstream fetches use **undici** with optional **HTTP/SOCKS** or **Gluetun** VPN, cookie jars, redirects, and **M3U8 rewriting** so segments and keys stay on your origin. |
+| **Web UI** | Home, **Library** (catalog), **Watch** (HLS.js), **Favorites** (with EPG strip), **Recordings** (DVR), **Board**, **Settings** (proxies, integrations, auth, playback prefs), optional **Setup** / **Login**. |
+| **VPN / proxy per channel** | In **Settings → VPN Proxies**, define direct proxies or **Gluetun** (NordVPN, ExpressVPN, ProtonVPN, custom OpenVPN/WireGuard). Assign channels by URL hash so only those streams use that exit; others stay direct. |
+| **IPTV apps** | **Settings → Integrations**: portal credentials for **Xtream-style** clients — `player_api.php`, `get.php`, `xmltv.php`, `/live/...` on the same host as the app. |
+| **Recordings** | Start captures from the UI; server runs **ffmpeg** against the **same relay URL** as playback (VPN/cookies apply). Schedules and downloads are backed by SQLite. **Docker** image includes `ffmpeg`. |
+| **Channel health** | Registry sync, probes, aggregates (tiers), optional **cron**-style jobs (`CRON_SECRET`). |
+| **EPG** | Favorites **“What’s on”** uses merged XMLTV sources + iptvx-style resolution; optional **`ZENDE_EPG_GUIDE_URLS`** for self-hosted guides ([iptv-org/epg](https://github.com/iptv-org/epg)). |
+| **Auth & data** | Optional JWT auth, admin users, per-user **favorites** and **history** when enabled. **SQLite** (file or Docker volume) for catalog cache, proxies, portal keys, sessions, recordings metadata. |
 
-Legal note: the default index links to third-party streams; you are responsible for rights and local law. See iptv-org’s [legal section](https://github.com/iptv-org/iptv#legal).
+Legal note: default catalog presets may link to third-party streams; you are responsible for rights and local law. See iptv-org’s [legal section](https://github.com/iptv-org/iptv#legal).
 
 ## Quick start (Docker)
 
@@ -31,7 +33,9 @@ docker compose up --build
 
 Open **http://localhost:8077** (or set `PORT` / `DOCKER_PUBLISH` in `.env` — see [Advanced setup](docs/ADVANCED.md)).
 
-For production, set a strong **`AUTH_JWT_SECRET`** in `.env`. Behind a reverse proxy, ensure **`Host`** and **`X-Forwarded-Proto`** (or **`Forwarded`**) reach the app so HLS URLs rewrite correctly; use **`PUBLIC_APP_URL`** only if headers are missing.
+On first boot the entrypoint runs **`prisma migrate deploy`** against the persisted database on the **`zende-data`** volume.
+
+For production, set a strong **`AUTH_JWT_SECRET`** in `.env`. Behind a reverse proxy, ensure **`Host`** and **`X-Forwarded-Proto`** (or **`Forwarded`**) reach the app so HLS URLs rewrite correctly; use **`PUBLIC_APP_URL`** only if those headers are missing.
 
 ## Quick start (local dev)
 
@@ -40,12 +44,12 @@ npm install
 npm run dev
 ```
 
-Default port **8077**; override with **`PORT`** in `.env`. Copy **`.env.example`** → **`.env`** if you need a custom `DATABASE_URL`.
+Default port **8077**; override with **`PORT`** and other variables in a **`.env`** file (see [Advanced setup](docs/ADVANCED.md)). Install **ffmpeg** on the host if you use recordings outside Docker.
 
 ## Documentation
 
-* **[Advanced setup](docs/ADVANCED.md)** — iptv-org pipeline, full Docker/env reference, VPN/Gluetun details, per-channel assignment, Xtream portal notes, authentication, cron/health jobs.
+* **[Advanced setup](docs/ADVANCED.md)** — iptv-org pipeline, full Docker/env reference, VPN/Gluetun, per-channel assignment, Xtream portal notes, authentication, cron/health jobs, EPG env vars.
 
 ## Summary
 
-Zenede is an M3U-first IPTV front-end with optional **per-channel VPN routing** via Gluetun or static proxies, optional **Xtream-compatible** URLs for external players, and optional auth. It does not redistribute stream content.
+Zenede is a **self-hosted IPTV control plane**: relayed playback and recordings through your server, **optional per-channel VPN exits**, **Xtream-compatible** portals for hardware/apps, and optional multi-user auth—without redistributing stream content.

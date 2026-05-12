@@ -10,6 +10,7 @@ import {
 
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
 import { ChannelResolutionBadge } from "@/components/tv/channel-resolution-badge";
+import { useMatchMedia } from "@/lib/hooks/use-match-media";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
 import type { ViewingEntry } from "@/lib/watch/viewing-stats";
 import { cn } from "@/lib/utils";
@@ -58,7 +59,7 @@ function ChannelArt({
   displayName: string;
   logoUrl?: string;
   emphasis: "now" | "neighbor";
-  layout: "sheet" | "rail";
+  layout: "sheet" | "rail" | "compact";
   resolutionLabel?: string;
 }) {
   const [broken, setBroken] = useState(false);
@@ -67,7 +68,15 @@ function ChannelArt({
   const hue = useMemo(() => hueFromString(displayName), [displayName]);
 
   const frame =
-    layout === "sheet"
+    layout === "compact"
+      ? cn(
+          "relative mx-auto flex aspect-video w-full max-w-[220px] items-center justify-center overflow-hidden",
+          "rounded-[12px] ring-1 ring-white/[0.12]",
+          emphasis === "now"
+            ? "max-h-[84px] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+            : "max-h-[68px] opacity-[0.94]",
+        )
+      : layout === "sheet"
       ? cn(
           "relative mx-auto flex aspect-video w-full items-center justify-center overflow-hidden",
           "rounded-[11px] ring-1 ring-white/[0.12]",
@@ -252,6 +261,56 @@ function buildStripSlots(
   return slots;
 }
 
+/** Narrow viewports: only previous / current / next — large, readable tiles (no 10-column sheet). */
+function buildCompactStripSlots(
+  ring: ViewingEntry[],
+  streamUrl: string | null,
+  nowTitle: string,
+  nowLogo: string | undefined,
+  nowGroup: string | undefined,
+): StripSlot[] | null {
+  const n = ring.length;
+  if (!streamUrl || n === 0) return null;
+
+  const idx = ring.findIndex((e) => e.url === streamUrl);
+  const centerEntry: ViewingEntry =
+    idx >= 0
+      ? ring[idx]!
+      : {
+          url: streamUrl,
+          name: nowTitle,
+          ...(nowLogo ? { tvgLogo: nowLogo } : {}),
+          ...(nowGroup ? { groupTitle: nowGroup } : {}),
+          lastOpenedAt: Date.now(),
+          openCount: 1,
+        };
+
+  if (n === 1) {
+    return [
+      {
+        key: `mob-c-${centerEntry.url}`,
+        kind: "current",
+        entry: centerEntry,
+      },
+    ];
+  }
+
+  const { prev, next } = ringNeighborEntries(ring, streamUrl);
+  const slots: StripSlot[] = [];
+  if (prev) {
+    slots.push({ key: `mob-p-${prev.url}`, kind: "jump", entry: prev });
+  }
+  slots.push({
+    key: `mob-c-${centerEntry.url}`,
+    kind: "current",
+    entry: centerEntry,
+  });
+  if (next && (!prev || next.url !== prev.url)) {
+    slots.push({ key: `mob-n-${next.url}`, kind: "jump", entry: next });
+  }
+  return slots;
+}
+
 function metaLabel(raw: string | undefined): string | null {
   if (!raw?.trim()) return null;
   const s = raw.trim();
@@ -292,7 +351,7 @@ function StripTile({
 }: {
   slot: StripSlot;
   centerRef?: RefObject<HTMLDivElement | null>;
-  layout: "sheet" | "rail";
+  layout: "sheet" | "rail" | "compact";
   ringOpacity: number;
   onJumpChannel: (entry: ViewingEntry) => void;
 }) {
@@ -303,14 +362,22 @@ function StripTile({
   const meta = metaLabel(slot.entry.groupTitle);
   const titleCls = cn(
     "line-clamp-2 w-full text-center font-medium leading-[1.25] tracking-[-0.015em]",
-    layout === "sheet" ? "text-[11px] sm:text-[12px]" : "text-[10px] sm:text-[11px]",
+    layout === "sheet"
+      ? "text-[11px] sm:text-[12px]"
+      : layout === "compact"
+        ? "text-[12px] leading-snug"
+        : "text-[10px] sm:text-[11px]",
     slot.kind === "current"
       ? "text-white [text-shadow:0_1px_14px_rgba(0,0,0,0.75)]"
       : "text-white/92 [text-shadow:0_1px_10px_rgba(0,0,0,0.55)]",
   );
   const metaCls = cn(
     "line-clamp-1 w-full text-center font-medium uppercase tracking-[0.07em]",
-    layout === "sheet" ? "text-[9px]" : "text-[8px] sm:text-[9px]",
+    layout === "sheet"
+      ? "text-[9px]"
+      : layout === "compact"
+        ? "text-[9px]"
+        : "text-[8px] sm:text-[9px]",
     slot.kind === "current" ? "text-white/58" : "text-white/52",
   );
 
@@ -318,7 +385,11 @@ function StripTile({
     <div
       className={cn(
         "flex min-h-0 w-full min-w-0 flex-col items-stretch gap-1",
-        layout === "sheet" ? "gap-1.5 px-0.5 pt-0.5" : "gap-1 px-0.5 pt-0.5",
+        layout === "sheet"
+          ? "gap-1.5 px-0.5 pt-0.5"
+          : layout === "compact"
+            ? "gap-1.5 px-1 pt-0.5"
+            : "gap-1 px-0.5 pt-0.5",
       )}
     >
       <ChannelArt
@@ -332,7 +403,16 @@ function StripTile({
       {meta ? (
         <p className={metaCls}>{meta}</p>
       ) : (
-        <span className={layout === "sheet" ? "h-[11px]" : "h-[10px]"} aria-hidden />
+        <span
+          className={cn(
+            layout === "compact"
+              ? "h-[11px]"
+              : layout === "sheet"
+                ? "h-[11px]"
+                : "h-[10px]",
+          )}
+          aria-hidden
+        />
       )}
     </div>
   );
@@ -346,6 +426,7 @@ function StripTile({
           "motion-safe:animate-watch-channel-peek min-h-0 min-w-0 transition-opacity duration-300 ease-out",
           layout === "rail" &&
             "w-[min(124px,28vw)] shrink-0 snap-center snap-always sm:w-[132px]",
+          layout === "compact" && "w-full min-w-0",
         )}
       >
         <ZenedeGlass
@@ -359,7 +440,11 @@ function StripTile({
           <div
             className={cn(
               "pb-2.5 pt-2",
-              layout === "sheet" ? "px-2 sm:px-2.5" : "px-2 pb-2 pt-1.5",
+              layout === "sheet"
+                ? "px-2 sm:px-2.5"
+                : layout === "compact"
+                  ? "px-2.5 pb-3 pt-2.5"
+                  : "px-2 pb-2 pt-1.5",
             )}
           >
             {body}
@@ -379,6 +464,7 @@ function StripTile({
         "group min-h-0 cursor-pointer border-none bg-transparent p-0 text-left outline-none transition-[transform,opacity] duration-300 ease-out",
         layout === "rail" &&
           "w-[min(108px,26vw)] shrink-0 snap-center snap-always sm:w-[118px]",
+        layout === "compact" && "w-full min-w-0",
         layout === "rail" && "hover:-translate-y-px active:scale-[0.99]",
         "focus-visible:ring-2 focus-visible:ring-white/45 focus-visible:ring-offset-2 focus-visible:ring-offset-black/90",
       )}
@@ -395,7 +481,11 @@ function StripTile({
         <div
           className={cn(
             "pb-2 pt-1.5",
-            layout === "sheet" ? "px-2 sm:px-2.5" : "px-1.5 pb-2 pt-1",
+            layout === "sheet"
+              ? "px-2 sm:px-2.5"
+              : layout === "compact"
+                ? "px-2.5 pb-2.5 pt-2"
+                : "px-1.5 pb-2 pt-1",
           )}
         >
           {body}
@@ -421,23 +511,32 @@ export function FrequentChannelPeek({
   onJumpChannel: (entry: ViewingEntry) => void;
 }) {
   const centerRef = useRef<HTMLDivElement>(null);
+  const isNarrow = useMatchMedia("(max-width: 639px)");
 
-  const slots = useMemo(
-    () =>
-      buildStripSlots(
+  const slots = useMemo(() => {
+    if (isNarrow) {
+      return buildCompactStripSlots(
         ring,
         streamUrl,
         nowTitle,
         nowLogo ?? undefined,
         nowGroup ?? undefined,
-      ),
-    [ring, streamUrl, nowTitle, nowLogo, nowGroup],
-  );
+      );
+    }
+    return buildStripSlots(
+      ring,
+      streamUrl,
+      nowTitle,
+      nowLogo ?? undefined,
+      nowGroup ?? undefined,
+    );
+  }, [ring, streamUrl, nowTitle, nowLogo, nowGroup, isNarrow]);
 
-  const layout: "sheet" | "rail" =
-    slots && slots.length > 0 && slots.length <= DISTRIBUTED_STRIP_MAX
-      ? "sheet"
-      : "rail";
+  const layout: "sheet" | "rail" | "compact" = useMemo(() => {
+    if (!slots?.length) return "rail";
+    if (isNarrow) return "compact";
+    return slots.length <= DISTRIBUTED_STRIP_MAX ? "sheet" : "rail";
+  }, [slots, isNarrow]);
 
   const centerIndex = useMemo(() => {
     if (!slots?.length) return 0;
@@ -465,7 +564,28 @@ export function FrequentChannelPeek({
 
   return (
     <div>
-      {layout === "sheet" ? (
+      {layout === "compact" ? (
+        <div
+          className={cn(
+            "grid w-full gap-2.5 px-3",
+            stripLen === 1 && "mx-auto max-w-[min(100%,280px)] grid-cols-1",
+            stripLen === 2 && "grid-cols-2",
+            stripLen >= 3 && "grid-cols-3",
+          )}
+          aria-label="Previous, current, and next channel"
+        >
+          {slots.map((slot, i) => (
+            <StripTile
+              key={slot.key}
+              slot={slot}
+              centerRef={slot.kind === "current" ? centerRef : undefined}
+              layout="compact"
+              ringOpacity={stripSlotOpacity(i, centerIndex, stripLen)}
+              onJumpChannel={onJumpChannel}
+            />
+          ))}
+        </div>
+      ) : layout === "sheet" ? (
         <div
           className="grid w-full gap-x-2 gap-y-2 px-4 sm:gap-x-3 sm:px-5"
           style={{

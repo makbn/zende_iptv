@@ -56,6 +56,7 @@ const StreamPlayer = dynamic(
 import { getWatchReturnHref } from "@/lib/navigation/watch-browse-origin";
 import {
   createWatchUrl,
+  fetchRecordingWatchMeta,
   fetchWatchSessionMeta,
   type WatchSessionMeta,
 } from "@/lib/navigation/watch-url";
@@ -130,6 +131,7 @@ export function WatchView() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("id");
+  const recordingId = searchParams.get("recording");
   const legacyUrlEncoded = searchParams.get("url");
 
   const decodedLegacyUrl = useMemo(() => {
@@ -143,7 +145,9 @@ export function WatchView() {
 
   const [sessionMeta, setSessionMeta] = useState<WatchSessionMeta | null>(null);
   const [sessionMetaError, setSessionMetaError] = useState<string | null>(null);
-  const [sessionLoading, setSessionLoading] = useState(Boolean(sessionId));
+  const [sessionLoading, setSessionLoading] = useState(
+    () => Boolean(sessionId || recordingId),
+  );
   /** Old bookmarks used `?url=`; migrate to `?id=` so playback uses the proxy and the bar stays clean. */
   const [legacyBridge, setLegacyBridge] = useState<
     "none" | "working" | "aborted"
@@ -175,41 +179,74 @@ export function WatchView() {
     return () => {
       cancelled = true;
     };
-  }, [sessionId, decodedLegacyUrl, router, searchParams]);
+  }, [sessionId, decodedLegacyUrl, router, searchParams, recordingId]);
 
   useEffect(() => {
-    if (!sessionId) {
-      queueMicrotask(() => {
-        setSessionLoading(false);
-        setSessionMeta(null);
-        setSessionMetaError(null);
-      });
-      return;
-    }
     let cancelled = false;
-    queueMicrotask(() => setSessionLoading(true));
-    void fetchWatchSessionMeta(sessionId)
-      .then((m) => {
-        if (!cancelled) {
-          setSessionMeta(m);
-          setSessionMetaError(null);
-        }
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          setSessionMetaError(
-            e instanceof Error ? e.message : "Playback session expired.",
-          );
-          setSessionMeta(null);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setSessionLoading(false);
-      });
+
+    if (sessionId) {
+      queueMicrotask(() => setSessionLoading(true));
+      setSessionMeta(null);
+      setSessionMetaError(null);
+      void fetchWatchSessionMeta(sessionId)
+        .then((m) => {
+          if (!cancelled) {
+            setSessionMeta(m);
+            setSessionMetaError(null);
+          }
+        })
+        .catch((e) => {
+          if (!cancelled) {
+            setSessionMetaError(
+              e instanceof Error ? e.message : "Playback session expired.",
+            );
+            setSessionMeta(null);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setSessionLoading(false);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (recordingId) {
+      queueMicrotask(() => setSessionLoading(true));
+      setSessionMeta(null);
+      setSessionMetaError(null);
+      void fetchRecordingWatchMeta(recordingId)
+        .then((m) => {
+          if (!cancelled) {
+            setSessionMeta(m);
+            setSessionMetaError(null);
+          }
+        })
+        .catch((e) => {
+          if (!cancelled) {
+            setSessionMetaError(
+              e instanceof Error ? e.message : "Recording unavailable.",
+            );
+            setSessionMeta(null);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setSessionLoading(false);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    queueMicrotask(() => {
+      setSessionLoading(false);
+      setSessionMeta(null);
+      setSessionMetaError(null);
+    });
     return () => {
       cancelled = true;
     };
-  }, [sessionId]);
+  }, [sessionId, recordingId]);
 
   const title =
     sessionMeta?.title ?? searchParams.get("title")?.trim() ?? "Live";
@@ -225,13 +262,14 @@ export function WatchView() {
   const playbackSrc = useMemo(() => {
     if (legacyBridge === "working") return null;
     if (sessionMeta?.playbackUrl) return sessionMeta.playbackUrl;
-    if (sessionId && sessionLoading) return null;
+    if ((sessionId || recordingId) && sessionLoading) return null;
     if (decodedLegacyUrl) return decodedLegacyUrl;
     return null;
   }, [
     legacyBridge,
     sessionMeta,
     sessionId,
+    recordingId,
     sessionLoading,
     decodedLegacyUrl,
   ]);
@@ -320,6 +358,7 @@ export function WatchView() {
 
   useEffect(() => {
     if (
+      recordingId ||
       !playbackSrc ||
       !canonicalUrl ||
       lastRecordedUrl.current === canonicalUrl
@@ -338,7 +377,7 @@ export function WatchView() {
       label: title,
       presetId: BUILTIN_PLAYLIST_SOURCES[0]?.presetId,
     });
-  }, [playbackSrc, canonicalUrl, title, logo, group]);
+  }, [recordingId, playbackSrc, canonicalUrl, title, logo, group]);
 
   useEffect(() => {
     const sync = () =>
@@ -462,15 +501,15 @@ export function WatchView() {
 
   const watchFavoriteChannel = useMemo(
     () =>
-      canonicalUrl
-        ? {
+      recordingId || !canonicalUrl
+        ? null
+        : {
             url: canonicalUrl,
             name: title,
             ...(logo ? { tvgLogo: logo } : {}),
             ...(group ? { groupTitle: group } : {}),
-          }
-        : null,
-    [canonicalUrl, title, logo, group],
+          },
+    [recordingId, canonicalUrl, title, logo, group],
   );
 
   const seekRatio =
@@ -720,7 +759,12 @@ export function WatchView() {
   const isVod =
     Number.isFinite(duration) && duration > 0 && duration !== Infinity;
 
-  if ((sessionId && sessionLoading) || legacyBridge === "working") {
+  const isRecordedPlayback = Boolean(recordingId);
+
+  if (
+    ((sessionId || recordingId) && sessionLoading) ||
+    legacyBridge === "working"
+  ) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-black px-8 text-center text-white">
         <Loader2 className="h-10 w-10 animate-spin text-white/80" aria-hidden />
@@ -757,14 +801,23 @@ export function WatchView() {
     );
   }
 
-  const liveOrClock =
-    !Number.isFinite(duration) || duration === Infinity ? (
-      <span className="tabular-nums text-white/90">Live</span>
-    ) : (
+  const liveOrClock = isRecordedPlayback ? (
+    isVod ? (
       <span className="tabular-nums text-white/90">
+        <span className="text-white/50">Recorded</span>{" "}
+        <span className="text-white/35">·</span>{" "}
         {formatClock(currentTime)} / {formatClock(duration)}
       </span>
-    );
+    ) : (
+      <span className="tabular-nums text-white/90">Recorded</span>
+    )
+  ) : !Number.isFinite(duration) || duration === Infinity ? (
+    <span className="tabular-nums text-white/90">Live</span>
+  ) : (
+    <span className="tabular-nums text-white/90">
+      {formatClock(currentTime)} / {formatClock(duration)}
+    </span>
+  );
 
   return (
     <BrowseShellRefContext.Provider value={containerRef}>
@@ -853,7 +906,11 @@ export function WatchView() {
                     />
                   ) : null}
                 </div>
-                {!Number.isFinite(duration) || duration === Infinity ? (
+                {isRecordedPlayback ? (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-sky-300/90">
+                    Recorded
+                  </span>
+                ) : !Number.isFinite(duration) || duration === Infinity ? (
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-emerald-400/90">
                     <span className="relative flex h-2 w-2">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60 opacity-75" />

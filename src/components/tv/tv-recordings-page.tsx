@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, startTransition } from "react";
 
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
@@ -26,10 +27,12 @@ import {
   Download,
   Loader2,
   Pencil,
+  Play,
   Radio,
   Search,
   Trash2,
   Video,
+  X,
 } from "lucide-react";
 
 const log = createClientLogger("shell.TvRecordingsPage");
@@ -148,6 +151,12 @@ export function TvRecordingsPage() {
   const [editDuration, setEditDuration] = useState(60);
 
   const [nowMs, setNowMs] = useState<number | null>(null);
+
+  const [libraryDeleteTarget, setLibraryDeleteTarget] =
+    useState<ApiLibraryItem | null>(null);
+  const [libraryDeleteError, setLibraryDeleteError] = useState<string | null>(
+    null,
+  );
 
   const load = useCallback(async () => {
     try {
@@ -355,6 +364,29 @@ export function TvRecordingsPage() {
     const blob = await res.blob();
     const safe = `${item.channelName.replace(/[^\w\s-]/g, "").trim().slice(0, 64) || "recording"}.mp4`;
     downloadBlob(safe, blob);
+  };
+
+  const confirmDeleteLibraryRecording = async () => {
+    if (!libraryDeleteTarget) return;
+    setLibraryDeleteError(null);
+    setBusy(true);
+    try {
+      const res = await zendeFetch(
+        `/api/recordings/${encodeURIComponent(libraryDeleteTarget.id)}`,
+        { method: "DELETE" },
+      );
+      const j = (await res.json().catch(() => null)) as { error?: unknown };
+      if (!res.ok) {
+        setLibraryDeleteError(
+          typeof j?.error === "string" ? j.error : "Delete failed.",
+        );
+        return;
+      }
+      setLibraryDeleteTarget(null);
+      await load();
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (!catalogLoaded) {
@@ -971,9 +1003,9 @@ export function TvRecordingsPage() {
                   <li key={item.id}>
                     <ZenedeGlass
                       variant="panel"
-                      className="flex flex-col gap-4 rounded-[1.15rem] border border-white/[0.08] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"
+                      className="flex flex-col gap-4 rounded-[1.15rem] border border-white/[0.08] p-4 sm:flex-row sm:items-stretch sm:justify-between sm:gap-6 sm:p-5"
                     >
-                      <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
                         <span className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-white/[0.06] ring-1 ring-white/[0.08]">
                           {item.channelLogo ? (
                             <Image
@@ -1010,18 +1042,45 @@ export function TvRecordingsPage() {
                           </p>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void downloadRecording(item)}
-                        className={cn(
-                          "inline-flex h-10 shrink-0 items-center justify-center gap-2 self-start rounded-xl px-4 text-[14px] font-semibold outline-none sm:self-center",
-                          "border border-white/[0.12] bg-white/[0.08] text-white hover:bg-white/[0.12] disabled:opacity-45",
-                        )}
-                      >
-                        <Download className="size-4" aria-hidden />
-                        Download MP4
-                      </button>
+                      <div className="flex shrink-0 flex-col gap-2 sm:min-w-[11rem]">
+                        <Link
+                          href={`/watch?recording=${encodeURIComponent(item.id)}`}
+                          className={cn(
+                            "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-[14px] font-semibold outline-none",
+                            "border border-emerald-400/30 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25",
+                          )}
+                        >
+                          <Play className="size-4" aria-hidden />
+                          Play
+                        </Link>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void downloadRecording(item)}
+                          className={cn(
+                            "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-[14px] font-semibold outline-none",
+                            "border border-white/[0.12] bg-white/[0.08] text-white hover:bg-white/[0.12] disabled:opacity-45",
+                          )}
+                        >
+                          <Download className="size-4" aria-hidden />
+                          Download MP4
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => {
+                            setLibraryDeleteError(null);
+                            setLibraryDeleteTarget(item);
+                          }}
+                          className={cn(
+                            "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-[14px] font-semibold outline-none",
+                            "border border-red-400/25 bg-red-500/10 text-red-100 hover:bg-red-500/15 disabled:opacity-45",
+                          )}
+                        >
+                          <Trash2 className="size-4" aria-hidden />
+                          Remove
+                        </button>
+                      </div>
                     </ZenedeGlass>
                   </li>
                 ))}
@@ -1044,6 +1103,85 @@ export function TvRecordingsPage() {
           )}
           aria-hidden
         />
+
+        {libraryDeleteTarget ? (
+          <div
+            className="fixed inset-0 z-[200] flex items-center justify-center px-4 py-10 sm:px-6"
+            role="presentation"
+          >
+            <button
+              type="button"
+              aria-label="Dismiss"
+              className="absolute inset-0 bg-black/70 backdrop-blur-md"
+              onClick={() => {
+                setLibraryDeleteTarget(null);
+                setLibraryDeleteError(null);
+              }}
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="lib-del-title"
+              className="relative z-10 w-full max-w-md rounded-2xl border border-white/[0.12] bg-zinc-950/95 p-6 shadow-2xl ring-1 ring-white/[0.06]"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <h2
+                  id="lib-del-title"
+                  className="text-[18px] font-semibold text-white"
+                >
+                  Remove recording?
+                </h2>
+                <button
+                  type="button"
+                  className="rounded-lg p-2 text-white/40 hover:bg-white/[0.08] hover:text-white/80"
+                  aria-label="Close"
+                  onClick={() => {
+                    setLibraryDeleteTarget(null);
+                    setLibraryDeleteError(null);
+                  }}
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+              <p className="mt-3 text-[15px] leading-relaxed text-white/55">
+                This deletes{" "}
+                <span className="font-medium text-white/85">
+                  {libraryDeleteTarget.channelName}
+                </span>{" "}
+                from the server permanently, including the MP4 file. This cannot be undone.
+              </p>
+              {libraryDeleteError ? (
+                <p className="mt-3 text-[14px] text-red-300">{libraryDeleteError}</p>
+              ) : null}
+              <div className="mt-6 flex flex-wrap justify-end gap-3">
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="rounded-xl border border-white/[0.12] bg-white/[0.06] px-5 py-2.5 text-[14px] font-medium text-white/75 hover:bg-white/[0.1] disabled:opacity-45"
+                  onClick={() => {
+                    setLibraryDeleteTarget(null);
+                    setLibraryDeleteError(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void confirmDeleteLibraryRecording()}
+                  className="inline-flex items-center gap-2 rounded-xl border border-red-400/30 bg-red-500/20 px-5 py-2.5 text-[14px] font-semibold text-red-100 hover:bg-red-500/30 disabled:opacity-45"
+                >
+                  {busy ? (
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                  ) : (
+                    <Trash2 className="size-4" aria-hidden />
+                  )}
+                  Remove from server
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </main>
     </div>
   );

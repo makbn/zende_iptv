@@ -13,9 +13,11 @@ export const runtime = "nodejs";
 
 type Ctx = { params: Promise<{ id: string }> };
 
+const DELETABLE_STATUSES = ["FAILED", "COMPLETED", "STOPPED_EARLY"] as const;
+
 /**
- * Remove a failed recording row (and any partial file on disk). Only `FAILED` rows
- * owned by the caller can be deleted — avoids deleting active or completed captures.
+ * Remove a recording row and its MP4 (and encoder sidecar if present). Allowed for
+ * finished / failed rows — not while `RECORDING`.
  */
 export async function DELETE(request: Request, ctx: Ctx) {
   const owner = await resolveRecordingOwner(request);
@@ -27,11 +29,15 @@ export async function DELETE(request: Request, ctx: Ctx) {
 
   try {
     const row = await prisma.recording.findFirst({
-      where: { id, ownerUserId: owner, status: "FAILED" },
+      where: {
+        id,
+        ownerUserId: owner,
+        status: { in: [...DELETABLE_STATUSES] },
+      },
     });
     if (!row) {
       return NextResponse.json(
-        { error: "Recording not found or cannot be cleared." },
+        { error: "Recording not found or cannot be removed." },
         { status: 404 },
       );
     }
@@ -39,6 +45,7 @@ export async function DELETE(request: Request, ctx: Ctx) {
     try {
       const abs = resolveStoredRecordingFile(owner, row.relativePath);
       await fs.rm(abs, { force: true });
+      await fs.rm(`${abs}.encoder.json`, { force: true });
     } catch {
       /* file may already be missing */
     }

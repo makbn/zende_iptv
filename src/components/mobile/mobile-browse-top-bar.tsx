@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useSyncExternalStore, type ComponentType } from "react";
+import { useState, type ComponentType } from "react";
 import {
   Heart,
   Home,
@@ -11,7 +11,6 @@ import {
   Search,
   Settings,
   User,
-  Video,
 } from "lucide-react";
 
 import { GlassSearchModal } from "@/components/glass/glass-search-modal";
@@ -19,23 +18,6 @@ import { ZenedeGlass } from "@/components/glass/zenede-glass";
 import { WatchTogetherDialog } from "@/components/tv/watch-together-dialog";
 import { useAuth } from "@/features/auth/auth-context";
 import { cn } from "@/lib/utils";
-
-function subscribeHash(onStoreChange: () => void) {
-  window.addEventListener("hashchange", onStoreChange);
-  window.addEventListener("popstate", onStoreChange);
-  return () => {
-    window.removeEventListener("hashchange", onStoreChange);
-    window.removeEventListener("popstate", onStoreChange);
-  };
-}
-
-function getHashSnapshot() {
-  return window.location.hash;
-}
-
-function getServerHashSnapshot() {
-  return "";
-}
 
 function avatarLetter(username: string | undefined): string {
   const value = username?.trim() ?? "";
@@ -51,11 +33,6 @@ type MobileNavItem = {
 
 export function MobileBrowseTopBar() {
   const pathname = usePathname();
-  const hash = useSyncExternalStore(
-    subscribeHash,
-    getHashSnapshot,
-    getServerHashSnapshot,
-  );
   const { user, authEnabled } = useAuth();
   const [searchOpen, setSearchOpen] = useState(false);
   const [boardOpen, setBoardOpen] = useState(false);
@@ -64,14 +41,8 @@ export function MobileBrowseTopBar() {
     {
       label: "Home",
       href: "/",
-      active: pathname === "/" && hash !== "#live",
+      active: pathname === "/",
       icon: Home,
-    },
-    {
-      label: "Live",
-      href: "/#live",
-      active: pathname === "/" && hash === "#live",
-      icon: Video,
     },
     {
       label: "Library",
@@ -171,7 +142,7 @@ export function MobileBrowseTopBar() {
           variant="panelCompact"
           className="rounded-[26px] border-white/[0.1] bg-black/58 shadow-[0_-18px_52px_-24px_rgba(0,0,0,0.9)]"
         >
-          <div className="grid grid-cols-5 gap-1 p-1.5">
+          <div className="grid grid-cols-4 gap-1 p-1.5">
             {navItems.map((item) => {
               const Icon = item.icon;
               return (

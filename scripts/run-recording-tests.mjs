@@ -18,6 +18,6 @@ process.chdir(root);
 execSync("npx prisma migrate deploy", { stdio: "inherit", env: process.env });
 
 execSync(
-  "npx vitest run src/lib/http/request-origin.test.ts src/lib/recordings/recording-relay.integration.test.ts",
+  "npx vitest run src/lib/http/request-origin.test.ts src/lib/recordings/recording-relay.integration.test.ts src/lib/auth/recording-playback-token.test.ts",
   { stdio: "inherit", env: process.env },
 );

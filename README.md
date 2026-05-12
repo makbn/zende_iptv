@@ -15,7 +15,7 @@
 | **Web UI** | Home, **Library** (catalog), **Watch** (HLS.js), **Favorites** (with EPG strip), **Recordings** (DVR), **Board**, **Settings** (proxies, integrations, auth, playback prefs), optional **Setup** / **Login**. |
 | **VPN / proxy per channel** | In **Settings → VPN Proxies**, define direct proxies or **Gluetun** (NordVPN, ExpressVPN, ProtonVPN, custom OpenVPN/WireGuard). Assign channels by URL hash so only those streams use that exit; others stay direct. |
 | **IPTV apps** | **Settings → Integrations**: portal credentials for **Xtream-style** clients — `player_api.php`, `get.php`, `xmltv.php`, `/live/...` on the same host as the app. |
-| **Recordings** | Start captures from the UI; server runs **ffmpeg** against the **same relay URL** as playback (VPN/cookies apply). Schedules and downloads are backed by SQLite. **Docker** image includes `ffmpeg`. |
+| **Recordings** | Start captures from the UI; server runs **ffmpeg** against the **same relay URL** as playback (VPN/cookies apply). Schedules and metadata in SQLite; MP4s on disk — in Docker, **`ZENDE_RECORDINGS_DIR`** points at **`/data/recordings`** on the **`zende-data`** volume so files survive rebuilds. |
 | **Channel health** | Registry sync, probes, aggregates (tiers), optional **cron**-style jobs (`CRON_SECRET`). |
 | **EPG** | Favorites **“What’s on”** uses merged XMLTV sources + iptvx-style resolution; optional **`ZENDE_EPG_GUIDE_URLS`** for self-hosted guides ([iptv-org/epg](https://github.com/iptv-org/epg)). |
 | **Auth & data** | Optional JWT auth, admin users, per-user **favorites** and **history** when enabled. **SQLite** (file or Docker volume) for catalog cache, proxies, portal keys, sessions, recordings metadata. |
@@ -33,7 +33,7 @@ docker compose up --build
 
 Open **http://localhost:8077** (or set `PORT` / `DOCKER_PUBLISH` in `.env` — see [Advanced setup](docs/ADVANCED.md)).
 
-On first boot the entrypoint runs **`prisma migrate deploy`** against the persisted database on the **`zende-data`** volume.
+On first boot the entrypoint runs **`prisma migrate deploy`** against the persisted database on the **`zende-data`** volume. Recording MP4s are written to **`/data/recordings`** on that same volume so they survive image rebuilds and container recreation.
 
 For production, set a strong **`AUTH_JWT_SECRET`** in `.env`. Behind a reverse proxy, ensure **`Host`** and **`X-Forwarded-Proto`** (or **`Forwarded`**) reach the app so HLS URLs rewrite correctly; use **`PUBLIC_APP_URL`** only if those headers are missing.
 

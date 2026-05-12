@@ -24,7 +24,10 @@ export async function POST(request: Request, ctx: Ctx) {
     return NextResponse.json({ ok: true });
   } catch (e) {
     if (e instanceof RecordingPrepError) {
-      return NextResponse.json({ error: e.message }, { status: e.status });
+      return NextResponse.json(
+        { error: e.message, ...(e.code ? { code: e.code } : {}) },
+        { status: e.status },
+      );
     }
     return NextResponse.json({ error: PUBLIC_INTERNAL_ERROR }, { status: 500 });
   }

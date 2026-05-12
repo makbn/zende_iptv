@@ -4,7 +4,7 @@ set -e
 # Persisted SQLite on the mounted volume (see docker-compose.yml).
 export DATABASE_URL="${DATABASE_URL:-file:/data/zende.db}"
 
-mkdir -p /data
+mkdir -p /data /data/recordings
 
 if [ "$(id -u)" -eq 0 ]; then
   # Named volumes are often root-owned on first mount — chown so Prisma can write zende.db.

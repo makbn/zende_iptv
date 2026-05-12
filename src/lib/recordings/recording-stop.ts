@@ -3,6 +3,7 @@ import "server-only";
 import { prisma } from "@/lib/db/prisma";
 
 import { requestStopFfmpegRecording } from "./ffmpeg-runner";
+import { RECORDING_ENCODER_GONE_CODE } from "./recording-api-codes";
 import { RecordingPrepError } from "./recording-prep";
 import { resolveStoredRecordingFile } from "./recordings-dir";
 
@@ -25,6 +26,7 @@ export async function stopRecordingForOwner(
     throw new RecordingPrepError(
       "Could not signal the encoder. If this recording started before the latest update, or the server restarted while it was running, the capture process may already be gone — refresh to see the current status.",
       409,
+      RECORDING_ENCODER_GONE_CODE,
     );
   }
 }

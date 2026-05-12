@@ -68,6 +68,7 @@ By default Compose maps the container port to **all** interfaces (`0.0.0.0`). To
 | Variable | Required | Default | Purpose |
 |----------|----------|---------|---------|
 | `DATABASE_URL` | Yes | set in Compose | Prisma SQLite path; keep `file:/data/zende.db` with the bundled volume. |
+| `ZENDE_RECORDINGS_DIR` | No | `/data/recordings` in Compose | Directory for DVR MP4 files; must live on a **persisted** volume in Docker (same `/data` tree as the DB). Override only if you change mounts. |
 | `PORT` | No | `8077` | HTTP port inside the container and on the host. |
 | `DOCKER_PUBLISH` | No | `PORT:PORT` | Compose-only: full `host_ip:host_port:container_port` to bind a specific IP. |
 | `PUBLIC_APP_URL` | No | — | Optional. Force public origin in rewritten HLS URLs if your reverse proxy omits `Host` / `X-Forwarded-*` / `Forwarded`. |
@@ -83,7 +84,7 @@ Do not commit secrets; inject them via the host environment or your orchestrator
 
 | Mount | Purpose |
 |-------|---------|
-| `zende-data:/data` | Named volume — persists SQLite across rebuilds. Remove with `docker compose down -v`. |
+| `zende-data:/data` | Named volume — persists SQLite (`zende.db`) and recordings (`recordings/` when `ZENDE_RECORDINGS_DIR` is under `/data`). Remove with `docker compose down -v`. |
 | `/var/run/docker.sock` | Docker socket — lets Zenede start/stop Gluetun sibling containers. Required for VPN proxy feature. |
 | `GLUETUN_HOST_WORKDIR:/gluetun-work` | Shared config directory — Zenede writes OpenVPN/WireGuard files here; Gluetun containers mount sub-directories from the **host** side of this path. |
 
@@ -93,7 +94,7 @@ Do not commit secrets; inject them via the host environment or your orchestrator
 docker compose logs -f zende
 docker compose exec zende sh
 docker compose down          # stop, keep volume
-docker compose down -v       # stop + wipe SQLite
+docker compose down -v       # stop + wipe SQLite and recordings on the named volume
 ```
 
 Compose includes a **healthcheck** on `GET /api/health`; wait until the service is **healthy** before routing traffic.

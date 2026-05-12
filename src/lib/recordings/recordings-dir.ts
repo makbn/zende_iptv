@@ -3,7 +3,26 @@ import "server-only";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const ROOT = path.join(process.cwd(), "data", "recordings");
+/**
+ * Root for DVR MP4 files (and `.encoder.json` sidecars).
+ *
+ * In Docker, Compose sets `ZENDE_RECORDINGS_DIR=/data/recordings` so captures persist on
+ * the same volume as SQLite (`zende-data` → `/data`). Without that, files would live under
+ * `/app/data/recordings` and be lost on image rebuild.
+ *
+ * Local dev: defaults to `<cwd>/data/recordings`.
+ */
+function resolveRecordingsRoot(): string {
+  const fromEnv = process.env.ZENDE_RECORDINGS_DIR?.trim();
+  if (fromEnv) {
+    return path.isAbsolute(fromEnv)
+      ? fromEnv
+      : path.resolve(process.cwd(), fromEnv);
+  }
+  return path.join(process.cwd(), "data", "recordings");
+}
+
+const ROOT = resolveRecordingsRoot();
 
 export function getRecordingsRoot(): string {
   return ROOT;

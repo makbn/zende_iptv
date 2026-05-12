@@ -10,6 +10,8 @@ services:
     environment:
       # Required for Prisma (SQLite). Path must match the volume mount below.
       DATABASE_URL: "file:/data/zende.db"
+      # DVR MP4 output — must stay on the persisted `/data` volume (same as DATABASE_URL).
+      ZENDE_RECORDINGS_DIR: "/data/recordings"
       LOG_LEVEL: info
       NODE_ENV: production
       PORT: "${PORT:-8077}"

@@ -19,6 +19,7 @@ import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
+import { RECORDING_ENCODER_GONE_CODE } from "@/lib/recordings/recording-api-codes";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
@@ -160,6 +161,12 @@ export function TvRecordingsPage() {
   const [libraryDeleteError, setLibraryDeleteError] = useState<string | null>(
     null,
   );
+  const [stuckStopDialog, setStuckStopDialog] = useState<{
+    id: string;
+    channelName: string;
+    message: string;
+  } | null>(null);
+  const [stuckStopError, setStuckStopError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -342,17 +349,67 @@ export function TvRecordingsPage() {
     }
   };
 
+  useEffect(() => {
+    if (!stuckStopDialog) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setStuckStopDialog(null);
+        setStuckStopError(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [stuckStopDialog]);
+
   const stopRecording = async (id: string) => {
     setBusy(true);
     try {
+      const meta = overview?.active.find((a) => a.id === id);
       const res = await zendeFetch(`/api/recordings/${id}/stop`, {
         method: "POST",
       });
       if (!res.ok) {
-        const j = (await res.json().catch(() => null)) as { error?: unknown };
-        alert(typeof j?.error === "string" ? j.error : "Stop failed.");
+        const j = (await res.json().catch(() => null)) as {
+          error?: unknown;
+          code?: unknown;
+        };
+        const msg =
+          typeof j?.error === "string" ? j.error : "Stop failed.";
+        if (j?.code === RECORDING_ENCODER_GONE_CODE) {
+          setStuckStopError(null);
+          setStuckStopDialog({
+            id,
+            channelName: meta?.channelName ?? "Recording",
+            message: msg,
+          });
+          return;
+        }
+        alert(msg);
         return;
       }
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const forceRemoveStuckRecording = async () => {
+    if (!stuckStopDialog) return;
+    setStuckStopError(null);
+    setBusy(true);
+    try {
+      const res = await zendeFetch(
+        `/api/recordings/${encodeURIComponent(stuckStopDialog.id)}?force=1`,
+        { method: "DELETE" },
+      );
+      const j = (await res.json().catch(() => null)) as { error?: unknown };
+      if (!res.ok) {
+        setStuckStopError(
+          typeof j?.error === "string" ? j.error : "Remove failed.",
+        );
+        return;
+      }
+      setStuckStopDialog(null);
       await load();
     } finally {
       setBusy(false);
@@ -1264,6 +1321,95 @@ export function TvRecordingsPage() {
                     <Trash2 className="size-4" aria-hidden />
                   )}
                   Remove from server
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {stuckStopDialog ? (
+          <div
+            className="fixed inset-0 z-[200] flex items-center justify-center px-4 py-10 sm:px-6"
+            role="presentation"
+          >
+            <button
+              type="button"
+              aria-label="Dismiss"
+              className="absolute inset-0 bg-black/70 backdrop-blur-md"
+              onClick={() => {
+                setStuckStopDialog(null);
+                setStuckStopError(null);
+              }}
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="stuck-stop-title"
+              className="relative z-10 w-full max-w-md rounded-2xl border border-amber-400/25 bg-zinc-950/95 p-6 shadow-2xl ring-1 ring-white/[0.06]"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 flex-1 items-start gap-3">
+                  <AlertTriangle
+                    className="mt-0.5 size-6 shrink-0 text-amber-300"
+                    aria-hidden
+                  />
+                  <h2
+                    id="stuck-stop-title"
+                    className="text-[18px] font-semibold leading-snug text-white"
+                  >
+                    Stop unavailable
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  className="rounded-lg p-2 text-white/40 hover:bg-white/[0.08] hover:text-white/80"
+                  aria-label="Close"
+                  onClick={() => {
+                    setStuckStopDialog(null);
+                    setStuckStopError(null);
+                  }}
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+              <p className="mt-3 text-[15px] font-medium text-white/85">
+                {stuckStopDialog.channelName}
+              </p>
+              <p className="mt-2 text-[15px] leading-relaxed text-white/55">
+                {stuckStopDialog.message}
+              </p>
+              <p className="mt-3 text-[14px] leading-relaxed text-white/45">
+                You can remove this entry from the list and delete any partial file on
+                the server. Use this only if the encoder is no longer running (for
+                example after an update or restart).
+              </p>
+              {stuckStopError ? (
+                <p className="mt-3 text-[14px] text-red-300">{stuckStopError}</p>
+              ) : null}
+              <div className="mt-6 flex flex-wrap justify-end gap-3">
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="rounded-xl border border-white/[0.12] bg-white/[0.06] px-5 py-2.5 text-[14px] font-medium text-white/75 hover:bg-white/[0.1] disabled:opacity-45"
+                  onClick={() => {
+                    setStuckStopDialog(null);
+                    setStuckStopError(null);
+                  }}
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void forceRemoveStuckRecording()}
+                  className="inline-flex items-center gap-2 rounded-xl border border-amber-400/35 bg-amber-500/20 px-5 py-2.5 text-[14px] font-semibold text-amber-100 hover:bg-amber-500/30 disabled:opacity-45"
+                >
+                  {busy ? (
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                  ) : (
+                    <Trash2 className="size-4" aria-hidden />
+                  )}
+                  Force remove from list
                 </button>
               </div>
             </div>

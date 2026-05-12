@@ -2,12 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { GlassSearchModal } from "@/components/glass/glass-search-modal";
 import { WatchTogetherDialog } from "@/components/tv/watch-together-dialog";
@@ -141,27 +136,8 @@ function HeaderUserMenu({ compact }: { compact: boolean }) {
 export const TV_BROWSE_TOP_PAD_CLASS = "pt-20";
 export const TV_BROWSE_STICKY_TOP_CLASS = "top-20";
 
-function subscribeHash(onStoreChange: () => void) {
-  const run = () => onStoreChange();
-  window.addEventListener("hashchange", run);
-  window.addEventListener("popstate", run);
-  return () => {
-    window.removeEventListener("hashchange", run);
-    window.removeEventListener("popstate", run);
-  };
-}
-
-function getHashSnapshot() {
-  return window.location.hash;
-}
-
 export function TvTopBar() {
   const pathname = usePathname();
-  const hash = useSyncExternalStore(
-    subscribeHash,
-    getHashSnapshot,
-    () => "",
-  );
   const [searchOpen, setSearchOpen] = useState(false);
   const [boardOpen, setBoardOpen] = useState(false);
   const [scrollY, setScrollY] = useState(0);
@@ -190,8 +166,7 @@ export function TvTopBar() {
   const scrollT = Math.min(1, scrollY / 72);
   const compact = scrollY > 8;
 
-  const homeActive = pathname === "/" && hash !== "#live";
-  const liveActive = pathname === "/" && hash === "#live";
+  const homeActive = pathname === "/";
   const libraryActive = pathname === "/library";
   const favoritesActive = pathname === "/favorites";
   const recordingsActive = pathname === "/recordings";
@@ -275,7 +250,6 @@ export function TvTopBar() {
                 aria-label="Main"
               >
                 {navLink("Home", homeActive, "/", "nav-home")}
-                {navLink("Live TV", liveActive, "/#live", "nav-live")}
                 {navLink("Library", libraryActive, "/library", "nav-library")}
                 {navLink("Favorites", favoritesActive, "/favorites", "nav-favorites")}
                 {navLink("Recordings", recordingsActive, "/recordings", "nav-recordings")}

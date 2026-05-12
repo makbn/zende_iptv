@@ -11,6 +11,7 @@ import {
   Search,
   Trash2,
   Video,
+  X,
 } from "lucide-react";
 
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
@@ -20,6 +21,7 @@ import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
+import { RECORDING_ENCODER_GONE_CODE } from "@/lib/recordings/recording-api-codes";
 import { cn } from "@/lib/utils";
 
 const log = createClientLogger("shell.MobileRecordingsPage");
@@ -101,6 +103,12 @@ export function MobileRecordingsPage() {
   const [overview, setOverview] = useState<OverviewPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [stuckStopDialog, setStuckStopDialog] = useState<{
+    id: string;
+    channelName: string;
+    message: string;
+  } | null>(null);
+  const [stuckStopError, setStuckStopError] = useState<string | null>(null);
   const [channelQuery, setChannelQuery] = useState("");
   const [selected, setSelected] = useState<M3uChannel | null>(null);
   const [tab, setTab] = useState<"schedule" | "now">("schedule");
@@ -140,6 +148,18 @@ export function MobileRecordingsPage() {
     }, 5000);
     return () => window.clearInterval(id);
   }, [load]);
+
+  useEffect(() => {
+    if (!stuckStopDialog) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setStuckStopDialog(null);
+        setStuckStopError(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [stuckStopDialog]);
 
   const filteredChannels = useMemo(() => {
     const q = channelQuery.trim().toLowerCase();
@@ -210,10 +230,52 @@ export function MobileRecordingsPage() {
   const stopRecording = async (id: string) => {
     setBusy(true);
     try {
+      const meta = overview?.active.find((a) => a.id === id);
       const res = await zendeFetch(`/api/recordings/${id}/stop`, {
         method: "POST",
       });
-      if (!res.ok) alert("Stop failed.");
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as {
+          error?: unknown;
+          code?: unknown;
+        };
+        const msg =
+          typeof body?.error === "string" ? body.error : "Stop failed.";
+        if (body?.code === RECORDING_ENCODER_GONE_CODE) {
+          setStuckStopError(null);
+          setStuckStopDialog({
+            id,
+            channelName: meta?.channelName ?? "Recording",
+            message: msg,
+          });
+          return;
+        }
+        alert(msg);
+        return;
+      }
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const forceRemoveStuckRecording = async () => {
+    if (!stuckStopDialog) return;
+    setStuckStopError(null);
+    setBusy(true);
+    try {
+      const res = await zendeFetch(
+        `/api/recordings/${encodeURIComponent(stuckStopDialog.id)}?force=1`,
+        { method: "DELETE" },
+      );
+      const body = (await res.json().catch(() => null)) as { error?: unknown };
+      if (!res.ok) {
+        setStuckStopError(
+          typeof body?.error === "string" ? body.error : "Remove failed.",
+        );
+        return;
+      }
+      setStuckStopDialog(null);
       await load();
     } finally {
       setBusy(false);
@@ -514,6 +576,93 @@ export function MobileRecordingsPage() {
           </section>
         ) : null}
       </div>
+
+      {stuckStopDialog ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-end justify-center px-4 pb-8 pt-10 sm:items-center"
+          role="presentation"
+        >
+          <button
+            type="button"
+            aria-label="Dismiss"
+            className="absolute inset-0 bg-black/70 backdrop-blur-md"
+            onClick={() => {
+              setStuckStopDialog(null);
+              setStuckStopError(null);
+            }}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mobile-stuck-stop-title"
+            className="relative z-10 w-full max-w-md rounded-[24px] border border-amber-400/25 bg-zinc-950/95 p-5 shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex min-w-0 flex-1 items-start gap-2">
+                <AlertTriangle
+                  className="mt-0.5 size-5 shrink-0 text-amber-300"
+                  aria-hidden
+                />
+                <h2
+                  id="mobile-stuck-stop-title"
+                  className="text-[17px] font-semibold leading-snug text-white"
+                >
+                  Stop unavailable
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="rounded-lg p-2 text-white/40 hover:bg-white/[0.08]"
+                aria-label="Close"
+                onClick={() => {
+                  setStuckStopDialog(null);
+                  setStuckStopError(null);
+                }}
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+            <p className="mt-2 text-[15px] font-medium text-white/90">
+              {stuckStopDialog.channelName}
+            </p>
+            <p className="mt-2 text-[14px] leading-relaxed text-white/55">
+              {stuckStopDialog.message}
+            </p>
+            <p className="mt-2 text-[13px] leading-relaxed text-white/45">
+              Remove this listing and any partial file if the encoder is already gone.
+            </p>
+            {stuckStopError ? (
+              <p className="mt-2 text-[13px] text-red-300">{stuckStopError}</p>
+            ) : null}
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                disabled={busy}
+                className="min-h-11 rounded-2xl border border-white/[0.12] bg-white/[0.06] text-[14px] font-semibold text-white/80 disabled:opacity-45"
+                onClick={() => {
+                  setStuckStopDialog(null);
+                  setStuckStopError(null);
+                }}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void forceRemoveStuckRecording()}
+                className="flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-amber-400/35 bg-amber-500/25 text-[14px] font-semibold text-amber-50 disabled:opacity-45"
+              >
+                {busy ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                ) : (
+                  <Trash2 className="size-4" aria-hidden />
+                )}
+                Force remove
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

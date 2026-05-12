@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 
+import { ensureAuthConfigRow } from "@/lib/auth/auth-config";
+import { signRecordingPlaybackToken } from "@/lib/auth/recording-playback-token";
 import { prisma } from "@/lib/db/prisma";
 import { PUBLIC_INTERNAL_ERROR } from "@/lib/http/public-error";
-import { resolveRecordingOwner } from "@/lib/recordings/recording-owner";
+import {
+  RECORDING_GUEST_OWNER,
+  resolveRecordingOwner,
+} from "@/lib/recordings/recording-owner";
 import { ensureRecordingSchedulerStarted } from "@/lib/recordings/recording-scheduler-loop";
 import { tickRecordingScheduler } from "@/lib/recordings/recording-service";
 
@@ -35,7 +40,15 @@ export async function GET(request: Request, ctx: Ctx) {
       );
     }
 
-    const playbackUrl = `/api/recordings/${encodeURIComponent(id)}/play`;
+    let playbackUrl = `/api/recordings/${encodeURIComponent(id)}/play`;
+    const cfg = await ensureAuthConfigRow();
+    if (cfg.enabled && owner !== RECORDING_GUEST_OWNER) {
+      const pt = await signRecordingPlaybackToken({
+        userId: owner,
+        recordingId: id,
+      });
+      playbackUrl += `?pt=${encodeURIComponent(pt)}`;
+    }
     /** Synthetic — avoids matching live channels in the frequent ring. */
     const canonicalUrl = `zenede:recording:${id}`;
 

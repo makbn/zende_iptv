@@ -11,12 +11,12 @@ import { applyPublicCorsProxyUnwrap } from "@/lib/stream/public-cors-proxy-url";
 import { createStreamSession } from "@/lib/stream/stream-session-store";
 
 export class RecordingPrepError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
+  readonly code?: string;
+
+  constructor(message: string, readonly status: number, code?: string) {
     super(message);
     this.name = "RecordingPrepError";
+    this.code = code;
   }
 }
 

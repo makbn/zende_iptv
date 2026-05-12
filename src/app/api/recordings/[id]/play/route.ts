@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db/prisma";
 import { PUBLIC_INTERNAL_ERROR } from "@/lib/http/public-error";
-import { resolveRecordingOwner } from "@/lib/recordings/recording-owner";
+import { resolveRecordingOwnerForPlay } from "@/lib/recordings/recording-owner";
 import { ensureRecordingSchedulerStarted } from "@/lib/recordings/recording-scheduler-loop";
 import { tickRecordingScheduler } from "@/lib/recordings/recording-service";
 import { resolveStoredRecordingFile } from "@/lib/recordings/recordings-dir";
@@ -74,11 +74,11 @@ async function loadRecordingFileRow(
   return { ok: true, abs, size: Number(st.size) };
 }
 
-/** Inline MP4 for `<video>` — supports `Range` for seeking (same auth as download). */
+/** Inline MP4 for `<video>` — supports `Range` for seeking; auth via Bearer or `pt` from watch-meta. */
 export async function GET(request: Request, ctx: Ctx) {
-  const owner = await resolveRecordingOwner(request);
-  if (owner instanceof Response) return owner;
   const { id } = await ctx.params;
+  const owner = await resolveRecordingOwnerForPlay(request, id);
+  if (owner instanceof Response) return owner;
 
   ensureRecordingSchedulerStarted();
   await tickRecordingScheduler();
@@ -126,9 +126,9 @@ export async function GET(request: Request, ctx: Ctx) {
 }
 
 export async function HEAD(request: Request, ctx: Ctx) {
-  const owner = await resolveRecordingOwner(request);
-  if (owner instanceof Response) return owner;
   const { id } = await ctx.params;
+  const owner = await resolveRecordingOwnerForPlay(request, id);
+  if (owner instanceof Response) return owner;
 
   ensureRecordingSchedulerStarted();
   await tickRecordingScheduler();

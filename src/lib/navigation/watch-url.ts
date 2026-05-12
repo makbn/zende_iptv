@@ -71,3 +71,26 @@ export async function fetchWatchSessionMeta(
     canonicalUrl: body.canonicalUrl,
   };
 }
+
+export async function fetchRecordingWatchMeta(
+  recordingId: string,
+): Promise<WatchSessionMeta> {
+  const res = await zendeFetch(
+    `/api/recordings/${encodeURIComponent(recordingId)}/watch-meta`,
+  );
+  const body = (await res.json().catch(() => ({}))) as WatchSessionMeta & {
+    error?: string;
+  };
+  if (!res.ok) {
+    throw new Error(
+      typeof body.error === "string" ? body.error : "Recording unavailable.",
+    );
+  }
+  return {
+    title: body.title,
+    logo: body.logo ?? null,
+    group: body.group ?? null,
+    playbackUrl: body.playbackUrl,
+    canonicalUrl: body.canonicalUrl,
+  };
+}

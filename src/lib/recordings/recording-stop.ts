@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 
 import { requestStopFfmpegRecording } from "./ffmpeg-runner";
 import { RecordingPrepError } from "./recording-prep";
+import { resolveStoredRecordingFile } from "./recordings-dir";
 
 export async function stopRecordingForOwner(
   ownerUserId: string,
@@ -18,10 +19,11 @@ export async function stopRecordingForOwner(
   if (row.status !== "RECORDING") {
     throw new RecordingPrepError("This recording is not in progress.", 409);
   }
-  const stopped = await requestStopFfmpegRecording(recordingId);
+  const absOutput = resolveStoredRecordingFile(ownerUserId, row.relativePath);
+  const stopped = await requestStopFfmpegRecording(recordingId, absOutput);
   if (!stopped) {
     throw new RecordingPrepError(
-      "Could not signal the encoder. Try refreshing — the recording may have just finished.",
+      "Could not signal the encoder. If this recording started before the latest update, or the server restarted while it was running, the capture process may already be gone — refresh to see the current status.",
       409,
     );
   }

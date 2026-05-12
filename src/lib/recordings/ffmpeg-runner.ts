@@ -2,6 +2,7 @@ import "server-only";
 
 import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs/promises";
+import { writeFileSync } from "node:fs";
 
 import type { RecordingStatus } from "@prisma/client";
 
@@ -20,6 +21,36 @@ type ActiveEntry = {
 };
 
 const active = new Map<string, ActiveEntry>();
+
+function encoderSidecarPath(outputPath: string): string {
+  return `${outputPath}.encoder.json`;
+}
+
+async function unlinkEncoderSidecar(outputPath: string): Promise<void> {
+  try {
+    await fs.unlink(encoderSidecarPath(outputPath));
+  } catch {
+    /* missing is fine */
+  }
+}
+
+type EncoderSidecar = { recordingId: string; pid: number };
+
+async function readEncoderSidecar(
+  outputPath: string,
+): Promise<EncoderSidecar | null> {
+  try {
+    const raw = await fs.readFile(encoderSidecarPath(outputPath), "utf8");
+    const o = JSON.parse(raw) as { recordingId?: unknown; pid?: unknown };
+    if (typeof o.recordingId !== "string" || typeof o.pid !== "number") {
+      return null;
+    }
+    if (!Number.isFinite(o.pid) || o.pid <= 0) return null;
+    return { recordingId: o.recordingId, pid: Math.floor(o.pid) };
+  } catch {
+    return null;
+  }
+}
 
 export type FfmpegRecordingStart = {
   recordingId: string;
@@ -115,8 +146,8 @@ async function finalizeRecording(
       `ffmpeg exited with code ${opts.code ?? "?"} signal ${opts.signal ?? "—"}`;
   }
 
-  await prisma.recording.update({
-    where: { id: recordingId },
+  await prisma.recording.updateMany({
+    where: { id: recordingId, status: "RECORDING" },
     data: {
       status,
       endedAt: new Date(),
@@ -154,6 +185,18 @@ export function spawnFfmpegRecording(input: FfmpegRecordingStart): void {
   };
   active.set(input.recordingId, entry);
 
+  try {
+    if (typeof proc.pid === "number" && proc.pid > 0) {
+      writeFileSync(
+        encoderSidecarPath(input.outputPath),
+        JSON.stringify({ recordingId: input.recordingId, pid: proc.pid }),
+        "utf8",
+      );
+    }
+  } catch {
+    /* still try to record — stop may fall back to in-memory only */
+  }
+
   let stderrTail = "";
   proc.stderr?.on("data", (chunk: Buffer) => {
     stderrTail = (stderrTail + chunk.toString("utf-8")).slice(-6000);
@@ -171,6 +214,7 @@ export function spawnFfmpegRecording(input: FfmpegRecordingStart): void {
     }
     finished = true;
     active.delete(input.recordingId);
+    await unlinkEncoderSidecar(input.outputPath);
     try {
       await updater();
     } finally {
@@ -180,8 +224,9 @@ export function spawnFfmpegRecording(input: FfmpegRecordingStart): void {
 
   proc.on("error", (err) => {
     void finish(null, null, async () => {
-      await prisma.recording.update({
-        where: { id: input.recordingId },
+      await unlinkEncoderSidecar(input.outputPath);
+      await prisma.recording.updateMany({
+        where: { id: input.recordingId, status: "RECORDING" },
         data: {
           status: "FAILED",
           endedAt: new Date(),
@@ -204,13 +249,95 @@ export function spawnFfmpegRecording(input: FfmpegRecordingStart): void {
   });
 }
 
+async function waitPidGone(pid: number, maxMs: number): Promise<boolean> {
+  const deadline = Date.now() + maxMs;
+  while (Date.now() < deadline) {
+    try {
+      process.kill(pid, 0);
+    } catch {
+      return true;
+    }
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  try {
+    process.kill(pid, 0);
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * When the in-memory `active` map was lost (HMR, server restart) but ffmpeg is still running,
+ * we find it via the sidecar file written at spawn time and signal it by PID.
+ */
+async function stopByPersistedEncoder(
+  recordingId: string,
+  outputPath: string,
+): Promise<boolean> {
+  const meta = await readEncoderSidecar(outputPath);
+  if (!meta || meta.recordingId !== recordingId) {
+    return false;
+  }
+
+  let alive = true;
+  try {
+    process.kill(meta.pid, 0);
+  } catch {
+    alive = false;
+  }
+
+  if (!alive) {
+    await unlinkEncoderSidecar(outputPath);
+    await finalizeRecording(recordingId, outputPath, {
+      stopRequested: true,
+      code: null,
+      signal: "SIGINT",
+      stderrTail: "",
+    });
+    return true;
+  }
+
+  try {
+    process.kill(meta.pid, "SIGINT");
+  } catch {
+    await unlinkEncoderSidecar(outputPath);
+    return false;
+  }
+
+  let gone = await waitPidGone(meta.pid, 120_000);
+  if (!gone) {
+    try {
+      process.kill(meta.pid, "SIGKILL");
+    } catch {
+      /* ignore */
+    }
+    gone = await waitPidGone(meta.pid, 10_000);
+  }
+
+  await unlinkEncoderSidecar(outputPath);
+  await finalizeRecording(recordingId, outputPath, {
+    stopRequested: true,
+    code: null,
+    signal: "SIGINT",
+    stderrTail: "",
+  });
+  return true;
+}
+
 export async function requestStopFfmpegRecording(
   recordingId: string,
+  outputAbsPath?: string,
 ): Promise<boolean> {
   const entry = active.get(recordingId);
-  if (!entry) return false;
-  entry.stopRequested = true;
-  entry.proc.kill("SIGINT");
-  await entry.settled;
-  return true;
+  if (entry) {
+    entry.stopRequested = true;
+    entry.proc.kill("SIGINT");
+    await entry.settled;
+    return true;
+  }
+  if (outputAbsPath) {
+    return stopByPersistedEncoder(recordingId, outputAbsPath);
+  }
+  return false;
 }

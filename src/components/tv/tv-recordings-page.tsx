@@ -28,6 +28,7 @@ import {
   Loader2,
   Pencil,
   Play,
+  Plus,
   Radio,
   Search,
   Trash2,
@@ -152,6 +153,8 @@ export function TvRecordingsPage() {
 
   const [nowMs, setNowMs] = useState<number | null>(null);
 
+  const [startRecordingDialogOpen, setStartRecordingDialogOpen] =
+    useState(false);
   const [libraryDeleteTarget, setLibraryDeleteTarget] =
     useState<ApiLibraryItem | null>(null);
   const [libraryDeleteError, setLibraryDeleteError] = useState<string | null>(
@@ -252,6 +255,7 @@ export function TvRecordingsPage() {
         return;
       }
       setStartLocal(toDatetimeLocalValue(new Date()));
+      setStartRecordingDialogOpen(false);
       await load();
     } finally {
       setBusy(false);
@@ -280,6 +284,7 @@ export function TvRecordingsPage() {
         alert(msg);
         return;
       }
+      setStartRecordingDialogOpen(false);
       await load();
     } finally {
       setBusy(false);
@@ -389,6 +394,15 @@ export function TvRecordingsPage() {
     }
   };
 
+  useEffect(() => {
+    if (!startRecordingDialogOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setStartRecordingDialogOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [startRecordingDialogOpen]);
+
   if (!catalogLoaded) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--tv-page-bg)] pt-20 text-white/45">
@@ -454,300 +468,373 @@ export function TvRecordingsPage() {
             </div>
           ) : null}
 
-          <section aria-labelledby="rec-channel-heading">
-            <div className="flex flex-wrap items-end justify-between gap-4">
+          <section aria-labelledby="rec-start-heading">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h2
-                  id="rec-channel-heading"
+                  id="rec-start-heading"
                   className="text-lg font-semibold tracking-tight text-white"
                 >
-                  Channel
+                  New recording
                 </h2>
-                <p className="mt-1 text-[15px] text-white/45">
-                  Search your catalog, then schedule or start a capture.
+                <p className="mt-1 max-w-xl text-[15px] leading-relaxed text-white/45">
+                  Schedule a future capture or start encoding now — pick a channel
+                  and times in the recorder.
                 </p>
               </div>
-            </div>
-
-            <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
-              <ZenedeGlass
-                variant="panel"
-                className="overflow-hidden rounded-[1.35rem] border border-white/[0.1] p-5 shadow-[0_24px_64px_-28px_rgba(0,0,0,0.55)]"
+              <button
+                type="button"
+                onClick={() => setStartRecordingDialogOpen(true)}
+                className="shrink-0 outline-none"
               >
-                <label className="block text-[13px] font-medium uppercase tracking-[0.12em] text-white/40">
-                  Find channel
-                </label>
-                <div className="relative mt-2">
-                  <Search
-                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white/35"
-                    aria-hidden
-                  />
-                  <input
-                    value={channelQuery}
-                    onChange={(e) => setChannelQuery(e.target.value)}
-                    placeholder="Type a channel or group name…"
-                    className={cn(
-                      "h-11 w-full rounded-xl border border-white/[0.1] bg-black/35 pl-10 pr-3 text-[15px] text-white outline-none",
-                      "placeholder:text-white/30 focus:border-white/25 focus:ring-2 focus:ring-white/15",
-                    )}
-                  />
-                </div>
-                <ul
-                  className="mt-3 max-h-[min(22rem,42vh)] space-y-1 overflow-y-auto overscroll-contain pr-1"
-                  role="listbox"
-                  aria-label="Matching channels"
-                >
-                  {filteredChannels.map((ch) => {
-                    const label = parseChannelLabel(ch.name).displayName;
-                    const active = selected?.url === ch.url;
-                    return (
-                      <li key={ch.url}>
-                        <button
-                          type="button"
-                          role="option"
-                          aria-selected={active}
-                          onClick={() => setSelected(ch)}
-                          className={cn(
-                            "flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left outline-none transition-colors",
-                            active
-                              ? "bg-white/[0.12] ring-1 ring-white/[0.14]"
-                              : "hover:bg-white/[0.06]",
-                          )}
-                        >
-                          <span className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-white/[0.06] ring-1 ring-white/[0.08]">
-                            {ch.tvgLogo ? (
-                              <Image
-                                src={ch.tvgLogo}
-                                alt=""
-                                fill
-                                className="object-cover"
-                                sizes="40px"
-                                unoptimized
-                              />
-                            ) : (
-                              <span className="flex size-full items-center justify-center text-white/35">
-                                <Video className="size-4" aria-hidden />
-                              </span>
-                            )}
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[15px] font-medium text-white/95">
-                              {label}
-                            </span>
-                            {ch.groupTitle ? (
-                              <span className="mt-0.5 block truncate text-[13px] text-white/40">
-                                {ch.groupTitle}
-                              </span>
-                            ) : null}
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </ZenedeGlass>
-
-              <ZenedeGlass
-                variant="panel"
-                className="rounded-[1.35rem] border border-white/[0.1] p-5 shadow-[0_24px_64px_-28px_rgba(0,0,0,0.55)]"
-              >
-                <div
-                  className="flex flex-wrap gap-2 border-b border-white/[0.08] pb-4"
-                  role="tablist"
-                  aria-label="Recording mode"
-                >
-                  {(
-                    [
-                      ["schedule", "Schedule", CalendarClock],
-                      ["now", "Record now", Radio],
-                    ] as const
-                  ).map(([id, label, Icon]) => (
-                    <button
-                      key={id}
-                      type="button"
-                      role="tab"
-                      aria-selected={tab === id}
-                      onClick={() => setTab(id)}
-                      className={cn(
-                        "inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-[14px] font-medium outline-none transition-colors",
-                        tab === id
-                          ? "bg-white/[0.12] text-white ring-1 ring-white/[0.14]"
-                          : "text-white/45 hover:bg-white/[0.05] hover:text-white/75",
-                      )}
-                    >
-                      <Icon className="size-4 opacity-80" aria-hidden />
-                      {label}
-                    </button>
-                  ))}
-                </div>
-
-                {selected ? (
-                  <div className="mt-4 flex items-center gap-3 rounded-xl border border-white/[0.08] bg-black/25 px-3 py-2.5">
-                    <span className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-white/[0.06] ring-1 ring-white/[0.08]">
-                      {selected.tvgLogo ? (
-                        <Image
-                          src={selected.tvgLogo}
-                          alt=""
-                          fill
-                          className="object-cover"
-                          sizes="44px"
-                          unoptimized
-                        />
-                      ) : (
-                        <span className="flex size-full items-center justify-center text-white/35">
-                          <Video className="size-5" aria-hidden />
-                        </span>
-                      )}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[15px] font-semibold text-white">
-                        {parseChannelLabel(selected.name).displayName}
-                      </p>
-                      <p className="truncate text-[13px] text-white/40">
-                        {selected.groupTitle ?? "Uncategorized"}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="mt-6 text-center text-[15px] text-white/40">
-                    Select a channel from the list.
-                  </p>
-                )}
-
-                {tab === "schedule" && selected ? (
-                  <div className="mt-5 space-y-4">
-                    <div>
-                      <label className="text-[13px] font-medium text-white/50">
-                        Start
-                      </label>
-                      <input
-                        type="datetime-local"
-                        value={startLocal}
-                        onChange={(e) => setStartLocal(e.target.value)}
-                        className={cn(
-                          "mt-1.5 h-11 w-full max-w-md rounded-xl border border-white/[0.1] bg-black/35 px-3 text-[15px] text-white outline-none",
-                          "focus:border-white/25 focus:ring-2 focus:ring-white/15",
-                        )}
-                      />
-                    </div>
-                    <fieldset className="space-y-2">
-                      <legend className="text-[13px] font-medium text-white/50">
-                        End
-                      </legend>
-                      <div className="flex flex-wrap gap-3">
-                        <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] text-white/75">
-                          <input
-                            type="radio"
-                            name="endMode"
-                            checked={endMode === "duration"}
-                            onChange={() => setEndMode("duration")}
-                            className="accent-white"
-                          />
-                          Duration (minutes)
-                        </label>
-                        <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] text-white/75">
-                          <input
-                            type="radio"
-                            name="endMode"
-                            checked={endMode === "end"}
-                            onChange={() => setEndMode("end")}
-                            className="accent-white"
-                          />
-                          End time
-                        </label>
-                      </div>
-                      {endMode === "duration" ? (
-                        <input
-                          type="number"
-                          min={1}
-                          max={480}
-                          value={durationMinutes}
-                          onChange={(e) =>
-                            setDurationMinutes(Number(e.target.value) || 1)
-                          }
-                          className={cn(
-                            "h-11 w-32 rounded-xl border border-white/[0.1] bg-black/35 px-3 text-[15px] text-white outline-none",
-                            "focus:border-white/25 focus:ring-2 focus:ring-white/15",
-                          )}
-                        />
-                      ) : (
-                        <input
-                          type="datetime-local"
-                          value={endLocal}
-                          onChange={(e) => setEndLocal(e.target.value)}
-                          className={cn(
-                            "mt-1 h-11 w-full max-w-md rounded-xl border border-white/[0.1] bg-black/35 px-3 text-[15px] text-white outline-none",
-                            "focus:border-white/25 focus:ring-2 focus:ring-white/15",
-                          )}
-                        />
-                      )}
-                    </fieldset>
-                    <button
-                      type="button"
-                      disabled={
-                        busy ||
-                        (overview !== null && !overview.ffmpegAvailable)
-                      }
-                      onClick={() => void submitSchedule()}
-                      className={cn(
-                        "inline-flex h-11 items-center justify-center rounded-xl px-5 text-[15px] font-semibold outline-none transition-colors",
-                        "bg-white text-black hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-45",
-                        "focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black",
-                      )}
-                    >
-                      {busy ? (
-                        <Loader2 className="size-5 animate-spin" aria-hidden />
-                      ) : (
-                        "Add to schedule"
-                      )}
-                    </button>
-                  </div>
-                ) : null}
-
-                {tab === "now" && selected ? (
-                  <div className="mt-5 space-y-4">
-                    <div>
-                      <label className="text-[13px] font-medium text-white/50">
-                        Duration (minutes)
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={480}
-                        value={nowDuration}
-                        onChange={(e) =>
-                          setNowDuration(Number(e.target.value) || 1)
-                        }
-                        className={cn(
-                          "mt-1.5 h-11 w-32 rounded-xl border border-white/[0.1] bg-black/35 px-3 text-[15px] text-white outline-none",
-                          "focus:border-white/25 focus:ring-2 focus:ring-white/15",
-                        )}
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      disabled={
-                        busy ||
-                        (overview !== null && !overview.ffmpegAvailable)
-                      }
-                      onClick={() => void submitNow()}
-                      className={cn(
-                        "inline-flex h-11 items-center justify-center rounded-xl px-5 text-[15px] font-semibold outline-none transition-colors",
-                        "bg-rose-500 text-white hover:bg-rose-500/90 disabled:cursor-not-allowed disabled:opacity-45",
-                        "focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2 focus-visible:ring-offset-black",
-                      )}
-                    >
-                      {busy ? (
-                        <Loader2 className="size-5 animate-spin" aria-hidden />
-                      ) : (
-                        "Start recording now"
-                      )}
-                    </button>
-                  </div>
-                ) : null}
-              </ZenedeGlass>
+                <ZenedeGlass variant="ctaPill">
+                  <span className="flex items-center gap-2 px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
+                    <Plus className="size-4" aria-hidden />
+                    Start a recording
+                  </span>
+                </ZenedeGlass>
+              </button>
             </div>
           </section>
+
+          {startRecordingDialogOpen ? (
+            <div
+              className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto px-4 py-8 sm:px-6 sm:py-10"
+              role="presentation"
+            >
+              <button
+                type="button"
+                aria-label="Close dialog"
+                className="fixed inset-0 bg-black/70 backdrop-blur-md motion-safe:animate-[glass-backdrop-in_0.25s_ease-out_both]"
+                onClick={() => setStartRecordingDialogOpen(false)}
+              />
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="rec-start-dialog-title"
+                className="relative z-10 my-auto w-full max-w-5xl motion-safe:animate-[glass-modal-pop_0.36s_cubic-bezier(0.16,1,0.3,1)_both]"
+              >
+                <ZenedeGlass
+                  variant="panel"
+                  className="flex max-h-[min(92vh,880px)] flex-col overflow-hidden border border-white/[0.12] shadow-[0_40px_120px_-48px_rgba(0,0,0,0.95)]"
+                >
+                  <div className="flex shrink-0 items-start justify-between gap-3 border-b border-white/[0.08] px-5 py-4 sm:px-6">
+                    <div className="min-w-0">
+                      <p
+                        id="rec-start-dialog-title"
+                        className="text-[18px] font-semibold text-white"
+                      >
+                        Start a recording
+                      </p>
+                      <p className="mt-1 text-[14px] text-white/45">
+                        Search your catalog, choose a channel, then schedule or
+                        record now.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setStartRecordingDialogOpen(false)}
+                      className="shrink-0 rounded-lg p-2 text-white/40 outline-none transition-colors hover:bg-white/[0.08] hover:text-white/85"
+                      aria-label="Close"
+                    >
+                      <X className="size-5" />
+                    </button>
+                  </div>
+
+                  <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6">
+                    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+                      <ZenedeGlass
+                        variant="panel"
+                        className="overflow-hidden rounded-[1.35rem] border border-white/[0.1] p-5 shadow-[0_24px_64px_-28px_rgba(0,0,0,0.55)]"
+                      >
+                        <label className="block text-[13px] font-medium uppercase tracking-[0.12em] text-white/40">
+                          Find channel
+                        </label>
+                        <div className="relative mt-2">
+                          <Search
+                            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white/35"
+                            aria-hidden
+                          />
+                          <input
+                            value={channelQuery}
+                            onChange={(e) => setChannelQuery(e.target.value)}
+                            placeholder="Type a channel or group name…"
+                            className={cn(
+                              "h-11 w-full rounded-xl border border-white/[0.1] bg-black/35 pl-10 pr-3 text-[15px] text-white outline-none",
+                              "placeholder:text-white/30 focus:border-white/25 focus:ring-2 focus:ring-white/15",
+                            )}
+                          />
+                        </div>
+                        <ul
+                          className="mt-3 max-h-[min(22rem,40vh)] space-y-1 overflow-y-auto overscroll-contain pr-1"
+                          role="listbox"
+                          aria-label="Matching channels"
+                        >
+                          {filteredChannels.map((ch) => {
+                            const label = parseChannelLabel(ch.name).displayName;
+                            const active = selected?.url === ch.url;
+                            return (
+                              <li key={ch.url}>
+                                <button
+                                  type="button"
+                                  role="option"
+                                  aria-selected={active}
+                                  onClick={() => setSelected(ch)}
+                                  className={cn(
+                                    "flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left outline-none transition-colors",
+                                    active
+                                      ? "bg-white/[0.12] ring-1 ring-white/[0.14]"
+                                      : "hover:bg-white/[0.06]",
+                                  )}
+                                >
+                                  <span className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-white/[0.06] ring-1 ring-white/[0.08]">
+                                    {ch.tvgLogo ? (
+                                      <Image
+                                        src={ch.tvgLogo}
+                                        alt=""
+                                        fill
+                                        className="object-cover"
+                                        sizes="40px"
+                                        unoptimized
+                                      />
+                                    ) : (
+                                      <span className="flex size-full items-center justify-center text-white/35">
+                                        <Video className="size-4" aria-hidden />
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-[15px] font-medium text-white/95">
+                                      {label}
+                                    </span>
+                                    {ch.groupTitle ? (
+                                      <span className="mt-0.5 block truncate text-[13px] text-white/40">
+                                        {ch.groupTitle}
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </ZenedeGlass>
+
+                      <ZenedeGlass
+                        variant="panel"
+                        className="rounded-[1.35rem] border border-white/[0.1] p-5 shadow-[0_24px_64px_-28px_rgba(0,0,0,0.55)]"
+                      >
+                        <div
+                          className="flex flex-wrap gap-2 border-b border-white/[0.08] pb-4"
+                          role="tablist"
+                          aria-label="Recording mode"
+                        >
+                          {(
+                            [
+                              ["schedule", "Schedule", CalendarClock],
+                              ["now", "Record now", Radio],
+                            ] as const
+                          ).map(([id, label, Icon]) => (
+                            <button
+                              key={id}
+                              type="button"
+                              role="tab"
+                              aria-selected={tab === id}
+                              onClick={() => setTab(id)}
+                              className={cn(
+                                "inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-[14px] font-medium outline-none transition-colors",
+                                tab === id
+                                  ? "bg-white/[0.12] text-white ring-1 ring-white/[0.14]"
+                                  : "text-white/45 hover:bg-white/[0.05] hover:text-white/75",
+                              )}
+                            >
+                              <Icon className="size-4 opacity-80" aria-hidden />
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {selected ? (
+                          <div className="mt-4 flex items-center gap-3 rounded-xl border border-white/[0.08] bg-black/25 px-3 py-2.5">
+                            <span className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-white/[0.06] ring-1 ring-white/[0.08]">
+                              {selected.tvgLogo ? (
+                                <Image
+                                  src={selected.tvgLogo}
+                                  alt=""
+                                  fill
+                                  className="object-cover"
+                                  sizes="44px"
+                                  unoptimized
+                                />
+                              ) : (
+                                <span className="flex size-full items-center justify-center text-white/35">
+                                  <Video className="size-5" aria-hidden />
+                                </span>
+                              )}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-[15px] font-semibold text-white">
+                                {parseChannelLabel(selected.name).displayName}
+                              </p>
+                              <p className="truncate text-[13px] text-white/40">
+                                {selected.groupTitle ?? "Uncategorized"}
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="mt-6 text-center text-[15px] text-white/40">
+                            Select a channel from the list.
+                          </p>
+                        )}
+
+                        {tab === "schedule" && selected ? (
+                          <div className="mt-5 space-y-4">
+                            <div>
+                              <label className="text-[13px] font-medium text-white/50">
+                                Start
+                              </label>
+                              <input
+                                type="datetime-local"
+                                value={startLocal}
+                                onChange={(e) => setStartLocal(e.target.value)}
+                                className={cn(
+                                  "mt-1.5 h-11 w-full max-w-md rounded-xl border border-white/[0.1] bg-black/35 px-3 text-[15px] text-white outline-none",
+                                  "focus:border-white/25 focus:ring-2 focus:ring-white/15",
+                                )}
+                              />
+                            </div>
+                            <fieldset className="space-y-2">
+                              <legend className="text-[13px] font-medium text-white/50">
+                                End
+                              </legend>
+                              <div className="flex flex-wrap gap-3">
+                                <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] text-white/75">
+                                  <input
+                                    type="radio"
+                                    name="endModeDialog"
+                                    checked={endMode === "duration"}
+                                    onChange={() => setEndMode("duration")}
+                                    className="accent-white"
+                                  />
+                                  Duration (minutes)
+                                </label>
+                                <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] text-white/75">
+                                  <input
+                                    type="radio"
+                                    name="endModeDialog"
+                                    checked={endMode === "end"}
+                                    onChange={() => setEndMode("end")}
+                                    className="accent-white"
+                                  />
+                                  End time
+                                </label>
+                              </div>
+                              {endMode === "duration" ? (
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={480}
+                                  value={durationMinutes}
+                                  onChange={(e) =>
+                                    setDurationMinutes(Number(e.target.value) || 1)
+                                  }
+                                  className={cn(
+                                    "h-11 w-32 rounded-xl border border-white/[0.1] bg-black/35 px-3 text-[15px] text-white outline-none",
+                                    "focus:border-white/25 focus:ring-2 focus:ring-white/15",
+                                  )}
+                                />
+                              ) : (
+                                <input
+                                  type="datetime-local"
+                                  value={endLocal}
+                                  onChange={(e) => setEndLocal(e.target.value)}
+                                  className={cn(
+                                    "mt-1 h-11 w-full max-w-md rounded-xl border border-white/[0.1] bg-black/35 px-3 text-[15px] text-white outline-none",
+                                    "focus:border-white/25 focus:ring-2 focus:ring-white/15",
+                                  )}
+                                />
+                              )}
+                            </fieldset>
+                            <button
+                              type="button"
+                              disabled={
+                                busy ||
+                                (overview !== null && !overview.ffmpegAvailable)
+                              }
+                              onClick={() => void submitSchedule()}
+                              className={cn(
+                                "inline-flex h-11 items-center justify-center rounded-xl px-5 text-[15px] font-semibold outline-none transition-colors",
+                                "bg-white text-black hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-45",
+                                "focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black",
+                              )}
+                            >
+                              {busy ? (
+                                <Loader2 className="size-5 animate-spin" aria-hidden />
+                              ) : (
+                                "Add to schedule"
+                              )}
+                            </button>
+                          </div>
+                        ) : null}
+
+                        {tab === "now" && selected ? (
+                          <div className="mt-5 space-y-4">
+                            <div>
+                              <label className="text-[13px] font-medium text-white/50">
+                                Duration (minutes)
+                              </label>
+                              <input
+                                type="number"
+                                min={1}
+                                max={480}
+                                value={nowDuration}
+                                onChange={(e) =>
+                                  setNowDuration(Number(e.target.value) || 1)
+                                }
+                                className={cn(
+                                  "mt-1.5 h-11 w-32 rounded-xl border border-white/[0.1] bg-black/35 px-3 text-[15px] text-white outline-none",
+                                  "focus:border-white/25 focus:ring-2 focus:ring-white/15",
+                                )}
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              disabled={
+                                busy ||
+                                (overview !== null && !overview.ffmpegAvailable)
+                              }
+                              onClick={() => void submitNow()}
+                              className={cn(
+                                "inline-flex h-11 items-center justify-center rounded-xl px-5 text-[15px] font-semibold outline-none transition-colors",
+                                "bg-rose-500 text-white hover:bg-rose-500/90 disabled:cursor-not-allowed disabled:opacity-45",
+                                "focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2 focus-visible:ring-offset-black",
+                              )}
+                            >
+                              {busy ? (
+                                <Loader2 className="size-5 animate-spin" aria-hidden />
+                              ) : (
+                                "Start recording now"
+                              )}
+                            </button>
+                          </div>
+                        ) : null}
+                      </ZenedeGlass>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 border-t border-white/[0.08] bg-black/20 px-5 py-3 sm:px-6">
+                    <button
+                      type="button"
+                      onClick={() => setStartRecordingDialogOpen(false)}
+                      className="rounded-xl border border-white/[0.12] bg-white/[0.06] px-5 py-2.5 text-[14px] font-medium text-white/75 outline-none hover:bg-white/[0.1] hover:text-white"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </ZenedeGlass>
+              </div>
+            </div>
+          ) : null}
 
           {overview && overview.active.length > 0 ? (
             <section aria-labelledby="rec-active-heading">

@@ -5,6 +5,7 @@ import { gateApiRequest } from "@/lib/auth/gate-api";
 import { PUBLIC_INTERNAL_ERROR } from "@/lib/http/public-error";
 import { hashStreamUrl } from "@/lib/health/url-hash";
 import { getProxyForChannel, ProxyNotReadyError } from "@/lib/proxies/proxy-store";
+import { applyPublicCorsProxyUnwrap } from "@/lib/stream/public-cors-proxy-url";
 import { createStreamSession } from "@/lib/stream/stream-session-store";
 
 export const runtime = "nodejs";
@@ -14,6 +15,12 @@ const bodySchema = z.object({
   title: z.string().max(512).optional(),
   logo: z.string().max(8192).optional(),
   group: z.string().max(512).optional(),
+  /**
+   * When true (default), URLs shaped like `https://cors-proxy…/http://real-host/…` are
+   * rewritten to `http://real-host/…` before the server fetches them (browser CORS bridges
+   * are unnecessary for our proxy). Set false to keep the catalog URL exactly as given.
+   */
+  unwrapPublicCorsProxyUrls: z.boolean().optional(),
   /**
    * Seed cookie jar for the stream's origin — e.g. authenticated session
    * cookies extracted from a browser DevTools session. Name → value.
@@ -41,9 +48,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
+  const rawUrl = parsed.data.url.trim();
+  const unwrapPublicCorsProxyUrls =
+    parsed.data.unwrapPublicCorsProxyUrls !== false;
+  const resolvedUrl = applyPublicCorsProxyUnwrap(rawUrl, unwrapPublicCorsProxyUrls);
+
   let upstream: URL;
   try {
-    upstream = new URL(parsed.data.url);
+    upstream = new URL(resolvedUrl);
   } catch {
     return NextResponse.json({ error: "Invalid stream URL." }, { status: 400 });
   }
@@ -51,8 +63,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Only http(s) streams are supported." }, { status: 400 });
   }
 
-  // Look up any VPN proxy assignment for this channel URL.
-  const urlHash = await hashStreamUrl(upstream.href);
+  // Channel / VPN routing uses the catalog URL hash (wrapped form if that is what is stored).
+  const urlHash = await hashStreamUrl(rawUrl);
   let proxyConfig;
   try {
     proxyConfig = await getProxyForChannel(urlHash);

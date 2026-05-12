@@ -194,6 +194,7 @@ export function TvTopBar() {
   const liveActive = pathname === "/" && hash === "#live";
   const libraryActive = pathname === "/library";
   const favoritesActive = pathname === "/favorites";
+  const recordingsActive = pathname === "/recordings";
 
   const navLink = (
     label: string,
@@ -277,6 +278,7 @@ export function TvTopBar() {
                 {navLink("Live TV", liveActive, "/#live", "nav-live")}
                 {navLink("Library", libraryActive, "/library", "nav-library")}
                 {navLink("Favorites", favoritesActive, "/favorites", "nav-favorites")}
+                {navLink("Recordings", recordingsActive, "/recordings", "nav-recordings")}
               </nav>
               <div className="flex shrink-0 items-center gap-2">
                 <button

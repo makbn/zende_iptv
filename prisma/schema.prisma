@@ -209,3 +209,59 @@ model ManualChannelsStore {
   entriesJson String   @default("[]")
   updatedAt   DateTime @updatedAt
 }
+
+enum RecordingScheduleStatus {
+  SCHEDULED
+  CANCELLED
+  DISPATCHED
+}
+
+enum RecordingStatus {
+  RECORDING
+  COMPLETED
+  FAILED
+  STOPPED_EARLY
+}
+
+/// Future recording window — picked up by the server scheduler.
+model RecordingSchedule {
+  id           String                  @id @default(cuid())
+  ownerUserId  String
+  channelUrl   String
+  channelName  String
+  channelLogo  String?
+  channelGroup String?
+  startsAt     DateTime
+  endsAt       DateTime
+  status       RecordingScheduleStatus @default(SCHEDULED)
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  recordings   Recording[]
+
+  @@index([ownerUserId, startsAt])
+  @@index([status, startsAt])
+}
+
+/// One MP4 capture attempt (manual start or dispatched from a schedule).
+model Recording {
+  id             String           @id @default(cuid())
+  ownerUserId    String
+  scheduleId     String?
+  schedule       RecordingSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  channelUrl     String
+  channelName    String
+  channelLogo    String?
+  channelGroup   String?
+  /// Relative to the recordings root: `<ownerUserId>/<id>.mp4`
+  relativePath   String
+  status         RecordingStatus
+  error          String?
+  startedAt      DateTime?
+  endedAt        DateTime?
+  plannedSeconds Int?
+  sizeBytes      BigInt?
+  createdAt      DateTime         @default(now())
+
+  @@index([ownerUserId, createdAt(sort: Desc)])
+  @@index([ownerUserId, status])
+}

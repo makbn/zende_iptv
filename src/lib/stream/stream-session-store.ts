@@ -348,7 +348,10 @@ export async function persistUrlAliases(
       where: { id: sessionId },
       select: { urlAliasesJson: true, aliasReferersJson: true },
     });
-    const merged = parseAliasesJson(row?.urlAliasesJson ?? "{}");
+    if (!row) {
+      return;
+    }
+    const merged = parseAliasesJson(row.urlAliasesJson ?? "{}");
     const mergedReferers = parseReferersJson(row?.aliasReferersJson ?? "{}");
     for (const [k, v] of aliases) {
       merged.set(k, v);

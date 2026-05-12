@@ -75,12 +75,28 @@ export function getRequestOrigin(request: Request): string {
     return new URL(request.url).origin;
   }
 
+  const url = new URL(request.url);
+  /**
+   * Loopback hits to the stream proxy (ffmpeg segment/child-playlist fetches, etc.)
+   * must rewrite URLs to the same loopback origin. `PUBLIC_APP_URL` is for edge
+   * proxies that strip `Host` / `X-Forwarded-*` for *browser* traffic — applying
+   * it here breaks in-container recording when ffmpeg follows `?h=` URLs on
+   * `127.0.0.1` without the internal relay header on every request.
+   */
+  if (
+    url.pathname.startsWith("/api/stream/proxy/") &&
+    isLoopbackOrWildcardHost(
+      request.headers.get("host")?.split(",")[0]?.trim() ?? "",
+    )
+  ) {
+    return url.origin;
+  }
+
   const fromEnv = process.env.PUBLIC_APP_URL?.trim().replace(/\/$/, "");
   if (fromEnv) {
     return fromEnv;
   }
 
-  const url = new URL(request.url);
   const xfProtoRaw = request.headers.get("x-forwarded-proto");
   const xfProto = xfProtoRaw?.split(",")[0]?.trim();
 

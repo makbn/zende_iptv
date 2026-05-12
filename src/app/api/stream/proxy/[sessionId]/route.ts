@@ -247,6 +247,7 @@ export async function GET(
     );
   }
 
+  try {
   const urlObj = new URL(request.url);
   const uParam = urlObj.searchParams.get("u");
   const hParam = urlObj.searchParams.get("h");
@@ -471,4 +472,14 @@ export async function GET(
     status: upstream.status,
     headers: respHeaders,
   });
+  } catch (err) {
+    log.error("stream proxy unexpected error", {
+      sessionId,
+      message: err instanceof Error ? err.message : String(err),
+    });
+    return NextResponse.json(
+      { error: "Stream proxy failed." },
+      { status: 502 },
+    );
+  }
 }

@@ -1,6 +1,6 @@
 # Zenede
 
-**Zenede** is a self-hosted **IPTV hub**: a Next.js app that combines a TV-style web UI with a **server-side stream relay**, **per-channel VPN / proxy routing**, **scheduled and ad-hoc recordings** (ffmpeg), **channel health probes**, **EPG** for favorites, and **Xtream-compatible** URLs for external players (e.g. TiviMate). The browser does not pull raw provider URLs for playback—sessions go through **`/api/stream/proxy/...`**, where the server applies your proxy, cookies, and HLS rewrites. Zenede does not host or transcode third-party streams; it orchestrates access to URLs you supply.
+**Zenede** is a self-hosted **IPTV hub**: an app that combines a TV-style web UI with a **server-side stream relay**, **per-channel VPN / proxy routing**, **scheduled and ad-hoc recordings** (ffmpeg), **channel health probes**, **EPG** for favorites, and **Xtream-compatible** URLs for external players (e.g. TiviMate). The browser does not pull raw provider URLs for playback—sessions go through **`/api/stream/proxy/...`**, where the server applies your proxy, cookies, and HLS rewrites. Zenede does not host or transcode third-party streams; it orchestrates access to URLs you supply.
 
 ## Screenshots
 

@@ -57,6 +57,10 @@ function buildFfmpegArgs(input: FfmpegRecordingStart): string[] {
     "1",
     "-reconnect_delay_max",
     "5",
+    // New TCP connection per playlist/segment so custom -headers apply reliably
+    // (persistent HTTP can omit extra headers on follow-up requests in some builds).
+    "-http_persistent",
+    "0",
   ];
   args.push(
     "-i",

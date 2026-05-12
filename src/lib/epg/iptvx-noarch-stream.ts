@@ -10,6 +10,8 @@ export const IPTVX_NOARCH_GZ_URL =
   "https://iptvx.one/epg/epg_noarch.xml.gz";
 
 const MAX_PER_CHANNEL = 48;
+/** Stop decompression after this many bytes so bogus channel ids cannot scan the whole feed. */
+const MAX_DECOMPRESSED_BYTES = 52 * 1024 * 1024;
 
 /**
  * Stream-parse the iptvx gzip XMLTV file and collect programmes only for the
@@ -42,6 +44,7 @@ export async function collectProgrammesForXmltvIds(
 
   let buf = "";
   let settled = false;
+  let decompressedLen = 0;
 
   const enoughForAll = () => {
     for (const id of wantedIds) {
@@ -72,7 +75,14 @@ export async function collectProgrammesForXmltvIds(
     };
 
     gunzip.on("data", (chunk: Buffer | string) => {
-      buf += typeof chunk === "string" ? chunk : chunk.toString("utf8");
+      const asBuf = typeof chunk === "string" ? Buffer.from(chunk) : chunk;
+      decompressedLen += asBuf.length;
+      if (decompressedLen > MAX_DECOMPRESSED_BYTES && !settled) {
+        finish(resolve);
+        return;
+      }
+
+      buf += asBuf.toString("utf8");
 
       while (true) {
         const start = buf.indexOf("<programme");

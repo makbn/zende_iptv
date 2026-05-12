@@ -32,8 +32,11 @@ function trimCache(): void {
   }
 }
 
+/** Bump when merge / lookup semantics change so stale in-memory entries are not reused. */
+const CACHE_KEY_VERSION = "epg-v3";
+
 export function stableEpgCacheKey(sortedIds: string[]): string {
-  return sortedIds.join("\0");
+  return `${CACHE_KEY_VERSION}\0${sortedIds.join("\0")}`;
 }
 
 export function getEpgMergeCacheEntry(

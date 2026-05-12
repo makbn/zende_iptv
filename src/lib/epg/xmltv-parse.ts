@@ -129,14 +129,18 @@ export function pickNowNextForChannels(
   return result;
 }
 
-/** Try alternate iptv-org style ids (feed suffixes). */
+/** Try alternate iptv-org / XMLTV channel id spellings (feed suffix, slug, case). */
 export function expandChannelIdVariants(id: string): string[] {
   const t = id.trim();
   if (!t) return [];
   const out = new Set<string>([t]);
   const at = t.lastIndexOf("@");
+  const base = at > 0 ? t.slice(0, at) : t;
   if (at > 0) {
-    out.add(t.slice(0, at));
+    out.add(base);
   }
+  out.add(base.toLowerCase());
+  out.add(base.replace(/\./g, "-").toLowerCase());
+  out.add(base.replace(/\./g, "").toLowerCase());
   return [...out];
 }

@@ -8,6 +8,7 @@ import {
 import {
   getIptvOrgSiteIdLookup,
   resolveXmltvSiteId,
+  stripTvgFeedSuffix,
 } from "@/lib/epg/iptv-org-channel-map";
 import { collectProgrammesForXmltvIds } from "@/lib/epg/iptvx-noarch-stream";
 import {
@@ -78,6 +79,11 @@ export async function loadEpgMergeForIds(
   for (const id of ids) {
     const sid = resolveXmltvSiteId(id, lookup);
     if (sid) siteIdsForIptvx.add(sid);
+    const stripped = stripTvgFeedSuffix(id.trim());
+    if (stripped) {
+      siteIdsForIptvx.add(stripped.replace(/\./g, "-").toLowerCase());
+      siteIdsForIptvx.add(stripped.toLowerCase());
+    }
   }
 
   if (siteIdsForIptvx.size > 0) {
@@ -109,6 +115,30 @@ export async function loadEpgMergeForIds(
   };
 }
 
+function channelIdCanonicalIndex(
+  programmes: XmltvProgramme[],
+): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const p of programmes) {
+    const id = p.channelId;
+    if (!m.has(id)) m.set(id, id);
+    const lo = id.toLowerCase();
+    if (!m.has(lo)) m.set(lo, id);
+  }
+  return m;
+}
+
+function firstCanonicalChannelId(
+  variants: string[],
+  index: Map<string, string>,
+): string | null {
+  for (const v of variants) {
+    const hit = index.get(v) ?? index.get(v.toLowerCase());
+    if (hit) return hit;
+  }
+  return null;
+}
+
 export async function materializeProgramsFromMerge(
   merge: EpgMergeForIds,
   ids: string[],
@@ -123,7 +153,7 @@ export async function materializeProgramsFromMerge(
     });
   }
 
-  const channelIdsInXml = new Set(merge.programmes.map((p) => p.channelId));
+  const channelIndex = channelIdCanonicalIndex(merge.programmes);
   const nowMs = Date.now();
   const programs: Record<string, XmltvNowNext> = {};
 
@@ -133,7 +163,7 @@ export async function materializeProgramsFromMerge(
       ...expandChannelIdVariants(requested),
       ...(resolvedSite ? [resolvedSite] : []),
     ];
-    const resolved = variants.find((v) => channelIdsInXml.has(v));
+    const resolved = firstCanonicalChannelId(variants, channelIndex);
     if (!resolved) {
       programs[requested] = { current: null, next: null };
       continue;

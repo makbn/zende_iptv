@@ -45,6 +45,9 @@ yarn-error.log*
 # gluetun VPN work directory — contains credentials and certs, never commit
 /gluetun-work/
 
+# local DVR output (MP4 captures)
+/data/recordings/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

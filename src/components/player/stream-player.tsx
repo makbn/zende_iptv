@@ -106,6 +106,7 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
 
       let hls: Hls | null = null;
       let networkRetryTimer: ReturnType<typeof setTimeout> | null = null;
+      let mediaHardResetTimer: ReturnType<typeof setTimeout> | null = null;
       const hlsMode = looksLikeHls(src);
       let isNativeHls = false;
       let cancelled = false;
@@ -140,56 +141,117 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
         },
       });
 
+      const clearMediaHardResetTimer = () => {
+        if (mediaHardResetTimer) {
+          clearTimeout(mediaHardResetTimer);
+          mediaHardResetTimer = null;
+        }
+      };
+
       const startPlayback = () => {
         if (cancelled) return;
 
         if (hlsMode && Hls.isSupported()) {
-          let mediaErrorRecoveries = 0;
+          /** After a successful fragment, the next media error starts from step 1 again. */
+          let mediaErrorStage = 0;
           let networkRetries = 0;
 
           if (networkRetryTimer) {
             clearTimeout(networkRetryTimer);
             networkRetryTimer = null;
           }
+          clearMediaHardResetTimer();
 
-          hls = new Hls({
-            ...getStreamHlsConfig(),
-            ...hlsConfigExtra,
-          });
-          hls.on(Hls.Events.MANIFEST_PARSED, bumpSession);
-          hls.on(Hls.Events.LEVEL_SWITCHED, bumpSession);
+          const resetMediaErrorStage = () => {
+            mediaErrorStage = 0;
+          };
+
+          /**
+           * `bufferAppendError` often leaves `video.error` set; soft `recoverMediaError()` is not
+           * always enough. Detach, `video.load()`, reattach — similar to many manual pause/play recoveries.
+           */
+          const hardResetMediaElement = (thenReloadSource: boolean) => {
+            if (!hls || cancelled) return;
+            clearMediaHardResetTimer();
+            hls.stopLoad();
+            hls.detachMedia();
+            video.pause();
+            video.removeAttribute("src");
+            video.load();
+            mediaHardResetTimer = setTimeout(() => {
+              mediaHardResetTimer = null;
+              if (cancelled || !hls) return;
+              if (thenReloadSource) {
+                hls.loadSource(src);
+              }
+              hls.attachMedia(video);
+              hls.startLoad();
+            }, 80);
+          };
+
+          const onManifestParsed = () => {
+            resetMediaErrorStage();
+            bumpSession();
+          };
+
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          hls.on(Hls.Events.ERROR, (_evt: string, data: any) => {
+          const onHlsError = (_evt: string, data: any) => {
             const err: PlayerError = {
               type: String(data.type ?? ""),
               details: String(data.details ?? ""),
               fatal: Boolean(data.fatal),
               reason: data.error?.message ?? data.reason ?? undefined,
             };
-            console.error("[hls.js]", err.type, err.details, err.fatal ? "(FATAL)" : "", err.reason ?? "");
+            console.error(
+              "[hls.js]",
+              err.type,
+              err.details,
+              err.fatal ? "(FATAL)" : "",
+              err.reason ?? "",
+            );
 
             if (!data.fatal) {
-              // Non-fatal: hls.js handles internally; just surface to parent for logging.
               onErrorRef.current?.(err);
               return;
             }
 
-            // ── Fatal error recovery ──────────────────────────────────────────
-            if (data.type === Hls.ErrorTypes.MEDIA_ERROR && mediaErrorRecoveries < 2) {
-              mediaErrorRecoveries++;
-              if (mediaErrorRecoveries === 1) {
+            if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+              const details = data.details as string | undefined;
+              const appendWithVideoError =
+                (details === Hls.ErrorDetails.BUFFER_APPEND_ERROR ||
+                  details === Hls.ErrorDetails.BUFFER_APPENDING_ERROR) &&
+                video.error != null;
+
+              if (mediaErrorStage === 0) {
+                if (appendWithVideoError) {
+                  mediaErrorStage = 3;
+                  hardResetMediaElement(false);
+                  return;
+                }
+                mediaErrorStage = 1;
                 hls!.recoverMediaError();
-              } else {
-                // Second attempt: swap codec then recover.
+                return;
+              }
+              if (mediaErrorStage === 1) {
+                mediaErrorStage = 2;
                 hls!.swapAudioCodec();
                 hls!.recoverMediaError();
+                return;
               }
-              return; // Not yet fatal to parent — give recovery a chance.
+              if (mediaErrorStage === 2) {
+                mediaErrorStage = 3;
+                hardResetMediaElement(false);
+                return;
+              }
+              if (mediaErrorStage === 3) {
+                mediaErrorStage = 4;
+                hardResetMediaElement(true);
+                return;
+              }
             }
 
             if (data.type === Hls.ErrorTypes.NETWORK_ERROR && networkRetries < 3) {
               networkRetries++;
-              // Back-off: 3 s, 6 s, 9 s — restarts the load pipeline.
               networkRetryTimer = setTimeout(() => {
                 networkRetryTimer = null;
                 if (!cancelled && hls) hls.startLoad();
@@ -197,9 +259,17 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
               return;
             }
 
-            // All recovery exhausted — report truly fatal to parent.
             onErrorRef.current?.(err);
+          };
+
+          hls = new Hls({
+            ...getStreamHlsConfig(),
+            ...hlsConfigExtra,
           });
+          hls.on(Hls.Events.MANIFEST_PARSED, onManifestParsed);
+          hls.on(Hls.Events.LEVEL_SWITCHED, bumpSession);
+          hls.on(Hls.Events.FRAG_BUFFERED, resetMediaErrorStage);
+          hls.on(Hls.Events.ERROR, onHlsError);
           hls.loadSource(src);
           hls.attachMedia(video);
         } else if (hlsMode && video.canPlayType("application/vnd.apple.mpegurl")) {
@@ -219,13 +289,15 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
 
       return () => {
         cancelled = true;
+        clearMediaHardResetTimer();
         if (networkRetryTimer) clearTimeout(networkRetryTimer);
         cancelAnimationFrame(raf1);
         if (deferredRafId !== null) cancelAnimationFrame(deferredRafId);
         if (hls) {
-          hls.off(Hls.Events.MANIFEST_PARSED, bumpSession);
-          hls.off(Hls.Events.LEVEL_SWITCHED, bumpSession);
           hls.off(Hls.Events.ERROR);
+          hls.off(Hls.Events.MANIFEST_PARSED);
+          hls.off(Hls.Events.LEVEL_SWITCHED);
+          hls.off(Hls.Events.FRAG_BUFFERED);
           hls.stopLoad();
           hls.destroy();
           hls = null;

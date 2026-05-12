@@ -1,5 +1,6 @@
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
+import { readUnwrapPublicCorsProxyUrlsPref } from "@/lib/stream/unwrap-public-cors-proxy-pref";
 
 /**
  * Creates a server-side stream session and returns `/watch?id=…`
@@ -21,6 +22,7 @@ export async function createWatchUrl(
       title: channel.name?.trim() || "Live",
       logo: channel.tvgLogo,
       group: channel.groupTitle,
+      unwrapPublicCorsProxyUrls: readUnwrapPublicCorsProxyUrlsPref(),
       ...(opts?.cookies ? { cookies: opts.cookies } : {}),
     }),
   });

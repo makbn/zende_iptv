@@ -24,7 +24,6 @@ import {
 } from "@/components/tv/tv-top-bar";
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
-import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import {
   enrichFavoriteWithCatalog,
   listFavorites,
@@ -42,7 +41,6 @@ import {
   List,
   Search,
   SlidersHorizontal,
-  Sparkles,
   Star,
   X,
 } from "lucide-react";
@@ -182,78 +180,72 @@ export function TvFavoritesPage() {
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_55%_40%_at_85%_35%,oklch(0.32_0.1_285),transparent_52%)]" />
           </div>
 
-          <header className={cn("relative pb-8 pt-10 sm:pb-10 lg:pb-12", FAV_PAGE_GUTTER)}>
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-[12px] font-semibold uppercase tracking-[0.14em] text-amber-200/90">
-                <Star className="size-3.5 fill-amber-400/90 text-amber-300" aria-hidden />
-                Saved
-              </span>
-            </div>
-            <h1 className="mt-3 max-w-[20ch] text-[clamp(1.85rem,4.2vw,2.65rem)] font-semibold tracking-tight text-white">
-              Favorites
-            </h1>
-            <p className="mt-3 max-w-2xl text-[17px] leading-relaxed text-white/50">
-              Your hand-picked channels in one place — tuned for quick launches,
-              search, and browsing by category. Star channels from Library, Home,
-              or while watching.
-            </p>
-
-            {favCount > 0 ? (
-              <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-5 ring-1 ring-white/[0.05]">
-                  <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/38">
-                    Saved channels
-                  </p>
-                  <p className="mt-2 text-[34px] font-semibold tabular-nums tracking-tight text-white">
-                    {favCount.toLocaleString()}
-                  </p>
-                  <p className="mt-1 text-[13px] text-white/42">
-                    Tap the star anywhere to add or remove.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-5 ring-1 ring-white/[0.05]">
-                  <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/38">
-                    Categories
-                  </p>
-                  <p className="mt-2 text-[34px] font-semibold tabular-nums tracking-tight text-white">
-                    {groupOptions.length.toLocaleString()}
-                  </p>
-                  <p className="mt-1 text-[13px] text-white/42">
-                    Filter chips below mirror your catalog metadata.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-5 ring-1 ring-white/[0.05]">
-                  <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/38">
-                    Tip
-                  </p>
-                  <p className="mt-3 flex items-start gap-2 text-[14px] leading-snug text-white/55">
-                    <Sparkles className="mt-0.5 size-4 shrink-0 text-amber-400/90" aria-hidden />
-                    Sort by <span className="text-white/75">Recent</span> for your
-                    latest picks, or <span className="text-white/75">A–Z</span> for
-                    scanning long lists.
-                  </p>
-                </div>
+          <header
+            className={cn(
+              "relative pb-3 pt-6 sm:pb-4 sm:pt-7 lg:pb-5 lg:pt-8",
+              FAV_PAGE_GUTTER,
+              "motion-safe:animate-fav-hero-in motion-reduce:animate-none motion-reduce:opacity-100",
+            )}
+          >
+            <div className="flex flex-col gap-2 sm:gap-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/25 bg-amber-400/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-200/90">
+                  <Star className="size-3 fill-amber-400/90 text-amber-300" aria-hidden />
+                  Saved
+                </span>
+                {favCount > 0 ? (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="inline-flex items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.04] px-2 py-0.5 ring-1 ring-white/[0.03]">
+                      <span className="tabular-nums text-[13px] font-semibold text-white">
+                        {favCount.toLocaleString()}
+                      </span>
+                      <span className="text-[10px] font-medium text-white/40">
+                        channels
+                      </span>
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.04] px-2 py-0.5 ring-1 ring-white/[0.03]">
+                      <span className="tabular-nums text-[13px] font-semibold text-white">
+                        {groupOptions.length.toLocaleString()}
+                      </span>
+                      <span className="text-[10px] font-medium text-white/40">
+                        groups
+                      </span>
+                    </span>
+                  </div>
+                ) : null}
               </div>
-            ) : null}
+              <h1 className="text-[clamp(1.45rem,3.2vw,2rem)] font-semibold tracking-tight text-white">
+                Favorites
+              </h1>
+              <p className="max-w-2xl text-[13px] leading-snug text-white/44 sm:text-[14px] sm:leading-relaxed">
+                Search, sort, and filter — star channels from Library, Home, or Watch.
+                <span className="text-white/32"> · </span>
+                <span className="text-white/38">
+                  <span className="text-white/52">Recent</span> for newest,{" "}
+                  <span className="text-white/52">A–Z</span> to scan long lists.
+                </span>
+              </p>
+            </div>
           </header>
         </div>
 
         <div
           className={cn(
-            "sticky z-30 border-b border-white/[0.06]",
+            "sticky z-30 border-b border-white/[0.06] transition-[background-color,backdrop-filter] duration-300",
             TV_BROWSE_STICKY_TOP_CLASS,
             "bg-[color-mix(in_oklab,var(--tv-page-bg)_88%,transparent)] backdrop-blur-xl backdrop-saturate-150",
           )}
         >
-          <div className={cn("py-4", FAV_PAGE_GUTTER)}>
+          <div className={cn("py-3.5 sm:py-4", FAV_PAGE_GUTTER)}>
             <ZenedeGlass
               variant="panel"
               className={cn(
-                "shadow-[0_20px_60px_-28px_rgba(0,0,0,0.85)]",
+                "shadow-[0_16px_48px_-28px_rgba(0,0,0,0.82)]",
                 "ring-1 ring-white/[0.06]",
+                "transition-[box-shadow,transform] duration-300 ease-out",
               )}
             >
-              <div className="flex flex-col gap-4 px-5 py-5 sm:px-6 sm:py-5">
+              <div className="flex flex-col gap-3.5 px-4 py-4 sm:px-5 sm:py-5">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:gap-5">
                   <label className="relative flex min-h-[52px] flex-1 items-center">
                     <span className="sr-only">Search favorites</span>
@@ -313,7 +305,8 @@ export function TvFavoritesPage() {
                           onClick={() => setSort(id)}
                           disabled={favCount === 0}
                           className={cn(
-                            "rounded-xl px-3.5 py-2 text-[13px] font-semibold outline-none transition-colors sm:text-[14px]",
+                            "rounded-xl px-3.5 py-2 text-[13px] font-semibold outline-none transition-[color,background-color,transform,box-shadow] duration-200 ease-out sm:text-[14px]",
+                            "enabled:active:scale-[0.98]",
                             sort === id
                               ? "bg-white text-zinc-950 shadow-sm"
                               : "text-white/55 hover:bg-white/[0.06] hover:text-white disabled:opacity-35",
@@ -337,7 +330,8 @@ export function TvFavoritesPage() {
                         onClick={() => setView("posters")}
                         disabled={favCount === 0}
                         className={cn(
-                          "inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-[14px] font-semibold outline-none transition-colors",
+                          "inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-[14px] font-semibold outline-none transition-[color,background-color,transform,box-shadow] duration-200 ease-out",
+                          "enabled:active:scale-[0.98]",
                           view === "posters"
                             ? "bg-white text-zinc-950 shadow-sm"
                             : "text-white/55 hover:bg-white/[0.06] hover:text-white disabled:opacity-35",
@@ -352,7 +346,8 @@ export function TvFavoritesPage() {
                         onClick={() => setView("compact")}
                         disabled={favCount === 0}
                         className={cn(
-                          "inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-[14px] font-semibold outline-none transition-colors",
+                          "inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-[14px] font-semibold outline-none transition-[color,background-color,transform,box-shadow] duration-200 ease-out",
+                          "enabled:active:scale-[0.98]",
                           view === "compact"
                             ? "bg-white text-zinc-950 shadow-sm"
                             : "text-white/55 hover:bg-white/[0.06] hover:text-white disabled:opacity-35",
@@ -467,7 +462,7 @@ export function TvFavoritesPage() {
           </div>
         </div>
 
-        <div className={cn("mt-8 lg:mt-10", FAV_PAGE_GUTTER)}>
+        <div className={cn("mt-4 lg:mt-6", FAV_PAGE_GUTTER)}>
           {favCount === 0 ? (
             <div className="relative overflow-hidden rounded-[28px] border border-white/[0.1] bg-gradient-to-br from-white/[0.07] via-white/[0.03] to-transparent px-8 py-20 text-center ring-1 ring-white/[0.06] sm:px-14 sm:py-24">
               <div className="pointer-events-none absolute inset-0 opacity-[0.45]" aria-hidden>

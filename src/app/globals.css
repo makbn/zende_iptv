@@ -196,7 +196,18 @@
   @keyframes fav-page-tile-in {
     from {
       opacity: 0;
-      transform: translateY(14px);
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fav-hero-in {
+    from {
+      opacity: 0;
+      transform: translateY(5px);
     }
     to {
       opacity: 1;
@@ -226,8 +237,12 @@
     }
   }
 
+  .motion-safe\:animate-fav-hero-in {
+    animation: fav-hero-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
   .motion-safe\:animate-fav-page-tile {
-    animation: fav-page-tile-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: fav-page-tile-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
   .motion-safe\:animate-fav-epg-strip {
@@ -236,6 +251,49 @@
 
   .motion-safe\:animate-fav-epg-card {
     animation: fav-epg-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /** Browse shells: page chrome + section headers */
+  @keyframes zen-shell-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes zen-row-lift-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .motion-safe\:animate-zen-shell-in {
+    animation: zen-shell-in 0.44s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .motion-safe\:animate-zen-row-lift {
+    animation: zen-row-lift-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .zen-pressable {
+    transition-property: transform, box-shadow, opacity, border-color, background-color;
+    transition-duration: 200ms;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .zen-pressable:active {
+      transform: scale(0.985);
+    }
   }
 
   @keyframes zende-mexican-wave-bar {
@@ -286,9 +344,12 @@
     .motion-safe\:animate-watch-channel-peek {
       animation: none !important;
     }
+    .motion-safe\:animate-fav-hero-in,
     .motion-safe\:animate-fav-page-tile,
     .motion-safe\:animate-fav-epg-strip,
-    .motion-safe\:animate-fav-epg-card {
+    .motion-safe\:animate-fav-epg-card,
+    .motion-safe\:animate-zen-shell-in,
+    .motion-safe\:animate-zen-row-lift {
       animation: none !important;
       opacity: 1 !important;
       transform: none !important;

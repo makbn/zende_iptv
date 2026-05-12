@@ -32,7 +32,7 @@ function LoginForm() {
   }, [login, username, password, router, searchParams]);
 
   return (
-    <div className="mx-auto flex min-h-[calc(100svh-6rem)] w-full max-w-[420px] flex-col justify-center sm:min-h-0">
+    <div className="mx-auto flex min-h-[calc(100svh-6rem)] w-full max-w-[420px] flex-col justify-center motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100 sm:min-h-0">
       <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-white/45">
         Zenede
       </p>

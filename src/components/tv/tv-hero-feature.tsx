@@ -30,7 +30,7 @@ export function TvHeroFeature({
 }: Props) {
   return (
     <section
-      className="relative min-h-[min(78vh,820px)] w-full overflow-hidden pt-20"
+      className="relative min-h-[min(52svh,560px)] w-full overflow-hidden pt-20 sm:min-h-[min(54svh,600px)]"
       aria-labelledby="hero-title"
     >
       <div className="pointer-events-none absolute inset-0 tv-hero-ambient">
@@ -78,24 +78,24 @@ export function TvHeroFeature({
         )}
       />
 
-      <div className="relative z-10 flex min-h-[min(72vh,760px)] flex-col justify-end px-6 pb-40 sm:px-10 sm:pb-44 lg:px-14 lg:pb-48 xl:px-20">
-        <div className="max-w-[820px]">
-          <p className="mb-2 text-[13px] font-semibold uppercase tracking-[0.14em] text-white/55">
+      <div className="relative z-10 flex min-h-[min(46svh,480px)] flex-col justify-end px-6 pb-24 sm:min-h-[min(48svh,520px)] sm:px-10 sm:pb-28 lg:px-14 lg:pb-32 xl:px-20">
+        <div className="max-w-[min(100%,820px)] motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100">
+          <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-white/52 sm:text-[13px]">
             {eyebrow}
           </p>
           <h1
             id="hero-title"
             className={cn(
               "text-balance font-semibold tracking-[-0.028em] text-white",
-              "text-[clamp(2.5rem,6vw,4.25rem)] leading-[1.05]",
+              "text-[clamp(2rem,5.2vw,3.35rem)] leading-[1.06] sm:leading-[1.05]",
             )}
           >
             {title}
           </h1>
-          <p className="mt-4 max-w-[560px] text-pretty text-[19px] leading-snug text-white/72">
+          <p className="mt-3 max-w-[560px] text-pretty text-[16px] leading-snug text-white/70 sm:mt-3.5 sm:text-[17px]">
             {subtitle}
           </p>
-          <div className="mt-9 flex flex-wrap items-center gap-3">
+          <div className="mt-6 flex flex-wrap items-center gap-2.5 sm:mt-8 sm:gap-3">
             <button
               type="button"
               onClick={onPrimary}

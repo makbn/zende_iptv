@@ -72,7 +72,7 @@ export function MobileBrowseTopBar() {
       <header className="pointer-events-none fixed inset-x-0 top-0 z-50 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <ZenedeGlass
           variant="panelCompact"
-          className="pointer-events-auto rounded-[24px] border-white/[0.1] bg-black/50 shadow-[0_18px_52px_-20px_rgba(0,0,0,0.85)]"
+          className="pointer-events-auto rounded-[24px] border-white/[0.1] bg-black/50 shadow-[0_18px_52px_-20px_rgba(0,0,0,0.85)] transition-[box-shadow,transform,border-color] duration-300 ease-out hover:border-white/[0.14] hover:shadow-[0_22px_56px_-18px_rgba(0,0,0,0.88)]"
         >
           <div className="flex h-14 items-center justify-between px-3">
             <Link

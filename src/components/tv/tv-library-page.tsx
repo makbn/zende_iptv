@@ -190,17 +190,20 @@ export function TvLibraryPage() {
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,oklch(0.42_0.14_264),transparent_55%)]" />
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_90%_40%,oklch(0.32_0.1_220),transparent_50%)]" />
           </div>
-          <header className="relative mx-auto max-w-[1920px] px-6 pb-8 pt-10 sm:px-10 sm:pb-10 lg:px-14 lg:pb-12 xl:px-20">
-            <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-white/45">
+          <header
+            className={cn(
+              "relative mx-auto max-w-[1920px] px-6 pb-4 pt-7 sm:px-10 sm:pb-5 sm:pt-8 lg:px-14 lg:pb-6 xl:px-20",
+              "motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100",
+            )}
+          >
+            <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/45 sm:text-[13px]">
               Library
             </p>
-            <h1 className="mt-2 max-w-[22ch] text-[clamp(1.85rem,4.2vw,2.65rem)] font-semibold tracking-tight text-white">
+            <h1 className="mt-1.5 max-w-[22ch] text-[clamp(1.65rem,3.8vw,2.35rem)] font-semibold tracking-tight text-white">
               Browse channels
             </h1>
-            <p className="mt-3 max-w-xl text-[17px] leading-relaxed text-white/50">
-              Search the full catalog on this device, filter by category or language
-              when the playlist includes it, or switch between posters and a compact
-              list.
+            <p className="mt-2 max-w-xl text-[15px] leading-snug text-white/48 sm:text-[16px] sm:leading-relaxed">
+              Search the catalog, filter by category or language, switch poster or compact list.
             </p>
           </header>
         </div>
@@ -219,9 +222,10 @@ export function TvLibraryPage() {
               className={cn(
                 "shadow-[0_20px_60px_-28px_rgba(0,0,0,0.85)]",
                 "ring-1 ring-white/[0.06]",
+                "transition-[box-shadow,transform] duration-300 ease-out",
               )}
             >
-              <div className="flex flex-col gap-4 px-5 py-5 sm:px-6 sm:py-5">
+              <div className="flex flex-col gap-3.5 px-4 py-4 sm:px-5 sm:py-5 lg:gap-4">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-5">
                   <label className="relative flex min-h-[52px] flex-1 items-center">
                     <span className="sr-only">Search channels</span>

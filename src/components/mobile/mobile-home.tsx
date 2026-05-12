@@ -7,12 +7,12 @@ import { RefreshCw } from "lucide-react";
 
 import { MobileChannelCard } from "@/components/mobile/mobile-channel-card";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { useChannelHealthLookup } from "@/features/health/use-channel-health";
 import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
+import { cn } from "@/lib/utils";
 import {
   listRecentPlayback,
   listTopByPlayCount,
@@ -51,16 +51,20 @@ function MobileShelf({
   if (channels.length === 0) return null;
 
   return (
-    <section id={id} className="scroll-mt-24" aria-label={title}>
+    <section
+      id={id}
+      className="scroll-mt-24 motion-safe:animate-zen-row-lift motion-reduce:animate-none motion-reduce:opacity-100"
+      aria-label={title}
+    >
       <div className="px-4">
-        <h2 className="text-[22px] font-semibold tracking-tight text-white">
+        <h2 className="text-[19px] font-semibold tracking-tight text-white">
           {title}
         </h2>
-        <p className="mt-1 max-w-[30ch] text-[14px] leading-snug text-white/45">
+        <p className="mt-0.5 max-w-[34ch] text-[13px] leading-snug text-white/44">
           {description}
         </p>
       </div>
-      <div className="tv-row-scroll mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2">
+      <div className="tv-row-scroll mt-3 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-4 pb-2 sm:gap-3">
         {channels.map((channel, index) => (
           <MobileChannelCard
             key={`${title}-${channel.url}-${index}`}
@@ -158,21 +162,25 @@ export function MobileHome() {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--tv-page-bg)] pb-28 pt-[6.25rem] text-foreground">
+    <main className="min-h-screen bg-[var(--tv-page-bg)] pb-28 pt-[5.35rem] text-foreground">
       <section className="px-4">
-        <ZenedeGlass
-          variant="panel"
-          className="relative overflow-hidden rounded-[32px] border-white/[0.1] bg-white/[0.055] px-5 pb-5 pt-7"
+        <div
+          className={cn(
+            "relative overflow-hidden rounded-2xl border border-white/[0.09] bg-white/[0.038] px-3.5 py-3 ring-1 ring-white/[0.04]",
+            "backdrop-blur-md transition-[border-color,box-shadow] duration-300 ease-out",
+            "hover:border-white/[0.12] hover:shadow-[0_20px_50px_-32px_rgba(0,0,0,0.65)]",
+            "motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100",
+          )}
         >
-          <div className="pointer-events-none absolute inset-0 opacity-70" aria-hidden>
-            <div className="absolute inset-x-[-20%] top-[-45%] h-[72%] rounded-full bg-[radial-gradient(circle,oklch(0.44_0.14_264/0.48),transparent_62%)] blur-2xl" />
+          <div className="pointer-events-none absolute inset-0 opacity-55" aria-hidden>
+            <div className="absolute inset-x-[-18%] top-[-48%] h-[68%] rounded-full bg-[radial-gradient(circle,oklch(0.44_0.14_264/0.38),transparent_62%)] blur-2xl" />
             {featured?.tvgLogo ? (
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={featured.tvgLogo}
                   alt=""
-                  className="absolute right-4 top-5 max-h-20 max-w-24 object-contain opacity-20 blur-[1px]"
+                  className="absolute right-2 top-3 max-h-14 max-w-[4.5rem] object-contain opacity-[0.18] blur-[0.5px]"
                   loading="lazy"
                 />
               </>
@@ -180,38 +188,49 @@ export function MobileHome() {
           </div>
 
           <div className="relative z-10">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-white/42">
-              Zenede
-            </p>
-            <h1 className="mt-2 max-w-[11ch] text-[34px] font-semibold leading-[0.98] tracking-tight text-white">
-              Live TV, built for touch.
-            </h1>
-            <p className="mt-4 max-w-[29ch] text-[15px] leading-relaxed text-white/55">
-              Jump back in, search fast, or browse a fresh slice of your catalog
-              without leaving one-handed reach.
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">
+                  Zenede
+                </p>
+                <h1 className="mt-0.5 max-w-[16ch] text-[clamp(1.45rem,6.2vw,1.75rem)] font-semibold leading-[1.08] tracking-tight text-white">
+                  Live TV, built for touch.
+                </h1>
+              </div>
+              {channelCount != null ? (
+                <span className="shrink-0 rounded-lg border border-white/[0.08] bg-black/35 px-2 py-1 text-[10px] leading-none text-white/50 ring-1 ring-white/[0.03]">
+                  <span className="font-semibold tabular-nums text-white/88">
+                    {channelCount.toLocaleString()}
+                  </span>{" "}
+                  channels
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-2 max-w-[36ch] text-[13px] leading-snug text-white/48">
+              Rows below update from your watch history — Library has search and filters.
             </p>
 
-            <div className="mt-6 grid grid-cols-2 gap-3">
+            <div className="mt-3 grid grid-cols-2 gap-2">
               <button
                 type="button"
                 disabled={busy || !featured}
                 onClick={() => featured && openChannel(featured)}
-                className="min-h-[52px] rounded-2xl bg-white px-4 text-[15px] font-semibold text-zinc-950 outline-none transition-transform active:scale-[0.98] disabled:opacity-45 focus-visible:ring-2 focus-visible:ring-white"
+                className="zen-pressable min-h-[46px] rounded-xl bg-white px-3 text-[14px] font-semibold text-zinc-950 outline-none transition-shadow hover:shadow-md hover:shadow-black/25 disabled:opacity-45 focus-visible:ring-2 focus-visible:ring-white"
               >
                 Play
               </button>
               <Link
                 href="/library"
-                className="flex min-h-[52px] items-center justify-center rounded-2xl border border-white/[0.14] bg-white/[0.08] px-4 text-[15px] font-semibold text-white outline-none transition-transform active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-white"
+                className="zen-pressable flex min-h-[46px] items-center justify-center rounded-xl border border-white/[0.12] bg-white/[0.07] px-3 text-[14px] font-semibold text-white outline-none transition-colors hover:bg-white/[0.11] focus-visible:ring-2 focus-visible:ring-white"
               >
                 Library
               </Link>
             </div>
           </div>
-        </ZenedeGlass>
+        </div>
       </section>
 
-      <div className="mt-8 space-y-9">
+      <div className="mt-6 space-y-8">
         <MobileShelf
           id="recent"
           title="Recently Watched"
@@ -261,10 +280,10 @@ export function MobileHome() {
             <p className="text-[14px] leading-relaxed text-white/48">
               Search, filters, and reliability badges live in the full Library.
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <Link
                 href="/library"
-                className="flex min-h-[50px] items-center justify-center rounded-2xl bg-white text-[14px] font-semibold text-zinc-950"
+                className="zen-pressable flex min-h-[46px] items-center justify-center rounded-xl bg-white text-[14px] font-semibold text-zinc-950 outline-none transition-shadow hover:shadow-md hover:shadow-black/20 focus-visible:ring-2 focus-visible:ring-white"
               >
                 Open Library
               </Link>
@@ -272,7 +291,7 @@ export function MobileHome() {
                 type="button"
                 disabled={busy}
                 onClick={() => void refreshCatalog()}
-                className="flex min-h-[50px] items-center justify-center gap-2 rounded-2xl border border-white/[0.12] bg-white/[0.06] text-[14px] font-semibold text-white disabled:opacity-45"
+                className="zen-pressable flex min-h-[46px] items-center justify-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] text-[14px] font-semibold text-white outline-none transition-colors hover:bg-white/[0.1] disabled:opacity-45 focus-visible:ring-2 focus-visible:ring-white"
               >
                 <RefreshCw className="size-4" aria-hidden />
                 {busy ? "Updating" : "Refresh"}

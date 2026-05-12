@@ -201,7 +201,7 @@ export function TvHome() {
         secondaryDisabled={busy}
       />
 
-      <div className="relative z-10 -mt-24 space-y-14 pb-12 sm:-mt-28 sm:space-y-16 sm:pb-16 lg:-mt-32">
+      <div className="relative z-10 -mt-16 space-y-11 pb-10 sm:-mt-20 sm:space-y-14 sm:pb-14 lg:-mt-24">
         {recentChannels.length > 0 ? (
           <TvContentRow
             id="recent"

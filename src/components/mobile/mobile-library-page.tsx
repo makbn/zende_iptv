@@ -140,23 +140,46 @@ export function MobileLibraryPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-[var(--tv-page-bg)] pb-28 pt-[6.25rem] text-foreground">
+    <main className="min-h-screen bg-[var(--tv-page-bg)] pb-28 pt-[5.35rem] text-foreground">
       <section className="px-4">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-white/42">
-          Library
-        </p>
-        <h1 className="mt-2 text-[34px] font-semibold leading-none tracking-tight text-white">
-          Browse channels
-        </h1>
-        <p className="mt-3 max-w-[32ch] text-[15px] leading-relaxed text-white/50">
-          Search, filter, and launch streams with controls sized for thumbs.
-        </p>
+        <div
+          className={cn(
+            "relative overflow-hidden rounded-2xl border border-white/[0.09] bg-white/[0.035] px-3.5 py-2.5 ring-1 ring-white/[0.04]",
+            "backdrop-blur-md transition-[border-color,box-shadow] duration-300 ease-out",
+            "hover:border-white/[0.11] hover:shadow-[0_14px_44px_-28px_rgba(0,0,0,0.6)]",
+            "motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100",
+          )}
+        >
+          <div
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_100%_120%_at_100%_0%,oklch(0.38_0.12_264/0.14),transparent_52%)]"
+            aria-hidden
+          />
+          <div className="relative flex flex-wrap items-end justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">
+                Library
+              </p>
+              <h1 className="mt-0.5 text-[1.25rem] font-semibold leading-none tracking-tight text-white sm:text-[1.35rem]">
+                Browse channels
+              </h1>
+            </div>
+            <span className="shrink-0 rounded-lg border border-white/[0.08] bg-black/30 px-2 py-1 text-[10px] text-white/48 ring-1 ring-white/[0.03]">
+              <span className="font-semibold tabular-nums text-white/88">
+                {channels.length.toLocaleString()}
+              </span>{" "}
+              total
+            </span>
+          </div>
+          <p className="relative mt-1.5 text-[11.5px] leading-snug text-white/42">
+            Search and filters — list starts below.
+          </p>
+        </div>
       </section>
 
-      <section className="sticky top-[5.35rem] z-40 mt-6 px-3" aria-label="Library filters">
+      <section className="sticky top-[5.35rem] z-40 mt-2 px-3" aria-label="Library filters">
         <ZenedeGlass
           variant="panelCompact"
-          className="rounded-[26px] border-white/[0.1] bg-black/58 p-3 shadow-[0_18px_52px_-24px_rgba(0,0,0,0.9)]"
+          className="rounded-[20px] border-white/[0.1] bg-black/58 p-2.5 shadow-[0_16px_48px_-26px_rgba(0,0,0,0.82)] transition-[box-shadow] duration-300"
         >
           <label className="relative block">
             <span className="sr-only">Search channels</span>
@@ -197,10 +220,11 @@ export function MobileLibraryPage() {
                 setLanguageFilter(null);
               }}
               className={cn(
-                "min-h-10 shrink-0 rounded-2xl px-4 text-[13px] font-semibold outline-none",
+                "zen-pressable min-h-10 shrink-0 rounded-2xl px-4 text-[13px] font-semibold outline-none",
+                "transition-[background-color,color,transform,box-shadow] duration-200 ease-out",
                 !groupFilter && !languageFilter
-                  ? "bg-white text-zinc-950"
-                  : "border border-white/[0.1] bg-white/[0.06] text-white/70",
+                  ? "bg-white text-zinc-950 shadow-sm"
+                  : "border border-white/[0.1] bg-white/[0.06] text-white/70 hover:bg-white/[0.1]",
               )}
             >
               All
@@ -214,10 +238,11 @@ export function MobileLibraryPage() {
                   setLanguageFilter(null);
                 }}
                 className={cn(
-                  "min-h-10 shrink-0 rounded-2xl px-4 text-[13px] font-semibold outline-none",
+                  "zen-pressable min-h-10 shrink-0 rounded-2xl px-4 text-[13px] font-semibold outline-none",
+                  "transition-[background-color,color,transform,box-shadow] duration-200 ease-out",
                   groupFilter === group
-                    ? "bg-white text-zinc-950"
-                    : "border border-white/[0.1] bg-white/[0.06] text-white/70",
+                    ? "bg-white text-zinc-950 shadow-sm"
+                    : "border border-white/[0.1] bg-white/[0.06] text-white/70 hover:bg-white/[0.1]",
                 )}
               >
                 {group} <span className="opacity-55">{count}</span>
@@ -234,10 +259,11 @@ export function MobileLibraryPage() {
                   setGroupFilter(null);
                 }}
                 className={cn(
-                  "min-h-10 shrink-0 rounded-2xl px-4 text-[13px] font-semibold outline-none",
+                  "zen-pressable min-h-10 shrink-0 rounded-2xl px-4 text-[13px] font-semibold outline-none",
+                  "transition-[background-color,color,transform,box-shadow] duration-200 ease-out",
                   languageFilter === language.key
-                    ? "bg-white text-zinc-950"
-                    : "border border-white/[0.1] bg-white/[0.06] text-white/70",
+                    ? "bg-white text-zinc-950 shadow-sm"
+                    : "border border-white/[0.1] bg-white/[0.06] text-white/70 hover:bg-white/[0.1]",
                 )}
               >
                 {language.label} <span className="opacity-55">{language.count}</span>

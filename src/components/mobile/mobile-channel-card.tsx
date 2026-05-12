@@ -58,8 +58,11 @@ export function MobileChannelCard({
         className={cn(
           "group relative w-full overflow-hidden rounded-[24px] text-left outline-none",
           "border border-white/[0.09] bg-white/[0.045] ring-1 ring-white/[0.04]",
-          "shadow-[0_16px_44px_-24px_rgba(0,0,0,0.9)] transition-transform active:scale-[0.985]",
+          "shadow-[0_16px_44px_-24px_rgba(0,0,0,0.9)]",
+          "transition-[transform,box-shadow,border-color,background-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          "active:scale-[0.985] motion-reduce:transition-none",
           "focus-visible:ring-2 focus-visible:ring-white",
+          "motion-safe:hover:-translate-y-0.5 motion-safe:hover:border-white/[0.14] motion-safe:hover:bg-white/[0.055] motion-safe:hover:shadow-[0_22px_50px_-22px_rgba(0,0,0,0.92)]",
           compact ? "min-h-[92px]" : "min-h-[164px]",
         )}
         aria-label={`Play ${displayName}`}

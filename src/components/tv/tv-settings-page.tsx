@@ -119,19 +119,19 @@ export function TvSettingsPage() {
   return (
     <div className="min-h-screen bg-[var(--tv-page-bg)] text-foreground">
       <main className={cn("pb-24", TV_BROWSE_TOP_PAD_CLASS)}>
-        <header className="mx-auto max-w-[1920px] px-6 pt-10 sm:px-10 lg:px-14 xl:px-20">
-          <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-white/45">
+        <header className="mx-auto max-w-[1920px] px-6 pt-7 sm:px-10 lg:px-14 xl:px-20 motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/45 sm:text-[13px]">
             Zenede
           </p>
-          <h1 className="mt-2 text-[clamp(1.75rem,4vw,2.25rem)] font-semibold tracking-tight text-white">
+          <h1 className="mt-1.5 text-[clamp(1.6rem,3.6vw,2.1rem)] font-semibold tracking-tight text-white">
             Settings
           </h1>
-          <p className="mt-3 max-w-2xl text-[17px] leading-relaxed text-white/48">
+          <p className="mt-2 max-w-2xl text-[15px] leading-snug text-white/46 sm:text-[16px] sm:leading-relaxed">
             Catalog, security, integrations, and hosting tools — pick a tab below.
           </p>
         </header>
 
-        <div className="mx-auto mt-8 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
+        <div className="mx-auto mt-5 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
           <div
             className="flex flex-wrap gap-2 border-b border-white/[0.08] pb-px"
             role="tablist"
@@ -153,7 +153,9 @@ export function TvSettingsPage() {
                 aria-selected={tab === id}
                 onClick={() => setTab(id)}
                 className={cn(
-                  "-mb-px rounded-t-lg px-4 py-2.5 text-[15px] font-medium outline-none transition-colors",
+                  "-mb-px rounded-t-lg px-4 py-2.5 text-[15px] font-medium outline-none",
+                  "transition-[color,background-color,border-color,transform] duration-200 ease-out",
+                  "motion-safe:hover:-translate-y-px",
                   tab === id
                     ? "border border-b-0 border-white/[0.12] bg-white/[0.06] text-white"
                     : "border border-transparent text-white/45 hover:text-white/75",

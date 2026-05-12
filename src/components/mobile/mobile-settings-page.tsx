@@ -104,23 +104,30 @@ export function MobileSettingsPage() {
   }, [secret]);
 
   return (
-    <main className="min-h-screen bg-[var(--tv-page-bg)] pb-28 pt-[6.25rem] text-foreground">
+    <main className="min-h-screen bg-[var(--tv-page-bg)] pb-28 pt-[5.35rem] text-foreground">
       <section className="px-4">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-white/42">
-          Zenede
-        </p>
-        <h1 className="mt-2 text-[34px] font-semibold leading-none tracking-tight text-white">
-          Settings
-        </h1>
-        <p className="mt-3 max-w-[32ch] text-[15px] leading-relaxed text-white/50">
-          Catalog, security, integrations, VPN proxies, and server reliability tools.
-        </p>
+        <div
+          className={cn(
+            "rounded-2xl border border-white/[0.09] bg-white/[0.035] px-3.5 py-2.5 ring-1 ring-white/[0.04]",
+            "backdrop-blur-md motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100",
+          )}
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">
+            Zenede
+          </p>
+          <h1 className="mt-0.5 text-[1.25rem] font-semibold leading-none tracking-tight text-white sm:text-[1.35rem]">
+            Settings
+          </h1>
+          <p className="mt-1.5 max-w-[36ch] text-[11.5px] leading-snug text-white/42">
+            Catalog, security, integrations, VPN proxies, and server tools — tabs below.
+          </p>
+        </div>
       </section>
 
-      <section className="sticky top-[5.35rem] z-40 mt-5 px-3" aria-label="Settings sections">
+      <section className="sticky top-[5.35rem] z-40 mt-2 px-3" aria-label="Settings sections">
         <ZenedeGlass
           variant="panelCompact"
-          className="rounded-[26px] border-white/[0.1] bg-black/58 p-2"
+          className="rounded-[20px] border-white/[0.1] bg-black/58 p-2 shadow-[0_14px_44px_-26px_rgba(0,0,0,0.78)] transition-shadow duration-300"
         >
           <div className="tv-row-scroll flex gap-2 overflow-x-auto">
             {(
@@ -137,10 +144,11 @@ export function MobileSettingsPage() {
                 type="button"
                 onClick={() => setTab(id)}
                 className={cn(
-                  "min-h-11 shrink-0 rounded-2xl px-4 text-[13px] font-semibold",
+                  "zen-pressable min-h-11 shrink-0 rounded-2xl px-4 text-[13px] font-semibold outline-none",
+                  "transition-[background-color,color,transform,box-shadow] duration-200 ease-out",
                   tab === id
-                    ? "bg-white text-zinc-950"
-                    : "border border-white/[0.1] bg-white/[0.06] text-white/70",
+                    ? "bg-white text-zinc-950 shadow-sm"
+                    : "border border-white/[0.1] bg-white/[0.06] text-white/70 hover:bg-white/[0.1]",
                 )}
               >
                 {label}
@@ -150,7 +158,7 @@ export function MobileSettingsPage() {
         </ZenedeGlass>
       </section>
 
-      <div className="mt-5 space-y-6 px-4">
+      <div className="mt-4 space-y-6 px-4">
         {tab === "catalog" ? (
           <>
             <TvCatalogSetupStrip

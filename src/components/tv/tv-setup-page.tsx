@@ -45,17 +45,15 @@ export function TvSetupPage() {
         )}
       >
         <div className="mx-auto flex w-full max-w-[1920px] flex-1 flex-col justify-center px-6 sm:px-10 lg:px-14 xl:px-20">
-          <div className="mb-10 text-center">
-            <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-white/45">
+          <div className="mb-7 text-center motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/45 sm:text-[13px]">
               Welcome
             </p>
-            <h1 className="mt-3 text-[clamp(1.85rem,5vw,2.75rem)] font-semibold tracking-tight text-white">
+            <h1 className="mt-2 text-[clamp(1.65rem,4.5vw,2.35rem)] font-semibold tracking-tight text-white">
               Set up Zenede
             </h1>
-            <p className="mx-auto mt-4 max-w-md text-[17px] leading-relaxed text-white/55">
-              Add the built-in channel index once. After that, Home shows your
-              recent channels and picks up right where you left off — just like on
-              Apple&nbsp;TV.
+            <p className="mx-auto mt-3 max-w-md text-[15px] leading-snug text-white/52 sm:text-[16px] sm:leading-relaxed">
+              Add the built-in channel index once. Home then shows recents and picks — tuned for the big screen.
             </p>
           </div>
 

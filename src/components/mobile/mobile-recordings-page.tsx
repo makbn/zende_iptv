@@ -377,20 +377,27 @@ export function MobileRecordingsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--tv-page-bg)] pb-28 pt-[6.25rem] text-foreground">
+    <main className="min-h-screen bg-[var(--tv-page-bg)] pb-28 pt-[5.35rem] text-foreground">
       <section className="px-4">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-white/42">
-          Zenede
-        </p>
-        <h1 className="mt-2 text-[34px] font-semibold leading-none tracking-tight text-white">
-          Recordings
-        </h1>
-        <p className="mt-3 max-w-[32ch] text-[15px] leading-relaxed text-white/50">
-          Schedule captures, monitor live encodes, and download finished MP4 files.
-        </p>
+        <div
+          className={cn(
+            "rounded-2xl border border-white/[0.09] bg-white/[0.035] px-3.5 py-2.5 ring-1 ring-white/[0.04]",
+            "backdrop-blur-md motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100",
+          )}
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">
+            Zenede
+          </p>
+          <h1 className="mt-0.5 text-[1.25rem] font-semibold leading-none tracking-tight text-white sm:text-[1.35rem]">
+            Recordings
+          </h1>
+          <p className="mt-1.5 max-w-[36ch] text-[11.5px] leading-snug text-white/42">
+            Schedule, monitor encodes, play or download MP4s — controls below.
+          </p>
+        </div>
       </section>
 
-      <div className="mt-6 space-y-6 px-4">
+      <div className="mt-3 space-y-5 px-4">
         {overview && !overview.ffmpegAvailable ? (
           <div className="flex gap-3 rounded-[24px] border border-amber-400/25 bg-amber-500/[0.09] p-4 text-[14px] leading-relaxed text-amber-100/90">
             <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-300" aria-hidden />

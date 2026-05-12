@@ -4,10 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
 import { TvCatalogSetupStrip } from "@/components/tv/tv-catalog-setup-strip";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
+import { cn } from "@/lib/utils";
 
 const source = BUILTIN_PLAYLIST_SOURCES[0]!;
 
@@ -30,29 +30,30 @@ export function MobileSetupPage() {
   }, [catalogLoaded, channels.length, router]);
 
   return (
-    <main className="min-h-screen bg-[var(--tv-page-bg)] pb-28 pt-[6.25rem] text-foreground">
+    <main className="min-h-screen bg-[var(--tv-page-bg)] pb-28 pt-[5.35rem] text-foreground">
       <section className="px-4">
-        <ZenedeGlass
-          variant="panel"
-          className="relative overflow-hidden rounded-[34px] border-white/[0.1] bg-white/[0.055] p-6"
+        <div
+          className={cn(
+            "relative overflow-hidden rounded-2xl border border-white/[0.09] bg-white/[0.04] p-4 ring-1 ring-white/[0.04]",
+            "motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100",
+          )}
         >
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,oklch(0.44_0.14_264/0.42),transparent_58%)]" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_40%_-20%,oklch(0.42_0.14_264/0.28),transparent_55%)]" />
           <div className="relative">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-white/42">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">
               Welcome
             </p>
-            <h1 className="mt-3 text-[36px] font-semibold leading-[0.98] tracking-tight text-white">
+            <h1 className="mt-1 text-[clamp(1.4rem,5.5vw,1.65rem)] font-semibold leading-tight tracking-tight text-white">
               Set up Zenede
             </h1>
-            <p className="mt-4 text-[15px] leading-relaxed text-white/52">
-              Add the built-in channel index once. After that, Home fills with
-              recent channels and quick picks.
+            <p className="mt-2 text-[13px] leading-snug text-white/48">
+              Add the built-in index once — Home fills with recents and picks right after.
             </p>
           </div>
-        </ZenedeGlass>
+        </div>
       </section>
 
-      <div className="mt-6 space-y-6 px-4">
+      <div className="mt-4 space-y-5 px-4">
         <TvCatalogSetupStrip
           source={source}
           busy={busy}

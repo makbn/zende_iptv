@@ -29,19 +29,26 @@ export function TvContentRow({
   edgeFade = true,
 }: Props) {
   return (
-    <section id={id} className={cn("w-full", className)} aria-label={title}>
+    <section
+      id={id}
+      className={cn(
+        "w-full motion-safe:animate-zen-row-lift motion-reduce:animate-none motion-reduce:opacity-100",
+        className,
+      )}
+      aria-label={title}
+    >
       <div
         className={cn(
           !bleed && "px-6 sm:px-10 lg:px-14 xl:px-20",
         )}
       >
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-3 sm:mb-7">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3 sm:mb-5">
           <div>
-            <h2 className="text-[22px] font-semibold tracking-tight text-white sm:text-[24px]">
+            <h2 className="text-[20px] font-semibold tracking-tight text-white sm:text-[22px] lg:text-[23px]">
               {title}
             </h2>
             {description ? (
-              <p className="mt-1 max-w-[520px] text-[15px] leading-snug text-white/48">
+              <p className="mt-1 max-w-[520px] text-[14px] leading-snug text-white/46 sm:text-[15px]">
                 {description}
               </p>
             ) : null}

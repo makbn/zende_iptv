@@ -122,52 +122,67 @@ export function MobileFavoritesPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-[var(--tv-page-bg)] pb-28 pt-[6.25rem] text-foreground">
+    <main className="min-h-screen bg-[var(--tv-page-bg)] pb-28 pt-[5.35rem] text-foreground">
       <section className="px-4">
-        <ZenedeGlass
-          variant="panel"
-          className="relative overflow-hidden rounded-[32px] border-white/[0.1] bg-white/[0.05] p-5"
+        <div
+          className={cn(
+            "relative overflow-hidden rounded-2xl border border-white/[0.09] bg-white/[0.035] px-3.5 py-2.5 ring-1 ring-white/[0.04]",
+            "backdrop-blur-md transition-[border-color,box-shadow] duration-300 ease-out",
+            "hover:border-white/[0.12] hover:shadow-[0_12px_40px_-28px_rgba(0,0,0,0.55)]",
+            "motion-safe:animate-fav-hero-in motion-reduce:animate-none motion-reduce:opacity-100",
+          )}
         >
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,oklch(0.52_0.16_40/0.34),transparent_42%)]" />
-          <div className="relative">
-            <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-[12px] font-semibold uppercase tracking-[0.14em] text-amber-200/90">
-              <Heart className="size-3.5 fill-amber-300 text-amber-300" aria-hidden />
+          <div
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_100%_120%_at_0%_0%,oklch(0.44_0.12_42/0.12),transparent_55%)]"
+            aria-hidden
+          />
+          <div className="relative flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-400/22 bg-amber-400/[0.09] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.11em] text-amber-200/88">
+              <Heart className="size-2.5 fill-amber-300/90 text-amber-300" aria-hidden />
               Saved
             </span>
-            <h1 className="mt-3 text-[34px] font-semibold leading-none tracking-tight text-white">
+            <h1 className="min-w-0 text-[1.25rem] font-semibold leading-none tracking-tight text-white sm:text-[1.35rem]">
               Favorites
             </h1>
-            <p className="mt-3 text-[15px] leading-relaxed text-white/50">
-              Your hand-picked channels, sorted and filtered for quick launches.
-            </p>
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-white/[0.08] bg-black/18 p-4">
-                <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/38">
-                  Saved
-                </p>
-                <p className="mt-1 text-[30px] font-semibold tabular-nums text-white">
-                  {enriched.length.toLocaleString()}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-white/[0.08] bg-black/18 p-4">
-                <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/38">
-                  Groups
-                </p>
-                <p className="mt-1 text-[30px] font-semibold tabular-nums text-white">
-                  {groupOptions.length.toLocaleString()}
-                </p>
-              </div>
-            </div>
+            {enriched.length > 0 ? (
+              <>
+                <span
+                  className="hidden h-3 w-px shrink-0 bg-white/15 sm:block"
+                  aria-hidden
+                />
+                <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] bg-black/25 px-2 py-0.5 ring-1 ring-white/[0.03]">
+                    <span className="tabular-nums text-[12px] font-semibold text-white">
+                      {enriched.length.toLocaleString()}
+                    </span>
+                    <span className="text-[10px] font-medium text-white/42">
+                      channels
+                    </span>
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] bg-black/25 px-2 py-0.5 ring-1 ring-white/[0.03]">
+                    <span className="tabular-nums text-[12px] font-semibold text-white">
+                      {groupOptions.length.toLocaleString()}
+                    </span>
+                    <span className="text-[10px] font-medium text-white/42">
+                      groups
+                    </span>
+                  </span>
+                </div>
+              </>
+            ) : null}
           </div>
-        </ZenedeGlass>
+          <p className="relative mt-1.5 text-[11.5px] leading-snug text-white/42">
+            Search and sort — your grid starts below.
+          </p>
+        </div>
       </section>
 
       {enriched.length > 0 ? (
         <>
-          <section className="sticky top-[5.35rem] z-40 mt-5 px-3" aria-label="Favorite filters">
+          <section className="sticky top-[5.35rem] z-40 mt-2 px-3" aria-label="Favorite filters">
             <ZenedeGlass
               variant="panelCompact"
-              className="rounded-[26px] border-white/[0.1] bg-black/58 p-3"
+              className="rounded-[20px] border-white/[0.1] bg-black/58 p-2.5 shadow-[0_12px_40px_-24px_rgba(0,0,0,0.75)] transition-[box-shadow,transform] duration-300 ease-out"
             >
               <label className="relative block">
                 <span className="sr-only">Search favorites</span>
@@ -206,10 +221,11 @@ export function MobileFavoritesPage() {
                     type="button"
                     onClick={() => setSort(id)}
                     className={cn(
-                      "min-h-10 shrink-0 rounded-2xl px-4 text-[13px] font-semibold",
+                      "min-h-10 shrink-0 rounded-2xl px-4 text-[13px] font-semibold outline-none transition-[transform,background-color,color,box-shadow] duration-200 ease-out",
+                      "active:scale-[0.98]",
                       sort === id
-                        ? "bg-white text-zinc-950"
-                        : "border border-white/[0.1] bg-white/[0.06] text-white/70",
+                        ? "bg-white text-zinc-950 shadow-sm"
+                        : "border border-white/[0.1] bg-white/[0.06] text-white/70 hover:bg-white/[0.1] hover:text-white/85",
                     )}
                   >
                     {label}
@@ -223,10 +239,11 @@ export function MobileFavoritesPage() {
                       setGroupFilter((current) => (current === group ? null : group))
                     }
                     className={cn(
-                      "min-h-10 shrink-0 rounded-2xl px-4 text-[13px] font-semibold",
+                      "min-h-10 shrink-0 rounded-2xl px-4 text-[13px] font-semibold outline-none transition-[transform,background-color,color,box-shadow] duration-200 ease-out",
+                      "active:scale-[0.98]",
                       groupFilter === group
-                        ? "bg-white text-zinc-950"
-                        : "border border-white/[0.1] bg-white/[0.06] text-white/70",
+                        ? "bg-white text-zinc-950 shadow-sm"
+                        : "border border-white/[0.1] bg-white/[0.06] text-white/70 hover:bg-white/[0.1] hover:text-white/85",
                     )}
                   >
                     {group} <span className="opacity-55">{count}</span>
@@ -236,14 +253,15 @@ export function MobileFavoritesPage() {
             </ZenedeGlass>
           </section>
 
-          <section className="mt-5 px-4" aria-live="polite">
-            <div className="mb-4 flex items-end justify-between gap-4">
+          <section className="mt-3 px-4" aria-live="polite">
+            <div className="mb-2.5 flex items-end justify-between gap-3">
               <div>
-                <h2 className="text-[20px] font-semibold text-white">
-                  {filtered.length.toLocaleString()} channels
+                <h2 className="text-[15px] font-semibold tracking-tight text-white">
+                  {filtered.length.toLocaleString()}{" "}
+                  <span className="font-medium text-white/55">in view</span>
                 </h2>
-                <p className="mt-1 text-[13px] text-white/42">
-                  {activeFilters ? "Filtered favorites" : "Saved channels"}
+                <p className="mt-0.5 text-[11px] text-white/38">
+                  {activeFilters ? "Filtered from your saves" : "All saved"}
                 </p>
               </div>
               {activeFilters ? (
@@ -253,22 +271,31 @@ export function MobileFavoritesPage() {
                     setQuery("");
                     setGroupFilter(null);
                   }}
-                  className="min-h-10 rounded-2xl border border-white/[0.1] bg-white/[0.06] px-4 text-[13px] font-semibold text-white/72"
+                  className="min-h-9 rounded-xl border border-white/[0.1] bg-white/[0.06] px-3.5 text-[12px] font-semibold text-white/72 transition-colors duration-200 hover:bg-white/[0.1] hover:text-white"
                 >
                   Reset
                 </button>
               ) : null}
             </div>
 
-            <div className="grid gap-3">
+            <div className="grid gap-2.5">
               {visible.map((channel, index) => (
-                <MobileChannelCard
-                  key={`${channel.url}-${index}`}
-                  channel={channel}
-                  healthScore={getScoreForChannel(channel)}
-                  onSelect={openChannel}
-                  compact
-                />
+                <div
+                  key={channel.url}
+                  className={cn(
+                    "motion-safe:animate-fav-page-tile motion-reduce:animate-none motion-reduce:opacity-100",
+                  )}
+                  style={{
+                    animationDelay: `${Math.min(index, 24) * 28}ms`,
+                  }}
+                >
+                  <MobileChannelCard
+                    channel={channel}
+                    healthScore={getScoreForChannel(channel)}
+                    onSelect={openChannel}
+                    compact
+                  />
+                </div>
               ))}
             </div>
 
@@ -282,7 +309,7 @@ export function MobileFavoritesPage() {
               <button
                 type="button"
                 onClick={() => setVisibleCount((count) => count + PAGE_STEP)}
-                className="mt-5 flex min-h-[52px] w-full items-center justify-center rounded-2xl bg-white text-[15px] font-semibold text-zinc-950"
+                className="mt-4 flex min-h-[48px] w-full items-center justify-center rounded-2xl bg-white text-[14px] font-semibold text-zinc-950 outline-none transition-[transform,box-shadow] duration-200 hover:shadow-lg hover:shadow-black/20 active:scale-[0.99] motion-reduce:transform-none"
               >
                 Load more
               </button>

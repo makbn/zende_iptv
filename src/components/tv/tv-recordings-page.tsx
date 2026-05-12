@@ -488,23 +488,26 @@ export function TvRecordingsPage() {
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_55%_42%_at_12%_55%,oklch(0.34_0.12_18),transparent_52%)]" />
           </div>
 
-          <header className="relative mx-auto max-w-[1920px] px-6 pb-8 pt-10 sm:px-10 sm:pb-10 lg:px-14 lg:pb-12 xl:px-20">
-            <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-white/45">
+          <header
+            className={cn(
+              "relative mx-auto max-w-[1920px] px-6 pb-4 pt-7 sm:px-10 sm:pb-5 sm:pt-8 lg:px-14 lg:pb-6 xl:px-20",
+              "motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100",
+            )}
+          >
+            <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/45 sm:text-[13px]">
               Zenede
             </p>
-            <h1 className="mt-2 max-w-[24ch] text-[clamp(1.85rem,4.2vw,2.65rem)] font-semibold tracking-tight text-white">
+            <h1 className="mt-1.5 max-w-[24ch] text-[clamp(1.65rem,3.8vw,2.45rem)] font-semibold tracking-tight text-white">
               Recordings
             </h1>
-            <p className="mt-3 max-w-2xl text-[17px] leading-relaxed text-white/50">
-              Schedule captures, monitor live encodes, and download finished MP4
-              files. The server runs{" "}
-              <span className="text-white/70">ffmpeg</span> against your catalog
-              URLs (same routing as playback).
+            <p className="mt-2 max-w-2xl text-[15px] leading-snug text-white/48 sm:text-[16px] sm:leading-relaxed">
+              Schedule captures, monitor live encodes, and download finished MP4s.{" "}
+              <span className="text-white/62">ffmpeg</span> uses your catalog URLs like playback.
             </p>
           </header>
         </div>
 
-        <div className="mx-auto max-w-[1920px] space-y-10 px-6 sm:px-10 lg:px-14 xl:px-20">
+        <div className="mx-auto max-w-[1920px] space-y-8 px-6 sm:px-10 lg:px-14 xl:px-20">
           {overview && !overview.ffmpegAvailable ? (
             <div
               className="flex items-start gap-3 rounded-2xl border border-amber-400/25 bg-amber-500/[0.09] px-4 py-3.5 text-[15px] leading-snug text-amber-100/95"

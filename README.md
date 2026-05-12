@@ -53,3 +53,9 @@ Default port **8077**; override with **`PORT`** and other variables in a **`.env
 ## Summary
 
 Zenede is a **self-hosted IPTV control plane**: relayed playback and recordings through your server, **optional per-channel VPN exits**, **Xtream-compatible** portals for hardware/apps, and optional multi-user auth—without redistributing stream content.
+
+## Disclaimer
+
+Accessing streams without proper rights, or using VPNs or proxies to reach **geo-restricted** or otherwise restricted content, may be **unlawful** where you live. You alone are responsible for the streams, playlists, recordings, and any other material you configure in this application, and for complying with copyright, broadcasting, and computer-misuse rules that apply to you.
+
+**Zenede and its authors provide software only.** We do not supply or endorse specific channels, do not operate your VPN or proxy providers, and **assume no liability** for how you use the app, what you add to it, or any consequences (legal, technical, or otherwise). Use at your own risk.

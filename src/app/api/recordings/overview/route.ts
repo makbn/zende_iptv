@@ -92,7 +92,13 @@ export async function GET(request: Request) {
     recentFailures: failed.map((r) => ({
       id: r.id,
       channelName: r.channelName,
+      channelUrl: r.channelUrl,
+      channelLogo: r.channelLogo,
+      channelGroup: r.channelGroup,
+      scheduleId: r.scheduleId,
+      startedAt: r.startedAt?.toISOString() ?? null,
       endedAt: r.endedAt?.toISOString() ?? null,
+      createdAt: r.createdAt.toISOString(),
       error: r.error,
     })),
   });

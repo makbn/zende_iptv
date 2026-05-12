@@ -5,6 +5,10 @@ import { useCallback, useEffect, useMemo, useState, startTransition } from "reac
 
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
 import {
+  TvRecordingRecentIssues,
+  type RecordingIssueItem,
+} from "@/components/tv/tv-recording-recent-issues";
+import {
   TV_BROWSE_STICKY_TOP_CLASS,
   TV_BROWSE_TOP_PAD_CLASS,
 } from "@/components/tv/tv-top-bar";
@@ -68,19 +72,12 @@ type ApiLibraryItem = {
   scheduleId: string | null;
 };
 
-type ApiFailure = {
-  id: string;
-  channelName: string;
-  endedAt: string | null;
-  error: string | null;
-};
-
 type OverviewPayload = {
   ffmpegAvailable: boolean;
   schedules: ApiSchedule[];
   active: ApiActive[];
   library: ApiLibraryItem[];
-  recentFailures: ApiFailure[];
+  recentFailures: RecordingIssueItem[];
 };
 
 function formatBytes(n: string | null): string {
@@ -1033,31 +1030,10 @@ export function TvRecordingsPage() {
           </section>
 
           {overview && overview.recentFailures.length > 0 ? (
-            <section aria-labelledby="rec-fail-heading" className="pb-6">
-              <h2
-                id="rec-fail-heading"
-                className="text-lg font-semibold tracking-tight text-white/55"
-              >
-                Recent issues
-              </h2>
-              <ul className="mt-3 space-y-2">
-                {overview.recentFailures.map((f) => (
-                  <li
-                    key={f.id}
-                    className="rounded-xl border border-white/[0.06] bg-black/25 px-3 py-2 text-[14px] text-white/50"
-                  >
-                    <span className="font-medium text-white/70">
-                      {f.channelName}
-                    </span>
-                    {f.error ? (
-                      <span className="mt-1 block text-[13px] text-red-300/80">
-                        {f.error}
-                      </span>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            </section>
+            <TvRecordingRecentIssues
+              issues={overview.recentFailures}
+              onRefresh={load}
+            />
           ) : null}
         </div>
 

@@ -27,6 +27,14 @@ import {
   type ReactNode,
 } from "react";
 
+import {
+  exitPresentationFullscreen,
+  getPresentationFullscreenElement,
+  requestFullscreenElement,
+  tryWebkitVideoEnterFullscreen,
+  tryWebkitVideoExitFullscreen,
+  videoWebkitDisplayingFullscreen,
+} from "@/lib/player/fullscreen-helpers";
 import { mergeBuiltinAndManual } from "@/lib/channels/merge-catalog";
 import {
   listManualChannelEntries,
@@ -333,10 +341,39 @@ export function WatchView() {
   }, [playbackSrc, canonicalUrl, title, logo, group]);
 
   useEffect(() => {
-    const onFs = () => setFs(Boolean(document.fullscreenElement));
-    document.addEventListener("fullscreenchange", onFs);
-    return () => document.removeEventListener("fullscreenchange", onFs);
-  }, []);
+    const sync = () =>
+      setFs(
+        Boolean(getPresentationFullscreenElement()) ||
+          Boolean(
+            videoRef.current &&
+              videoWebkitDisplayingFullscreen(videoRef.current),
+          ),
+      );
+    sync();
+    document.addEventListener("fullscreenchange", sync);
+    document.addEventListener("webkitfullscreenchange", sync);
+    document.addEventListener("mozfullscreenchange", sync);
+    document.addEventListener("MSFullscreenChange", sync);
+    return () => {
+      document.removeEventListener("fullscreenchange", sync);
+      document.removeEventListener("webkitfullscreenchange", sync);
+      document.removeEventListener("mozfullscreenchange", sync);
+      document.removeEventListener("MSFullscreenChange", sync);
+    };
+  }, [playbackSrc]);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const onBegin = () => setFs(true);
+    const onEnd = () => setFs(false);
+    v.addEventListener("webkitbeginfullscreen", onBegin);
+    v.addEventListener("webkitendfullscreen", onEnd);
+    return () => {
+      v.removeEventListener("webkitbeginfullscreen", onBegin);
+      v.removeEventListener("webkitendfullscreen", onEnd);
+    };
+  }, [playbackSrc]);
 
   useEffect(() => {
     const v = videoRef.current;
@@ -534,13 +571,33 @@ export function WatchView() {
   }, []);
 
   const toggleFullscreen = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    if (!document.fullscreenElement) {
-      void el.requestFullscreen().catch(() => {});
-    } else {
-      void document.exitFullscreen().catch(() => {});
+    const container = containerRef.current;
+    const video = videoRef.current;
+
+    if (getPresentationFullscreenElement()) {
+      void exitPresentationFullscreen().catch(() => {});
+      return;
     }
+
+    if (video && videoWebkitDisplayingFullscreen(video)) {
+      if (tryWebkitVideoExitFullscreen(video)) return;
+    }
+
+    void (async () => {
+      try {
+        if (container) await requestFullscreenElement(container);
+        else throw new Error("no container");
+      } catch {
+        try {
+          if (video) await requestFullscreenElement(video);
+          else throw new Error("no video");
+        } catch {
+          if (video && tryWebkitVideoEnterFullscreen(video)) {
+            setFs(true);
+          }
+        }
+      }
+    })();
   }, []);
 
   const togglePip = useCallback(async () => {

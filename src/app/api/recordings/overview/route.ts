@@ -34,10 +34,10 @@ export async function GET(request: Request) {
     prisma.recording.findMany({
       where: {
         ownerUserId: owner,
-        status: { in: ["COMPLETED", "STOPPED_EARLY"] },
+        status: { in: ["COMPLETED", "STOPPED_EARLY", "FAILED"] },
       },
       orderBy: [{ endedAt: "desc" }, { createdAt: "desc" }],
-      take: 80,
+      take: 100,
     }),
     prisma.recording.findMany({
       where: { ownerUserId: owner, status: "FAILED" },
@@ -88,6 +88,7 @@ export async function GET(request: Request) {
       plannedSeconds: r.plannedSeconds,
       sizeBytes: big(r.sizeBytes),
       scheduleId: r.scheduleId,
+      error: r.error,
     })),
     recentFailures: failed.map((r) => ({
       id: r.id,

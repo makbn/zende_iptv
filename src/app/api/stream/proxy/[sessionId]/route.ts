@@ -4,6 +4,7 @@ import { fetch as undiciFetch, type ProxyAgent } from "undici";
 import { createServerLogger } from "@/core/logging/server";
 import { getRequestOrigin } from "@/lib/http/request-origin";
 import { buildProxyAgent } from "@/lib/proxies/proxy-agent";
+import { DVR_RECORDING_SESSION_TITLE } from "@/lib/recordings/recording-session-title";
 import {
   cookieHeaderForFetchUrl,
   getSetCookieLines,
@@ -77,6 +78,15 @@ const FETCH_TIMEOUT_MS = 20_000;
  * 30 s gives slow VPN exit nodes headroom without hanging the player too long.
  */
 const FETCH_TIMEOUT_PROXY_MS = 30_000;
+
+/**
+ * DVR ffmpeg hits this relay as the only client. Upstream HLS can long-pause on slow
+ * CDNs/VPN; short timeouts + circuit breaker 502s abort the encode — use generous limits
+ * and **no** breaker for these sessions (see `recordingRelay` below).
+ */
+const RECORDING_FETCH_TIMEOUT_MS = 95_000;
+const RECORDING_FETCH_TIMEOUT_PROXY_MS = 130_000;
+const RECORDING_UPSTREAM_MAX_ATTEMPTS = 3;
 
 /** Maximum number of 3xx hops before giving up. */
 const MAX_REDIRECT_HOPS = 10;
@@ -223,6 +233,34 @@ async function fetchFollowingRedirects(
   throw new Error(`Too many redirects (>${MAX_REDIRECT_HOPS}) for ${startUrl}`);
 }
 
+async function fetchUpstreamWithRecordingRetries(
+  fetchUrl: string,
+  baseHeaders: Headers,
+  cookieJar: CookieJar,
+  timeoutMs: number,
+  proxyAgent: ProxyAgent | undefined,
+): Promise<FetchResult> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= RECORDING_UPSTREAM_MAX_ATTEMPTS; attempt++) {
+    if (attempt > 1) {
+      await new Promise((r) => setTimeout(r, 450 * (attempt - 1)));
+    }
+    try {
+      return await fetchFollowingRedirects(
+        fetchUrl,
+        baseHeaders,
+        cookieJar,
+        AbortSignal.timeout(timeoutMs),
+        proxyAgent,
+      );
+    } catch (e) {
+      lastErr = e;
+      if (attempt === RECORDING_UPSTREAM_MAX_ATTEMPTS) throw e;
+    }
+  }
+  throw lastErr;
+}
+
 // ─── route handler ────────────────────────────────────────────────────────────
 
 /**
@@ -321,11 +359,24 @@ export async function GET(
         : "upstreamRootUrl",
   });
 
+  const recordingRelay = session.title === DVR_RECORDING_SESSION_TITLE;
+  const fetchTimeoutMs = recordingRelay
+    ? proxyAgent
+      ? RECORDING_FETCH_TIMEOUT_PROXY_MS
+      : RECORDING_FETCH_TIMEOUT_MS
+    : proxyAgent
+      ? FETCH_TIMEOUT_PROXY_MS
+      : FETCH_TIMEOUT_MS;
+
   // Circuit breaker: replay the cached status instantly instead of re-fetching.
-  const cachedStatus = breakerStatus(sessionId, fetchUrl);
-  if (cachedStatus !== null) {
-    log.debug("Circuit breaker: replaying cached status", { sessionId, fetchUrl, status: cachedStatus });
-    return new NextResponse(null, { status: cachedStatus });
+  // Skip for DVR ffmpeg relay — a single client would otherwise get stuck on 502
+  // while upstream recovers.
+  if (!recordingRelay) {
+    const cachedStatus = breakerStatus(sessionId, fetchUrl);
+    if (cachedStatus !== null) {
+      log.debug("Circuit breaker: replaying cached status", { sessionId, fetchUrl, status: cachedStatus });
+      return new NextResponse(null, { status: cachedStatus });
+    }
   }
 
   const baseHeaders = buildBaseHeaders(request, refererForProxiedFetch);
@@ -333,13 +384,21 @@ export async function GET(
   let upstream: Response;
   let effectiveUrl: string;
   try {
-    const result = await fetchFollowingRedirects(
-      fetchUrl,
-      baseHeaders,
-      cookieJar,
-      AbortSignal.timeout(proxyAgent ? FETCH_TIMEOUT_PROXY_MS : FETCH_TIMEOUT_MS),
-      proxyAgent,
-    );
+    const result = recordingRelay
+      ? await fetchUpstreamWithRecordingRetries(
+          fetchUrl,
+          baseHeaders,
+          cookieJar,
+          fetchTimeoutMs,
+          proxyAgent,
+        )
+      : await fetchFollowingRedirects(
+          fetchUrl,
+          baseHeaders,
+          cookieJar,
+          AbortSignal.timeout(fetchTimeoutMs),
+          proxyAgent,
+        );
     upstream = result.response;
     effectiveUrl = result.effectiveUrl;
     if (result.jarUpdated) {
@@ -361,10 +420,13 @@ export async function GET(
       err: err instanceof Error ? err.message : String(err),
       cause: cause instanceof Error ? `${cause.name}: ${cause.message}` : cause ? String(cause) : undefined,
       timedOut: isTimeout,
+      recordingRelay,
     });
-    // Trip the breaker with 502 (network failure). Mark transient so the
-    // player can retry after 8 s once the VPN reconnects.
-    breakerTrip(sessionId, fetchUrl, 502, /* transient */ true);
+    if (!recordingRelay) {
+      // Trip the breaker with 502 (network failure). Mark transient so the
+      // player can retry after 8 s once the VPN reconnects.
+      breakerTrip(sessionId, fetchUrl, 502, /* transient */ true);
+    }
     return NextResponse.json(
       { error: isTimeout ? "Upstream timed out." : "Upstream fetch failed." },
       { status: 502 },
@@ -389,11 +451,12 @@ export async function GET(
           : "upstreamRootUrl",
       sentCookie: Boolean(cookieHeaderForFetchUrl(fetchUrl, cookieJar)),
       upstream: pickUpstreamDiagHeaders(upstream),
+      recordingRelay,
     });
     // 403 = auth/IP block — persistent. Trip the breaker with the real status so
     // hls.js sees 403 and falls back to another variant instead of retrying at speed.
     // 5xx = upstream hard error — same treatment.
-    if (upstream.status === 403 || upstream.status >= 500) {
+    if (!recordingRelay && (upstream.status === 403 || upstream.status >= 500)) {
       breakerTrip(sessionId, fetchUrl, upstream.status);
     }
     // Always forward the real upstream status with an empty body.

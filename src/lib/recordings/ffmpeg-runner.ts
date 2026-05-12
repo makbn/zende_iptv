@@ -67,7 +67,7 @@ function buildFfmpegArgs(input: FfmpegRecordingStart): string[] {
     "warning",
     "-nostats",
     "-rw_timeout",
-    "20000000",
+    "180000000",
     "-user_agent",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
     "-headers",
@@ -87,7 +87,7 @@ function buildFfmpegArgs(input: FfmpegRecordingStart): string[] {
     "-reconnect_streamed",
     "1",
     "-reconnect_delay_max",
-    "5",
+    "30",
     // New TCP connection per playlist/segment so custom -headers apply reliably
     // (persistent HTTP can omit extra headers on follow-up requests in some builds).
     "-http_persistent",

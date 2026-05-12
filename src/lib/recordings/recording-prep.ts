@@ -10,6 +10,8 @@ import {
 import { applyPublicCorsProxyUnwrap } from "@/lib/stream/public-cors-proxy-url";
 import { createStreamSession } from "@/lib/stream/stream-session-store";
 
+import { DVR_RECORDING_SESSION_TITLE } from "./recording-session-title";
+
 export class RecordingPrepError extends Error {
   readonly code?: string;
 
@@ -68,7 +70,7 @@ export async function prepareRecordingSource(
 
   const relaySessionId = await createStreamSession({
     upstreamRootUrl: upstream.href,
-    title: "Recording",
+    title: DVR_RECORDING_SESSION_TITLE,
     proxyConfig: proxy ?? undefined,
   });
 

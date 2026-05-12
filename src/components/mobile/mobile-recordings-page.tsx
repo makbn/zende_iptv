@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
@@ -7,6 +8,7 @@ import {
   CircleStop,
   Download,
   Loader2,
+  Play,
   Radio,
   Search,
   Trash2,
@@ -15,6 +17,10 @@ import {
 } from "lucide-react";
 
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import {
+  TvRecordingRecentIssues,
+  type RecordingIssueItem,
+} from "@/components/tv/tv-recording-recent-issues";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { createClientLogger } from "@/core/logging/client";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
@@ -46,11 +52,15 @@ type ApiActive = {
 type ApiLibraryItem = {
   id: string;
   channelName: string;
+  channelLogo: string | null;
   channelGroup: string | null;
   status: string;
   startedAt: string | null;
   endedAt: string | null;
+  plannedSeconds: number | null;
   sizeBytes: string | null;
+  scheduleId: string | null;
+  error: string | null;
 };
 
 type OverviewPayload = {
@@ -58,6 +68,7 @@ type OverviewPayload = {
   schedules: ApiSchedule[];
   active: ApiActive[];
   library: ApiLibraryItem[];
+  recentFailures: RecordingIssueItem[];
 };
 
 function toDatetimeLocalValue(d: Date): string {
@@ -76,7 +87,7 @@ function formatRange(startIso: string, endIso: string): string {
 }
 
 function formatBytes(n: string | null): string {
-  if (!n) return "Pending";
+  if (!n) return "—";
   const value = BigInt(n);
   if (value < BigInt(1024)) return `${value} B`;
   const kb = Number(value) / 1024;
@@ -84,6 +95,12 @@ function formatBytes(n: string | null): string {
   const mb = kb / 1024;
   if (mb < 1024) return `${mb.toFixed(1)} MB`;
   return `${(mb / 1024).toFixed(2)} GB`;
+}
+
+function mobileLibraryFailSummary(error: string | null): string {
+  if (!error?.trim()) return "Recording failed — no server message was stored.";
+  const line = error.split(/\r?\n/).find((l) => l.trim())?.trim() ?? error.trim();
+  return line.length > 140 ? `${line.slice(0, 137)}…` : line;
 }
 
 function downloadBlob(filename: string, blob: Blob) {
@@ -109,6 +126,11 @@ export function MobileRecordingsPage() {
     message: string;
   } | null>(null);
   const [stuckStopError, setStuckStopError] = useState<string | null>(null);
+  const [libraryDeleteTarget, setLibraryDeleteTarget] =
+    useState<ApiLibraryItem | null>(null);
+  const [libraryDeleteError, setLibraryDeleteError] = useState<string | null>(
+    null,
+  );
   const [channelQuery, setChannelQuery] = useState("");
   const [selected, setSelected] = useState<M3uChannel | null>(null);
   const [tab, setTab] = useState<"schedule" | "now">("schedule");
@@ -160,6 +182,18 @@ export function MobileRecordingsPage() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [stuckStopDialog]);
+
+  useEffect(() => {
+    if (!libraryDeleteTarget) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setLibraryDeleteTarget(null);
+        setLibraryDeleteError(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [libraryDeleteTarget]);
 
   const filteredChannels = useMemo(() => {
     const q = channelQuery.trim().toLowerCase();
@@ -297,14 +331,41 @@ export function MobileRecordingsPage() {
   };
 
   const downloadRecording = async (item: ApiLibraryItem) => {
+    if (item.status === "FAILED") return;
     const res = await zendeFetch(`/api/recordings/${item.id}/download`);
     if (!res.ok) {
-      alert("Download failed.");
+      const body = (await res.json().catch(() => null)) as { error?: unknown };
+      alert(
+        typeof body?.error === "string" ? body.error : "Download failed.",
+      );
       return;
     }
     const blob = await res.blob();
     const safe = `${item.channelName.replace(/[^\w\s-]/g, "").trim().slice(0, 64) || "recording"}.mp4`;
     downloadBlob(safe, blob);
+  };
+
+  const confirmDeleteLibraryRecording = async () => {
+    if (!libraryDeleteTarget) return;
+    setLibraryDeleteError(null);
+    setBusy(true);
+    try {
+      const res = await zendeFetch(
+        `/api/recordings/${encodeURIComponent(libraryDeleteTarget.id)}`,
+        { method: "DELETE" },
+      );
+      const body = (await res.json().catch(() => null)) as { error?: unknown };
+      if (!res.ok) {
+        setLibraryDeleteError(
+          typeof body?.error === "string" ? body.error : "Delete failed.",
+        );
+        return;
+      }
+      setLibraryDeleteTarget(null);
+      await load();
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (!catalogLoaded) {
@@ -548,34 +609,216 @@ export function MobileRecordingsPage() {
           </section>
         ) : null}
 
-        {overview?.library.length ? (
+        {overview ? (
           <section aria-labelledby="mobile-recording-library">
             <h2 id="mobile-recording-library" className="text-[20px] font-semibold text-white">
-              Finished
+              Finished recordings
             </h2>
-            <div className="mt-3 grid gap-3">
-              {overview.library.slice(0, 20).map((item) => (
-                <div key={item.id} className="rounded-[24px] border border-white/[0.08] bg-white/[0.04] p-4">
-                  <p className="truncate text-[16px] font-semibold text-white">
-                    {item.channelName}
-                  </p>
-                  <p className="mt-1 text-[13px] text-white/45">
-                    {item.status} · {formatBytes(item.sizeBytes)}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => void downloadRecording(item)}
-                    className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-white text-[14px] font-semibold text-zinc-950"
-                  >
-                    <Download className="size-4" aria-hidden />
-                    Download
-                  </button>
-                </div>
-              ))}
-            </div>
+            {overview.library.length === 0 ? (
+              <p className="mt-3 text-[15px] leading-relaxed text-white/45">
+                Finished recordings and failed captures appear here. Failed rows
+                show the server error and cannot be played or downloaded.
+              </p>
+            ) : (
+              <div className="mt-3 grid gap-3">
+                {overview.library.map((item) => {
+                  const isFailed = item.status === "FAILED";
+                  return (
+                    <div
+                      key={item.id}
+                      className={cn(
+                        "rounded-[24px] border bg-white/[0.04] p-4",
+                        isFailed ? "border-red-400/25 bg-red-500/[0.04]" : "border-white/[0.08]",
+                      )}
+                    >
+                      <div className="flex gap-3">
+                        <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.06] ring-1 ring-white/[0.08]">
+                          {item.channelLogo ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={item.channelLogo}
+                              alt=""
+                              className="size-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <Video className="size-5 text-white/35" aria-hidden />
+                          )}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[16px] font-semibold text-white">
+                            {item.channelName}
+                          </p>
+                          <p className="mt-1 text-[13px] text-white/45">
+                            {item.endedAt
+                              ? new Intl.DateTimeFormat(undefined, {
+                                  dateStyle: "medium",
+                                  timeStyle: "short",
+                                }).format(new Date(item.endedAt))
+                              : "—"}{" "}
+                            · {formatBytes(item.sizeBytes)} ·{" "}
+                            <span
+                              className={cn(
+                                isFailed ? "text-red-200/90" : "text-white/55",
+                              )}
+                            >
+                              {isFailed
+                                ? "Failed"
+                                : item.status === "STOPPED_EARLY"
+                                  ? "Stopped early"
+                                  : "Complete"}
+                            </span>
+                          </p>
+                          {isFailed ? (
+                            <p
+                              className="mt-2 line-clamp-4 text-[12px] leading-snug text-red-200/75"
+                              title={item.error ?? undefined}
+                            >
+                              {mobileLibraryFailSummary(item.error)}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="mt-3 flex flex-col gap-2">
+                        {isFailed ? (
+                          <div
+                            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-red-400/30 bg-red-500/10 text-[14px] font-semibold text-red-100/85"
+                            role="status"
+                          >
+                            <AlertTriangle className="size-4 shrink-0" aria-hidden />
+                            Encode failed
+                          </div>
+                        ) : (
+                          <Link
+                            href={`/watch?recording=${encodeURIComponent(item.id)}`}
+                            className={cn(
+                              "flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-emerald-400/30 bg-emerald-500/15 text-[14px] font-semibold text-emerald-100",
+                              "outline-none transition-colors hover:bg-emerald-500/25",
+                            )}
+                          >
+                            <Play className="size-4" aria-hidden />
+                            Play
+                          </Link>
+                        )}
+                        <button
+                          type="button"
+                          disabled={busy || isFailed}
+                          onClick={() => void downloadRecording(item)}
+                          className={cn(
+                            "flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.12] bg-white/[0.08] text-[14px] font-semibold text-white outline-none transition-colors",
+                            "hover:bg-white/[0.12] disabled:opacity-45",
+                          )}
+                        >
+                          <Download className="size-4" aria-hidden />
+                          Download MP4
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => {
+                            setLibraryDeleteError(null);
+                            setLibraryDeleteTarget(item);
+                          }}
+                          className={cn(
+                            "flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-red-400/25 bg-red-500/10 text-[14px] font-semibold text-red-100 outline-none transition-colors",
+                            "hover:bg-red-500/15 disabled:opacity-45",
+                          )}
+                        >
+                          <Trash2 className="size-4" aria-hidden />
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
         ) : null}
+
+        {overview && overview.recentFailures.length > 0 ? (
+          <TvRecordingRecentIssues issues={overview.recentFailures} onRefresh={load} />
+        ) : null}
       </div>
+
+      {libraryDeleteTarget ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-end justify-center px-4 pb-8 pt-10 sm:items-center"
+          role="presentation"
+        >
+          <button
+            type="button"
+            aria-label="Dismiss"
+            className="absolute inset-0 bg-black/70 backdrop-blur-md"
+            onClick={() => {
+              setLibraryDeleteTarget(null);
+              setLibraryDeleteError(null);
+            }}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mobile-lib-del-title"
+            className="relative z-10 w-full max-w-md rounded-[24px] border border-white/[0.12] bg-zinc-950/95 p-5 shadow-2xl ring-1 ring-white/[0.06]"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h2
+                id="mobile-lib-del-title"
+                className="text-[17px] font-semibold text-white"
+              >
+                Remove recording?
+              </h2>
+              <button
+                type="button"
+                className="rounded-lg p-2 text-white/40 hover:bg-white/[0.08]"
+                aria-label="Close"
+                onClick={() => {
+                  setLibraryDeleteTarget(null);
+                  setLibraryDeleteError(null);
+                }}
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+            <p className="mt-3 text-[15px] leading-relaxed text-white/55">
+              This deletes{" "}
+              <span className="font-medium text-white/85">
+                {libraryDeleteTarget.channelName}
+              </span>{" "}
+              from the server permanently, including the MP4 file. This cannot be undone.
+            </p>
+            {libraryDeleteError ? (
+              <p className="mt-3 text-[14px] text-red-300">{libraryDeleteError}</p>
+            ) : null}
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                disabled={busy}
+                className="min-h-11 rounded-2xl border border-white/[0.12] bg-white/[0.06] text-[14px] font-medium text-white/75 disabled:opacity-45"
+                onClick={() => {
+                  setLibraryDeleteTarget(null);
+                  setLibraryDeleteError(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void confirmDeleteLibraryRecording()}
+                className="flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-red-400/30 bg-red-500/20 text-[14px] font-semibold text-red-100 disabled:opacity-45"
+              >
+                {busy ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                ) : (
+                  <Trash2 className="size-4" aria-hidden />
+                )}
+                Remove from server
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {stuckStopDialog ? (
         <div

@@ -75,6 +75,7 @@ type ApiLibraryItem = {
   plannedSeconds: number | null;
   sizeBytes: string | null;
   scheduleId: string | null;
+  error: string | null;
 };
 
 type OverviewPayload = {
@@ -94,6 +95,12 @@ function formatBytes(n: string | null): string {
   const mb = kb / 1024;
   if (mb < 1024) return `${mb.toFixed(1)} MB`;
   return `${(mb / 1024).toFixed(2)} GB`;
+}
+
+function libraryFailSummary(error: string | null): string {
+  if (!error?.trim()) return "Recording failed — no server message was stored.";
+  const line = error.split(/\r?\n/).find((l) => l.trim())?.trim() ?? error.trim();
+  return line.length > 160 ? `${line.slice(0, 157)}…` : line;
 }
 
 function formatRange(startIso: string, endIso: string): string {
@@ -417,6 +424,7 @@ export function TvRecordingsPage() {
   };
 
   const downloadRecording = async (item: ApiLibraryItem) => {
+    if (item.status === "FAILED") return;
     const res = await zendeFetch(`/api/recordings/${item.id}/download`);
     if (!res.ok) {
       const j = (await res.json().catch(() => null)) as { error?: unknown };
@@ -1139,15 +1147,21 @@ export function TvRecordingsPage() {
               </p>
             ) : overview.library.length === 0 ? (
               <p className="mt-4 text-[15px] text-white/45">
-                Completed captures appear here with a download action.
+                Finished recordings and failed captures appear here. Failed rows
+                show the server error and cannot be played or downloaded.
               </p>
             ) : (
               <ul className="mt-4 grid gap-4 lg:grid-cols-2">
-                {overview.library.map((item) => (
+                {overview.library.map((item) => {
+                  const isFailed = item.status === "FAILED";
+                  return (
                   <li key={item.id}>
                     <ZenedeGlass
                       variant="panel"
-                      className="flex flex-col gap-4 rounded-[1.15rem] border border-white/[0.08] p-4 sm:flex-row sm:items-stretch sm:justify-between sm:gap-6 sm:p-5"
+                      className={cn(
+                        "flex flex-col gap-4 rounded-[1.15rem] border border-white/[0.08] p-4 sm:flex-row sm:items-stretch sm:justify-between sm:gap-6 sm:p-5",
+                        isFailed && "border-red-400/25 bg-red-500/[0.04]",
+                      )}
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-3">
                         <span className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-white/[0.06] ring-1 ring-white/[0.08]">
@@ -1178,28 +1192,54 @@ export function TvRecordingsPage() {
                                 }).format(new Date(item.endedAt))
                               : "—"}{" "}
                             · {formatBytes(item.sizeBytes)} ·{" "}
-                            <span className="text-white/55">
-                              {item.status === "STOPPED_EARLY"
-                                ? "Stopped early"
-                                : "Complete"}
+                            <span
+                              className={cn(
+                                isFailed ? "text-red-200/90" : "text-white/55",
+                              )}
+                            >
+                              {isFailed
+                                ? "Failed"
+                                : item.status === "STOPPED_EARLY"
+                                  ? "Stopped early"
+                                  : "Complete"}
                             </span>
                           </p>
+                          {isFailed ? (
+                            <p
+                              className="mt-2 line-clamp-3 text-[12px] leading-snug text-red-200/75"
+                              title={item.error ?? undefined}
+                            >
+                              {libraryFailSummary(item.error)}
+                            </p>
+                          ) : null}
                         </div>
                       </div>
                       <div className="flex shrink-0 flex-col gap-2 sm:min-w-[11rem]">
-                        <Link
-                          href={`/watch?recording=${encodeURIComponent(item.id)}`}
-                          className={cn(
-                            "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-[14px] font-semibold outline-none",
-                            "border border-emerald-400/30 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25",
-                          )}
-                        >
-                          <Play className="size-4" aria-hidden />
-                          Play
-                        </Link>
+                        {isFailed ? (
+                          <span
+                            className={cn(
+                              "inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-red-400/30 bg-red-500/10 px-4 text-[14px] font-semibold text-red-100/85",
+                            )}
+                            role="status"
+                          >
+                            <AlertTriangle className="size-4 shrink-0" aria-hidden />
+                            Encode failed
+                          </span>
+                        ) : (
+                          <Link
+                            href={`/watch?recording=${encodeURIComponent(item.id)}`}
+                            className={cn(
+                              "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-[14px] font-semibold outline-none",
+                              "border border-emerald-400/30 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25",
+                            )}
+                          >
+                            <Play className="size-4" aria-hidden />
+                            Play
+                          </Link>
+                        )}
                         <button
                           type="button"
-                          disabled={busy}
+                          disabled={busy || isFailed}
                           onClick={() => void downloadRecording(item)}
                           className={cn(
                             "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-[14px] font-semibold outline-none",
@@ -1227,7 +1267,8 @@ export function TvRecordingsPage() {
                       </div>
                     </ZenedeGlass>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             )}
           </section>

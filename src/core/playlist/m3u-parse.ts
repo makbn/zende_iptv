@@ -12,6 +12,8 @@ export type M3uChannel = {
   /** Present when playlist exposes EXTINF `tvg-language` / `language` (e.g. iptv-org). */
   tvgLanguage?: string;
   groupTitle?: string;
+  /** Optional notes (manual channels / UI); not part of standard EXTINF. */
+  description?: string;
 };
 
 function parseExtInfAttributes(attrPart: string): Pick<

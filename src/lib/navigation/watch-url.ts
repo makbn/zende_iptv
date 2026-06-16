@@ -1,6 +1,7 @@
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { readUnwrapPublicCorsProxyUrlsPref } from "@/lib/stream/unwrap-public-cors-proxy-pref";
+import type { PlaybackMode } from "@/lib/stream/playback-url";
 
 /**
  * Creates a server-side stream session and returns `/watch?id=…`
@@ -47,6 +48,8 @@ export type WatchSessionMeta = {
   playbackUrl: string;
   /** Original upstream URL — stats / frequent ring only (not in address bar). */
   canonicalUrl: string;
+  /** How the player should attach (HLS vs direct file). */
+  playbackMode?: PlaybackMode;
 };
 
 export async function fetchWatchSessionMeta(
@@ -69,6 +72,7 @@ export async function fetchWatchSessionMeta(
     group: body.group ?? null,
     playbackUrl: body.playbackUrl,
     canonicalUrl: body.canonicalUrl,
+    playbackMode: body.playbackMode,
   };
 }
 
@@ -92,5 +96,6 @@ export async function fetchRecordingWatchMeta(
     group: body.group ?? null,
     playbackUrl: body.playbackUrl,
     canonicalUrl: body.canonicalUrl,
+    playbackMode: body.playbackMode,
   };
 }

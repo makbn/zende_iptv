@@ -2,10 +2,13 @@ import "server-only";
 
 import { NextResponse } from "next/server";
 
+import { createServerLogger } from "@/core/logging/server";
 import { ensureAuthConfigRow } from "@/lib/auth/auth-config";
 import { verifyAccessToken } from "@/lib/auth/jwt";
 import { prisma } from "@/lib/db/prisma";
 import type { UserRole } from "@prisma/client";
+
+const log = createServerLogger("lib.auth.gate");
 
 export function getBearerToken(request: Request): string | null {
   const h = request.headers.get("authorization");
@@ -25,6 +28,7 @@ export async function gateApiRequest(request: Request): Promise<
     }
   | { authEnabled: true; response: Response }
 > {
+  const path = new URL(request.url).pathname;
   const cfg = await ensureAuthConfigRow();
   if (!cfg.enabled) {
     return { authEnabled: false };
@@ -32,6 +36,7 @@ export async function gateApiRequest(request: Request): Promise<
 
   const token = getBearerToken(request);
   if (!token) {
+    log.warn("api unauthorized: missing bearer", { path });
     return {
       authEnabled: true,
       response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
@@ -40,6 +45,7 @@ export async function gateApiRequest(request: Request): Promise<
 
   const payload = await verifyAccessToken(token);
   if (!payload) {
+    log.warn("api unauthorized: invalid token", { path });
     return {
       authEnabled: true,
       response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
@@ -51,6 +57,7 @@ export async function gateApiRequest(request: Request): Promise<
     select: { id: true, username: true, role: true },
   });
   if (!user || user.username !== payload.username) {
+    log.warn("api unauthorized: user mismatch", { path, userId: payload.userId });
     return {
       authEnabled: true,
       response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),

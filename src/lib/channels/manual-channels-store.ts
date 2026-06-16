@@ -5,9 +5,11 @@ import { zendeFetch } from "@/lib/auth/zende-fetch";
 
 import { isAllowedManualStreamUrl } from "@/lib/channels/manual-stream-url";
 
-const STORAGE_KEY = "zenede.manualChannels.v1";
-
 let hydrateOnce: Promise<void> | null = null;
+/** Server-side manual row count — never load 100k+ rows into the browser. */
+let cacheManualTotal = 0;
+/** Small local cache for rows added/edited in this session (single-digit typical). */
+let cacheEntries: ManualChannelEntry[] = [];
 
 export type ManualChannelEntry = {
   id: string;
@@ -17,84 +19,29 @@ export type ManualChannelEntry = {
   addedByUserId?: string;
 };
 
-type Store = {
-  entries: ManualChannelEntry[];
-};
-
-function readStore(): Store {
-  if (typeof window === "undefined") return { entries: [] };
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { entries: [] };
-    const parsed = JSON.parse(raw) as Store;
-    if (!Array.isArray(parsed?.entries)) return { entries: [] };
-    return { entries: parsed.entries };
-  } catch {
-    return { entries: [] };
-  }
-}
-
-function writeStore(store: Store) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-  } catch {
-    /* quota */
-  }
-}
-
-async function syncManualToServer(): Promise<void> {
+async function refreshManualCountFromApi(): Promise<void> {
   if (typeof window === "undefined") return;
   try {
-    const entries = readStore().entries;
-    const res = await zendeFetch("/api/channels/manual", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entries }),
-    });
-    if (res.ok) {
-      const data = (await res.json()) as { entries?: ManualChannelEntry[] };
-      if (Array.isArray(data.entries)) {
-        writeStore({ entries: data.entries });
-        notifyManualChannelsUpdated();
-      }
-      return;
-    }
-    if (res.status === 403) {
-      const hr = await zendeFetch("/api/channels/manual");
-      if (hr.ok) {
-        const d = (await hr.json()) as { entries?: ManualChannelEntry[] };
-        if (Array.isArray(d.entries)) {
-          writeStore({ entries: d.entries });
-          notifyManualChannelsUpdated();
-        }
-      }
-    }
+    const res = await zendeFetch("/api/channels/manual?mode=count");
+    if (!res.ok) return;
+    const data = (await res.json()) as { manualTotal?: number; total?: number };
+    if (typeof data.manualTotal === "number") cacheManualTotal = data.manualTotal;
+    else if (typeof data.total === "number") cacheManualTotal = data.total;
+    notifyManualChannelsUpdated();
   } catch {
-    /* offline */
+    /* ignore */
   }
 }
 
 /**
- * Load manual streams from server DB once per session (survives clearing site data).
- * If the server row is empty but localStorage has entries, uploads local → server.
+ * Load manual channel count from server once per session.
+ * Full catalogs stay server-side; Library/Settings search uses paginated APIs.
  */
 export async function hydrateManualChannelsFromApiOnce(): Promise<void> {
   if (hydrateOnce) return hydrateOnce;
   hydrateOnce = (async () => {
     try {
-      const res = await zendeFetch("/api/channels/manual");
-      if (!res.ok) return;
-
-      const data = (await res.json()) as { entries?: ManualChannelEntry[] };
-      const serverEntries = Array.isArray(data.entries) ? data.entries : [];
-      const local = readStore();
-
-      if (serverEntries.length > 0) {
-        writeStore({ entries: serverEntries });
-        notifyManualChannelsUpdated();
-      } else if (local.entries.length > 0) {
-        await syncManualToServer();
-      }
+      await refreshManualCountFromApi();
     } catch {
       hydrateOnce = null;
     }
@@ -102,12 +49,19 @@ export async function hydrateManualChannelsFromApiOnce(): Promise<void> {
   return hydrateOnce;
 }
 
+/** Refresh server manual count after imports/edits (does not download the full catalog). */
+export async function refreshManualChannelsFromApi(): Promise<void> {
+  await refreshManualCountFromApi();
+}
+
 export { isAllowedManualStreamUrl };
 
+export function getManualChannelCount(): number {
+  return Math.max(cacheManualTotal, cacheEntries.length);
+}
+
 export function listManualChannelEntries(): ManualChannelEntry[] {
-  return readStore()
-    .entries.slice()
-    .sort((a, b) => b.addedAt - a.addedAt);
+  return cacheEntries.slice().sort((a, b) => b.addedAt - a.addedAt);
 }
 
 function newId(): string {
@@ -119,53 +73,67 @@ function newId(): string {
 
 export function manualChannelExists(url: string): boolean {
   const key = url.trim();
-  return readStore().entries.some((e) => e.channel.url.trim() === key);
+  return cacheEntries.some((e) => e.channel.url.trim() === key);
 }
 
-/** Insert or replace by URL (manual list wins on duplicate URL). */
-export function upsertManualChannel(channel: M3uChannel): ManualChannelEntry {
-  const store = readStore();
+/** Insert or replace by URL via server POST (never replaces the whole server catalog). */
+export async function upsertManualChannel(channel: M3uChannel): Promise<ManualChannelEntry | null> {
+  const res = await zendeFetch("/api/channels/manual", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ channel }),
+  });
+  if (!res.ok) return null;
   const urlKey = channel.url.trim();
-  const idx = store.entries.findIndex((e) => e.channel.url.trim() === urlKey);
-  const prev = idx >= 0 ? store.entries[idx]! : null;
+  const idx = cacheEntries.findIndex((e) => e.channel.url.trim() === urlKey);
   const row: ManualChannelEntry = {
-    id: prev?.id ?? newId(),
+    id: idx >= 0 ? cacheEntries[idx]!.id : newId(),
     channel,
     addedAt: Date.now(),
-    ...(prev?.addedByUserId ? { addedByUserId: prev.addedByUserId } : {}),
   };
-  if (idx >= 0) {
-    store.entries[idx] = row;
-  } else {
-    store.entries.unshift(row);
-  }
-  writeStore(store);
-  notifyManualChannelsUpdated();
-  void syncManualToServer();
+  if (idx >= 0) cacheEntries[idx] = row;
+  else cacheEntries.unshift(row);
+  await refreshManualCountFromApi();
   return row;
 }
 
+/** Batch insert/update by URL through server POST. */
+export async function importManualChannels(channels: M3uChannel[]): Promise<{
+  processed: number;
+}> {
+  if (channels.length === 0) return { processed: 0 };
+  const res = await zendeFetch("/api/channels/manual", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ channels }),
+  });
+  const body = (await res.json().catch(() => ({}))) as { processed?: number };
+  const processed = typeof body.processed === "number" ? body.processed : 0;
+  await refreshManualCountFromApi();
+  return { processed };
+}
+
 export function updateManualChannelEntry(id: string, channel: M3uChannel): void {
-  const store = readStore();
-  const idx = store.entries.findIndex((e) => e.id === id);
+  const idx = cacheEntries.findIndex((e) => e.id === id);
   if (idx < 0) return;
-  const prev = store.entries[idx]!;
-  store.entries[idx] = {
-    ...prev,
-    channel,
-    addedAt: prev.addedAt,
-  };
-  writeStore(store);
+  const prev = cacheEntries[idx]!;
+  cacheEntries[idx] = { ...prev, channel };
   notifyManualChannelsUpdated();
-  void syncManualToServer();
+  void zendeFetch("/api/channels/manual", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, channel }),
+  }).then(() => refreshManualCountFromApi());
 }
 
 export function removeManualChannelEntry(id: string): void {
-  const store = readStore();
-  store.entries = store.entries.filter((e) => e.id !== id);
-  writeStore(store);
+  cacheEntries = cacheEntries.filter((e) => e.id !== id);
   notifyManualChannelsUpdated();
-  void syncManualToServer();
+  void zendeFetch("/api/channels/manual", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id }),
+  }).then(() => refreshManualCountFromApi());
 }
 
 export function notifyManualChannelsUpdated(): void {

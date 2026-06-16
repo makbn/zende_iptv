@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { createServerLogger } from "@/core/logging/server";
 import { gateApiRequest } from "@/lib/auth/gate-api";
 import { PUBLIC_INTERNAL_ERROR } from "@/lib/http/public-error";
 import { hashStreamUrl } from "@/lib/health/url-hash";
 import { getProxyForChannel, ProxyNotReadyError } from "@/lib/proxies/proxy-store";
 import { applyPublicCorsProxyUnwrap } from "@/lib/stream/public-cors-proxy-url";
+import { normalizeXtreamLivePlaybackUrl } from "@/lib/stream/playback-url";
 import { createStreamSession } from "@/lib/stream/stream-session-store";
 
 export const runtime = "nodejs";
+const log = createServerLogger("api.stream.session");
 
 const bodySchema = z.object({
   url: z.string().min(4).max(8192),
@@ -40,11 +43,15 @@ export async function POST(request: Request) {
   try {
     json = await request.json();
   } catch {
+    log.warn("Session create rejected: invalid JSON body");
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) {
+    log.warn("Session create rejected: schema validation failed", {
+      issues: parsed.error.issues.length,
+    });
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
@@ -52,14 +59,27 @@ export async function POST(request: Request) {
   const unwrapPublicCorsProxyUrls =
     parsed.data.unwrapPublicCorsProxyUrls !== false;
   const resolvedUrl = applyPublicCorsProxyUnwrap(rawUrl, unwrapPublicCorsProxyUrls);
+  const normalizedUrl = normalizeXtreamLivePlaybackUrl(resolvedUrl);
+  if (normalizedUrl !== resolvedUrl) {
+    log.info("Rewrote live .ts URL to .m3u8 for browser playback", {
+      from: resolvedUrl.slice(0, 120),
+      to: normalizedUrl.slice(0, 120),
+    });
+  }
 
   let upstream: URL;
   try {
-    upstream = new URL(resolvedUrl);
+    upstream = new URL(normalizedUrl);
   } catch {
+    log.warn("Session create rejected: invalid stream URL", {
+      rawUrlPreview: rawUrl.slice(0, 220),
+    });
     return NextResponse.json({ error: "Invalid stream URL." }, { status: 400 });
   }
   if (upstream.protocol !== "http:" && upstream.protocol !== "https:") {
+    log.warn("Session create rejected: unsupported protocol", {
+      protocol: upstream.protocol,
+    });
     return NextResponse.json({ error: "Only http(s) streams are supported." }, { status: 400 });
   }
 
@@ -70,12 +90,21 @@ export async function POST(request: Request) {
     proxyConfig = await getProxyForChannel(urlHash);
   } catch (err) {
     if (err instanceof ProxyNotReadyError) {
+      log.warn("Session create blocked: proxy not ready", {
+        urlHash,
+        reason: err.message,
+      });
       return NextResponse.json({ error: err.message }, { status: 409 });
     }
+    log.error("Session create failed while resolving proxy", {
+      urlHash,
+      message: err instanceof Error ? err.message : String(err),
+    });
     return NextResponse.json({ error: PUBLIC_INTERNAL_ERROR }, { status: 500 });
   }
 
   try {
+    const started = Date.now();
     const id = await createStreamSession({
       upstreamRootUrl: upstream.href,
       title: (parsed.data.title ?? "").trim() || "Live",
@@ -84,8 +113,20 @@ export async function POST(request: Request) {
       cookies: parsed.data.cookies,
       proxyConfig: proxyConfig ?? undefined,
     });
+    log.info("Stream session created", {
+      sessionId: id,
+      upstreamHost: upstream.host,
+      hasProxy: Boolean(proxyConfig),
+      hasSeedCookies: Boolean(parsed.data.cookies && Object.keys(parsed.data.cookies).length > 0),
+      unwrappedCorsProxyUrl: rawUrl !== resolvedUrl,
+      elapsedMs: Date.now() - started,
+    });
     return NextResponse.json({ id });
-  } catch {
+  } catch (err) {
+    log.error("Session create failed", {
+      upstreamHost: upstream.host,
+      message: err instanceof Error ? err.message : String(err),
+    });
     return NextResponse.json({ error: PUBLIC_INTERNAL_ERROR }, { status: 500 });
   }
 }

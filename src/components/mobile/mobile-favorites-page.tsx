@@ -328,7 +328,7 @@ export function MobileFavoritesPage() {
             </p>
             <Link
               href="/library"
-              className="mt-5 flex min-h-[52px] items-center justify-center rounded-2xl bg-white text-[15px] font-semibold text-zinc-950"
+              className="mt-5 flex min-h-[52px] items-center justify-center rounded-2xl bg-white text-[15px] font-semibold text-zinc-950 outline-none transition-[transform,box-shadow] duration-200 ease-out hover:shadow-lg hover:shadow-black/20 active:scale-[0.99] motion-reduce:transform-none focus-visible:ring-2 focus-visible:ring-white"
             >
               Open Library
             </Link>

@@ -12,7 +12,8 @@ services:
       DATABASE_URL: "file:/data/zende.db"
       # DVR MP4 output — must stay on the persisted `/data` volume (same as DATABASE_URL).
       ZENDE_RECORDINGS_DIR: "/data/recordings"
-      LOG_LEVEL: info
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+      LOG_PRETTY: "${LOG_PRETTY:-1}"
       NODE_ENV: production
       PORT: "${PORT:-8077}"
       # Optional: force public origin for HLS rewrite if your proxy omits Host / X-Forwarded-* / Forwarded.

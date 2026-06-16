@@ -1,4 +1,5 @@
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
+import { resolveLibraryContentType } from "@/lib/channels/content-type";
 
 /** Owner id for manual rows when authentication is disabled (shared open mode). */
 export const MANUAL_CHANNEL_GUEST_OWNER = "__guest__" as const;
@@ -49,13 +50,22 @@ export function normalizeManualChannel(channel: M3uChannel): M3uChannel {
   const tvgLanguage = trimOpt(channel.tvgLanguage);
   const groupTitle = trimOpt(channel.groupTitle);
   const description = trimOpt(channel.description);
-  return {
+  const withMeta: M3uChannel = {
     ...base,
     ...(tvgId ? { tvgId } : {}),
     ...(tvgLogo ? { tvgLogo } : {}),
     ...(tvgLanguage ? { tvgLanguage } : {}),
     ...(groupTitle ? { groupTitle } : {}),
     ...(description ? { description } : {}),
+    ...(channel.contentType === "live" ||
+    channel.contentType === "movie" ||
+    channel.contentType === "series"
+      ? { contentType: channel.contentType }
+      : {}),
+  };
+  return {
+    ...withMeta,
+    contentType: resolveLibraryContentType(withMeta),
   };
 }
 
@@ -100,6 +110,9 @@ export function parseManualEntriesLoose(raw: unknown): StoredManualChannelEntry[
       ...(typeof c.tvgLanguage === "string" ? { tvgLanguage: c.tvgLanguage } : {}),
       ...(typeof c.groupTitle === "string" ? { groupTitle: c.groupTitle } : {}),
       ...(typeof c.description === "string" ? { description: c.description } : {}),
+      ...(c.contentType === "live" || c.contentType === "movie" || c.contentType === "series"
+        ? { contentType: c.contentType }
+        : {}),
     });
     out.push({
       id,

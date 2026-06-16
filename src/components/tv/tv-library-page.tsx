@@ -13,6 +13,7 @@ import {
 } from "react";
 
 import { ChannelHealthBadge } from "@/components/health/channel-health-badge";
+import { SeriesEpisodeSheet } from "@/components/library/series-episode-sheet";
 import { ChannelResolutionBadge } from "@/components/tv/channel-resolution-badge";
 import { TvChannelTile } from "@/components/tv/tv-channel-tile";
 import {
@@ -21,11 +22,14 @@ import {
 } from "@/components/tv/tv-top-bar";
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
-import { createClientLogger } from "@/core/logging/client";
-import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { useChannelHealthLookup } from "@/features/health/use-channel-health";
-import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
+import {
+  useLibraryCatalog,
+  type LibraryContentTab,
+} from "@/features/iptv/use-library-catalog";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
+import { isXtreamSeriesContainer } from "@/lib/channels/content-type";
+import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
 import { cn } from "@/lib/utils";
@@ -38,7 +42,6 @@ import {
   X,
 } from "lucide-react";
 
-const log = createClientLogger("shell.TvLibraryPage");
 
 const source = BUILTIN_PLAYLIST_SOURCES[0]!;
 
@@ -48,7 +51,19 @@ const PAGE_STEP = 200;
 export function TvLibraryPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const { openChannel, navError, clearNavError } = useWatchNavigation();
+  const { openChannel: playStream, navError, clearNavError } = useWatchNavigation();
+  const [seriesPicker, setSeriesPicker] = useState<M3uChannel | null>(null);
+
+  const openChannel = useCallback(
+    (ch: M3uChannel) => {
+      if (isXtreamSeriesContainer(ch)) {
+        setSeriesPicker(ch);
+        return;
+      }
+      playStream(ch);
+    },
+    [playStream],
+  );
   const searchParams = useSearchParams();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -56,6 +71,7 @@ export function TvLibraryPage() {
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
   /** Lowercase language key from playlist `tvg-language` / `language` when present */
   const [languageFilter, setLanguageFilter] = useState<string | null>(null);
+  const [contentTab, setContentTab] = useState<LibraryContentTab>("all");
   const [visibleCount, setVisibleCount] = useState(PAGE_STEP);
   const [view, setView] = useState<"posters" | "compact">(() => {
     if (typeof window === "undefined") return "posters";
@@ -97,75 +113,38 @@ export function TvLibraryPage() {
     return () => window.clearTimeout(id);
   }, [query, pathname, router]);
 
-  const { channels } = useCatalogBootstrap(source);
+  const { channels, total, facets, loading, hasMore } = useLibraryCatalog({
+    presetId: source.presetId,
+    contentTab,
+    query,
+    groupFilter,
+    languageFilter,
+    limit: visibleCount,
+  });
   const { getScoreForChannel } = useChannelHealthLookup(channels);
 
-  const groupOptions = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const c of channels) {
-      const g = c.groupTitle?.trim() || "Other";
-      counts.set(g, (counts.get(g) ?? 0) + 1);
-    }
-    return [...counts.entries()]
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .slice(0, 36);
-  }, [channels]);
+  const groupOptions = useMemo(
+    () => facets.groups.map((g) => [g.name, g.count] as const),
+    [facets.groups],
+  );
 
-  const languageOptions = useMemo(() => {
-    const byKey = new Map<string, { label: string; count: number }>();
-    for (const c of channels) {
-      const raw = c.tvgLanguage?.trim();
-      if (!raw) continue;
-      const key = raw.toLowerCase();
-      const prev = byKey.get(key);
-      if (prev) prev.count += 1;
-      else byKey.set(key, { label: raw, count: 1 });
-    }
-    return [...byKey.entries()]
-      .sort(
-        (a, b) =>
-          b[1].count - a[1].count ||
-          a[1].label.localeCompare(b[1].label, undefined, {
-            sensitivity: "base",
-          }),
-      )
-      .slice(0, 32)
-      .map(([key, v]) => ({ key, label: v.label, count: v.count }));
-  }, [channels]);
+  const languageOptions = facets.languages;
 
-  const filtered = useMemo(() => {
-    let list = channels;
-    if (groupFilter) {
-      list = list.filter(
-        (c) => (c.groupTitle?.trim() || "Other") === groupFilter,
-      );
-    }
-    if (languageFilter) {
-      list = list.filter(
-        (c) =>
-          (c.tvgLanguage?.trim().toLowerCase() ?? "") === languageFilter,
-      );
-    }
-    const q = query.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter((c) => {
-      const name = (c.name ?? "").toLowerCase();
-      const group = (c.groupTitle ?? "").toLowerCase();
-      const lang = (c.tvgLanguage ?? "").toLowerCase();
-      return name.includes(q) || group.includes(q) || lang.includes(q);
+  useEffect(() => {
+    startTransition(() => {
+      setGroupFilter(null);
+      setLanguageFilter(null);
+      setVisibleCount(PAGE_STEP);
     });
-  }, [channels, query, groupFilter, languageFilter]);
+  }, [contentTab]);
 
   useEffect(() => {
     startTransition(() => setVisibleCount(PAGE_STEP));
-  }, [query, groupFilter, languageFilter, channels.length]);
+  }, [query, groupFilter, languageFilter]);
 
-  const visible = useMemo(
-    () => filtered.slice(0, visibleCount),
-    [filtered, visibleCount],
-  );
-
-  const hasMore = filtered.length > visible.length;
+  const visible = channels;
+  const filteredCount = total;
+  const catalogTotal = total;
   const activeFilters = Boolean(
     query.trim() || groupFilter || languageFilter,
   );
@@ -226,6 +205,28 @@ export function TvLibraryPage() {
               )}
             >
               <div className="flex flex-col gap-3.5 px-4 py-4 sm:px-5 sm:py-5 lg:gap-4">
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    ["all", "All"],
+                    ["live", "Live"],
+                    ["movie", "Movies"],
+                    ["series", "Shows"],
+                  ] as const).map(([id, label]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setContentTab(id)}
+                      className={cn(
+                        "shrink-0 rounded-full px-4 py-2 text-[14px] font-semibold outline-none transition-colors",
+                        contentTab === id
+                          ? "bg-white text-zinc-950"
+                          : "border border-white/[0.12] bg-white/[0.05] text-white/75 hover:bg-white/[0.09]",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-5">
                   <label className="relative flex min-h-[52px] flex-1 items-center">
                     <span className="sr-only">Search channels</span>
@@ -308,21 +309,18 @@ export function TvLibraryPage() {
                       <SlidersHorizontal className="size-4 shrink-0 opacity-70" aria-hidden />
                       <span>
                         <span className="font-medium text-white/70">
-                          {filtered.length.toLocaleString()}
+                          {filteredCount.toLocaleString()}
                         </span>
                         <span className="text-white/35"> shown</span>
-                        {channels.length !== filtered.length ? (
-                          <span className="text-white/35">
-                            {" "}
-                            · {channels.length.toLocaleString()} total
-                          </span>
+                        {loading ? (
+                          <span className="text-white/35"> · loading…</span>
                         ) : null}
                       </span>
                     </p>
                   </div>
                 </div>
 
-                {channels.length > 0 ? (
+                {groupOptions.length > 0 ? (
                   <div className="flex flex-col gap-2">
                     <p className="text-[12px] font-medium uppercase tracking-[0.12em] text-white/35">
                       Categories
@@ -382,7 +380,7 @@ export function TvLibraryPage() {
                   </div>
                 ) : null}
 
-                {channels.length > 0 && languageOptions.length > 0 ? (
+                {languageOptions.length > 0 ? (
                   <div className="flex flex-col gap-2">
                     <p className="text-[12px] font-medium uppercase tracking-[0.12em] text-white/35">
                       Languages
@@ -482,7 +480,31 @@ export function TvLibraryPage() {
 
         {/* Results */}
         <div className="mx-auto mt-8 max-w-[1920px] px-6 sm:px-10 lg:mt-10 lg:px-14 xl:px-20">
-          {channels.length === 0 ? (
+          {!loading && catalogTotal === 0 && contentTab === "movie" ? (
+            <div className="rounded-3xl border border-dashed border-white/[0.12] bg-white/[0.03] px-8 py-16 text-center ring-1 ring-white/[0.04]">
+              <p className="text-[18px] font-semibold text-white">No movies yet</p>
+              <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-white/48">
+                Movies are on-demand files from your IPTV provider (Xtream{" "}
+                <span className="font-mono text-white/55">/movie/…</span> URLs), not 24/7 live
+                movie channels. Re-import your Xtream account in{" "}
+                <Link href="/settings" className="font-medium text-white/90 underline-offset-4 hover:underline">
+                  Settings
+                </Link>
+                .
+              </p>
+            </div>
+          ) : !loading && catalogTotal === 0 && contentTab === "series" ? (
+            <div className="rounded-3xl border border-dashed border-white/[0.12] bg-white/[0.03] px-8 py-16 text-center ring-1 ring-white/[0.04]">
+              <p className="text-[18px] font-semibold text-white">No shows yet</p>
+              <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-white/48">
+                Shows come from your IPTV series catalog. Re-import your Xtream account in{" "}
+                <Link href="/settings" className="font-medium text-white/90 underline-offset-4 hover:underline">
+                  Settings
+                </Link>
+                .
+              </p>
+            </div>
+          ) : !loading && catalogTotal === 0 ? (
             <div className="rounded-3xl border border-dashed border-white/[0.12] bg-white/[0.03] px-8 py-16 text-center ring-1 ring-white/[0.04]">
               <p className="text-[18px] font-semibold text-white">
                 No channels yet
@@ -505,7 +527,7 @@ export function TvLibraryPage() {
                 → Channel catalog to download channels to this device.
               </p>
             </div>
-          ) : filtered.length === 0 ? (
+          ) : filteredCount === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-3xl border border-white/[0.08] bg-white/[0.03] px-8 py-20 text-center">
               <Search className="mb-4 size-10 text-white/25" aria-hidden />
               <p className="text-[18px] font-semibold text-white">
@@ -554,15 +576,13 @@ export function TvLibraryPage() {
                     }
                     className="rounded-full border border-white/[0.14] bg-white/[0.06] px-8 py-3 text-[15px] font-semibold text-white outline-none transition-colors hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-white"
                   >
-                    Load more ({(
-                      filtered.length - visible.length
-                    ).toLocaleString()}{" "}
+                    Load more ({(filteredCount - visible.length).toLocaleString()}{" "}
                     left)
                   </button>
                 </div>
-              ) : filtered.length > PAGE_STEP ? (
+              ) : filteredCount > PAGE_STEP ? (
                 <p className="pb-4 text-center text-[13px] text-white/35">
-                  Showing all {filtered.length.toLocaleString()} matches in this
+                  Showing all {filteredCount.toLocaleString()} matches in this
                   view.
                 </p>
               ) : null}
@@ -649,9 +669,7 @@ export function TvLibraryPage() {
                     }
                     className="rounded-full border border-white/[0.14] bg-white/[0.06] px-8 py-3 text-[15px] font-semibold text-white outline-none transition-colors hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-white"
                   >
-                    Load more ({(
-                      filtered.length - visible.length
-                    ).toLocaleString()}{" "}
+                    Load more ({(filteredCount - visible.length).toLocaleString()}{" "}
                     left)
                   </button>
                 </div>
@@ -666,6 +684,16 @@ export function TvLibraryPage() {
           Third-party streams. You are responsible for content you access.
         </p>
       </footer>
+      {seriesPicker ? (
+        <SeriesEpisodeSheet
+          channel={seriesPicker}
+          onClose={() => setSeriesPicker(null)}
+          onPlayEpisode={(ep) => {
+            setSeriesPicker(null);
+            playStream(ep);
+          }}
+        />
+      ) : null}
       {navError && <NavErrorBanner message={navError} onDismiss={clearNavError} />}
     </div>
   );

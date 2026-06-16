@@ -13,14 +13,12 @@ import {
   type ManualChannelsGate,
 } from "@/lib/channels/manual-channels-policy";
 import {
+  refreshManualChannelsFromApi,
   isAllowedManualStreamUrl,
-  listManualChannelEntries,
-  removeManualChannelEntry,
-  subscribeManualChannels,
-  updateManualChannelEntry,
-  upsertManualChannel,
   type ManualChannelEntry,
 } from "@/lib/channels/manual-channels-store";
+import { notifyCatalogCleared } from "@/lib/channels/catalog-events";
+import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { cn } from "@/lib/utils";
 
 function buildChannel(input: {
@@ -79,24 +77,81 @@ function canModifyEntry(
 }
 
 export function TvManualChannelsSection() {
+  const ENTRY_PAGE_SIZE = 150;
   const { authEnabled, user } = useAuth();
-  const [epoch, setEpoch] = useState(0);
-  useEffect(
-    () => subscribeManualChannels(() => setEpoch((n) => n + 1)),
-    [],
-  );
-
-  const entries = useMemo(
-    () => listManualChannelEntries(),
-    [epoch],
-  );
+  const [entries, setEntries] = useState<ManualChannelEntry[]>([]);
+  const [entriesTotal, setEntriesTotal] = useState(0);
+  const [builtinChannelTotal, setBuiltinChannelTotal] = useState(0);
 
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [groupTitle, setGroupTitle] = useState("");
   const [logo, setLogo] = useState("");
   const [m3uPaste, setM3uPaste] = useState("");
+  const [playlistUrl, setPlaylistUrl] = useState("");
+  const [xtreamHost, setXtreamHost] = useState("");
+  const [xtreamUser, setXtreamUser] = useState("");
+  const [xtreamPass, setXtreamPass] = useState("");
   const [hint, setHint] = useState<string | null>(null);
+  const [manageQuery, setManageQuery] = useState("");
+  const [visibleManageCount, setVisibleManageCount] = useState(ENTRY_PAGE_SIZE);
+  const [loadingEntries, setLoadingEntries] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
+  const [clearingAll, setClearingAll] = useState(false);
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
+
+  const loadEntries = useCallback(async (query: string, limit: number) => {
+    setLoadingEntries(true);
+    try {
+      const q = encodeURIComponent(query.trim());
+      const res = await zendeFetch(
+        `/api/channels/manual?mode=list&q=${q}&offset=0&limit=${limit}`,
+      );
+      const body = (await res.json().catch(() => ({}))) as {
+        entries?: ManualChannelEntry[];
+        total?: number;
+      };
+      if (res.ok) {
+        setEntries(Array.isArray(body.entries) ? body.entries : []);
+        setEntriesTotal(typeof body.total === "number" ? body.total : 0);
+      }
+    } finally {
+      setLoadingEntries(false);
+    }
+  }, []);
+
+  const loadInventoryCount = useCallback(async () => {
+    try {
+      const res = await zendeFetch("/api/channels/manual?mode=count");
+      if (!res.ok) return;
+      const body = (await res.json()) as {
+        manualTotal?: number;
+        builtinChannelTotal?: number;
+        total?: number;
+      };
+      if (typeof body.manualTotal === "number") setEntriesTotal(body.manualTotal);
+      else if (typeof body.total === "number") setEntriesTotal(body.total);
+      if (typeof body.builtinChannelTotal === "number") {
+        setBuiltinChannelTotal(body.builtinChannelTotal);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadInventoryCount();
+  }, [loadInventoryCount]);
+
+  useEffect(() => {
+    if (!manageOpen) return;
+    const q = manageQuery.trim();
+    if (q.length < 2) {
+      setEntries([]);
+      return;
+    }
+    void loadEntries(q, visibleManageCount);
+  }, [loadEntries, manageOpen, manageQuery, visibleManageCount]);
 
   const [editing, setEditing] = useState<ManualChannelEntry | null>(null);
   const [editName, setEditName] = useState("");
@@ -126,7 +181,7 @@ export function TvManualChannelsSection() {
     setEditHint(null);
   }, []);
 
-  const onSaveEdit = useCallback(() => {
+  const onSaveEdit = useCallback(async () => {
     if (!editing) return;
     setEditHint(null);
     const ch = buildChannel({
@@ -142,7 +197,13 @@ export function TvManualChannelsSection() {
       setEditHint("Enter a channel name and a valid http(s) stream URL.");
       return;
     }
-    updateManualChannelEntry(editing.id, ch);
+    await zendeFetch("/api/channels/manual", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: editing.id, channel: ch }),
+    });
+    await loadEntries(manageQuery, visibleManageCount);
+    await refreshManualChannelsFromApi();
     setHint(`Updated “${ch.name}”.`);
     closeEdit();
     window.setTimeout(() => setHint(null), 3200);
@@ -156,6 +217,9 @@ export function TvManualChannelsSection() {
     editTvgId,
     editDescription,
     closeEdit,
+    loadEntries,
+    manageQuery,
+    visibleManageCount,
   ]);
 
   const clearForm = useCallback(() => {
@@ -172,13 +236,20 @@ export function TvManualChannelsSection() {
       setHint("Enter a channel name and a valid http(s) stream URL.");
       return;
     }
-    upsertManualChannel(ch);
+    void zendeFetch("/api/channels/manual", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ channel: ch }),
+    }).then(async () => {
+      await loadEntries(manageQuery, visibleManageCount);
+      await refreshManualChannelsFromApi();
+    });
     setHint(`Added “${ch.name}”.`);
     clearForm();
     window.setTimeout(() => setHint(null), 3200);
   }, [name, url, groupTitle, logo, clearForm]);
 
-  const onImportM3u = useCallback(() => {
+  const onImportM3u = useCallback(async () => {
     setHint(null);
     const text = m3uPaste.trim();
     if (!text) {
@@ -190,16 +261,21 @@ export function TvManualChannelsSection() {
       setHint("No channels found — check that the text looks like an M3U playlist.");
       return;
     }
-    let processed = 0;
     let skipped = 0;
-    for (const ch of parsed) {
-      if (!isAllowedManualStreamUrl(ch.url)) {
-        skipped++;
-        continue;
-      }
-      upsertManualChannel(ch);
-      processed++;
-    }
+    const valid = parsed.filter((ch) => {
+      const ok = isAllowedManualStreamUrl(ch.url);
+      if (!ok) skipped++;
+      return ok;
+    });
+    const res = await zendeFetch("/api/channels/manual", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ channels: valid }),
+    });
+    const body = (await res.json().catch(() => ({}))) as { processed?: number };
+    const processed = typeof body.processed === "number" ? body.processed : 0;
+    await loadEntries(manageQuery, visibleManageCount);
+    await refreshManualChannelsFromApi();
     setM3uPaste("");
     setHint(
       processed > 0
@@ -211,7 +287,162 @@ export function TvManualChannelsSection() {
           : "Nothing imported.",
     );
     window.setTimeout(() => setHint(null), 4500);
-  }, [m3uPaste]);
+  }, [loadEntries, m3uPaste, manageQuery, visibleManageCount]);
+
+  const importFromUrl = useCallback(
+    async (rawUrl: string) => {
+      setHint("Importing… this can take a minute for large IPTV lists.");
+      const url = rawUrl.trim();
+      if (!url) {
+        setHint("Enter a playlist URL first.");
+        return;
+      }
+      try {
+        const res = await zendeFetch("/api/playlists/import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url, persist: true }),
+        });
+        const body = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          count?: number;
+          processed?: number;
+          skipped?: number;
+          storeTotal?: number;
+        };
+        if (!res.ok) {
+          setHint(body.error ?? "Could not import from that URL.");
+          return;
+        }
+        const processed = typeof body.processed === "number" ? body.processed : 0;
+        const total = typeof body.count === "number" ? body.count : processed;
+        const skipped = typeof body.skipped === "number" ? body.skipped : 0;
+        await loadInventoryCount();
+        await refreshManualChannelsFromApi();
+        notifyCatalogCleared();
+        setHint(
+          `Imported ${processed.toLocaleString()} of ${total.toLocaleString()} channels on the server.${
+            skipped > 0 ? ` Skipped ${skipped.toLocaleString()} invalid URL${skipped === 1 ? "" : "s"}.` : ""
+          }`,
+        );
+        window.setTimeout(() => setHint(null), 6000);
+      } catch {
+        setHint("Could not import from that URL.");
+      }
+    },
+    [loadInventoryCount],
+  );
+
+  const onImportPlaylistUrl = useCallback(async () => {
+    await importFromUrl(playlistUrl);
+    setPlaylistUrl("");
+  }, [importFromUrl, playlistUrl]);
+
+  const onRemoveAllImported = useCallback(async () => {
+    const ok = window.confirm(
+      "Remove ALL channels from this server?\n\nThis deletes:\n• Your imported live channels, movies, and shows\n• The cached World channel index catalog\n\nThis cannot be undone. You can re-add the world index or re-import Xtream afterward.",
+    );
+    if (!ok) return;
+    setClearingAll(true);
+    setHint(null);
+    try {
+      const res = await zendeFetch("/api/channels/manual", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ all: true, confirm: "REMOVE_ALL_IMPORTED" }),
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        removed?: number;
+        manualRemoved?: number;
+        builtinChannelsCleared?: number;
+        remaining?: number;
+        error?: string;
+      };
+      if (!res.ok) {
+        setHint(body.error ?? "Could not remove channels.");
+        return;
+      }
+      const manualRemoved =
+        typeof body.manualRemoved === "number" ? body.manualRemoved : 0;
+      const builtinCleared =
+        typeof body.builtinChannelsCleared === "number"
+          ? body.builtinChannelsCleared
+          : 0;
+      setEntries([]);
+      setEntriesTotal(0);
+      setBuiltinChannelTotal(0);
+      setSelectedEntryId(null);
+      setManageOpen(false);
+      setManageQuery("");
+      await refreshManualChannelsFromApi();
+      notifyCatalogCleared();
+      await loadInventoryCount();
+      setHint(
+        manualRemoved + builtinCleared > 0
+          ? `Removed ${manualRemoved.toLocaleString()} imported item${manualRemoved === 1 ? "" : "s"} and cleared ${builtinCleared.toLocaleString()} world-index channel${builtinCleared === 1 ? "" : "s"}.`
+          : "Nothing was removed.",
+      );
+      window.setTimeout(() => setHint(null), 4500);
+    } catch {
+      setHint("Could not remove channels.");
+    } finally {
+      setClearingAll(false);
+    }
+  }, [loadInventoryCount]);
+
+  const onImportXtream = useCallback(async () => {
+    const host = xtreamHost.trim();
+    const username = xtreamUser.trim();
+    const password = xtreamPass.trim();
+    if (!host || !username || !password) {
+      setHint("Enter Xtream host, username, and password.");
+      return;
+    }
+    setHint("Importing from Xtream… large lists are saved entirely on the server.");
+    try {
+      const res = await zendeFetch("/api/playlists/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ xtream: { host, username, password }, persist: true }),
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        count?: number;
+        processed?: number;
+        skipped?: number;
+      };
+      if (!res.ok) {
+        setHint(body.error ?? "Could not import Xtream playlist.");
+        return;
+      }
+      const processed = typeof body.processed === "number" ? body.processed : 0;
+      const total = typeof body.count === "number" ? body.count : processed;
+      const skipped = typeof body.skipped === "number" ? body.skipped : 0;
+      await loadInventoryCount();
+      await refreshManualChannelsFromApi();
+      notifyCatalogCleared();
+      setHint(
+        `Imported ${processed.toLocaleString()} of ${total.toLocaleString()} items (live, movies, shows) on the server.${
+          skipped > 0 ? ` Skipped ${skipped.toLocaleString()} invalid URL${skipped === 1 ? "" : "s"}.` : ""
+        }`,
+      );
+      window.setTimeout(() => setHint(null), 6000);
+    } catch {
+      setHint("Could not import Xtream playlist.");
+    }
+  }, [loadInventoryCount, xtreamHost, xtreamPass, xtreamUser]);
+
+  useEffect(() => {
+    setVisibleManageCount(ENTRY_PAGE_SIZE);
+    setSelectedEntryId(null);
+  }, [manageQuery]);
+
+  const visibleEntries = entries;
+  const hasMoreManage = entriesTotal > visibleEntries.length;
+  const selectedEntry = useMemo(
+    () => visibleEntries.find((e) => e.id === selectedEntryId) ?? null,
+    [selectedEntryId, visibleEntries],
+  );
 
   const inputClass = cn(
     "mt-1.5 h-11 w-full rounded-xl border border-white/[0.12] bg-black/30 px-4",
@@ -237,6 +468,33 @@ export function TvManualChannelsSection() {
         Home, Library, search, and Watch. When sign-in is enabled, each channel is
         owned by whoever added or imported it; admins can edit any channel.
       </p>
+
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          disabled={clearingAll || (entriesTotal === 0 && builtinChannelTotal === 0)}
+          onClick={() => void onRemoveAllImported()}
+          className={cn(
+            "inline-flex items-center gap-2 rounded-xl border border-red-400/35 bg-red-500/10 px-4 py-2.5",
+            "text-[14px] font-semibold text-red-200/95 outline-none transition-colors",
+            "hover:bg-red-500/18 focus-visible:ring-2 focus-visible:ring-red-300/60",
+            "disabled:cursor-not-allowed disabled:opacity-45",
+          )}
+        >
+          <Trash2 className="size-4" aria-hidden />
+          {clearingAll ? "Removing…" : "Remove all channels"}
+        </button>
+        {entriesTotal > 0 || builtinChannelTotal > 0 ? (
+          <span className="text-[13px] text-white/40">
+            {entriesTotal > 0
+              ? `${entriesTotal.toLocaleString()} imported`
+              : "No imports"}
+            {builtinChannelTotal > 0
+              ? ` · ${builtinChannelTotal.toLocaleString()} world index`
+              : ""}
+          </span>
+        ) : null}
+      </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <label className="block sm:col-span-2">
@@ -286,7 +544,11 @@ export function TvManualChannelsSection() {
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button type="button" onClick={() => onAddOne()} className="outline-none">
+        <button
+          type="button"
+          onClick={() => onAddOne()}
+          className="outline-none transition-transform active:scale-[0.99] motion-reduce:transform-none"
+        >
           <ZenedeGlass variant="ctaPill">
             <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
               Add channel
@@ -297,6 +559,75 @@ export function TvManualChannelsSection() {
 
       <div className="mt-8 border-t border-white/[0.08] pt-8">
         <h3 className="text-[15px] font-semibold text-white/90">
+          Import from playlist URL
+        </h3>
+        <p className="mt-1 text-[14px] leading-relaxed text-white/45">
+          Paste a remote M3U/M3U8 URL and Zenede imports channels server-side.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <input
+            type="url"
+            value={playlistUrl}
+            onChange={(e) => setPlaylistUrl(e.target.value)}
+            placeholder="http(s)://.../playlist.m3u8"
+            className={cn(inputClass, "mt-0 min-w-[320px] flex-1")}
+          />
+          <button
+            type="button"
+            onClick={() => void onImportPlaylistUrl()}
+            className="outline-none transition-transform active:scale-[0.99] motion-reduce:transform-none"
+          >
+            <ZenedeGlass variant="heroSecondary" className="inline-block">
+              <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-white">
+                Import URL
+              </span>
+            </ZenedeGlass>
+          </button>
+        </div>
+
+        <h3 className="mt-8 text-[15px] font-semibold text-white/90">
+          Import from Xtream credentials
+        </h3>
+        <p className="mt-1 text-[14px] leading-relaxed text-white/45">
+          Enter server host, username, and password. Zenede builds the
+          <code className="mx-1 text-white/70">get.php</code> URL automatically.
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <input
+            type="text"
+            value={xtreamHost}
+            onChange={(e) => setXtreamHost(e.target.value)}
+            placeholder="http://cf.listaiptv.net"
+            className={cn(inputClass, "mt-0")}
+          />
+          <input
+            type="text"
+            value={xtreamUser}
+            onChange={(e) => setXtreamUser(e.target.value)}
+            placeholder="Username"
+            className={cn(inputClass, "mt-0")}
+          />
+          <input
+            type="text"
+            value={xtreamPass}
+            onChange={(e) => setXtreamPass(e.target.value)}
+            placeholder="Password"
+            className={cn(inputClass, "mt-0")}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => void onImportXtream()}
+          className="mt-3 outline-none transition-transform active:scale-[0.99] motion-reduce:transform-none"
+        >
+          <ZenedeGlass variant="heroSecondary" className="inline-block">
+            <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-white">
+              Import Xtream playlist
+            </span>
+          </ZenedeGlass>
+        </button>
+
+        <h3 className="mt-8 text-[15px] font-semibold text-white/90">
           Import from M3U
         </h3>
         <p className="mt-1 text-[14px] leading-relaxed text-white/45">
@@ -316,7 +647,7 @@ export function TvManualChannelsSection() {
         <button
           type="button"
           onClick={() => onImportM3u()}
-          className="mt-3 outline-none"
+          className="mt-3 outline-none transition-transform active:scale-[0.99] motion-reduce:transform-none"
         >
           <ZenedeGlass variant="heroSecondary" className="inline-block">
             <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-white">
@@ -342,68 +673,150 @@ export function TvManualChannelsSection() {
         </p>
       ) : null}
 
-      {entries.length > 0 ? (
+      {entries.length > 0 || entriesTotal > 0 || manageOpen ? (
         <div className="mt-8">
-          <h3 className="text-[15px] font-semibold text-white/90">
-            Added channels ({entries.length})
-          </h3>
-          <ul className="mt-3 space-y-2" aria-label="Your added channels">
-            {entries.map((e) => {
-              const mod = canModifyEntry(e, authEnabled, user);
-              return (
-                <li
-                  key={e.id}
-                  className="flex items-start gap-3 rounded-xl border border-white/[0.08] bg-black/25 px-4 py-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[15px] font-medium text-white">
-                      {e.channel.name}
-                    </p>
-                    <p className="mt-0.5 truncate font-mono text-[12px] text-white/45">
-                      {e.channel.url}
-                    </p>
-                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[12px] text-white/38">
-                      {e.channel.groupTitle ? <span>{e.channel.groupTitle}</span> : null}
-                      {e.channel.tvgLanguage ? (
-                        <span>Lang: {e.channel.tvgLanguage}</span>
-                      ) : null}
-                      {e.channel.description ? (
-                        <span className="line-clamp-2 max-w-full text-white/45">
-                          {e.channel.description}
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    {mod ? (
-                      <button
-                        type="button"
-                        onClick={() => openEdit(e)}
-                        className="rounded-lg p-2 text-white/55 outline-none hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-white"
-                        aria-label={`Edit ${e.channel.name}`}
-                      >
-                        <Pencil className="size-4" />
-                      </button>
-                    ) : null}
-                    {mod ? (
-                      <button
-                        type="button"
-                        onClick={() => removeManualChannelEntry(e.id)}
-                        className="rounded-lg p-2 text-white/55 outline-none hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-white"
-                        aria-label={`Remove ${e.channel.name}`}
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
-                    ) : (
-                      <span className="px-2 py-1 text-[11px] text-white/35">
-                        Added by another user
-                      </span>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="text-[15px] font-semibold text-white/90">
+              Channel manager
+            </h3>
+            <button
+              type="button"
+              onClick={() => setManageOpen((v) => !v)}
+              className="rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2 text-[13px] font-medium text-white/80 outline-none hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-white"
+            >
+              {manageOpen ? "Hide manager" : "Search & manage channels"}
+            </button>
+          </div>
+
+          {manageOpen ? (
+            <>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <input
+                  type="text"
+                  value={manageQuery}
+                  onChange={(e) => setManageQuery(e.target.value)}
+                  placeholder="Type at least 2 chars: name, URL, group, language..."
+                  className={cn(inputClass, "mt-0 min-w-[280px] flex-1")}
+                />
+                {manageQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => setManageQuery("")}
+                    className="rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2 text-[13px] font-medium text-white/75 outline-none hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-white"
+                  >
+                    Clear
+                  </button>
+                ) : null}
+              </div>
+
+              {selectedEntry ? (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="text-[12px] text-white/45">
+                    Selected: <span className="text-white/80">{selectedEntry.channel.name}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => openEdit(selectedEntry)}
+                    className="rounded-xl border border-white/[0.12] bg-white/[0.06] px-3 py-1.5 text-[12px] font-medium text-white/80 outline-none hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-white"
+                  >
+                    Edit selected
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void zendeFetch("/api/channels/manual", {
+                        method: "DELETE",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id: selectedEntry.id }),
+                      }).then(async () => {
+                        await loadEntries(manageQuery, visibleManageCount);
+                        await refreshManualChannelsFromApi();
+                        setSelectedEntryId(null);
+                      })
+                    }
+                    className="rounded-xl border border-red-400/25 bg-red-500/10 px-3 py-1.5 text-[12px] font-medium text-red-100 outline-none hover:bg-red-500/20 focus-visible:ring-2 focus-visible:ring-red-300"
+                  >
+                    Remove selected
+                  </button>
+                </div>
+              ) : null}
+
+              {manageQuery.trim().length < 2 ? (
+                <p className="mt-3 text-[13px] text-white/45">
+                  Enter at least 2 characters to search channels.
+                </p>
+              ) : null}
+
+              {loadingEntries ? (
+                <p className="mt-3 text-[13px] text-white/45">Searching…</p>
+              ) : null}
+
+              {manageQuery.trim().length >= 2 ? (
+                <>
+                  <p className="mt-3 text-[12px] text-white/40">
+                    Results: {visibleEntries.length.toLocaleString()} / {entriesTotal.toLocaleString()}
+                  </p>
+                  <ul className="mt-2 space-y-2" aria-label="Manual channel search results">
+                    {visibleEntries.map((e) => {
+                      const mod = canModifyEntry(e, authEnabled, user);
+                      const selected = e.id === selectedEntryId;
+                      return (
+                        <li
+                          key={e.id}
+                          className={cn(
+                            "flex items-start gap-3 rounded-xl border px-4 py-3",
+                            selected
+                              ? "border-white/[0.24] bg-white/[0.09]"
+                              : "border-white/[0.08] bg-black/25",
+                          )}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setSelectedEntryId(e.id)}
+                            className="mt-0.5 rounded-md border border-white/[0.2] bg-white/[0.06] px-2 py-1 text-[11px] text-white/75 outline-none hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-white"
+                            aria-label={`Select ${e.channel.name}`}
+                          >
+                            {selected ? "Selected" : "Select"}
+                          </button>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[15px] font-medium text-white">
+                              {e.channel.name}
+                            </p>
+                            <p className="mt-0.5 truncate font-mono text-[12px] text-white/45">
+                              {e.channel.url}
+                            </p>
+                            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[12px] text-white/38">
+                              {e.channel.groupTitle ? <span>{e.channel.groupTitle}</span> : null}
+                              {e.channel.tvgLanguage ? (
+                                <span>Lang: {e.channel.tvgLanguage}</span>
+                              ) : null}
+                            </div>
+                          </div>
+                          {!mod ? (
+                            <span className="px-2 py-1 text-[11px] text-white/35">
+                              Added by another user
+                            </span>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  {entriesTotal === 0 && !loadingEntries ? (
+                    <p className="mt-3 text-[13px] text-white/45">No channels match that search.</p>
+                  ) : null}
+                  {hasMoreManage ? (
+                    <button
+                      type="button"
+                      onClick={() => setVisibleManageCount((n) => n + ENTRY_PAGE_SIZE)}
+                      className="mt-3 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2 text-[13px] font-medium text-white/80 outline-none hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-white"
+                    >
+                      Load more ({Math.min(ENTRY_PAGE_SIZE, entriesTotal - visibleEntries.length)} more)
+                    </button>
+                  ) : null}
+                </>
+              ) : null}
+            </>
+          ) : null}
         </div>
       ) : (
         <p className="mt-8 text-[14px] text-white/38">
@@ -413,7 +826,10 @@ export function TvManualChannelsSection() {
 
       {editing ? (
         <div
-          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 p-4 sm:items-center"
+          className={cn(
+            "fixed inset-0 z-[80] flex items-end justify-center bg-black/70 p-4 sm:items-center",
+            "motion-safe:animate-[glass-backdrop-in_0.25s_ease-out_both] motion-reduce:animate-none motion-reduce:opacity-100",
+          )}
           role="dialog"
           aria-modal="true"
           aria-labelledby="edit-manual-channel-title"
@@ -421,6 +837,7 @@ export function TvManualChannelsSection() {
           <div
             className={cn(
               "max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/[0.12] bg-[var(--tv-page-bg)] p-6 shadow-2xl",
+              "motion-safe:animate-[glass-modal-pop_0.36s_cubic-bezier(0.16,1,0.3,1)_both]",
             )}
           >
             <div className="flex items-start justify-between gap-3">
@@ -433,7 +850,7 @@ export function TvManualChannelsSection() {
               <button
                 type="button"
                 onClick={closeEdit}
-                className="rounded-lg p-2 text-white/55 outline-none hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-white"
+                className="rounded-lg p-2 text-white/55 outline-none transition-colors hover:bg-white/10 hover:text-white active:bg-white/10 focus-visible:ring-2 focus-visible:ring-white motion-reduce:transition-none"
                 aria-label="Close"
               >
                 <X className="size-5" />
@@ -528,11 +945,15 @@ export function TvManualChannelsSection() {
               <button
                 type="button"
                 onClick={closeEdit}
-                className="rounded-xl px-4 py-2.5 text-[15px] font-medium text-white/70 outline-none hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white"
+                className="rounded-xl px-4 py-2.5 text-[15px] font-medium text-white/70 outline-none transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white active:bg-white/10 motion-reduce:transition-none"
               >
                 Cancel
               </button>
-              <button type="button" onClick={onSaveEdit} className="outline-none">
+              <button
+                type="button"
+                onClick={onSaveEdit}
+                className="outline-none transition-transform active:scale-[0.99] motion-reduce:transform-none"
+              >
                 <ZenedeGlass variant="ctaPill">
                   <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
                     Save changes

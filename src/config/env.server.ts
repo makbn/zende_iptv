@@ -16,6 +16,12 @@ const serverEnvSchema = z.object({
     .enum(["development", "production", "test"])
     .default("development"),
   LOG_LEVEL: logLevelSchema.default("info"),
+  /** When true, use pino-pretty (dev default). Production Docker sets this via compose. */
+  LOG_PRETTY: z
+    .enum(["0", "1", "false", "true"])
+    .optional()
+    .transform((v) => v === "1" || v === "true")
+    .default(false),
   /** Optional. Public origin for HLS rewrite (e.g. https://live.example.com). See getRequestOrigin. */
   PUBLIC_APP_URL: z.string().optional(),
 });
@@ -30,6 +36,7 @@ export function getServerEnv(): ServerEnv {
   cached = serverEnvSchema.parse({
     NODE_ENV: process.env.NODE_ENV,
     LOG_LEVEL: process.env.LOG_LEVEL,
+    LOG_PRETTY: process.env.LOG_PRETTY,
     PUBLIC_APP_URL: process.env.PUBLIC_APP_URL,
   });
   return cached;

@@ -145,7 +145,8 @@ export function MobileSettingsPage() {
                 onClick={() => setTab(id)}
                 className={cn(
                   "zen-pressable min-h-11 shrink-0 rounded-2xl px-4 text-[13px] font-semibold outline-none",
-                  "transition-[background-color,color,transform,box-shadow] duration-200 ease-out",
+                  "transition-[background-color,color,transform,box-shadow] duration-200 ease-out active:scale-[0.99] motion-reduce:transform-none",
+                  "focus-visible:ring-2 focus-visible:ring-white",
                   tab === id
                     ? "bg-white text-zinc-950 shadow-sm"
                     : "border border-white/[0.1] bg-white/[0.06] text-white/70 hover:bg-white/[0.1]",
@@ -203,7 +204,7 @@ export function MobileSettingsPage() {
               <button
                 type="button"
                 onClick={saveSecret}
-                className="min-h-[52px] rounded-2xl bg-white text-[15px] font-semibold text-zinc-950"
+                className="min-h-[52px] rounded-2xl bg-white text-[15px] font-semibold text-zinc-950 outline-none transition-[transform,box-shadow,background-color] duration-200 ease-out hover:shadow-md hover:shadow-black/20 active:scale-[0.99] motion-reduce:transform-none focus-visible:ring-2 focus-visible:ring-white"
               >
                 Save key
               </button>
@@ -211,7 +212,7 @@ export function MobileSettingsPage() {
                 type="button"
                 disabled={runBusy}
                 onClick={() => void runHealthSweep()}
-                className="min-h-[52px] rounded-2xl border border-white/[0.12] bg-white/[0.06] text-[15px] font-semibold text-white disabled:opacity-45"
+                className="min-h-[52px] rounded-2xl border border-white/[0.12] bg-white/[0.06] text-[15px] font-semibold text-white disabled:opacity-45 outline-none transition-[background-color,box-shadow,transform] duration-200 ease-out hover:bg-white/[0.085] hover:shadow-[0_14px_44px_-26px_rgba(0,0,0,0.55)] active:scale-[0.99] motion-reduce:transform-none focus-visible:ring-2 focus-visible:ring-white"
               >
                 {runBusy ? "Running…" : "Run health sweep"}
               </button>

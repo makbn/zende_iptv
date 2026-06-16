@@ -212,6 +212,15 @@ model ManualChannelsStore {
   updatedAt   DateTime @updatedAt
 }
 
+/// Last Xtream portal used for import — needed for `get_series_info` / VOD detail lookups.
+model XtreamPortalConfig {
+  id        Int      @id @default(1)
+  serverUrl String
+  username  String
+  password  String
+  updatedAt DateTime @updatedAt
+}
+
 enum RecordingScheduleStatus {
   SCHEDULED
   CANCELLED

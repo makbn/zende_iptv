@@ -19,6 +19,7 @@ import {
   looksLikeHlsPlaylist,
   rewriteM3u8Playlist,
 } from "@/lib/stream/m3u8-rewrite";
+import { isOpenEndedLiveMpegTsUrl } from "@/lib/stream/playback-url";
 
 export const runtime = "nodejs";
 
@@ -78,6 +79,11 @@ const FETCH_TIMEOUT_MS = 20_000;
  * 30 s gives slow VPN exit nodes headroom without hanging the player too long.
  */
 const FETCH_TIMEOUT_PROXY_MS = 30_000;
+const UPSTREAM_MAX_ATTEMPTS = 2;
+/** Root playlist bootstrap can be slow on overloaded IPTV origins/CDNs. */
+const BOOTSTRAP_FETCH_TIMEOUT_MS = 45_000;
+const BOOTSTRAP_FETCH_TIMEOUT_PROXY_MS = 60_000;
+const BOOTSTRAP_MAX_ATTEMPTS = 3;
 
 /**
  * DVR ffmpeg hits this relay as the only client. Upstream HLS can long-pause on slow
@@ -176,6 +182,22 @@ type FetchResult = {
   jarUpdated: boolean;
 };
 
+type FetchAttemptLogger = {
+  onAttemptStart?: (attempt: number, maxAttempts: number) => void;
+  onAttemptSuccess?: (
+    attempt: number,
+    maxAttempts: number,
+    elapsedMs: number,
+    result: FetchResult,
+  ) => void;
+  onAttemptError?: (
+    attempt: number,
+    maxAttempts: number,
+    elapsedMs: number,
+    error: unknown,
+  ) => void;
+};
+
 /**
  * Fetches `startUrl` following redirects manually so that:
  * - Set-Cookie headers on every 3xx response are captured into `jar`
@@ -239,23 +261,80 @@ async function fetchUpstreamWithRecordingRetries(
   cookieJar: CookieJar,
   timeoutMs: number,
   proxyAgent: ProxyAgent | undefined,
+  attemptLogger?: FetchAttemptLogger,
 ): Promise<FetchResult> {
   let lastErr: unknown;
   for (let attempt = 1; attempt <= RECORDING_UPSTREAM_MAX_ATTEMPTS; attempt++) {
     if (attempt > 1) {
       await new Promise((r) => setTimeout(r, 450 * (attempt - 1)));
     }
+    attemptLogger?.onAttemptStart?.(attempt, RECORDING_UPSTREAM_MAX_ATTEMPTS);
+    const startedAt = Date.now();
     try {
-      return await fetchFollowingRedirects(
+      const result = await fetchFollowingRedirects(
         fetchUrl,
         baseHeaders,
         cookieJar,
         AbortSignal.timeout(timeoutMs),
         proxyAgent,
       );
+      attemptLogger?.onAttemptSuccess?.(
+        attempt,
+        RECORDING_UPSTREAM_MAX_ATTEMPTS,
+        Date.now() - startedAt,
+        result,
+      );
+      return result;
     } catch (e) {
       lastErr = e;
+      attemptLogger?.onAttemptError?.(
+        attempt,
+        RECORDING_UPSTREAM_MAX_ATTEMPTS,
+        Date.now() - startedAt,
+        e,
+      );
       if (attempt === RECORDING_UPSTREAM_MAX_ATTEMPTS) throw e;
+    }
+  }
+  throw lastErr;
+}
+
+async function fetchUpstreamWithRetries(
+  fetchUrl: string,
+  baseHeaders: Headers,
+  cookieJar: CookieJar,
+  timeoutMs: number,
+  proxyAgent: ProxyAgent | undefined,
+  attempts: number,
+  attemptLogger?: FetchAttemptLogger,
+): Promise<FetchResult> {
+  let lastErr: unknown;
+  const maxAttempts = Math.max(1, attempts);
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (attempt > 1) {
+      await new Promise((r) => setTimeout(r, 700 * (attempt - 1)));
+    }
+    attemptLogger?.onAttemptStart?.(attempt, maxAttempts);
+    const startedAt = Date.now();
+    try {
+      const result = await fetchFollowingRedirects(
+        fetchUrl,
+        baseHeaders,
+        cookieJar,
+        AbortSignal.timeout(timeoutMs),
+        proxyAgent,
+      );
+      attemptLogger?.onAttemptSuccess?.(
+        attempt,
+        maxAttempts,
+        Date.now() - startedAt,
+        result,
+      );
+      return result;
+    } catch (e) {
+      lastErr = e;
+      attemptLogger?.onAttemptError?.(attempt, maxAttempts, Date.now() - startedAt, e);
+      if (attempt === maxAttempts) throw e;
     }
   }
   throw lastErr;
@@ -360,10 +439,15 @@ export async function GET(
   });
 
   const recordingRelay = session.title === DVR_RECORDING_SESSION_TITLE;
+  const isRootBootstrap = !hParam && !uParam;
   const fetchTimeoutMs = recordingRelay
     ? proxyAgent
       ? RECORDING_FETCH_TIMEOUT_PROXY_MS
       : RECORDING_FETCH_TIMEOUT_MS
+    : isRootBootstrap
+      ? proxyAgent
+        ? BOOTSTRAP_FETCH_TIMEOUT_PROXY_MS
+        : BOOTSTRAP_FETCH_TIMEOUT_MS
     : proxyAgent
       ? FETCH_TIMEOUT_PROXY_MS
       : FETCH_TIMEOUT_MS;
@@ -380,10 +464,69 @@ export async function GET(
   }
 
   const baseHeaders = buildBaseHeaders(request, refererForProxiedFetch);
+  const attemptLogger: FetchAttemptLogger = {
+    onAttemptStart: (attempt, maxAttempts) => {
+      log.info("Upstream fetch attempt started", {
+        sessionId,
+        mode,
+        resourceKind: resourceKindFromUrl(fetchUrl),
+        attempt,
+        maxAttempts,
+        timeoutMs: fetchTimeoutMs,
+        recordingRelay,
+        isRootBootstrap,
+        usingProxy: Boolean(proxyAgent),
+        requestUrl: fetchUrl,
+      });
+    },
+    onAttemptSuccess: (attempt, maxAttempts, elapsedMs, result) => {
+      log.info("Upstream fetch attempt succeeded", {
+        sessionId,
+        mode,
+        resourceKind: resourceKindFromUrl(fetchUrl),
+        attempt,
+        maxAttempts,
+        elapsedMs,
+        status: result.response.status,
+        requestUrl: fetchUrl,
+        effectiveUrl:
+          result.effectiveUrl !== fetchUrl ? result.effectiveUrl : undefined,
+        jarUpdated: result.jarUpdated,
+      });
+    },
+    onAttemptError: (attempt, maxAttempts, elapsedMs, error) => {
+      const isTimeout =
+        error instanceof Error &&
+        (error.name === "TimeoutError" || error.name === "AbortError");
+      const cause =
+        error instanceof Error && (error as Error & { cause?: unknown }).cause;
+      log.warn("Upstream fetch attempt failed", {
+        sessionId,
+        mode,
+        resourceKind: resourceKindFromUrl(fetchUrl),
+        attempt,
+        maxAttempts,
+        elapsedMs,
+        timedOut: isTimeout,
+        err: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+        cause:
+          cause instanceof Error
+            ? `${cause.name}: ${cause.message}`
+            : cause
+              ? String(cause)
+              : undefined,
+        requestUrl: fetchUrl,
+      });
+    },
+  };
 
   let upstream: Response;
   let effectiveUrl: string;
   try {
+    const shouldRetry = !recordingRelay;
+    const retryAttempts = isRootBootstrap
+      ? BOOTSTRAP_MAX_ATTEMPTS
+      : UPSTREAM_MAX_ATTEMPTS;
     const result = recordingRelay
       ? await fetchUpstreamWithRecordingRetries(
           fetchUrl,
@@ -391,14 +534,25 @@ export async function GET(
           cookieJar,
           fetchTimeoutMs,
           proxyAgent,
+          attemptLogger,
         )
-      : await fetchFollowingRedirects(
-          fetchUrl,
-          baseHeaders,
-          cookieJar,
-          AbortSignal.timeout(fetchTimeoutMs),
-          proxyAgent,
-        );
+      : shouldRetry
+        ? await fetchUpstreamWithRetries(
+            fetchUrl,
+            baseHeaders,
+            cookieJar,
+            fetchTimeoutMs,
+            proxyAgent,
+            retryAttempts,
+            attemptLogger,
+          )
+        : await fetchFollowingRedirects(
+            fetchUrl,
+            baseHeaders,
+            cookieJar,
+            AbortSignal.timeout(fetchTimeoutMs),
+            proxyAgent,
+          );
     upstream = result.response;
     effectiveUrl = result.effectiveUrl;
     if (result.jarUpdated) {
@@ -464,6 +618,18 @@ export async function GET(
     // because the player expects binary or playlist data, not an error envelope.
     upstream.body?.cancel().catch(() => {});
     return new NextResponse(null, { status: upstream.status });
+  }
+
+  // Live `.ts` is an infinite MPEG-TS feed — buffering with arrayBuffer() hangs until timeout.
+  if (isRootBootstrap && isOpenEndedLiveMpegTsUrl(fetchUrl) && upstream.body) {
+    log.warn("live .ts bootstrap — streaming passthrough (prefer .m3u8 URLs)", {
+      sessionId,
+      fetchUrl,
+    });
+    const h = forwardUpstreamHeaders(upstream);
+    if (!h.get("content-type")) h.set("content-type", "video/mp2t");
+    h.delete("content-length");
+    return new NextResponse(upstream.body, { status: upstream.status, headers: h });
   }
 
   const origin = getRequestOrigin(request);

@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import { getStreamHlsConfig } from "@/lib/player/hls-live-config";
+import type { PlaybackMode } from "@/lib/stream/playback-url";
 import { cn } from "@/lib/utils";
 
 export type QualityOption = { index: number; label: string };
@@ -40,7 +41,15 @@ type Props = {
   onError?: (err: PlayerError) => void;
   /** Optional extra HLS options merged after defaults (advanced). */
   hlsConfig?: Partial<HlsConfig>;
+  /** When set, overrides URL heuristics for HLS vs native progressive. */
+  playbackMode?: PlaybackMode;
 };
+
+function shouldUseHls(src: string, playbackMode?: PlaybackMode): boolean {
+  if (playbackMode === "mpegts" || playbackMode === "progressive") return false;
+  if (playbackMode === "hls") return true;
+  return looksLikeHls(src);
+}
 
 function looksLikeHls(url: string): boolean {
   return (
@@ -77,6 +86,7 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
       onSessionChange,
       onError,
       hlsConfig: hlsConfigExtra,
+      playbackMode,
     },
     ref,
   ) {
@@ -107,7 +117,7 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
       let hls: Hls | null = null;
       let networkRetryTimer: ReturnType<typeof setTimeout> | null = null;
       let mediaHardResetTimer: ReturnType<typeof setTimeout> | null = null;
-      const hlsMode = looksLikeHls(src);
+      const hlsMode = shouldUseHls(src, playbackMode);
       let isNativeHls = false;
       let cancelled = false;
 
@@ -307,7 +317,7 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
         video.removeAttribute("src");
         video.load();
       };
-    }, [src, hlsConfigExtra]);
+    }, [src, hlsConfigExtra, playbackMode]);
 
     return (
       <video

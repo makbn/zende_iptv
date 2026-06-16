@@ -1,3 +1,5 @@
+import { inferContentType } from "@/lib/channels/content-type";
+
 /**
  * Minimal Extended M3U parser (EXTINF + stream URL). Suitable for iptv-org style playlists.
  * For edge cases (titles with commas), behavior follows common IPTV tooling heuristics.
@@ -7,6 +9,8 @@ export type M3uChannel = {
   name: string;
   url: string;
   duration: number;
+  /** Optional content bucket used by Library tabs. */
+  contentType?: "live" | "movie" | "series";
   tvgId?: string;
   tvgLogo?: string;
   /** Present when playlist exposes EXTINF `tvg-language` / `language` (e.g. iptv-org). */
@@ -73,12 +77,14 @@ export function parseM3u(text: string): M3uChannel[] {
 
       const next = nextUrl(lines, i + 1);
       if (!next) continue;
+      const attrs = parseExtInfAttributes(attrPart);
 
       channels.push({
         name,
         url: next.url,
         duration: Number.isFinite(duration) ? duration : -1,
-        ...parseExtInfAttributes(attrPart),
+        ...attrs,
+        contentType: inferContentType(next.url, attrs.groupTitle, name),
       });
       i = next.index;
       continue;

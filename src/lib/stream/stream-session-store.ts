@@ -2,6 +2,8 @@ import "server-only";
 
 import { createHash, randomBytes } from "crypto";
 
+import { createServerLogger } from "@/core/logging/server";
+import { normalizeXtreamLivePlaybackUrl } from "@/lib/stream/playback-url";
 import { prisma } from "@/lib/db/prisma";
 import type { ProxyAgent } from "undici";
 import { parseProxyConfigJson, type StoredProxyConfig } from "@/lib/proxies/proxy-store";
@@ -22,6 +24,7 @@ const SESSION_TOUCH_WRITE_INTERVAL_MS = 60_000;
  * that arrive when an HLS player fetches several segments in parallel.
  */
 const SESSION_READ_CACHE_TTL_MS = 3_000;
+const log = createServerLogger("lib.stream.session-store");
 
 type CachedSessionEntry = { record: StreamSessionRecord; fetchedAt: number };
 const sessionReadCache = new Map<string, CachedSessionEntry>();
@@ -190,6 +193,7 @@ const WARMUP_UA =
  */
 async function warmupCookies(url: string, proxyAgent?: ProxyAgent): Promise<CookieJar> {
   const jar: CookieJar = {};
+  const started = Date.now();
   try {
     const opts: RequestInit & { dispatcher?: ProxyAgent } = {
       redirect: "follow",
@@ -205,8 +209,33 @@ async function warmupCookies(url: string, proxyAgent?: ProxyAgent): Promise<Cook
     const lines = getSetCookieLines(res);
     res.body?.cancel().catch(() => {});
     if (lines.length > 0) mergeSetCookieIntoJar(url, lines, jar);
-  } catch {
-    /* warm-up failure is non-fatal */
+    log.info("Warm-up cookie probe completed", {
+      upstreamHost: (() => {
+        try {
+          return new URL(url).host;
+        } catch {
+          return "(bad-url)";
+        }
+      })(),
+      status: res.status,
+      setCookieCount: lines.length,
+      usingProxy: Boolean(proxyAgent),
+      elapsedMs: Date.now() - started,
+    });
+  } catch (err) {
+    // warm-up failure is non-fatal; keep a breadcrumb for stream startup forensics.
+    log.warn("Warm-up cookie probe failed (non-fatal)", {
+      upstreamHost: (() => {
+        try {
+          return new URL(url).host;
+        } catch {
+          return "(bad-url)";
+        }
+      })(),
+      usingProxy: Boolean(proxyAgent),
+      message: err instanceof Error ? err.message : String(err),
+      elapsedMs: Date.now() - started,
+    });
   }
   return jar;
 }
@@ -225,8 +254,16 @@ export async function createStreamSession(input: {
   /** When set, ALL upstream fetches for this session go through this proxy — no direct connections. */
   proxyConfig?: StoredProxyConfig;
 }): Promise<string> {
+  const started = Date.now();
   const id = randomBytes(18).toString("base64url");
   const expiresAt = new Date(Date.now() + SESSION_IDLE_MS);
+  const upstreamRootUrl = normalizeXtreamLivePlaybackUrl(input.upstreamRootUrl);
+  if (upstreamRootUrl !== input.upstreamRootUrl) {
+    log.info("Session upstream normalized ts→m3u8", {
+      from: input.upstreamRootUrl.slice(0, 120),
+      to: upstreamRootUrl.slice(0, 120),
+    });
+  }
 
   // Build proxy agent first so warm-up also uses it (zero leak).
   let proxyAgent: ProxyAgent | undefined;
@@ -236,14 +273,14 @@ export async function createStreamSession(input: {
   }
 
   // Build initial cookie jar: warm-up fetch first, then overlay any caller-supplied cookies.
-  const jar = await warmupCookies(input.upstreamRootUrl, proxyAgent);
+  const jar = await warmupCookies(upstreamRootUrl, proxyAgent);
 
   if (input.cookies && Object.keys(input.cookies).length > 0) {
     let origin: string;
     try {
-      origin = new URL(input.upstreamRootUrl).origin;
+      origin = new URL(upstreamRootUrl).origin;
     } catch {
-      origin = input.upstreamRootUrl;
+      origin = upstreamRootUrl;
     }
     if (!jar[origin]) jar[origin] = {};
     Object.assign(jar[origin], input.cookies);
@@ -252,7 +289,7 @@ export async function createStreamSession(input: {
   await prisma.streamProxySession.create({
     data: {
       id,
-      upstreamRootUrl: input.upstreamRootUrl,
+      upstreamRootUrl: upstreamRootUrl,
       title: input.title,
       logo: input.logo ?? null,
       groupTitle: input.group ?? null,
@@ -262,6 +299,20 @@ export async function createStreamSession(input: {
       proxyConfigJson: input.proxyConfig ? JSON.stringify(input.proxyConfig) : null,
       expiresAt,
     },
+  });
+  log.info("Created stream proxy session row", {
+    sessionId: id,
+    upstreamHost: (() => {
+      try {
+        return new URL(upstreamRootUrl).host;
+      } catch {
+        return "(bad-url)";
+      }
+    })(),
+    hasProxy: Boolean(input.proxyConfig),
+    aliasCount: 0,
+    cookieOrigins: Object.keys(jar).length,
+    elapsedMs: Date.now() - started,
   });
   return id;
 }
@@ -291,7 +342,12 @@ export async function touchSession(
       sessionLastTouchWrite.set(id, now);
       prisma.streamProxySession
         .update({ where: { id }, data: { expiresAt: new Date(now + SESSION_IDLE_MS) } })
-        .catch(() => {});
+        .catch((err) => {
+          log.warn("Failed to persist session TTL extension (cached path)", {
+            sessionId: id,
+            message: err instanceof Error ? err.message : String(err),
+          });
+        });
     }
     return cached.record;
   }
@@ -304,7 +360,12 @@ export async function touchSession(
   }
 
   if (row.expiresAt.getTime() < now) {
-    prisma.streamProxySession.delete({ where: { id } }).catch(() => {});
+    prisma.streamProxySession.delete({ where: { id } }).catch((err) => {
+      log.warn("Failed to delete expired session row", {
+        sessionId: id,
+        message: err instanceof Error ? err.message : String(err),
+      });
+    });
     sessionReadCache.delete(id);
     sessionLastTouchWrite.delete(id);
     return null;
@@ -330,7 +391,12 @@ export async function touchSession(
     sessionLastTouchWrite.set(id, now);
     prisma.streamProxySession
       .update({ where: { id }, data: { expiresAt: new Date(now + SESSION_IDLE_MS) } })
-      .catch(() => {});
+      .catch((err) => {
+        log.warn("Failed to persist session TTL extension (db path)", {
+          sessionId: id,
+          message: err instanceof Error ? err.message : String(err),
+        });
+      });
   }
 
   return record;
@@ -343,6 +409,7 @@ export async function persistUrlAliases(
   referers: Map<string, string>,
   opts?: { playlistRefererUrl?: string },
 ): Promise<void> {
+  const started = Date.now();
   await prisma.$transaction(async (tx) => {
     const row = await tx.streamProxySession.findUnique({
       where: { id: sessionId },
@@ -371,6 +438,13 @@ export async function persistUrlAliases(
     });
   });
   evictSessionCache(sessionId);
+  log.info("Persisted stream alias map", {
+    sessionId,
+    aliasCount: aliases.size,
+    refererCount: referers.size,
+    persistedReferer: opts?.playlistRefererUrl ? true : false,
+    elapsedMs: Date.now() - started,
+  });
 }
 
 export function resolveAlias(

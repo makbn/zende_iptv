@@ -13,12 +13,18 @@ import {
 import { Search, X } from "lucide-react";
 
 import { MobileChannelCard } from "@/components/mobile/mobile-channel-card";
+import { SeriesEpisodeSheet } from "@/components/library/series-episode-sheet";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { useChannelHealthLookup } from "@/features/health/use-channel-health";
-import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
+import {
+  useLibraryCatalog,
+  type LibraryContentTab,
+} from "@/features/iptv/use-library-catalog";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
+import { isXtreamSeriesContainer } from "@/lib/channels/content-type";
+import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { cn } from "@/lib/utils";
 
 const source = BUILTIN_PLAYLIST_SOURCES[0]!;
@@ -28,12 +34,25 @@ export function MobileLibraryPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { openChannel, navError, clearNavError } = useWatchNavigation();
+  const { openChannel: playStream, navError, clearNavError } = useWatchNavigation();
+  const [seriesPicker, setSeriesPicker] = useState<M3uChannel | null>(null);
+
+  const openChannel = useCallback(
+    (ch: M3uChannel) => {
+      if (isXtreamSeriesContainer(ch)) {
+        setSeriesPicker(ch);
+        return;
+      }
+      playStream(ch);
+    },
+    [playStream],
+  );
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
   const [languageFilter, setLanguageFilter] = useState<string | null>(null);
+  const [contentTab, setContentTab] = useState<LibraryContentTab>("all");
   const [visibleCount, setVisibleCount] = useState(PAGE_STEP);
 
   useEffect(() => {
@@ -62,74 +81,36 @@ export function MobileLibraryPage() {
     return () => window.clearTimeout(id);
   }, [query, pathname, router]);
 
-  const { channels } = useCatalogBootstrap(source);
+  const { channels, total, facets, loading, hasMore } = useLibraryCatalog({
+    presetId: source.presetId,
+    contentTab,
+    query,
+    groupFilter,
+    languageFilter,
+    limit: visibleCount,
+  });
   const { getScoreForChannel } = useChannelHealthLookup(channels);
 
-  const groupOptions = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const channel of channels) {
-      const group = channel.groupTitle?.trim() || "Other";
-      counts.set(group, (counts.get(group) ?? 0) + 1);
-    }
-    return [...counts.entries()]
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .slice(0, 18);
-  }, [channels]);
+  const groupOptions = useMemo(
+    () => facets.groups.map((g) => [g.name, g.count] as const),
+    [facets.groups],
+  );
+  const languageOptions = facets.languages;
 
-  const languageOptions = useMemo(() => {
-    const byKey = new Map<string, { label: string; count: number }>();
-    for (const channel of channels) {
-      const raw = channel.tvgLanguage?.trim();
-      if (!raw) continue;
-      const key = raw.toLowerCase();
-      const prev = byKey.get(key);
-      if (prev) prev.count += 1;
-      else byKey.set(key, { label: raw, count: 1 });
-    }
-    return [...byKey.entries()]
-      .sort(
-        (a, b) =>
-          b[1].count - a[1].count ||
-          a[1].label.localeCompare(b[1].label, undefined, {
-            sensitivity: "base",
-          }),
-      )
-      .slice(0, 12)
-      .map(([key, value]) => ({ key, ...value }));
-  }, [channels]);
-
-  const filtered = useMemo(() => {
-    let list = channels;
-    if (groupFilter) {
-      list = list.filter(
-        (channel) => (channel.groupTitle?.trim() || "Other") === groupFilter,
-      );
-    }
-    if (languageFilter) {
-      list = list.filter(
-        (channel) =>
-          (channel.tvgLanguage?.trim().toLowerCase() ?? "") === languageFilter,
-      );
-    }
-    const needle = query.trim().toLowerCase();
-    if (!needle) return list;
-    return list.filter((channel) => {
-      const name = (channel.name ?? "").toLowerCase();
-      const group = (channel.groupTitle ?? "").toLowerCase();
-      const language = (channel.tvgLanguage ?? "").toLowerCase();
-      return name.includes(needle) || group.includes(needle) || language.includes(needle);
+  useEffect(() => {
+    startTransition(() => {
+      setGroupFilter(null);
+      setLanguageFilter(null);
+      setVisibleCount(PAGE_STEP);
     });
-  }, [channels, groupFilter, languageFilter, query]);
+  }, [contentTab]);
 
   useEffect(() => {
     startTransition(() => setVisibleCount(PAGE_STEP));
-  }, [query, groupFilter, languageFilter, channels.length]);
+  }, [query, groupFilter, languageFilter]);
 
-  const visible = useMemo(
-    () => filtered.slice(0, visibleCount),
-    [filtered, visibleCount],
-  );
-  const hasMore = filtered.length > visible.length;
+  const visible = channels;
+  const filteredCount = total;
   const activeFilters = Boolean(query.trim() || groupFilter || languageFilter);
 
   const onSearchKeyDown = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
@@ -165,9 +146,15 @@ export function MobileLibraryPage() {
             </div>
             <span className="shrink-0 rounded-lg border border-white/[0.08] bg-black/30 px-2 py-1 text-[10px] text-white/48 ring-1 ring-white/[0.03]">
               <span className="font-semibold tabular-nums text-white/88">
-                {channels.length.toLocaleString()}
+                {loading ? "…" : total.toLocaleString()}
               </span>{" "}
-              total
+              {contentTab === "movie"
+                ? "movies"
+                : contentTab === "series"
+                  ? "shows"
+                  : contentTab === "live"
+                    ? "live"
+                    : "total"}
             </span>
           </div>
           <p className="relative mt-1.5 text-[11.5px] leading-snug text-white/42">
@@ -181,6 +168,29 @@ export function MobileLibraryPage() {
           variant="panelCompact"
           className="rounded-[20px] border-white/[0.1] bg-black/58 p-2.5 shadow-[0_16px_48px_-26px_rgba(0,0,0,0.82)] transition-[box-shadow] duration-300"
         >
+          <div className="tv-row-scroll mb-3 flex gap-2 overflow-x-auto pb-0.5">
+            {([
+              ["all", "All"],
+              ["live", "Live"],
+              ["movie", "Movies"],
+              ["series", "Shows"],
+            ] as const).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setContentTab(id)}
+                className={cn(
+                  "zen-pressable min-h-10 shrink-0 rounded-2xl px-4 text-[13px] font-semibold outline-none",
+                  "transition-[background-color,color,transform,box-shadow] duration-200 ease-out",
+                  contentTab === id
+                    ? "bg-white text-zinc-950 shadow-sm"
+                    : "border border-white/[0.1] bg-white/[0.06] text-white/70 hover:bg-white/[0.1]",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <label className="relative block">
             <span className="sr-only">Search channels</span>
             <Search
@@ -277,7 +287,14 @@ export function MobileLibraryPage() {
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
             <h2 className="text-[20px] font-semibold text-white">
-              {filtered.length.toLocaleString()} channels
+              {filteredCount.toLocaleString()}{" "}
+              {contentTab === "movie"
+                ? "movies"
+                : contentTab === "series"
+                  ? "shows"
+                  : contentTab === "live"
+                    ? "live channels"
+                    : "channels"}
             </h2>
             <p className="mt-1 text-[13px] text-white/42">
               {activeFilters ? "Filtered results" : "Full catalog"}
@@ -291,7 +308,7 @@ export function MobileLibraryPage() {
                 setGroupFilter(null);
                 setLanguageFilter(null);
               }}
-              className="min-h-10 rounded-2xl border border-white/[0.1] bg-white/[0.06] px-4 text-[13px] font-semibold text-white/72"
+              className="min-h-10 rounded-2xl border border-white/[0.1] bg-white/[0.06] px-4 text-[13px] font-semibold text-white/72 outline-none transition-[background-color,box-shadow,transform] duration-200 ease-out hover:bg-white/[0.1] active:scale-[0.99] motion-reduce:transform-none focus-visible:ring-2 focus-visible:ring-white"
             >
               Reset
             </button>
@@ -310,9 +327,13 @@ export function MobileLibraryPage() {
           ))}
         </div>
 
-        {visible.length === 0 ? (
+        {!loading && visible.length === 0 ? (
           <div className="rounded-[26px] border border-white/[0.08] bg-white/[0.04] p-5 text-[14px] leading-relaxed text-white/48">
-            No channels match those filters.
+            {contentTab === "movie"
+              ? "No on-demand movies found. Re-import your Xtream account in Settings — Movies are VOD files, not live movie channels."
+              : contentTab === "series"
+                ? "No shows found. Re-import your Xtream account in Settings."
+                : "No channels match those filters."}
           </div>
         ) : null}
 
@@ -320,13 +341,23 @@ export function MobileLibraryPage() {
           <button
             type="button"
             onClick={() => setVisibleCount((count) => count + PAGE_STEP)}
-            className="mt-5 flex min-h-[52px] w-full items-center justify-center rounded-2xl bg-white text-[15px] font-semibold text-zinc-950"
+            className="mt-5 flex min-h-[52px] w-full items-center justify-center rounded-2xl bg-white text-[15px] font-semibold text-zinc-950 outline-none transition-[transform,box-shadow] duration-200 ease-out hover:shadow-lg hover:shadow-black/20 active:scale-[0.99] motion-reduce:transform-none focus-visible:ring-2 focus-visible:ring-white"
           >
             Load more
           </button>
         ) : null}
       </section>
 
+      {seriesPicker ? (
+        <SeriesEpisodeSheet
+          channel={seriesPicker}
+          onClose={() => setSeriesPicker(null)}
+          onPlayEpisode={(ep) => {
+            setSeriesPicker(null);
+            playStream(ep);
+          }}
+        />
+      ) : null}
       {navError && <NavErrorBanner message={navError} onDismiss={clearNavError} />}
     </main>
   );

@@ -85,10 +85,12 @@ export async function getAggregatedXtreamCatalog(): Promise<AggregatedXtreamCata
   }
 
   const manual = await loadManualChannels();
-  const flat: M3uChannel[] = [...fromPresets, ...manual];
+  const liveOnly = [...fromPresets, ...manual].filter(
+    (ch) => (ch.contentType ?? "live") === "live",
+  );
 
   const groupNames = new Set<string>();
-  for (const ch of flat) {
+  for (const ch of liveOnly) {
     const g = (ch.groupTitle ?? "").trim() || "Uncategorized";
     groupNames.add(g);
   }
@@ -108,7 +110,7 @@ export async function getAggregatedXtreamCatalog(): Promise<AggregatedXtreamCata
     parent_id: 0,
   }));
 
-  const streams: AggregatedStreamRow[] = flat.map((channel, idx) => {
+  const streams: AggregatedStreamRow[] = liveOnly.map((channel, idx) => {
     const g = (channel.groupTitle ?? "").trim() || "Uncategorized";
     const categoryId = groupToCatId.get(g) ?? "1";
     return {

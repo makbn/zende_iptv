@@ -829,6 +829,7 @@ export function WatchView() {
           <StreamPlayer
             ref={videoRef}
             src={playbackSrc}
+            playbackMode={sessionMeta?.playbackMode}
             controls={false}
             onSessionChange={setPlayerSession}
             onError={(err) => {

@@ -61,10 +61,10 @@ export function TvHome() {
 
   useEffect(() => {
     if (!catalogLoaded) return;
-    if (channels.length === 0) {
+    if ((channelCount ?? 0) === 0) {
       router.replace("/setup");
     }
-  }, [catalogLoaded, channels.length, router]);
+  }, [catalogLoaded, channelCount, router]);
 
   useEffect(() => {
     const scrollToHash = () => {
@@ -178,7 +178,7 @@ export function TvHome() {
     );
   }
 
-  if (channels.length === 0) {
+  if ((channelCount ?? 0) === 0) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--tv-page-bg)] pt-20 text-white/45">
         <p className="text-[15px] font-medium">Opening setup…</p>

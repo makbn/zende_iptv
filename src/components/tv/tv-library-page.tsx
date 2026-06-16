@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   startTransition,
   useCallback,
@@ -13,7 +13,6 @@ import {
 } from "react";
 
 import { ChannelHealthBadge } from "@/components/health/channel-health-badge";
-import { SeriesEpisodeSheet } from "@/components/library/series-episode-sheet";
 import { ChannelResolutionBadge } from "@/components/tv/channel-resolution-badge";
 import { TvChannelTile } from "@/components/tv/tv-channel-tile";
 import {
@@ -27,9 +26,12 @@ import {
   useLibraryCatalog,
   type LibraryContentTab,
 } from "@/features/iptv/use-library-catalog";
+import { useLibrarySearch } from "@/features/iptv/use-library-search";
+import { LibraryResultsShell } from "@/components/library/library-results-shell";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
 import { isXtreamSeriesContainer } from "@/lib/channels/content-type";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
+import { showPageHrefFromChannel } from "@/lib/navigation/show-page";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
 import { cn } from "@/lib/utils";
@@ -37,6 +39,7 @@ import {
   ChevronRight,
   LayoutGrid,
   List,
+  Loader2,
   Search,
   SlidersHorizontal,
   X,
@@ -50,24 +53,30 @@ const PAGE_STEP = 200;
 
 export function TvLibraryPage() {
   const router = useRouter();
-  const pathname = usePathname();
   const { openChannel: playStream, navError, clearNavError } = useWatchNavigation();
-  const [seriesPicker, setSeriesPicker] = useState<M3uChannel | null>(null);
 
   const openChannel = useCallback(
     (ch: M3uChannel) => {
       if (isXtreamSeriesContainer(ch)) {
-        setSeriesPicker(ch);
-        return;
+        const href = showPageHrefFromChannel(ch);
+        if (href) {
+          router.push(href);
+          return;
+        }
       }
       playStream(ch);
     },
-    [playStream],
+    [playStream, router],
   );
-  const searchParams = useSearchParams();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const {
+    draftQuery,
+    setDraftQuery,
+    appliedQuery,
+    clearSearch,
+    isSearchPending,
+  } = useLibrarySearch(searchInputRef);
 
-  const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
   /** Lowercase language key from playlist `tvg-language` / `language` when present */
   const [languageFilter, setLanguageFilter] = useState<string | null>(null);
@@ -80,12 +89,6 @@ export function TvLibraryPage() {
   });
 
   useEffect(() => {
-    queueMicrotask(() => {
-      setQuery(searchParams.get("q") ?? "");
-    });
-  }, [searchParams]);
-
-  useEffect(() => {
     try {
       sessionStorage.setItem(VIEW_STORAGE, view);
     } catch {
@@ -93,34 +96,15 @@ export function TvLibraryPage() {
     }
   }, [view]);
 
-  const skipInitialUrlSync = useRef(true);
-
-  useEffect(() => {
-    const id = window.setTimeout(() => {
-      if (skipInitialUrlSync.current) {
-        skipInitialUrlSync.current = false;
-        return;
-      }
-      const trimmed = query.trim();
-      const current =
-        new URLSearchParams(window.location.search).get("q") ?? "";
-      if (trimmed === current) return;
-      const p = new URLSearchParams();
-      if (trimmed) p.set("q", trimmed);
-      const s = p.toString();
-      router.replace(s ? `${pathname}?${s}` : pathname, { scroll: false });
-    }, 450);
-    return () => window.clearTimeout(id);
-  }, [query, pathname, router]);
-
-  const { channels, total, facets, loading, hasMore } = useLibraryCatalog({
+  const { channels, total, facets, loading, refreshing, hasMore } = useLibraryCatalog({
     presetId: source.presetId,
     contentTab,
-    query,
+    query: appliedQuery,
     groupFilter,
     languageFilter,
     limit: visibleCount,
   });
+  const resultsBusy = loading || refreshing || isSearchPending;
   const { getScoreForChannel } = useChannelHealthLookup(channels);
 
   const groupOptions = useMemo(
@@ -140,22 +124,21 @@ export function TvLibraryPage() {
 
   useEffect(() => {
     startTransition(() => setVisibleCount(PAGE_STEP));
-  }, [query, groupFilter, languageFilter]);
+  }, [appliedQuery, groupFilter, languageFilter]);
 
   const visible = channels;
   const filteredCount = total;
   const catalogTotal = total;
   const activeFilters = Boolean(
-    query.trim() || groupFilter || languageFilter,
+    appliedQuery.trim() || groupFilter || languageFilter,
   );
-
 
   const onSearchKeyDown = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape") {
-      setQuery("");
+      clearSearch();
       searchInputRef.current?.blur();
     }
-  }, []);
+  }, [clearSearch]);
 
   return (
     <div className="min-h-screen bg-[var(--tv-page-bg)] text-foreground">
@@ -243,8 +226,8 @@ export function TvLibraryPage() {
                       role="searchbox"
                       placeholder="Search name, category, or language…"
                       autoComplete="off"
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
+                      value={draftQuery}
+                      onChange={(e) => setDraftQuery(e.target.value)}
                       onKeyDown={onSearchKeyDown}
                       className={cn(
                         "h-[52px] w-full rounded-2xl border border-white/[0.12] bg-black/35 pl-12 pr-11",
@@ -253,10 +236,10 @@ export function TvLibraryPage() {
                         "focus-visible:border-white/25 focus-visible:ring-2 focus-visible:ring-white/25",
                       )}
                     />
-                    {query ? (
+                    {draftQuery ? (
                       <button
                         type="button"
-                        onClick={() => setQuery("")}
+                        onClick={() => clearSearch()}
                         className={cn(
                           "absolute right-3 flex size-9 items-center justify-center rounded-xl",
                           "text-white/50 outline-none transition-colors hover:bg-white/10 hover:text-white",
@@ -312,8 +295,11 @@ export function TvLibraryPage() {
                           {filteredCount.toLocaleString()}
                         </span>
                         <span className="text-white/35"> shown</span>
-                        {loading ? (
-                          <span className="text-white/35"> · loading…</span>
+                        {resultsBusy ? (
+                          <span className="inline-flex items-center gap-1.5 text-white/45">
+                            <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                            <span>updating…</span>
+                          </span>
                         ) : null}
                       </span>
                     </p>
@@ -443,10 +429,10 @@ export function TvLibraryPage() {
                 {activeFilters ? (
                   <div className="flex flex-wrap items-center gap-2 border-t border-white/[0.06] pt-4">
                     <span className="text-[13px] text-white/40">Active:</span>
-                    {query.trim() ? (
+                    {appliedQuery.trim() ? (
                       <span className="rounded-full bg-white/[0.08] px-3 py-1 text-[13px] text-white/85">
-                        “{query.trim().slice(0, 48)}
-                        {query.trim().length > 48 ? "…" : ""}”
+                        “{appliedQuery.trim().slice(0, 48)}
+                        {appliedQuery.trim().length > 48 ? "…" : ""}”
                       </span>
                     ) : null}
                     {groupFilter ? (
@@ -463,7 +449,7 @@ export function TvLibraryPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        setQuery("");
+                        clearSearch();
                         setGroupFilter(null);
                         setLanguageFilter(null);
                       }}
@@ -478,9 +464,12 @@ export function TvLibraryPage() {
           </div>
         </div>
 
-        {/* Results */}
-        <div className="mx-auto mt-8 max-w-[1920px] px-6 sm:px-10 lg:mt-10 lg:px-14 xl:px-20">
-          {!loading && catalogTotal === 0 && contentTab === "movie" ? (
+        <LibraryResultsShell
+          busy={resultsBusy}
+          label={isSearchPending ? "Searching…" : "Updating results…"}
+          className="mx-auto mt-8 max-w-[1920px] px-6 sm:px-10 lg:mt-10 lg:px-14 xl:px-20"
+        >
+          {!resultsBusy && catalogTotal === 0 && contentTab === "movie" ? (
             <div className="rounded-3xl border border-dashed border-white/[0.12] bg-white/[0.03] px-8 py-16 text-center ring-1 ring-white/[0.04]">
               <p className="text-[18px] font-semibold text-white">No movies yet</p>
               <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-white/48">
@@ -493,7 +482,7 @@ export function TvLibraryPage() {
                 .
               </p>
             </div>
-          ) : !loading && catalogTotal === 0 && contentTab === "series" ? (
+          ) : !resultsBusy && catalogTotal === 0 && contentTab === "series" ? (
             <div className="rounded-3xl border border-dashed border-white/[0.12] bg-white/[0.03] px-8 py-16 text-center ring-1 ring-white/[0.04]">
               <p className="text-[18px] font-semibold text-white">No shows yet</p>
               <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-white/48">
@@ -504,7 +493,7 @@ export function TvLibraryPage() {
                 .
               </p>
             </div>
-          ) : !loading && catalogTotal === 0 ? (
+          ) : !resultsBusy && catalogTotal === 0 ? (
             <div className="rounded-3xl border border-dashed border-white/[0.12] bg-white/[0.03] px-8 py-16 text-center ring-1 ring-white/[0.04]">
               <p className="text-[18px] font-semibold text-white">
                 No channels yet
@@ -527,7 +516,7 @@ export function TvLibraryPage() {
                 → Channel catalog to download channels to this device.
               </p>
             </div>
-          ) : filteredCount === 0 ? (
+          ) : !resultsBusy && filteredCount === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-3xl border border-white/[0.08] bg-white/[0.03] px-8 py-20 text-center">
               <Search className="mb-4 size-10 text-white/25" aria-hidden />
               <p className="text-[18px] font-semibold text-white">
@@ -540,7 +529,7 @@ export function TvLibraryPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setQuery("");
+                  clearSearch();
                   setGroupFilter(null);
                   setLanguageFilter(null);
                 }}
@@ -676,7 +665,7 @@ export function TvLibraryPage() {
               ) : null}
             </div>
           )}
-        </div>
+        </LibraryResultsShell>
       </main>
 
       <footer className="border-t border-white/[0.06] py-10 text-center">
@@ -684,16 +673,6 @@ export function TvLibraryPage() {
           Third-party streams. You are responsible for content you access.
         </p>
       </footer>
-      {seriesPicker ? (
-        <SeriesEpisodeSheet
-          channel={seriesPicker}
-          onClose={() => setSeriesPicker(null)}
-          onPlayEpisode={(ep) => {
-            setSeriesPicker(null);
-            playStream(ep);
-          }}
-        />
-      ) : null}
       {navError && <NavErrorBanner message={navError} onDismiss={clearNavError} />}
     </div>
   );

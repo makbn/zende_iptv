@@ -7,6 +7,7 @@ import {
 } from "@/lib/channels/manual-channels-policy";
 import { loadManualChannelRows, saveManualChannelRows } from "@/lib/channels/manual-channels-db";
 import { invalidateXtreamCatalogCache } from "@/lib/iptv/aggregated-channels";
+import { invalidateLibraryCatalogCache } from "@/lib/library/catalog";
 import { clearXtreamPortalCredentials } from "@/lib/iptv/xtream-portal-store";
 import { prisma } from "@/lib/db/prisma";
 
@@ -48,6 +49,7 @@ export async function clearAllChannelCatalog(input: {
     const deleted = await prisma.playlistCatalogCache.deleteMany({});
     builtinPresetsCleared = deleted.count;
     invalidateXtreamCatalogCache();
+    invalidateLibraryCatalogCache();
   }
 
   return {

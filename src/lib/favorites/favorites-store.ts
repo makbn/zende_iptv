@@ -147,6 +147,15 @@ export function removeFavorite(url: string): void {
   serverRemove(url);
 }
 
+/** Clear every favorite on this device and on the server. */
+export async function clearAllFavorites(): Promise<void> {
+  writeStore({ favorites: [] });
+  notifyFavoritesUpdated();
+  await zendeFetch("/api/user/favorites?all=1", { method: "DELETE" }).catch(
+    () => {/* best-effort */},
+  );
+}
+
 export function toggleFavorite(
   input: Pick<M3uChannel, "url" | "name"> &
     Partial<Pick<M3uChannel, "tvgId" | "tvgLogo" | "groupTitle">>,

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { isBuiltinPresetId } from "@/config/builtin-playlist-sources";
 import { gateApiRequest } from "@/lib/auth/gate-api";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
+import { getPlaylistCatalogMeta } from "@/lib/playlists/catalog-meta";
 import { prisma } from "@/lib/db/prisma";
 
 export const runtime = "nodejs";
@@ -18,6 +19,15 @@ export async function GET(
   const { presetId } = await context.params;
   if (!isBuiltinPresetId(presetId)) {
     return NextResponse.json({ error: "Unknown preset" }, { status: 404 });
+  }
+
+  const url = new URL(_request.url);
+  if (url.searchParams.get("meta") === "1") {
+    const meta = await getPlaylistCatalogMeta(presetId);
+    if (!meta) {
+      return NextResponse.json({ error: "Unknown preset" }, { status: 404 });
+    }
+    return NextResponse.json(meta);
   }
 
   const row = await prisma.playlistCatalogCache.findUnique({

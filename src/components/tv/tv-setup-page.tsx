@@ -24,17 +24,16 @@ export function TvSetupPage() {
     channelCount,
     manualChannelCount,
     registered,
-    channels,
     catalogLoaded,
     refreshCatalog,
   } = useCatalogBootstrap(source);
 
   useEffect(() => {
     if (!catalogLoaded) return;
-    if (channels.length > 0) {
+    if ((channelCount ?? 0) > 0) {
       router.replace("/");
     }
-  }, [catalogLoaded, channels.length, router]);
+  }, [catalogLoaded, channelCount, router]);
 
   return (
     <div className="min-h-screen bg-[var(--tv-page-bg)] text-foreground">

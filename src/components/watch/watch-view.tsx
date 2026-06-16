@@ -66,6 +66,7 @@ import {
 } from "@/components/watch/frequent-channel-peek";
 import { FavoriteStarButton } from "@/components/tv/favorite-star-button";
 import { ChannelResolutionBadge } from "@/components/tv/channel-resolution-badge";
+import { EpisodePlaybackControls } from "@/components/watch/episode-playback-controls";
 import { queuePlaybackHealthProbe } from "@/features/health/queue-playback-health-probe";
 import type { ViewingEntry } from "@/lib/watch/viewing-stats";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
@@ -75,6 +76,10 @@ import {
   recordPlaybackStart,
   subscribeViewingStats,
 } from "@/lib/watch/viewing-stats";
+import {
+  createPlaybackPositionSaver,
+  getPlaybackPosition,
+} from "@/lib/playback/playback-position";
 
 const FREQUENT_RING = 15;
 
@@ -279,10 +284,22 @@ export function WatchView() {
     return decodedLegacyUrl;
   }, [sessionMeta, decodedLegacyUrl]);
 
+  const playbackMeta = sessionMeta?.playback;
+  const expectedDuration = playbackMeta?.durationSeconds ?? 0;
+
+  const isVodContent =
+    playbackMeta?.contentKind === "movie" ||
+    playbackMeta?.contentKind === "episode" ||
+    sessionMeta?.playbackMode === "progressive";
+
   const { displayName: titleDisplay, resolutionLabel: titleResolutionBadge } =
     useMemo(() => parseChannelLabel(title), [title]);
 
   const lastRecordedUrl = useRef<string | null>(null);
+  const resumedUrlRef = useRef<string | null>(null);
+  const positionSaverRef = useRef<ReturnType<typeof createPlaybackPositionSaver> | null>(
+    null,
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -292,6 +309,21 @@ export function WatchView() {
   const [volume, setVolume] = useState(1);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const effectiveDuration = useMemo(() => {
+    const videoDur = duration;
+    const expected = expectedDuration;
+    if (Number.isFinite(videoDur) && videoDur > 0 && videoDur !== Infinity) {
+      if (
+        expected > 0 &&
+        (videoDur < 2 || Math.abs(videoDur - expected) / expected > 0.25)
+      ) {
+        return expected;
+      }
+      return videoDur;
+    }
+    if (expected > 0) return expected;
+    return videoDur;
+  }, [duration, expectedDuration]);
   const [fs, setFs] = useState(false);
   const [buffering, setBuffering] = useState(false);
   const [bufferRatio, setBufferRatio] = useState(0);
@@ -513,8 +545,8 @@ export function WatchView() {
   );
 
   const seekRatio =
-    Number.isFinite(duration) && duration > 0
-      ? Math.min(1, Math.max(0, currentTime / duration))
+    Number.isFinite(effectiveDuration) && effectiveDuration > 0
+      ? Math.min(1, Math.max(0, currentTime / effectiveDuration))
       : null;
 
   const bindVideo = useCallback(() => {
@@ -523,15 +555,40 @@ export function WatchView() {
     const syncBuffer = () => {
       const nextDuration = v.duration;
       const nextTime = v.currentTime;
+      const durForBuffer =
+        Number.isFinite(effectiveDuration) && effectiveDuration > 0
+          ? effectiveDuration
+          : nextDuration;
       setBufferRatio(
-        Number.isFinite(nextDuration) && nextDuration > 0
-          ? bufferedAheadRatio(v, nextDuration, nextTime)
+        Number.isFinite(durForBuffer) && durForBuffer > 0
+          ? bufferedAheadRatio(v, durForBuffer, nextTime)
           : 0,
       );
     };
-    const onTime = () => setCurrentTime(v.currentTime);
+    const onTime = () => {
+      setCurrentTime(v.currentTime);
+      positionSaverRef.current?.(v.currentTime);
+    };
     const onMeta = () => {
       setDuration(v.duration);
+      if (
+        canonicalUrl &&
+        resumedUrlRef.current !== canonicalUrl &&
+        isVodContent
+      ) {
+        const saved = getPlaybackPosition(canonicalUrl);
+        if (saved != null && saved > 5) {
+          const cap =
+            Number.isFinite(v.duration) && v.duration > 0
+              ? v.duration
+              : expectedDuration > 0
+                ? expectedDuration
+                : saved;
+          v.currentTime = Math.min(saved, cap - 1);
+          setCurrentTime(v.currentTime);
+        }
+        resumedUrlRef.current = canonicalUrl;
+      }
       syncBuffer();
     };
     const onPlay = () => setPlaying(true);
@@ -578,7 +635,13 @@ export function WatchView() {
       v.removeEventListener("ratechange", onRate);
       v.removeEventListener("progress", onProgress);
     };
-  }, []);
+  }, [canonicalUrl, effectiveDuration, expectedDuration, isVodContent]);
+
+  useEffect(() => {
+    positionSaverRef.current = createPlaybackPositionSaver(
+      isVodContent ? canonicalUrl : null,
+    );
+  }, [canonicalUrl, isVodContent]);
 
   useEffect(() => {
     queueMicrotask(() => setPlayerFatalError(null));
@@ -656,11 +719,14 @@ export function WatchView() {
   const skipSeconds = useCallback((delta: number) => {
     const v = videoRef.current;
     if (!v) return;
-    const d = v.duration;
+    const d =
+      Number.isFinite(effectiveDuration) && effectiveDuration > 0
+        ? effectiveDuration
+        : v.duration;
     if (!Number.isFinite(d) || d <= 0) return;
     v.currentTime = Math.min(d, Math.max(0, v.currentTime + delta));
     setCurrentTime(v.currentTime);
-  }, []);
+  }, [effectiveDuration]);
 
   const applySpeed = useCallback((rate: number) => {
     const v = videoRef.current;
@@ -673,14 +739,17 @@ export function WatchView() {
     (clientX: number, rect: DOMRect) => {
       const v = videoRef.current;
       if (!v || seekRatio === null) return;
-      const d = v.duration;
+      const d =
+        Number.isFinite(effectiveDuration) && effectiveDuration > 0
+          ? effectiveDuration
+          : v.duration;
       if (!Number.isFinite(d) || d <= 0) return;
       const x = clientX - rect.left;
       const t = (x / rect.width) * d;
       v.currentTime = Math.min(d, Math.max(0, t));
       setCurrentTime(v.currentTime);
     },
-    [seekRatio],
+    [seekRatio, effectiveDuration],
   );
 
   useEffect(() => {
@@ -757,7 +826,10 @@ export function WatchView() {
   );
 
   const isVod =
-    Number.isFinite(duration) && duration > 0 && duration !== Infinity;
+    isVodContent ||
+    (Number.isFinite(effectiveDuration) &&
+      effectiveDuration > 0 &&
+      effectiveDuration !== Infinity);
 
   const isRecordedPlayback = Boolean(recordingId);
 
@@ -806,17 +878,17 @@ export function WatchView() {
       <span className="tabular-nums text-white/90">
         <span className="text-white/50">Recorded</span>{" "}
         <span className="text-white/35">·</span>{" "}
-        {formatClock(currentTime)} / {formatClock(duration)}
+        {formatClock(currentTime)} / {formatClock(effectiveDuration)}
       </span>
     ) : (
       <span className="tabular-nums text-white/90">Recorded</span>
     )
-  ) : !Number.isFinite(duration) || duration === Infinity ? (
-    <span className="tabular-nums text-white/90">Live</span>
-  ) : (
+  ) : isVod ? (
     <span className="tabular-nums text-white/90">
-      {formatClock(currentTime)} / {formatClock(duration)}
+      {formatClock(currentTime)} / {formatClock(effectiveDuration)}
     </span>
+  ) : (
+    <span className="tabular-nums text-white/90">Live</span>
   );
 
   return (
@@ -911,6 +983,10 @@ export function WatchView() {
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-sky-300/90">
                     Recorded
                   </span>
+                ) : isVod ? (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-sky-300/90">
+                    VOD
+                  </span>
                 ) : !Number.isFinite(duration) || duration === Infinity ? (
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-emerald-400/90">
                     <span className="relative flex h-2 w-2">
@@ -973,12 +1049,21 @@ export function WatchView() {
               )}
             >
               <div className="px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-4 sm:pt-4">
+                {playbackMeta?.contentKind === "episode" && playbackMeta.seriesId ? (
+                  <EpisodePlaybackControls
+                    playback={playbackMeta}
+                    logo={logo}
+                    group={group}
+                    disabled={Boolean(playerFatalError)}
+                  />
+                ) : null}
+
                 {seekRatio !== null ? (
                   <SeekBar
                     ratio={seekRatio}
                     bufferRatio={bufferRatio}
                     onSeek={onSeek}
-                    disabled={!Number.isFinite(duration) || duration <= 0}
+                    disabled={!Number.isFinite(effectiveDuration) || effectiveDuration <= 0}
                   />
                 ) : (
                   <div className="relative mb-4 h-2 w-full overflow-hidden rounded-full bg-white/15">

@@ -19,15 +19,14 @@ export function MobileSetupPage() {
     channelCount,
     manualChannelCount,
     registered,
-    channels,
     catalogLoaded,
     refreshCatalog,
   } = useCatalogBootstrap(source);
 
   useEffect(() => {
     if (!catalogLoaded) return;
-    if (channels.length > 0) router.replace("/");
-  }, [catalogLoaded, channels.length, router]);
+    if ((channelCount ?? 0) > 0) router.replace("/");
+  }, [catalogLoaded, channelCount, router]);
 
   return (
     <main className="min-h-screen bg-[var(--tv-page-bg)] pb-28 pt-[5.35rem] text-foreground">

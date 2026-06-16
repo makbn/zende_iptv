@@ -5,6 +5,7 @@ import { useCallback, useState } from "react";
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
 import { TvCatalogSetupStrip } from "@/components/tv/tv-catalog-setup-strip";
 import { TvManualChannelsSection } from "@/components/tv/tv-manual-channels-section";
+import { TvPersonalLibraryCard } from "@/components/tv/tv-personal-library-card";
 import { TvPlaybackPrefsCard } from "@/components/tv/tv-playback-prefs-card";
 import { TvSettingsAuthPanel } from "@/components/tv/tv-settings-auth-panel";
 import { TvSettingsIntegrationsPanel } from "@/components/tv/tv-settings-integrations-panel";
@@ -172,6 +173,7 @@ export function MobileSettingsPage() {
               onRefresh={() => void refreshCatalog()}
             />
             <TvPlaybackPrefsCard />
+            <TvPersonalLibraryCard />
             <TvManualChannelsSection />
           </>
         ) : null}

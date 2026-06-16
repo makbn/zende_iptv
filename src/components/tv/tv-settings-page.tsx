@@ -5,6 +5,7 @@ import { useCallback, useState } from "react";
 
 import { TvCatalogSetupStrip } from "@/components/tv/tv-catalog-setup-strip";
 import { TvManualChannelsSection } from "@/components/tv/tv-manual-channels-section";
+import { TvPersonalLibraryCard } from "@/components/tv/tv-personal-library-card";
 import { TvPlaybackPrefsCard } from "@/components/tv/tv-playback-prefs-card";
 import { TvSettingsAuthPanel } from "@/components/tv/tv-settings-auth-panel";
 import { TvSettingsIntegrationsPanel } from "@/components/tv/tv-settings-integrations-panel";
@@ -183,6 +184,10 @@ export function TvSettingsPage() {
 
             <div className="mx-auto mt-8 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
               <TvPlaybackPrefsCard />
+            </div>
+
+            <div className="mx-auto mt-8 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
+              <TvPersonalLibraryCard />
             </div>
 
             <div className="mx-auto mt-10 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">

@@ -42,5 +42,6 @@ export async function GET(
     playbackUrl: `/api/stream/proxy/${id}`,
     canonicalUrl: session.upstreamRootUrl,
     playbackMode: inferPlaybackModeFromUrl(session.upstreamRootUrl),
+    playback: session.meta,
   });
 }

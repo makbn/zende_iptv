@@ -52,15 +52,39 @@ export async function loadMergedLibraryCatalog(presetId: string): Promise<M3uCha
   return mergeBuiltinAndManual(builtin, manual);
 }
 
+const MERGED_CACHE_TTL_MS = 45_000;
+let mergedCache: { presetId: string; at: number; channels: M3uChannel[] } | null = null;
+
+/** Drop cached rows after catalog import / manual channel edits (server process). */
+export function invalidateLibraryCatalogCache(): void {
+  mergedCache = null;
+}
+
+async function loadMergedLibraryCatalogCached(presetId: string): Promise<M3uChannel[]> {
+  const now = Date.now();
+  if (
+    mergedCache &&
+    mergedCache.presetId === presetId &&
+    now - mergedCache.at < MERGED_CACHE_TTL_MS
+  ) {
+    return mergedCache.channels;
+  }
+  const channels = await loadMergedLibraryCatalog(presetId);
+  mergedCache = { presetId, at: now, channels };
+  return channels;
+}
+
 function matchesQuery(channel: M3uChannel, q: string): boolean {
   const needle = q.trim().toLowerCase();
   if (!needle) return true;
-  return (
-    channel.name.toLowerCase().includes(needle) ||
-    channel.url.toLowerCase().includes(needle) ||
-    (channel.groupTitle ?? "").toLowerCase().includes(needle) ||
-    (channel.tvgLanguage ?? "").toLowerCase().includes(needle)
-  );
+  if (channel.name.toLowerCase().includes(needle)) return true;
+  const group = channel.groupTitle ?? "";
+  if (group.toLowerCase().includes(needle)) return true;
+  const lang = channel.tvgLanguage ?? "";
+  if (lang.toLowerCase().includes(needle)) return true;
+  const tvgId = channel.tvgId ?? "";
+  if (tvgId.toLowerCase().includes(needle)) return true;
+  return false;
 }
 
 function buildFacets(channels: M3uChannel[]): LibraryCatalogFacets {
@@ -99,7 +123,7 @@ function buildFacets(channels: M3uChannel[]): LibraryCatalogFacets {
 export async function queryLibraryCatalog(
   query: LibraryCatalogQuery,
 ): Promise<LibraryCatalogResult> {
-  const merged = await loadMergedLibraryCatalog(query.presetId);
+  const merged = await loadMergedLibraryCatalogCached(query.presetId);
 
   let scoped = merged.filter((channel) => {
     const type = resolveLibraryContentType(channel);

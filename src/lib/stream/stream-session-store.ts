@@ -5,6 +5,11 @@ import { createHash, randomBytes } from "crypto";
 import { createServerLogger } from "@/core/logging/server";
 import { normalizeXtreamLivePlaybackUrl } from "@/lib/stream/playback-url";
 import { redactStreamUrlForLog } from "@/lib/stream/redact-stream-url";
+import {
+  parsePlaybackSessionMeta,
+  serializePlaybackSessionMeta,
+  type PlaybackSessionMeta,
+} from "@/lib/playback/stream-session-meta";
 import { prisma } from "@/lib/db/prisma";
 import type { ProxyAgent } from "undici";
 import { parseProxyConfigJson, type StoredProxyConfig } from "@/lib/proxies/proxy-store";
@@ -44,6 +49,7 @@ export type StreamSessionRecord = {
   title: string;
   logo?: string;
   group?: string;
+  meta: PlaybackSessionMeta;
   urlAliases: Map<string, string>;
   /** Per `?h=` hash: upstream playlist URL to send as `Referer` (correct media playlist for segments). */
   aliasReferers: Map<string, string>;
@@ -246,6 +252,7 @@ export async function createStreamSession(input: {
   title: string;
   logo?: string;
   group?: string;
+  meta?: PlaybackSessionMeta;
   /**
    * Seed cookies to send with every upstream request.  Keys are cookie names,
    * values are cookie values — all scoped to the origin of `upstreamRootUrl`.
@@ -294,6 +301,7 @@ export async function createStreamSession(input: {
       title: input.title,
       logo: input.logo ?? null,
       groupTitle: input.group ?? null,
+      metaJson: serializePlaybackSessionMeta(input.meta ?? {}),
       urlAliasesJson: "{}",
       aliasReferersJson: "{}",
       cookieJarJson: JSON.stringify(jar),
@@ -377,6 +385,7 @@ export async function touchSession(
     title: row.title,
     logo: row.logo ?? undefined,
     group: row.groupTitle ?? undefined,
+    meta: parsePlaybackSessionMeta(row.metaJson),
     urlAliases: parseAliasesJson(row.urlAliasesJson),
     aliasReferers: parseReferersJson(row.aliasReferersJson ?? "{}"),
     cookieJar: parseCookieJarJson(row.cookieJarJson),

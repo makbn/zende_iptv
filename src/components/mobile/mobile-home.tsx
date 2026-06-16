@@ -11,6 +11,7 @@ import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { useChannelHealthLookup } from "@/features/health/use-channel-health";
 import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
+import { useLibraryCatalog } from "@/features/iptv/use-library-catalog";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -83,67 +84,82 @@ export function MobileHome() {
   const router = useRouter();
   const { openChannel, navError, clearNavError } = useWatchNavigation();
   const catalog = useCatalogBootstrap(source);
+  const discoverCatalog = useLibraryCatalog({
+    presetId: source.presetId,
+    contentTab: "all",
+    query: "",
+    groupFilter: null,
+    languageFilter: null,
+    limit: 18,
+  });
   const {
-    channels,
     busy,
     channelCount,
     refreshCatalog,
     catalogLoaded,
   } = catalog;
-  const { getScoreForChannel } = useChannelHealthLookup(channels);
   const [statsEpoch, setStatsEpoch] = useState(0);
 
   useEffect(() => subscribeViewingStats(() => setStatsEpoch((n) => n + 1)), []);
 
+  const shelfChannels = useMemo(() => {
+    void statsEpoch;
+    const recent = dedupeChannels(
+      listRecentPlayback(12).map((entry) => viewingEntryToChannel(entry, [])),
+    );
+    const recentUrls = new Set(recent.map((c) => c.url));
+    const frequent = dedupeChannels(
+      listTopByPlayCount(12)
+        .map((entry) => viewingEntryToChannel(entry, []))
+        .filter((c) => !recentUrls.has(c.url)),
+    );
+    const skip = new Set([...recent, ...frequent].map((c) => c.url));
+    const discover = discoverCatalog.channels.filter((c) => !skip.has(c.url));
+    return dedupeChannels([...recent, ...frequent, ...discover]);
+  }, [statsEpoch, discoverCatalog.channels]);
+
+  const { getScoreForChannel } = useChannelHealthLookup(shelfChannels);
+
   useEffect(() => {
     if (!catalogLoaded) return;
-    if (channels.length === 0) router.replace("/setup");
-  }, [catalogLoaded, channels.length, router]);
+    if ((channelCount ?? 0) === 0) router.replace("/setup");
+  }, [catalogLoaded, channelCount, router]);
 
   const recentChannels = useMemo(() => {
     void statsEpoch;
     return dedupeChannels(
-      listRecentPlayback(12).map((entry) => viewingEntryToChannel(entry, channels)),
+      listRecentPlayback(12).map((entry) => viewingEntryToChannel(entry, shelfChannels)),
     );
-  }, [channels, statsEpoch]);
+  }, [shelfChannels, statsEpoch]);
 
   const frequentChannels = useMemo(() => {
     void statsEpoch;
     const recentUrls = new Set(recentChannels.map((channel) => channel.url));
     return dedupeChannels(
       listTopByPlayCount(12)
-        .map((entry) => viewingEntryToChannel(entry, channels))
+        .map((entry) => viewingEntryToChannel(entry, shelfChannels))
         .filter((channel) => !recentUrls.has(channel.url)),
     );
-  }, [channels, recentChannels, statsEpoch]);
+  }, [shelfChannels, recentChannels, statsEpoch]);
 
   const discoverSlice = useMemo(() => {
     const skip = new Set([
       ...recentChannels.map((channel) => channel.url),
       ...frequentChannels.map((channel) => channel.url),
     ]);
-    const picked: M3uChannel[] = [];
-    for (const channel of channels) {
-      if (picked.length >= 18) break;
-      if (!skip.has(channel.url)) picked.push(channel);
-    }
-    if (picked.length < 8) {
-      for (const channel of channels) {
-        if (picked.length >= 18) break;
-        if (!picked.some((item) => item.url === channel.url)) picked.push(channel);
-      }
-    }
-    return picked;
-  }, [channels, frequentChannels, recentChannels]);
+    return discoverCatalog.channels
+      .filter((c) => !skip.has(c.url))
+      .slice(0, 18);
+  }, [discoverCatalog.channels, frequentChannels, recentChannels]);
 
   const featured = useMemo(() => {
     void statsEpoch;
     const recentFirst = listRecentPlayback(1)[0];
-    if (recentFirst) return viewingEntryToChannel(recentFirst, channels);
+    if (recentFirst) return viewingEntryToChannel(recentFirst, shelfChannels);
     const top = listTopByPlayCount(1)[0];
-    if (top) return viewingEntryToChannel(top, channels);
-    return channels.find((channel) => channel.tvgLogo) ?? channels[0];
-  }, [channels, statsEpoch]);
+    if (top) return viewingEntryToChannel(top, shelfChannels);
+    return shelfChannels.find((channel) => channel.tvgLogo) ?? shelfChannels[0];
+  }, [shelfChannels, statsEpoch]);
 
   if (!catalogLoaded) {
     return (
@@ -153,7 +169,7 @@ export function MobileHome() {
     );
   }
 
-  if (channels.length === 0) {
+  if ((channelCount ?? 0) === 0) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--tv-page-bg)] px-4 text-white/45">
         <p className="text-[15px] font-medium">Opening setup…</p>

@@ -116,6 +116,8 @@ model StreamProxySession {
   lastRefererUrl  String?
   /// Serialized StoredProxyConfig — proxy is read once at session creation; the proxy route never needs a second DB query.
   proxyConfigJson String?
+  /// JSON: duration, series/episode context for VOD seek bar and next/prev controls.
+  metaJson        String   @default("{}")
   expiresAt       DateTime
   createdAt       DateTime @default(now())
 

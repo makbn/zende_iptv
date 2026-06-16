@@ -83,6 +83,27 @@ export function buildXtreamEpisodeUrl(
   return `${server}/series/${user}/${pass}/${encodeURIComponent(String(episode.id))}.${encodeURIComponent(ext)}`;
 }
 
+function parseXtreamIdFromBucketUrl(url: string, bucket: "movie" | "series" | "live"): string | null {
+  try {
+    const u = new URL(url.trim());
+    const parts = u.pathname.split("/").filter(Boolean);
+    if (parts[0] !== bucket || parts.length < 4) return null;
+    const file = parts[3] ?? "";
+    const m = /^(\d+)\./.exec(file);
+    return m?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function parseXtreamVodIdFromStreamUrl(url: string): string | null {
+  return parseXtreamIdFromBucketUrl(url, "movie");
+}
+
+export function parseXtreamEpisodeIdFromStreamUrl(url: string): string | null {
+  return parseXtreamIdFromBucketUrl(url, "series");
+}
+
 /** Extract Xtream portal credentials embedded in `/live|movie|series/` URLs. */
 export function parseXtreamCredentialsFromStreamUrl(url: string): XtreamCredentials | null {
   try {

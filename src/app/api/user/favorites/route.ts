@@ -84,6 +84,11 @@ export async function DELETE(request: Request) {
   if (userId instanceof Response) return userId;
 
   const { searchParams } = new URL(request.url);
+  if (searchParams.get("all") === "1") {
+    await prisma.userFavorite.deleteMany({ where: { userId } });
+    return NextResponse.json({ ok: true });
+  }
+
   const url = searchParams.get("url");
   if (!url) return NextResponse.json({ error: "url required" }, { status: 400 });
 

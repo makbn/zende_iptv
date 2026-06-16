@@ -16,6 +16,13 @@ services:
       LOG_PRETTY: "${LOG_PRETTY:-1}"
       NODE_ENV: production
       PORT: "${PORT:-8077}"
+      # HDHomeRun DVR emulation for Plex / Jellyfin Live TV (Threadfin-style).
+      # Plex → Settings → Live TV & DVR → DVR → add HDHomeRun → enter http://<host>:8077
+      ZENDE_HDHR_TUNER_COUNT: "${ZENDE_HDHR_TUNER_COUNT:-4}"
+      # ZENDE_HDHR_FRIENDLY_NAME: "Zenede IPTV"
+      # ZENDE_HDHR_DEVICE_ID: "A1B2C3D4"  # 8 hex chars; auto-derived if unset
+      # ZENDE_HDHR_MAX_CHANNELS: "5000"   # optional cap — Plex may choke on huge lineups
+      # ZENDE_HDHR_ENABLED: "0"           # set to disable HDHR endpoints
       # Optional: force public origin for HLS rewrite if your proxy omits Host / X-Forwarded-* / Forwarded.
       # Normally the same host as get.php is taken from each request automatically.
       PUBLIC_APP_URL: "${PUBLIC_APP_URL:-}"

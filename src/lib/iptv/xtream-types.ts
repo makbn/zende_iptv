@@ -51,6 +51,8 @@ export type XtreamSeriesEpisode = {
   container_extension: string;
   episode_num?: number | string;
   season?: number | string;
+  info?: Record<string, unknown>;
+  duration?: number | string;
 };
 
 export type XtreamSeriesInfo = {

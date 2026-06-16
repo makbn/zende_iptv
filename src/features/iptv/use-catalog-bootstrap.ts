@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { BuiltinPlaylistSource } from "@/config/builtin-playlist-sources";
+import { useAuth } from "@/features/auth/auth-context";
 import { createClientLogger } from "@/core/logging/client";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { mergeBuiltinAndManual } from "@/lib/channels/merge-catalog";
@@ -14,6 +15,7 @@ import {
 } from "@/lib/channels/manual-channels-store";
 import {
   fetchPlaylistCatalogFromApi,
+  fetchPlaylistCatalogMetaFromApi,
   refreshPlaylistCatalogOnServer,
 } from "@/lib/playlists/server-catalog-api";
 import { syncChannelRegistry } from "@/features/health/registry-sync";
@@ -22,11 +24,16 @@ import { subscribeCatalogCleared } from "@/lib/channels/catalog-events";
 const log = createClientLogger("features.iptv.catalogBootstrap");
 
 export function useCatalogBootstrap(source: BuiltinPlaylistSource) {
+  const { ready: authReady } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [baseChannels, setBaseChannels] = useState<M3uChannel[]>([]);
   const [catalogLoaded, setCatalogLoaded] = useState(false);
+  const [channelsHydrated, setChannelsHydrated] = useState(false);
   const [manualEpoch, setManualEpoch] = useState(0);
+  const [serverChannelCount, setServerChannelCount] = useState<number | null>(
+    null,
+  );
 
   useEffect(() => subscribeManualChannels(() => setManualEpoch((n) => n + 1)), []);
 
@@ -34,12 +41,13 @@ export function useCatalogBootstrap(source: BuiltinPlaylistSource) {
     () =>
       subscribeCatalogCleared(() => {
         setBaseChannels([]);
+        setServerChannelCount(0);
+        setChannelsHydrated(true);
         setCatalogLoaded(true);
       }),
     [],
   );
 
-  /** Restore manual streams from server once (also mirrors into localStorage). */
   useEffect(() => {
     void hydrateManualChannelsFromApiOnce();
   }, []);
@@ -51,28 +59,56 @@ export function useCatalogBootstrap(source: BuiltinPlaylistSource) {
     return mergeBuiltinAndManual(baseChannels, manual);
   }, [baseChannels, manualEpoch]);
 
-  const channelCount = catalogLoaded
-    ? baseChannels.length + getManualChannelCount()
-    : null;
+  const channelCount =
+    serverChannelCount != null
+      ? serverChannelCount
+      : catalogLoaded
+        ? baseChannels.length + getManualChannelCount()
+        : null;
 
-  const reloadFromCache = useCallback(async () => {
-    const server = await fetchPlaylistCatalogFromApi(source.presetId);
-    setBaseChannels(server.channels);
+  const loadMeta = useCallback(async () => {
+    const meta = await fetchPlaylistCatalogMetaFromApi(source.presetId);
+    setServerChannelCount(meta.channelCount);
     setCatalogLoaded(true);
+    return meta;
   }, [source.presetId]);
 
+  const hydrateFullCatalog = useCallback(async () => {
+    const server = await fetchPlaylistCatalogFromApi(source.presetId);
+    setBaseChannels(server.channels);
+    if (server.channels.length > 0) {
+      setServerChannelCount(
+        server.channels.length + getManualChannelCount(),
+      );
+    }
+    setChannelsHydrated(true);
+    return server;
+  }, [source.presetId]);
+
+  /** Meta first (milliseconds) — full JSON only when a screen needs channel rows. */
   useEffect(() => {
+    if (!authReady) return;
     let cancelled = false;
     void (async () => {
-      const server = await fetchPlaylistCatalogFromApi(source.presetId);
+      let meta = await loadMeta();
       if (cancelled) return;
-      setBaseChannels(server.channels);
-      setCatalogLoaded(true);
+      if (meta.channelCount === 0) {
+        await new Promise((r) => setTimeout(r, 400));
+        if (cancelled) return;
+        meta = await loadMeta();
+      }
+      if (meta.channelCount > 0) {
+        void hydrateFullCatalog().catch(() => {
+          if (!cancelled) setChannelsHydrated(true);
+        });
+      } else {
+        setChannelsHydrated(true);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [source.presetId]);
+  }, [authReady, loadMeta, hydrateFullCatalog]);
 
   useEffect(() => {
     if (channels.length === 0) return;
@@ -82,22 +118,33 @@ export function useCatalogBootstrap(source: BuiltinPlaylistSource) {
     return () => clearTimeout(timer);
   }, [channels, source.presetId]);
 
+  const reloadFromCache = useCallback(async () => {
+    const meta = await loadMeta();
+    if (meta.channelCount > 0) {
+      await hydrateFullCatalog();
+    } else {
+      setBaseChannels([]);
+      setChannelsHydrated(true);
+    }
+  }, [loadMeta, hydrateFullCatalog]);
+
   const refreshCatalog = useCallback(async () => {
     setBusy(true);
     setError(null);
     try {
       await refreshPlaylistCatalogOnServer(source.presetId);
-      const { channels: parsed, updatedAt } = await fetchPlaylistCatalogFromApi(
-        source.presetId,
-      );
+      const meta = await loadMeta();
+      if (meta.channelCount === 0) {
+        throw new Error("No channels after refresh — check server logs.");
+      }
+      const { channels: parsed } = await hydrateFullCatalog();
       if (parsed.length === 0) {
         throw new Error("No channels after refresh — check server logs.");
       }
 
-      setBaseChannels(parsed);
-      log.info("Catalog persisted (server + IndexedDB mirror)", {
+      log.info("Catalog persisted (server)", {
         presetId: source.presetId,
-        channelCount: parsed.length,
+        channelCount: meta.channelCount,
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to load catalog";
@@ -109,10 +156,11 @@ export function useCatalogBootstrap(source: BuiltinPlaylistSource) {
     } finally {
       setBusy(false);
       setCatalogLoaded(true);
+      setChannelsHydrated(true);
     }
-  }, [source]);
+  }, [source, loadMeta, hydrateFullCatalog]);
 
-  const registered = baseChannels.length > 0;
+  const registered = (serverChannelCount ?? 0) > 0 || baseChannels.length > 0;
 
   const manualChannelCount = useMemo(() => getManualChannelCount(), [manualEpoch]);
 
@@ -120,11 +168,11 @@ export function useCatalogBootstrap(source: BuiltinPlaylistSource) {
     busy,
     error,
     channelCount,
-    /** Built-in index only (before your manual streams). */
     builtinChannelCount: baseChannels.length,
     manualChannelCount,
     channels,
     catalogLoaded,
+    channelsHydrated,
     registered,
     refreshCatalog,
     reloadFromCache,

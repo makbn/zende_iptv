@@ -5,6 +5,7 @@ import {
   type StoredManualChannelEntry,
 } from "@/lib/channels/manual-channels-policy";
 import { invalidateXtreamCatalogCache } from "@/lib/iptv/aggregated-channels";
+import { invalidateLibraryCatalogCache } from "@/lib/library/catalog";
 import { prisma } from "@/lib/db/prisma";
 
 const MANUAL_STORE_ID = 1;
@@ -27,4 +28,5 @@ export async function saveManualChannelRows(rows: StoredManualChannelEntry[]): P
     update: { entriesJson: JSON.stringify(rows) },
   });
   invalidateXtreamCatalogCache();
+  invalidateLibraryCatalogCache();
 }

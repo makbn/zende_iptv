@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   startTransition,
   useCallback,
@@ -10,10 +10,10 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
-import { Search, X } from "lucide-react";
+import { Search, Loader2, X } from "lucide-react";
 
 import { MobileChannelCard } from "@/components/mobile/mobile-channel-card";
-import { SeriesEpisodeSheet } from "@/components/library/series-episode-sheet";
+import { LibraryResultsShell } from "@/components/library/library-results-shell";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
@@ -22,7 +22,9 @@ import {
   useLibraryCatalog,
   type LibraryContentTab,
 } from "@/features/iptv/use-library-catalog";
+import { useLibrarySearch } from "@/features/iptv/use-library-search";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
+import { showPageHrefFromChannel } from "@/lib/navigation/show-page";
 import { isXtreamSeriesContainer } from "@/lib/channels/content-type";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { cn } from "@/lib/utils";
@@ -32,63 +34,44 @@ const PAGE_STEP = 60;
 
 export function MobileLibraryPage() {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { openChannel: playStream, navError, clearNavError } = useWatchNavigation();
-  const [seriesPicker, setSeriesPicker] = useState<M3uChannel | null>(null);
 
   const openChannel = useCallback(
     (ch: M3uChannel) => {
       if (isXtreamSeriesContainer(ch)) {
-        setSeriesPicker(ch);
-        return;
+        const href = showPageHrefFromChannel(ch);
+        if (href) {
+          router.push(href);
+          return;
+        }
       }
       playStream(ch);
     },
-    [playStream],
+    [playStream, router],
   );
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const {
+    draftQuery,
+    setDraftQuery,
+    appliedQuery,
+    clearSearch,
+    isSearchPending,
+  } = useLibrarySearch(searchInputRef);
 
-  const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
   const [languageFilter, setLanguageFilter] = useState<string | null>(null);
   const [contentTab, setContentTab] = useState<LibraryContentTab>("all");
   const [visibleCount, setVisibleCount] = useState(PAGE_STEP);
 
-  useEffect(() => {
-    queueMicrotask(() => setQuery(searchParams.get("q") ?? ""));
-  }, [searchParams]);
-
-  const skipInitialUrlSync = useRef(true);
-
-  useEffect(() => {
-    const id = window.setTimeout(() => {
-      if (skipInitialUrlSync.current) {
-        skipInitialUrlSync.current = false;
-        return;
-      }
-      const trimmed = query.trim();
-      const current =
-        new URLSearchParams(window.location.search).get("q") ?? "";
-      if (trimmed === current) return;
-      const next = new URLSearchParams();
-      if (trimmed) next.set("q", trimmed);
-      const value = next.toString();
-      router.replace(value ? `${pathname}?${value}` : pathname, {
-        scroll: false,
-      });
-    }, 350);
-    return () => window.clearTimeout(id);
-  }, [query, pathname, router]);
-
-  const { channels, total, facets, loading, hasMore } = useLibraryCatalog({
+  const { channels, total, facets, loading, refreshing, hasMore } = useLibraryCatalog({
     presetId: source.presetId,
     contentTab,
-    query,
+    query: appliedQuery,
     groupFilter,
     languageFilter,
     limit: visibleCount,
   });
+  const resultsBusy = loading || refreshing || isSearchPending;
   const { getScoreForChannel } = useChannelHealthLookup(channels);
 
   const groupOptions = useMemo(
@@ -107,18 +90,20 @@ export function MobileLibraryPage() {
 
   useEffect(() => {
     startTransition(() => setVisibleCount(PAGE_STEP));
-  }, [query, groupFilter, languageFilter]);
+  }, [appliedQuery, groupFilter, languageFilter]);
 
   const visible = channels;
   const filteredCount = total;
-  const activeFilters = Boolean(query.trim() || groupFilter || languageFilter);
+  const activeFilters = Boolean(
+    appliedQuery.trim() || groupFilter || languageFilter,
+  );
 
   const onSearchKeyDown = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape") {
-      setQuery("");
+      clearSearch();
       searchInputRef.current?.blur();
     }
-  }, []);
+  }, [clearSearch]);
 
   return (
     <main className="min-h-screen bg-[var(--tv-page-bg)] pb-28 pt-[5.35rem] text-foreground">
@@ -146,7 +131,11 @@ export function MobileLibraryPage() {
             </div>
             <span className="shrink-0 rounded-lg border border-white/[0.08] bg-black/30 px-2 py-1 text-[10px] text-white/48 ring-1 ring-white/[0.03]">
               <span className="font-semibold tabular-nums text-white/88">
-                {loading ? "…" : total.toLocaleString()}
+                {resultsBusy ? (
+                  <Loader2 className="inline size-3 animate-spin" aria-hidden />
+                ) : (
+                  total.toLocaleString()
+                )}
               </span>{" "}
               {contentTab === "movie"
                 ? "movies"
@@ -205,15 +194,15 @@ export function MobileLibraryPage() {
               role="searchbox"
               placeholder="Search channels"
               autoComplete="off"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              value={draftQuery}
+              onChange={(event) => setDraftQuery(event.target.value)}
               onKeyDown={onSearchKeyDown}
               className="h-12 w-full rounded-[20px] border border-white/[0.11] bg-black/35 pl-11 pr-11 text-[16px] text-white outline-none placeholder:text-white/34 focus-visible:ring-2 focus-visible:ring-white/35"
             />
-            {query ? (
+            {draftQuery ? (
               <button
                 type="button"
-                onClick={() => setQuery("")}
+                onClick={() => clearSearch()}
                 className="absolute right-2 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-2xl text-white/55 outline-none active:bg-white/10 focus-visible:ring-2 focus-visible:ring-white"
                 aria-label="Clear search"
               >
@@ -283,6 +272,7 @@ export function MobileLibraryPage() {
         </ZenedeGlass>
       </section>
 
+      <LibraryResultsShell busy={resultsBusy} label={isSearchPending ? "Searching…" : "Updating results…"}>
       <section className="mt-5 px-4" aria-live="polite">
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
@@ -304,7 +294,7 @@ export function MobileLibraryPage() {
             <button
               type="button"
               onClick={() => {
-                setQuery("");
+                clearSearch();
                 setGroupFilter(null);
                 setLanguageFilter(null);
               }}
@@ -327,7 +317,7 @@ export function MobileLibraryPage() {
           ))}
         </div>
 
-        {!loading && visible.length === 0 ? (
+        {!resultsBusy && visible.length === 0 ? (
           <div className="rounded-[26px] border border-white/[0.08] bg-white/[0.04] p-5 text-[14px] leading-relaxed text-white/48">
             {contentTab === "movie"
               ? "No on-demand movies found. Re-import your Xtream account in Settings — Movies are VOD files, not live movie channels."
@@ -347,17 +337,8 @@ export function MobileLibraryPage() {
           </button>
         ) : null}
       </section>
+      </LibraryResultsShell>
 
-      {seriesPicker ? (
-        <SeriesEpisodeSheet
-          channel={seriesPicker}
-          onClose={() => setSeriesPicker(null)}
-          onPlayEpisode={(ep) => {
-            setSeriesPicker(null);
-            playStream(ep);
-          }}
-        />
-      ) : null}
       {navError && <NavErrorBanner message={navError} onDismiss={clearNavError} />}
     </main>
   );

@@ -21,6 +21,21 @@ type CredentialRow = {
   ownerUsername?: string | null;
 };
 
+type HdhrInfo = {
+  enabled: boolean;
+  deviceAddress: string | null;
+  friendlyName: string;
+  deviceId: string;
+  tunerCount: number;
+  channelCount: number;
+  maxChannels: number | null;
+  endpoints: {
+    discover: string;
+    lineup: string;
+    epg: string;
+  } | null;
+};
+
 async function parseJsonSafely(res: Response): Promise<unknown> {
   try {
     return await res.json();
@@ -41,6 +56,7 @@ export function TvSettingsIntegrationsPanel() {
     portalUsername: string;
     portalPassword: string;
   } | null>(null);
+  const [hdhr, setHdhr] = useState<HdhrInfo | null>(null);
 
   const portalBaseUrl = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -79,6 +95,19 @@ export function TvSettingsIntegrationsPanel() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await zendeFetch("/api/hdhr/info");
+        if (!res.ok) return;
+        const data = (await parseJsonSafely(res)) as HdhrInfo;
+        if (typeof data?.enabled === "boolean") setHdhr(data);
+      } catch {
+        /* optional panel */
+      }
+    })();
+  }, []);
 
   const onCreate = useCallback(async () => {
     setCreateBusy(true);
@@ -203,6 +232,98 @@ export function TvSettingsIntegrationsPanel() {
           </li>
         </ul>
       </section>
+
+      {hdhr?.enabled && hdhr.deviceAddress ? (
+        <section
+          className={cn(
+            "rounded-2xl border border-white/[0.1] bg-white/[0.04] p-6 ring-1 ring-white/[0.04]",
+          )}
+          aria-labelledby="plex-dvr-heading"
+        >
+          <h2 id="plex-dvr-heading" className="text-[18px] font-semibold text-white">
+            Plex DVR (HDHomeRun)
+          </h2>
+          <p className="mt-2 text-[15px] leading-relaxed text-white/50">
+            Zenede emulates an{" "}
+            <span className="text-white/70">HDHomeRun tuner</span> (same model as{" "}
+            <a
+              href="https://github.com/Threadfin/Threadfin"
+              className="text-emerald-300/90 underline decoration-emerald-400/30 underline-offset-2 hover:text-emerald-200"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Threadfin
+            </a>
+            ) so Plex can use your live catalog as a DVR source. Movies and series stay in the
+            Zenede library — Plex DVR is for live channels only.
+          </p>
+
+          <dl className="mt-5 grid gap-3 text-[14px] sm:grid-cols-2">
+            <div className="rounded-xl border border-white/[0.08] bg-black/25 px-4 py-3">
+              <dt className="text-white/45">Device address (Plex)</dt>
+              <dd className="mt-1 break-all font-mono text-[13px] text-emerald-200/95">
+                {hdhr.deviceAddress}
+              </dd>
+            </div>
+            <div className="rounded-xl border border-white/[0.08] bg-black/25 px-4 py-3">
+              <dt className="text-white/45">Tuners · channels</dt>
+              <dd className="mt-1 text-white/75">
+                {hdhr.tunerCount} tuner{hdhr.tunerCount === 1 ? "" : "s"} ·{" "}
+                {hdhr.channelCount.toLocaleString()} live channel
+                {hdhr.channelCount === 1 ? "" : "s"}
+                {hdhr.maxChannels != null
+                  ? ` (capped at ${hdhr.maxChannels.toLocaleString()})`
+                  : ""}
+              </dd>
+            </div>
+          </dl>
+
+          <ol className="mt-5 list-decimal space-y-2 pl-5 text-[14px] text-white/45">
+            <li>
+              Plex → <span className="text-white/65">Settings → Live TV &amp; DVR → DVR</span> →
+              add tuner → <span className="text-white/65">HDHomeRun</span>.
+            </li>
+            <li>
+              Enter the device address above (host + port only, no path).
+            </li>
+            <li>
+              Optional EPG: add XMLTV guide URL{" "}
+              <span className="font-mono text-[12px] text-white/55">
+                {hdhr.endpoints?.epg ?? `${portalBaseUrl}/hdhr/epg.xml`}
+              </span>
+            </li>
+          </ol>
+
+          {hdhr.channelCount > 10_000 ? (
+            <p className="mt-4 rounded-lg border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-[13px] text-amber-100/90">
+              Very large lineups can overwhelm Plex. Set{" "}
+              <span className="font-mono text-[12px]">ZENDE_HDHR_MAX_CHANNELS</span> in Docker env
+              to export a subset if setup hangs.
+            </p>
+          ) : null}
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => copy(hdhr.deviceAddress!)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.1] bg-black/30 px-3 py-2 text-[13px] text-white/75 outline-none hover:bg-white/[0.06]"
+            >
+              <Copy className="h-3.5 w-3.5" aria-hidden />
+              Copy device address
+            </button>
+            {hdhr.endpoints?.epg ? (
+              <button
+                type="button"
+                onClick={() => copy(hdhr.endpoints!.epg)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.1] bg-black/30 px-3 py-2 text-[13px] text-white/75 outline-none hover:bg-white/[0.06]"
+              >
+                <Copy className="h-3.5 w-3.5" aria-hidden />
+                Copy EPG URL
+              </button>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       <section
         className={cn(

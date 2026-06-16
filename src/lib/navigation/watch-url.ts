@@ -2,14 +2,33 @@ import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { readUnwrapPublicCorsProxyUrlsPref } from "@/lib/stream/unwrap-public-cors-proxy-pref";
 import type { PlaybackMode } from "@/lib/stream/playback-url";
+import type { PlaybackSessionMeta } from "@/lib/playback/stream-session-meta";
+
+export type WatchSessionMeta = {
+  title: string;
+  logo: string | null;
+  group: string | null;
+  /** Same-origin path — pass to `StreamPlayer` / `<video>`. */
+  playbackUrl: string;
+  /** Original upstream URL — stats / frequent ring only (not in address bar). */
+  canonicalUrl: string;
+  /** How the player should attach (HLS vs direct file). */
+  playbackMode?: PlaybackMode;
+  /** VOD duration + episode navigation context. */
+  playback?: PlaybackSessionMeta;
+};
+
+export type CreateWatchInput = Pick<M3uChannel, "url" | "name"> &
+  Partial<Pick<M3uChannel, "tvgLogo" | "groupTitle">> & {
+    playback?: PlaybackSessionMeta;
+  };
 
 /**
  * Creates a server-side stream session and returns `/watch?id=…`
  * (opaque id — no upstream URL in the browser location bar).
  */
 export async function createWatchUrl(
-  channel: Pick<M3uChannel, "url" | "name"> &
-    Partial<Pick<M3uChannel, "tvgLogo" | "groupTitle">>,
+  channel: CreateWatchInput,
   opts?: {
     /** Pre-seed cookie jar for gated streams (name → value, scoped to stream origin). */
     cookies?: Record<string, string>;
@@ -23,6 +42,7 @@ export async function createWatchUrl(
       title: channel.name?.trim() || "Live",
       logo: channel.tvgLogo,
       group: channel.groupTitle,
+      meta: channel.playback,
       unwrapPublicCorsProxyUrls: readUnwrapPublicCorsProxyUrlsPref(),
       ...(opts?.cookies ? { cookies: opts.cookies } : {}),
     }),
@@ -39,18 +59,6 @@ export async function createWatchUrl(
   if (!body.id) throw new Error("Could not start playback.");
   return `/watch?id=${encodeURIComponent(body.id)}`;
 }
-
-export type WatchSessionMeta = {
-  title: string;
-  logo: string | null;
-  group: string | null;
-  /** Same-origin path — pass to `StreamPlayer` / `<video>`. */
-  playbackUrl: string;
-  /** Original upstream URL — stats / frequent ring only (not in address bar). */
-  canonicalUrl: string;
-  /** How the player should attach (HLS vs direct file). */
-  playbackMode?: PlaybackMode;
-};
 
 export async function fetchWatchSessionMeta(
   sessionId: string,
@@ -73,6 +81,7 @@ export async function fetchWatchSessionMeta(
     playbackUrl: body.playbackUrl,
     canonicalUrl: body.canonicalUrl,
     playbackMode: body.playbackMode,
+    playback: body.playback,
   };
 }
 
@@ -97,5 +106,6 @@ export async function fetchRecordingWatchMeta(
     playbackUrl: body.playbackUrl,
     canonicalUrl: body.canonicalUrl,
     playbackMode: body.playbackMode,
+    playback: body.playback,
   };
 }

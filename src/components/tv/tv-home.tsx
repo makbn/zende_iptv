@@ -13,6 +13,7 @@ import { createClientLogger } from "@/core/logging/client";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { useChannelHealthLookup } from "@/features/health/use-channel-health";
 import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
+import { useLibraryCatalog } from "@/features/iptv/use-library-catalog";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
@@ -45,19 +46,43 @@ export function TvHome() {
   const { openChannel, navError, clearNavError } = useWatchNavigation();
   const catalog = useCatalogBootstrap(source);
 
-  const {
-    channels,
-    busy,
-    channelCount,
-    refreshCatalog,
-    catalogLoaded,
-  } = catalog;
+  const discoverCatalog = useLibraryCatalog({
+    presetId: source.presetId,
+    contentTab: "all",
+    query: "",
+    groupFilter: null,
+    languageFilter: null,
+    limit: 36,
+  });
 
-  const { getScoreForChannel } = useChannelHealthLookup(channels);
+  const {
+    channelCount,
+    catalogLoaded,
+    busy,
+    refreshCatalog,
+  } = catalog;
 
   const [statsEpoch, setStatsEpoch] = useState(0);
 
   useEffect(() => subscribeViewingStats(() => setStatsEpoch((n) => n + 1)), []);
+
+  const shelfChannels = useMemo(() => {
+    void statsEpoch;
+    const recent = dedupeChannels(
+      listRecentPlayback(18).map((e) => viewingEntryToChannel(e, [])),
+    );
+    const recentUrls = new Set(recent.map((c) => c.url));
+    const frequent = dedupeChannels(
+      listTopByPlayCount(18)
+        .map((e) => viewingEntryToChannel(e, []))
+        .filter((c) => !recentUrls.has(c.url)),
+    );
+    const skip = new Set([...recent, ...frequent].map((c) => c.url));
+    const discover = discoverCatalog.channels.filter((c) => !skip.has(c.url));
+    return dedupeChannels([...recent, ...frequent, ...discover]);
+  }, [statsEpoch, discoverCatalog.channels]);
+
+  const { getScoreForChannel } = useChannelHealthLookup(shelfChannels);
 
   useEffect(() => {
     if (!catalogLoaded) return;
@@ -85,31 +110,31 @@ export function TvHome() {
   const recentChannels = useMemo(() => {
     void statsEpoch;
     const entries = listRecentPlayback(18);
-    const mapped = entries.map((e) => viewingEntryToChannel(e, channels));
+    const mapped = entries.map((e) => viewingEntryToChannel(e, shelfChannels));
     return dedupeChannels(mapped);
-  }, [channels, statsEpoch]);
+  }, [shelfChannels, statsEpoch]);
 
   const frequentChannels = useMemo(() => {
     void statsEpoch;
     const entries = listTopByPlayCount(18);
-    const mapped = entries.map((e) => viewingEntryToChannel(e, channels));
+    const mapped = entries.map((e) => viewingEntryToChannel(e, shelfChannels));
     const recentUrls = new Set(recentChannels.map((c) => c.url));
     return dedupeChannels(mapped.filter((c) => !recentUrls.has(c.url)));
-  }, [channels, statsEpoch, recentChannels]);
+  }, [shelfChannels, statsEpoch, recentChannels]);
 
   const featured = useMemo(() => {
     void statsEpoch;
     const recentFirst = listRecentPlayback(1)[0];
     if (recentFirst) {
-      return viewingEntryToChannel(recentFirst, channels);
+      return viewingEntryToChannel(recentFirst, shelfChannels);
     }
     const top = listTopByPlayCount(1)[0];
     if (top) {
-      return viewingEntryToChannel(top, channels);
+      return viewingEntryToChannel(top, shelfChannels);
     }
-    const withLogo = channels.find((c) => c.tvgLogo);
-    return withLogo ?? channels[0];
-  }, [channels, statsEpoch]);
+    const withLogo = shelfChannels.find((c) => c.tvgLogo);
+    return withLogo ?? shelfChannels[0];
+  }, [shelfChannels, statsEpoch]);
 
   const hero = useMemo(() => {
     if (!featured) {
@@ -156,19 +181,10 @@ export function TvHome() {
       ...recentChannels.map((c) => c.url),
       ...frequentChannels.map((c) => c.url),
     ]);
-    const picked: typeof channels = [];
-    for (const c of channels) {
-      if (picked.length >= 36) break;
-      if (!skip.has(c.url)) picked.push(c);
-    }
-    if (picked.length < 12) {
-      for (const c of channels) {
-        if (picked.length >= 36) break;
-        if (!picked.some((p) => p.url === c.url)) picked.push(c);
-      }
-    }
-    return picked;
-  }, [channels, recentChannels, frequentChannels]);
+    return discoverCatalog.channels
+      .filter((c) => !skip.has(c.url))
+      .slice(0, 36);
+  }, [discoverCatalog.channels, recentChannels, frequentChannels]);
 
   if (!catalogLoaded) {
     return (

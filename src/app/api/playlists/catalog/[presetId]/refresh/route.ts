@@ -8,6 +8,7 @@ import { createServerLogger } from "@/core/logging/server";
 import { parseM3u } from "@/core/playlist/m3u-parse";
 import { gateApiRequest } from "@/lib/auth/gate-api";
 import { invalidateXtreamCatalogCache } from "@/lib/iptv/aggregated-channels";
+import { invalidateLibraryCatalogCache } from "@/lib/library/catalog";
 import { prisma } from "@/lib/db/prisma";
 
 export const runtime = "nodejs";
@@ -78,6 +79,7 @@ export async function POST(
       },
     });
     invalidateXtreamCatalogCache();
+    invalidateLibraryCatalogCache();
 
     const row = await prisma.playlistCatalogCache.findUniqueOrThrow({
       where: { presetId },

@@ -9,6 +9,11 @@ import { getProxyForChannel, ProxyNotReadyError } from "@/lib/proxies/proxy-stor
 import { applyPublicCorsProxyUnwrap } from "@/lib/stream/public-cors-proxy-url";
 import { normalizeXtreamLivePlaybackUrl } from "@/lib/stream/playback-url";
 import { redactStreamUrlForLog } from "@/lib/stream/redact-stream-url";
+import {
+  inferContentKindFromUrl,
+  resolvePlaybackDurationSeconds,
+} from "@/lib/playback/resolve-duration";
+import type { PlaybackSessionMeta } from "@/lib/playback/stream-session-meta";
 import { createStreamSession } from "@/lib/stream/stream-session-store";
 
 export const runtime = "nodejs";
@@ -30,6 +35,18 @@ const bodySchema = z.object({
    * cookies extracted from a browser DevTools session. Name → value.
    */
   cookies: z.record(z.string(), z.string()).optional(),
+  meta: z
+    .object({
+      contentKind: z.enum(["live", "movie", "episode"]).optional(),
+      durationSeconds: z.number().positive().optional(),
+      seriesId: z.string().max(64).optional(),
+      seriesTitle: z.string().max(512).optional(),
+      season: z.string().max(16).optional(),
+      episodeNum: z.string().max(16).optional(),
+      episodeTitle: z.string().max(512).optional(),
+      episodeIndex: z.number().int().min(0).optional(),
+    })
+    .optional(),
 });
 
 /**
@@ -106,6 +123,16 @@ export async function POST(request: Request) {
 
   try {
     const started = Date.now();
+    let meta: PlaybackSessionMeta = parsed.data.meta ?? {};
+    if (!meta.contentKind) {
+      const inferred = inferContentKindFromUrl(upstream.href);
+      if (inferred) meta = { ...meta, contentKind: inferred };
+    }
+    const resolvedDuration = await resolvePlaybackDurationSeconds(upstream.href, meta);
+    if (resolvedDuration && !meta.durationSeconds) {
+      meta = { ...meta, durationSeconds: resolvedDuration };
+    }
+
     const id = await createStreamSession({
       upstreamRootUrl: upstream.href,
       title: (parsed.data.title ?? "").trim() || "Live",
@@ -113,6 +140,7 @@ export async function POST(request: Request) {
       group: parsed.data.group?.trim() || undefined,
       cookies: parsed.data.cookies,
       proxyConfig: proxyConfig ?? undefined,
+      meta,
     });
     log.info("Stream session created", {
       sessionId: id,

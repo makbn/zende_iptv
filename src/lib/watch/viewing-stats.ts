@@ -208,3 +208,12 @@ export function removeViewingEntry(url: string): void {
   notifyViewingStatsUpdated();
   serverRemoveEntry(url);
 }
+
+/** Clear recently watched and play-count history on this device and server. */
+export async function clearViewingHistory(): Promise<void> {
+  writeStore({ entries: [] });
+  notifyViewingStatsUpdated();
+  await zendeFetch("/api/user/history?all=1", { method: "DELETE" }).catch(
+    () => {/* best-effort */},
+  );
+}

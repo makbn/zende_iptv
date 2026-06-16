@@ -5,6 +5,7 @@ import { withApiLogging } from "@/core/logging/api-log";
 import { gateApiRequest } from "@/lib/auth/gate-api";
 import { fetchXtreamSeriesInfo } from "@/lib/iptv/xtream-client";
 import { loadXtreamPortalCredentials } from "@/lib/iptv/xtream-portal-store";
+import { parseXtreamDurationSeconds } from "@/lib/playback/stream-session-meta";
 import type { XtreamSeriesEpisode } from "@/lib/iptv/xtream-types";
 import {
   buildXtreamEpisodeUrl,
@@ -25,7 +26,18 @@ export type SeriesEpisodeRow = {
   episodeNum: string;
   title: string;
   playUrl: string;
+  durationSeconds?: number;
 };
+
+function episodeDurationSeconds(ep: XtreamSeriesEpisode): number | undefined {
+  const fromInfo = parseXtreamDurationSeconds(ep.info);
+  if (fromInfo) return fromInfo;
+  if (typeof ep.duration === "number" && ep.duration > 0) return ep.duration;
+  if (typeof ep.duration === "string" && /^\d+$/.test(ep.duration.trim())) {
+    return Number.parseInt(ep.duration.trim(), 10);
+  }
+  return undefined;
+}
 
 function flattenEpisodes(
   episodes: Record<string, XtreamSeriesEpisode[]> | undefined,
@@ -42,6 +54,7 @@ function flattenEpisodes(
         episodeNum: String(ep.episode_num ?? ""),
         title: String(ep.title ?? `Episode ${ep.id}`),
         playUrl,
+        ...(episodeDurationSeconds(ep) ? { durationSeconds: episodeDurationSeconds(ep) } : {}),
       });
     }
   }

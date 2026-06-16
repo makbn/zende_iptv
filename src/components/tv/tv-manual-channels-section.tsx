@@ -597,7 +597,7 @@ export function TvManualChannelsSection() {
             type="text"
             value={xtreamHost}
             onChange={(e) => setXtreamHost(e.target.value)}
-            placeholder="http://cf.listaiptv.net"
+            placeholder="http://example.com"
             className={cn(inputClass, "mt-0")}
           />
           <input

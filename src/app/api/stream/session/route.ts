@@ -8,6 +8,7 @@ import { hashStreamUrl } from "@/lib/health/url-hash";
 import { getProxyForChannel, ProxyNotReadyError } from "@/lib/proxies/proxy-store";
 import { applyPublicCorsProxyUnwrap } from "@/lib/stream/public-cors-proxy-url";
 import { normalizeXtreamLivePlaybackUrl } from "@/lib/stream/playback-url";
+import { redactStreamUrlForLog } from "@/lib/stream/redact-stream-url";
 import { createStreamSession } from "@/lib/stream/stream-session-store";
 
 export const runtime = "nodejs";
@@ -62,8 +63,8 @@ export async function POST(request: Request) {
   const normalizedUrl = normalizeXtreamLivePlaybackUrl(resolvedUrl);
   if (normalizedUrl !== resolvedUrl) {
     log.info("Rewrote live .ts URL to .m3u8 for browser playback", {
-      from: resolvedUrl.slice(0, 120),
-      to: normalizedUrl.slice(0, 120),
+      from: redactStreamUrlForLog(resolvedUrl),
+      to: redactStreamUrlForLog(normalizedUrl),
     });
   }
 
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
     upstream = new URL(normalizedUrl);
   } catch {
     log.warn("Session create rejected: invalid stream URL", {
-      rawUrlPreview: rawUrl.slice(0, 220),
+      rawUrlPreview: redactStreamUrlForLog(rawUrl),
     });
     return NextResponse.json({ error: "Invalid stream URL." }, { status: 400 });
   }

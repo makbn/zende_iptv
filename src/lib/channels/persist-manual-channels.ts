@@ -14,6 +14,7 @@ import {
   saveManualChannelRows,
 } from "@/lib/channels/manual-channels-db";
 import { isAllowedManualStreamUrl } from "@/lib/channels/manual-stream-url";
+import { redactStreamUrlForLog } from "@/lib/stream/redact-stream-url";
 
 const log = createServerLogger("lib.channels.persist");
 
@@ -44,7 +45,7 @@ export async function persistManualChannelsBatch(
       if (skippedInvalidUrl <= 3) {
         log.warn("persist skip: invalid url or name", {
           name: chNorm.name,
-          url: chNorm.url.slice(0, 120),
+          url: redactStreamUrlForLog(chNorm.url),
           contentType: chNorm.contentType,
         });
       }

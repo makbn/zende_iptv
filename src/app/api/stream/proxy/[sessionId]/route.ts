@@ -19,11 +19,20 @@ import {
   looksLikeHlsPlaylist,
   rewriteM3u8Playlist,
 } from "@/lib/stream/m3u8-rewrite";
-import { isOpenEndedLiveMpegTsUrl } from "@/lib/stream/playback-url";
+import {
+  isOpenEndedLiveMpegTsUrl,
+  isProgressiveMediaUrl,
+  shouldStreamProxyPassthrough,
+} from "@/lib/stream/playback-url";
+import { redactStreamUrlForLog } from "@/lib/stream/redact-stream-url";
 
 export const runtime = "nodejs";
 
 const log = createServerLogger("api.stream.proxy");
+
+function safeUrl(url: string): string {
+  return redactStreamUrlForLog(url);
+}
 
 // ─── circuit breaker ──────────────────────────────────────────────────────────
 
@@ -165,6 +174,13 @@ function forwardUpstreamHeaders(upstream: Response): Headers {
     const v = upstream.headers.get(k);
     if (v) h.set(k, v);
   }
+  return h;
+}
+
+function forwardPassthroughHeaders(upstream: Response): Headers {
+  const h = forwardUpstreamHeaders(upstream);
+  const len = upstream.headers.get("content-length");
+  if (len) h.set("content-length", len);
   return h;
 }
 
@@ -429,8 +445,8 @@ export async function GET(
     mode,
     hash: hParam ?? undefined,
     resourceKind: resourceKindFromUrl(fetchUrl),
-    fetchUrl,
-    referer: refererForProxiedFetch,
+    fetchUrl: safeUrl(fetchUrl),
+    referer: safeUrl(refererForProxiedFetch),
     refererSource: refererFromHash
       ? "aliasReferers"
       : session.lastRefererUrl?.trim()
@@ -458,7 +474,11 @@ export async function GET(
   if (!recordingRelay) {
     const cachedStatus = breakerStatus(sessionId, fetchUrl);
     if (cachedStatus !== null) {
-      log.debug("Circuit breaker: replaying cached status", { sessionId, fetchUrl, status: cachedStatus });
+      log.debug("Circuit breaker: replaying cached status", {
+        sessionId,
+        fetchUrl: safeUrl(fetchUrl),
+        status: cachedStatus,
+      });
       return new NextResponse(null, { status: cachedStatus });
     }
   }
@@ -476,7 +496,7 @@ export async function GET(
         recordingRelay,
         isRootBootstrap,
         usingProxy: Boolean(proxyAgent),
-        requestUrl: fetchUrl,
+        requestUrl: safeUrl(fetchUrl),
       });
     },
     onAttemptSuccess: (attempt, maxAttempts, elapsedMs, result) => {
@@ -488,9 +508,9 @@ export async function GET(
         maxAttempts,
         elapsedMs,
         status: result.response.status,
-        requestUrl: fetchUrl,
+        requestUrl: safeUrl(fetchUrl),
         effectiveUrl:
-          result.effectiveUrl !== fetchUrl ? result.effectiveUrl : undefined,
+          result.effectiveUrl !== fetchUrl ? safeUrl(result.effectiveUrl) : undefined,
         jarUpdated: result.jarUpdated,
       });
     },
@@ -515,7 +535,7 @@ export async function GET(
             : cause
               ? String(cause)
               : undefined,
-        requestUrl: fetchUrl,
+        requestUrl: safeUrl(fetchUrl),
       });
     },
   };
@@ -566,8 +586,8 @@ export async function GET(
     log.warn("Upstream fetch threw", {
       sessionId,
       mode,
-      fetchUrl,
-      referer: refererForProxiedFetch,
+      fetchUrl: safeUrl(fetchUrl),
+      referer: safeUrl(refererForProxiedFetch),
       usingProxy: session.proxyConfig
         ? `${session.proxyConfig.vpnType ?? "direct"} ${session.proxyConfig.host}:${session.proxyConfig.port}`
         : "none",
@@ -595,9 +615,9 @@ export async function GET(
       mode,
       hash: hParam ?? undefined,
       resourceKind: resourceKindFromUrl(fetchUrl),
-      requestUrl: fetchUrl,
-      effectiveUrl: effectiveUrl !== fetchUrl ? effectiveUrl : undefined,
-      referer: refererForProxiedFetch,
+      requestUrl: safeUrl(fetchUrl),
+      effectiveUrl: effectiveUrl !== fetchUrl ? safeUrl(effectiveUrl) : undefined,
+      referer: safeUrl(refererForProxiedFetch),
       refererSource: refererFromHash
         ? "aliasReferers"
         : session.lastRefererUrl?.trim()
@@ -620,20 +640,35 @@ export async function GET(
     return new NextResponse(null, { status: upstream.status });
   }
 
-  // Live `.ts` is an infinite MPEG-TS feed — buffering with arrayBuffer() hangs until timeout.
-  if (isRootBootstrap && isOpenEndedLiveMpegTsUrl(fetchUrl) && upstream.body) {
-    log.warn("live .ts bootstrap — streaming passthrough (prefer .m3u8 URLs)", {
-      sessionId,
+  // Live `.ts` / VOD files — stream body through (arrayBuffer() hangs or OOMs).
+  const ct = upstream.headers.get("content-type");
+  if (
+    upstream.body &&
+    shouldStreamProxyPassthrough({
+      request,
       fetchUrl,
+      isRootBootstrap,
+      upstreamStatus: upstream.status,
+      contentType: ct,
+    })
+  ) {
+    log.info("stream proxy passthrough", {
+      sessionId,
+      fetchUrl: safeUrl(fetchUrl),
+      status: upstream.status,
+      contentType: ct ?? "(none)",
+      range: request.headers.get("range") ?? undefined,
+      progressive: isProgressiveMediaUrl(fetchUrl),
     });
-    const h = forwardUpstreamHeaders(upstream);
-    if (!h.get("content-type")) h.set("content-type", "video/mp2t");
-    h.delete("content-length");
+    const h = forwardPassthroughHeaders(upstream);
+    if (!h.get("content-type")) {
+      if (isOpenEndedLiveMpegTsUrl(fetchUrl)) h.set("content-type", "video/mp2t");
+      else if (isProgressiveMediaUrl(fetchUrl)) h.set("content-type", "video/mp4");
+    }
     return new NextResponse(upstream.body, { status: upstream.status, headers: h });
   }
 
   const origin = getRequestOrigin(request);
-  const ct = upstream.headers.get("content-type");
   const buf = await upstream.arrayBuffer();
 
   if (looksLikeTsPacket(buf)) {
@@ -674,7 +709,7 @@ export async function GET(
     const hex = Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join(" ");
     log.info("Small binary response (possible AES key)", {
       sessionId,
-      fetchUrl,
+      fetchUrl: safeUrl(fetchUrl),
       byteLength: buf.byteLength,
       contentType: ct ?? "(none)",
       hex,
@@ -688,7 +723,7 @@ export async function GET(
     const firstByte = new Uint8Array(buf)[0];
     log.info("Binary response (segment)", {
       sessionId,
-      fetchUrl,
+      fetchUrl: safeUrl(fetchUrl),
       byteLength: buf.byteLength,
       contentType: ct ?? "(none)",
       // 0x47 = MPEG-TS sync byte; absent on AES-128 encrypted segments (expected).

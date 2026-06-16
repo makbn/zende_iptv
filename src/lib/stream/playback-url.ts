@@ -24,6 +24,33 @@ export function isOpenEndedLiveMpegTsUrl(url: string): boolean {
   }
 }
 
+/** Xtream VOD / episode files — must stream through, never buffer whole file. */
+export function isProgressiveMediaUrl(url: string): boolean {
+  try {
+    const u = new URL(url.trim());
+    if (/\/(movie|series)\//i.test(u.pathname)) return true;
+    return /\.(mp4|mkv|webm|m4v|mov|avi)(\?|$)/i.test(u.pathname);
+  } catch {
+    return /\/(movie|series)\//i.test(url) || /\.(mp4|mkv|webm|m4v|mov|avi)(\?|$)/i.test(url);
+  }
+}
+
+export function shouldStreamProxyPassthrough(input: {
+  request: Request;
+  fetchUrl: string;
+  isRootBootstrap: boolean;
+  upstreamStatus: number;
+  contentType: string | null;
+}): boolean {
+  if (input.isRootBootstrap && isOpenEndedLiveMpegTsUrl(input.fetchUrl)) return true;
+  if (isProgressiveMediaUrl(input.fetchUrl)) return true;
+  if (input.request.headers.get("range")) return true;
+  if (input.upstreamStatus === 206) return true;
+  const ct = input.contentType ?? "";
+  if (/^video\//i.test(ct)) return true;
+  return false;
+}
+
 export type PlaybackMode = "hls" | "mpegts" | "progressive";
 
 export function inferPlaybackModeFromUrl(url: string): PlaybackMode {

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createServerLogger } from "@/core/logging/server";
+import { redactStreamUrlForLog } from "@/lib/stream/redact-stream-url";
 import type {
   XtreamCategory,
   XtreamCategoryType,
@@ -40,13 +41,7 @@ function playerApiBase(creds: XtreamCredentials): string {
 }
 
 function redactXtreamUrl(url: string): string {
-  try {
-    const u = new URL(url);
-    if (u.searchParams.has("password")) u.searchParams.set("password", "***");
-    return u.toString();
-  } catch {
-    return url.replace(/password=[^&]+/i, "password=***");
-  }
+  return redactStreamUrlForLog(url);
 }
 
 async function xtreamRequest<T>(

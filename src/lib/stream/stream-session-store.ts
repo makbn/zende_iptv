@@ -4,6 +4,7 @@ import { createHash, randomBytes } from "crypto";
 
 import { createServerLogger } from "@/core/logging/server";
 import { normalizeXtreamLivePlaybackUrl } from "@/lib/stream/playback-url";
+import { redactStreamUrlForLog } from "@/lib/stream/redact-stream-url";
 import { prisma } from "@/lib/db/prisma";
 import type { ProxyAgent } from "undici";
 import { parseProxyConfigJson, type StoredProxyConfig } from "@/lib/proxies/proxy-store";
@@ -260,8 +261,8 @@ export async function createStreamSession(input: {
   const upstreamRootUrl = normalizeXtreamLivePlaybackUrl(input.upstreamRootUrl);
   if (upstreamRootUrl !== input.upstreamRootUrl) {
     log.info("Session upstream normalized ts→m3u8", {
-      from: input.upstreamRootUrl.slice(0, 120),
-      to: upstreamRootUrl.slice(0, 120),
+      from: redactStreamUrlForLog(input.upstreamRootUrl),
+      to: redactStreamUrlForLog(upstreamRootUrl),
     });
   }
 

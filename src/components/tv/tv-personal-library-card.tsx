@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
 import { clearAllFavorites } from "@/lib/favorites/favorites-store";
 import { clearViewingHistory } from "@/lib/watch/viewing-stats";
@@ -10,20 +11,15 @@ import { cn } from "@/lib/utils";
 export function TvPersonalLibraryCard() {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const resetPersonalData = useCallback(async () => {
-    if (
-      !confirm(
-        "Clear all recently watched channels and favorites? This cannot be undone.",
-      )
-    ) {
-      return;
-    }
     setBusy(true);
     setStatus(null);
     try {
       await Promise.all([clearViewingHistory(), clearAllFavorites()]);
       setStatus("Recently watched and favorites cleared.");
+      setConfirmOpen(false);
     } catch {
       setStatus("Could not clear everything — try again.");
     } finally {
@@ -45,16 +41,16 @@ export function TvPersonalLibraryCard() {
         Recently watched & favorites
       </h2>
       <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-white/50">
-        Home rows, Favorites, and Continue sections are built from your watch
-        history and saved channels. Reset them here without touching your
-        catalog or manual channels.
+        Home rows and Favorites are built from your watch history and saved
+        channels. Reset them here without touching your catalog or manual
+        channels.
       </p>
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <button
           type="button"
           disabled={busy}
-          onClick={() => void resetPersonalData()}
+          onClick={() => setConfirmOpen(true)}
           className="outline-none disabled:opacity-50"
         >
           <ZenedeGlass variant="heroSecondary" className="inline-block">
@@ -77,6 +73,19 @@ export function TvPersonalLibraryCard() {
           {status}
         </p>
       ) : null}
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Clear recently watched and favorites?"
+        description="This removes your watch history and saved channels on this account. It cannot be undone."
+        confirmLabel="Clear all"
+        destructive
+        busy={busy}
+        onConfirm={() => void resetPersonalData()}
+        onCancel={() => {
+          if (!busy) setConfirmOpen(false);
+        }}
+      />
     </section>
   );
 }

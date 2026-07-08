@@ -167,9 +167,12 @@ export function TvTopBar() {
   const compact = scrollY > 8;
 
   const homeActive = pathname === "/";
-  const libraryActive = pathname === "/library";
-  const favoritesActive = pathname === "/favorites";
-  const recordingsActive = pathname === "/recordings";
+  const libraryActive =
+    pathname === "/library" || pathname.startsWith("/library/");
+  const favoritesActive =
+    pathname === "/favorites" || pathname.startsWith("/favorites/");
+  const recordingsActive =
+    pathname === "/recordings" || pathname.startsWith("/recordings/");
 
   const navLink = (
     label: string,

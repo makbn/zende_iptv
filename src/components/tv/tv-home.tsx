@@ -8,6 +8,7 @@ import { ZenedeGlass } from "@/components/glass/zenede-glass";
 import { TvChannelTile } from "@/components/tv/tv-channel-tile";
 import { TvContentRow } from "@/components/tv/tv-content-row";
 import { TvHeroFeature } from "@/components/tv/tv-hero-feature";
+import { ZenedeLogoWave } from "@/components/loading/zenede-logo-wave";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { createClientLogger } from "@/core/logging/client";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
@@ -52,12 +53,14 @@ export function TvHome() {
     query: "",
     groupFilter: null,
     languageFilter: null,
-    limit: 36,
+    offset: 0,
+    pageSize: 36,
   });
 
   const {
     channelCount,
     catalogLoaded,
+    metaFailed,
     busy,
     refreshCatalog,
   } = catalog;
@@ -86,10 +89,11 @@ export function TvHome() {
 
   useEffect(() => {
     if (!catalogLoaded) return;
+    if (metaFailed) return;
     if ((channelCount ?? 0) === 0) {
       router.replace("/setup");
     }
-  }, [catalogLoaded, channelCount, router]);
+  }, [catalogLoaded, channelCount, metaFailed, router]);
 
   useEffect(() => {
     const scrollToHash = () => {
@@ -188,8 +192,25 @@ export function TvHome() {
 
   if (!catalogLoaded) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--tv-page-bg)] pt-20 text-white/45">
-        <p className="text-[15px] font-medium">Loading…</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[var(--tv-page-bg)] pt-20 text-white/45">
+        <ZenedeLogoWave size="md" />
+        <p className="sr-only">Loading</p>
+      </div>
+    );
+  }
+
+  if (metaFailed) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[var(--tv-page-bg)] px-6 pt-20 text-center text-white/55">
+        <p className="text-[15px] font-medium">Could not reach the catalog server.</p>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void refreshCatalog()}
+          className="rounded-xl bg-white px-5 py-2.5 text-[15px] font-semibold text-zinc-950 disabled:opacity-45"
+        >
+          {busy ? "Retrying…" : "Retry"}
+        </button>
       </div>
     );
   }

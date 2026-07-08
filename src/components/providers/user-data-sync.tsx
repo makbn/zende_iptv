@@ -17,6 +17,10 @@ export function UserDataSync() {
 
   useEffect(() => {
     if (!ready) return;
+    if (user === null) {
+      lastSyncKey.current = null;
+      return;
+    }
     // key: user id when auth enabled, "guest" when auth disabled
     const key = authEnabled ? (user?.id ?? null) : "guest";
     if (key === null) return; // auth enabled but not logged in yet

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   startTransition,
   useCallback,
@@ -26,12 +25,11 @@ import {
   useLibraryCatalog,
   type LibraryContentTab,
 } from "@/features/iptv/use-library-catalog";
+import { useLibraryContentTab } from "@/features/iptv/use-library-content-tab";
 import { useLibrarySearch } from "@/features/iptv/use-library-search";
 import { LibraryResultsShell } from "@/components/library/library-results-shell";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
-import { isXtreamSeriesContainer } from "@/lib/channels/content-type";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
-import { showPageHrefFromChannel } from "@/lib/navigation/show-page";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
 import { cn } from "@/lib/utils";
@@ -52,22 +50,7 @@ const VIEW_STORAGE = "zenede.libraryView";
 const PAGE_STEP = 200;
 
 export function TvLibraryPage() {
-  const router = useRouter();
-  const { openChannel: playStream, navError, clearNavError } = useWatchNavigation();
-
-  const openChannel = useCallback(
-    (ch: M3uChannel) => {
-      if (isXtreamSeriesContainer(ch)) {
-        const href = showPageHrefFromChannel(ch);
-        if (href) {
-          router.push(href);
-          return;
-        }
-      }
-      playStream(ch);
-    },
-    [playStream, router],
-  );
+  const { openChannel, navError, clearNavError } = useWatchNavigation();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const {
     draftQuery,
@@ -80,8 +63,8 @@ export function TvLibraryPage() {
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
   /** Lowercase language key from playlist `tvg-language` / `language` when present */
   const [languageFilter, setLanguageFilter] = useState<string | null>(null);
-  const [contentTab, setContentTab] = useState<LibraryContentTab>("all");
-  const [visibleCount, setVisibleCount] = useState(PAGE_STEP);
+  const { contentTab, setContentTab } = useLibraryContentTab();
+  const [offset, setOffset] = useState(0);
   const [view, setView] = useState<"posters" | "compact">(() => {
     if (typeof window === "undefined") return "posters";
     const v = sessionStorage.getItem(VIEW_STORAGE);
@@ -96,13 +79,14 @@ export function TvLibraryPage() {
     }
   }, [view]);
 
-  const { channels, total, facets, loading, refreshing, hasMore } = useLibraryCatalog({
+  const { channels, total, facets, loading, refreshing, error: catalogError, hasMore } = useLibraryCatalog({
     presetId: source.presetId,
     contentTab,
     query: appliedQuery,
     groupFilter,
     languageFilter,
-    limit: visibleCount,
+    offset,
+    pageSize: PAGE_STEP,
   });
   const resultsBusy = loading || refreshing || isSearchPending;
   const { getScoreForChannel } = useChannelHealthLookup(channels);
@@ -118,12 +102,12 @@ export function TvLibraryPage() {
     startTransition(() => {
       setGroupFilter(null);
       setLanguageFilter(null);
-      setVisibleCount(PAGE_STEP);
+      setOffset(0);
     });
   }, [contentTab]);
 
   useEffect(() => {
-    startTransition(() => setVisibleCount(PAGE_STEP));
+    startTransition(() => setOffset(0));
   }, [appliedQuery, groupFilter, languageFilter]);
 
   const visible = channels;
@@ -561,7 +545,7 @@ export function TvLibraryPage() {
                   <button
                     type="button"
                     onClick={() =>
-                      setVisibleCount((n) => n + PAGE_STEP)
+                      setOffset((n) => n + PAGE_STEP)
                     }
                     className="rounded-full border border-white/[0.14] bg-white/[0.06] px-8 py-3 text-[15px] font-semibold text-white outline-none transition-colors hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-white"
                   >
@@ -654,7 +638,7 @@ export function TvLibraryPage() {
                   <button
                     type="button"
                     onClick={() =>
-                      setVisibleCount((n) => n + PAGE_STEP)
+                      setOffset((n) => n + PAGE_STEP)
                     }
                     className="rounded-full border border-white/[0.14] bg-white/[0.06] px-8 py-3 text-[15px] font-semibold text-white outline-none transition-colors hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-white"
                   >
@@ -673,6 +657,9 @@ export function TvLibraryPage() {
           Third-party streams. You are responsible for content you access.
         </p>
       </footer>
+      {catalogError && (
+        <NavErrorBanner message={catalogError} onDismiss={() => {}} />
+      )}
       {navError && <NavErrorBanner message={navError} onDismiss={clearNavError} />}
     </div>
   );

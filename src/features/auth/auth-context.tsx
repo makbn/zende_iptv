@@ -16,6 +16,7 @@ import {
   setStoredTokens,
 } from "@/lib/auth/zende-fetch";
 import { Z_ACCESS, Z_REFRESH } from "@/lib/auth/token-storage-keys";
+import { ZenedeLogoWave } from "@/components/loading/zenede-logo-wave";
 
 export type AuthUser = {
   id: string;
@@ -72,9 +73,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ]);
 
       const status = await safeParseJson<{
+        authEnabled?: boolean;
         userCount?: number;
         canBootstrap?: boolean;
       }>(statusRes);
+      const authEnabledFromStatus = Boolean(status?.authEnabled);
+      setAuthEnabled(authEnabledFromStatus);
       const uc =
         typeof status?.userCount === "number" ? status.userCount : 0;
       setUserCount(uc);
@@ -88,12 +92,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         authEnabled?: boolean;
         user?: AuthUser | null;
       }>(meRes);
-      let data: { authEnabled: boolean; user: AuthUser | null } = {
-        authEnabled: Boolean(parsed?.authEnabled),
+      let data: { user: AuthUser | null } = {
         user: parsed?.user ?? null,
       };
 
-      if (data.authEnabled && !data.user && refreshTok) {
+      if (authEnabledFromStatus && !data.user && refreshTok) {
         const r2 = await fetch("/api/auth/refresh", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -114,17 +117,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               user?: AuthUser | null;
             }>(res3);
             data = {
-              authEnabled: Boolean(parsed?.authEnabled),
               user: parsed?.user ?? null,
             };
           }
         }
       }
 
-      setAuthEnabled(Boolean(data.authEnabled));
       setUser(data.user);
     } catch {
-      setAuthEnabled(false);
       setUser(null);
     } finally {
       setReady(true);
@@ -252,16 +252,18 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   if (!ready) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--tv-page-bg)] text-[15px] text-white/50">
-        Loading…
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[var(--tv-page-bg)] text-white/50">
+        <ZenedeLogoWave size="md" />
+        <p className="sr-only">Loading</p>
       </div>
     );
   }
 
   if (authEnabled && !user && pathname !== "/login") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--tv-page-bg)] text-[15px] text-white/50">
-        Redirecting…
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[var(--tv-page-bg)] text-white/50">
+        <ZenedeLogoWave size="sm" />
+        <p className="text-[15px]">Redirecting…</p>
       </div>
     );
   }

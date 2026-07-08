@@ -134,7 +134,9 @@ function downloadBlob(filename: string, blob: Blob) {
 }
 
 export function TvRecordingsPage() {
-  const { channels, catalogLoaded } = useCatalogBootstrap(source);
+  const { channels, catalogLoaded } = useCatalogBootstrap(source, {
+    ensureFull: true,
+  });
   const [overview, setOverview] = useState<OverviewPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

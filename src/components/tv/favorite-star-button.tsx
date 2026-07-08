@@ -1,7 +1,7 @@
 "use client";
 
 import { Star } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import {
@@ -25,13 +25,11 @@ export function FavoriteStarButton({
   className,
   size = "sm",
 }: Props) {
-  const [, bump] = useState(0);
-
-  useEffect(() => {
-    return subscribeFavorites(() => bump((n) => n + 1));
-  }, []);
-
-  const active = isFavorite(channel.url);
+  const active = useSyncExternalStore(
+    subscribeFavorites,
+    () => isFavorite(channel.url),
+    () => false,
+  );
   const iconClass =
     size === "md" ? "size-[22px]" : "size-[18px] stroke-[2.25px]";
 

@@ -2,10 +2,15 @@ import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import type { PlaylistCatalogMeta } from "@/lib/playlists/catalog-meta";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 
+export type PlaylistCatalogMetaResponse = PlaylistCatalogMeta & {
+  /** False when the request failed — do not treat as an empty catalog. */
+  ok: boolean;
+};
+
 /** Fast presence check — uses DB channelCount, no giant JSON payload. */
 export async function fetchPlaylistCatalogMetaFromApi(
   presetId: string,
-): Promise<PlaylistCatalogMeta> {
+): Promise<PlaylistCatalogMetaResponse> {
   const res = await zendeFetch(
     `/api/playlists/catalog/${encodeURIComponent(presetId)}?meta=1`,
   );
@@ -19,6 +24,7 @@ export async function fetchPlaylistCatalogMetaFromApi(
       manualCount: 0,
       updatedAt: null,
       registered: false,
+      ok: false,
     };
   }
   return {
@@ -31,6 +37,7 @@ export async function fetchPlaylistCatalogMetaFromApi(
     updatedAt:
       typeof body.updatedAt === "number" ? body.updatedAt : null,
     registered: Boolean(body.registered),
+    ok: true,
   };
 }
 

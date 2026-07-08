@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import {
   startTransition,
   useCallback,
@@ -22,10 +21,9 @@ import {
   useLibraryCatalog,
   type LibraryContentTab,
 } from "@/features/iptv/use-library-catalog";
+import { useLibraryContentTab } from "@/features/iptv/use-library-content-tab";
 import { useLibrarySearch } from "@/features/iptv/use-library-search";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
-import { showPageHrefFromChannel } from "@/lib/navigation/show-page";
-import { isXtreamSeriesContainer } from "@/lib/channels/content-type";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { cn } from "@/lib/utils";
 
@@ -33,22 +31,7 @@ const source = BUILTIN_PLAYLIST_SOURCES[0]!;
 const PAGE_STEP = 60;
 
 export function MobileLibraryPage() {
-  const router = useRouter();
-  const { openChannel: playStream, navError, clearNavError } = useWatchNavigation();
-
-  const openChannel = useCallback(
-    (ch: M3uChannel) => {
-      if (isXtreamSeriesContainer(ch)) {
-        const href = showPageHrefFromChannel(ch);
-        if (href) {
-          router.push(href);
-          return;
-        }
-      }
-      playStream(ch);
-    },
-    [playStream, router],
-  );
+  const { openChannel, navError, clearNavError } = useWatchNavigation();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const {
     draftQuery,
@@ -60,16 +43,17 @@ export function MobileLibraryPage() {
 
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
   const [languageFilter, setLanguageFilter] = useState<string | null>(null);
-  const [contentTab, setContentTab] = useState<LibraryContentTab>("all");
-  const [visibleCount, setVisibleCount] = useState(PAGE_STEP);
+  const { contentTab, setContentTab } = useLibraryContentTab();
+  const [offset, setOffset] = useState(0);
 
-  const { channels, total, facets, loading, refreshing, hasMore } = useLibraryCatalog({
+  const { channels, total, facets, loading, refreshing, error: catalogError, hasMore } = useLibraryCatalog({
     presetId: source.presetId,
     contentTab,
     query: appliedQuery,
     groupFilter,
     languageFilter,
-    limit: visibleCount,
+    offset,
+    pageSize: PAGE_STEP,
   });
   const resultsBusy = loading || refreshing || isSearchPending;
   const { getScoreForChannel } = useChannelHealthLookup(channels);
@@ -84,12 +68,12 @@ export function MobileLibraryPage() {
     startTransition(() => {
       setGroupFilter(null);
       setLanguageFilter(null);
-      setVisibleCount(PAGE_STEP);
+      setOffset(0);
     });
   }, [contentTab]);
 
   useEffect(() => {
-    startTransition(() => setVisibleCount(PAGE_STEP));
+    startTransition(() => setOffset(0));
   }, [appliedQuery, groupFilter, languageFilter]);
 
   const visible = channels;
@@ -330,7 +314,7 @@ export function MobileLibraryPage() {
         {hasMore ? (
           <button
             type="button"
-            onClick={() => setVisibleCount((count) => count + PAGE_STEP)}
+            onClick={() => setOffset((count) => count + PAGE_STEP)}
             className="mt-5 flex min-h-[52px] w-full items-center justify-center rounded-2xl bg-white text-[15px] font-semibold text-zinc-950 outline-none transition-[transform,box-shadow] duration-200 ease-out hover:shadow-lg hover:shadow-black/20 active:scale-[0.99] motion-reduce:transform-none focus-visible:ring-2 focus-visible:ring-white"
           >
             Load more
@@ -339,6 +323,9 @@ export function MobileLibraryPage() {
       </section>
       </LibraryResultsShell>
 
+      {catalogError && (
+        <NavErrorBanner message={catalogError} onDismiss={() => {}} />
+      )}
       {navError && <NavErrorBanner message={navError} onDismiss={clearNavError} />}
     </main>
   );

@@ -15,18 +15,15 @@ import { Heart, Search, X } from "lucide-react";
 import { MobileChannelCard } from "@/components/mobile/mobile-channel-card";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
-import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import {
-  enrichFavoriteWithCatalog,
   listFavorites,
   subscribeFavorites,
 } from "@/lib/favorites/favorites-store";
 import { useChannelHealthLookup } from "@/features/health/use-channel-health";
-import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
+import { useEnrichedFavorites } from "@/features/iptv/use-enriched-favorites";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
 import { cn } from "@/lib/utils";
 
-const source = BUILTIN_PLAYLIST_SOURCES[0]!;
 const PAGE_STEP = 50;
 
 type SortMode = "recent" | "name" | "group";
@@ -44,16 +41,14 @@ export function MobileFavoritesPage() {
 
   void favEpoch;
   const rawFavorites = listFavorites();
-  const { channels: catalog } = useCatalogBootstrap(source);
-  const { getScoreForChannel } = useChannelHealthLookup(catalog);
-
-  const enriched = useMemo(
-    () => rawFavorites.map((favorite) => enrichFavoriteWithCatalog(favorite, catalog)),
-    [catalog, rawFavorites],
-  );
+  const enriched = useEnrichedFavorites();
+  const { getScoreForChannel } = useChannelHealthLookup(enriched);
 
   const sorted = useMemo(() => {
-    const list = enriched.slice();
+    const byUrl = new Map(enriched.map((ch) => [ch.url, ch]));
+    const list = rawFavorites.map(
+      (f) => byUrl.get(f.url) ?? { url: f.url, name: f.name, duration: -1 },
+    );
     if (sort === "name") {
       list.sort((a, b) =>
         (a.name ?? "").localeCompare(b.name ?? "", undefined, {

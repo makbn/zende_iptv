@@ -8,6 +8,7 @@ type Props = {
   busy: boolean;
   label?: string;
   className?: string;
+  id?: string;
   children: React.ReactNode;
 };
 
@@ -16,10 +17,11 @@ export function LibraryResultsShell({
   busy,
   label = "Updating results…",
   className,
+  id = "grid",
   children,
 }: Props) {
   return (
-    <div className={cn("relative", className)}>
+    <div id={id} className={cn("relative scroll-mt-24", className)}>
       {busy ? (
         <div
           className="pointer-events-none absolute inset-0 z-20 flex items-start justify-center bg-black/35 pt-20 backdrop-blur-[2px] sm:pt-28"

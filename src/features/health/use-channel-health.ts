@@ -14,24 +14,37 @@ export type HealthScoreDto = {
 };
 
 export function useChannelHealthLookup(channels: M3uChannel[]) {
-  const [scoresByHash, setScoresByHash] = useState<
-    Record<string, HealthScoreDto>
-  >({});
+  const [urlScoreMap, setUrlScoreMap] = useState<
+    Map<string, HealthScoreDto | undefined>
+  >(new Map());
 
   const refreshScores = useCallback(async () => {
+    if (channels.length === 0) {
+      setUrlScoreMap(new Map());
+      return;
+    }
     try {
-      const res = await zendeFetch("/api/channel-health/scores", {
-        cache: "no-store",
-      });
+      const hashes = await Promise.all(channels.map((c) => hashStreamUrl(c.url)));
+      const unique = [...new Set(hashes)];
+      const res = await zendeFetch(
+        `/api/channel-health/scores?hashes=${encodeURIComponent(unique.join(","))}`,
+        { cache: "no-store" },
+      );
       if (!res.ok) return;
       const data = (await res.json()) as {
         scores?: Record<string, HealthScoreDto>;
       };
-      if (data.scores) setScoresByHash(data.scores);
+      const scoresByHash = data.scores ?? {};
+      const next = new Map<string, HealthScoreDto | undefined>();
+      for (let i = 0; i < channels.length; i++) {
+        const ch = channels[i]!;
+        next.set(ch.url, scoresByHash[hashes[i]!]);
+      }
+      setUrlScoreMap(next);
     } catch {
       /* ignore */
     }
-  }, []);
+  }, [channels]);
 
   useEffect(() => {
     const id = requestAnimationFrame(() => {
@@ -39,25 +52,6 @@ export function useChannelHealthLookup(channels: M3uChannel[]) {
     });
     return () => cancelAnimationFrame(id);
   }, [refreshScores]);
-
-  const [urlScoreMap, setUrlScoreMap] = useState<
-    Map<string, HealthScoreDto | undefined>
-  >(new Map());
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const next = new Map<string, HealthScoreDto | undefined>();
-      for (const c of channels) {
-        const h = await hashStreamUrl(c.url);
-        next.set(c.url, scoresByHash[h]);
-      }
-      if (!cancelled) setUrlScoreMap(next);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [channels, scoresByHash]);
 
   const getScoreForChannel = useCallback(
     (ch: M3uChannel) => urlScoreMap.get(ch.url),

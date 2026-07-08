@@ -20,7 +20,8 @@ export function useLibraryCatalog(input: {
   query: string;
   groupFilter: string | null;
   languageFilter: string | null;
-  limit: number;
+  offset: number;
+  pageSize: number;
 }) {
   const { ready: authReady } = useAuth();
   const [channels, setChannels] = useState<M3uChannel[]>([]);
@@ -32,6 +33,8 @@ export function useLibraryCatalog(input: {
   const [reloadNonce, setReloadNonce] = useState(0);
   const hasLoadedOnce = useRef(false);
   const requestSeq = useRef(0);
+  const filterKey = `${input.presetId}|${input.contentTab}|${input.query}|${input.groupFilter}|${input.languageFilter}`;
+  const lastFilterKey = useRef(filterKey);
 
   useEffect(() => subscribeCatalogCleared(() => setReloadNonce((n) => n + 1)), []);
 
@@ -39,6 +42,11 @@ export function useLibraryCatalog(input: {
     if (!authReady) return;
     const seq = ++requestSeq.current;
     const controller = new AbortController();
+    const filtersChanged = lastFilterKey.current !== filterKey;
+    if (filtersChanged) {
+      lastFilterKey.current = filterKey;
+    }
+    const isAppend = input.offset > 0 && !filtersChanged;
 
     if (hasLoadedOnce.current) {
       setRefreshing(true);
@@ -52,8 +60,8 @@ export function useLibraryCatalog(input: {
         const params = new URLSearchParams({
           presetId: input.presetId,
           contentType: input.contentTab,
-          offset: "0",
-          limit: String(input.limit),
+          offset: String(input.offset),
+          limit: String(input.pageSize),
         });
         const q = input.query.trim();
         if (q) params.set("q", q);
@@ -74,20 +82,25 @@ export function useLibraryCatalog(input: {
         }
         if (controller.signal.aborted || seq !== requestSeq.current) return;
 
-        setChannels(Array.isArray(body.channels) ? body.channels : []);
+        const page = Array.isArray(body.channels) ? body.channels : [];
+        setChannels((prev) => (isAppend ? [...prev, ...page] : page));
         setTotal(typeof body.total === "number" ? body.total : 0);
-        setFacets(
-          body.facets ?? {
-            groups: [],
-            languages: [],
-          },
-        );
+        if (!isAppend) {
+          setFacets(
+            body.facets ?? {
+              groups: [],
+              languages: [],
+            },
+          );
+        }
         hasLoadedOnce.current = true;
       } catch (err) {
         if (controller.signal.aborted || seq !== requestSeq.current) return;
-        setChannels([]);
-        setTotal(0);
-        setFacets({ groups: [], languages: [] });
+        if (!isAppend) {
+          setChannels([]);
+          setTotal(0);
+          setFacets({ groups: [], languages: [] });
+        }
         setError(err instanceof Error ? err.message : "Failed to load library");
       } finally {
         if (controller.signal.aborted || seq !== requestSeq.current) return;
@@ -101,12 +114,10 @@ export function useLibraryCatalog(input: {
     };
   }, [
     authReady,
+    filterKey,
+    input.offset,
+    input.pageSize,
     input.presetId,
-    input.contentTab,
-    input.query,
-    input.groupFilter,
-    input.languageFilter,
-    input.limit,
     reloadNonce,
   ]);
 

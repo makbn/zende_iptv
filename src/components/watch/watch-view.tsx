@@ -331,6 +331,7 @@ export function WatchView() {
     null,
   );
   const [playerFatalError, setPlayerFatalError] = useState<PlayerError | null>(null);
+  const [playerRetryEpoch, setPlayerRetryEpoch] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [pipActive, setPipActive] = useState(false);
   const [chromeVisible, setChromeVisible] = useState(true);
@@ -899,6 +900,7 @@ export function WatchView() {
       >
         <div className="absolute inset-0">
           <StreamPlayer
+            key={`${playbackSrc}-${playerRetryEpoch}`}
             ref={videoRef}
             src={playbackSrc}
             playbackMode={sessionMeta?.playbackMode}
@@ -936,8 +938,8 @@ export function WatchView() {
           </div>
 
           {playerFatalError && (
-            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-              <ZenedeGlass variant="panelCompact" className="pointer-events-none max-w-sm">
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 px-4">
+              <ZenedeGlass variant="panelCompact" className="max-w-sm">
                 <div className="px-5 py-4 text-left">
                   <p className="text-[14px] font-semibold text-red-400">
                     Playback failed
@@ -946,6 +948,25 @@ export function WatchView() {
                     {playerFatalError.details}
                     {playerFatalError.reason ? ` — ${playerFatalError.reason}` : ""}
                   </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPlayerFatalError(null);
+                        setPlayerRetryEpoch((n) => n + 1);
+                      }}
+                      className="rounded-xl bg-white px-4 py-2 text-[14px] font-semibold text-zinc-950 outline-none hover:shadow-md focus-visible:ring-2 focus-visible:ring-white"
+                    >
+                      Retry
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => router.replace(getWatchReturnHref())}
+                      className="rounded-xl border border-white/12 bg-white/6 px-4 py-2 text-[14px] font-semibold text-white outline-none hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white"
+                    >
+                      Go back
+                    </button>
+                  </div>
                 </div>
               </ZenedeGlass>
             </div>

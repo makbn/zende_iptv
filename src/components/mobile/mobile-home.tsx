@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
 
+import { ZenedeLogoWave } from "@/components/loading/zenede-logo-wave";
 import { MobileChannelCard } from "@/components/mobile/mobile-channel-card";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
@@ -90,13 +91,15 @@ export function MobileHome() {
     query: "",
     groupFilter: null,
     languageFilter: null,
-    limit: 18,
+    offset: 0,
+    pageSize: 18,
   });
   const {
     busy,
     channelCount,
     refreshCatalog,
     catalogLoaded,
+    metaFailed,
   } = catalog;
   const [statsEpoch, setStatsEpoch] = useState(0);
 
@@ -122,8 +125,9 @@ export function MobileHome() {
 
   useEffect(() => {
     if (!catalogLoaded) return;
+    if (metaFailed) return;
     if ((channelCount ?? 0) === 0) router.replace("/setup");
-  }, [catalogLoaded, channelCount, router]);
+  }, [catalogLoaded, channelCount, metaFailed, router]);
 
   const recentChannels = useMemo(() => {
     void statsEpoch;
@@ -163,8 +167,25 @@ export function MobileHome() {
 
   if (!catalogLoaded) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--tv-page-bg)] px-4 text-white/45">
-        <p className="text-[15px] font-medium">Loading…</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[var(--tv-page-bg)] px-4 text-white/45">
+        <ZenedeLogoWave size="md" />
+        <p className="sr-only">Loading</p>
+      </div>
+    );
+  }
+
+  if (metaFailed) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[var(--tv-page-bg)] px-4 text-center text-white/55">
+        <p className="text-[15px] font-medium">Could not reach the catalog server.</p>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void refreshCatalog()}
+          className="min-h-[46px] rounded-xl bg-white px-5 text-[14px] font-semibold text-zinc-950 disabled:opacity-45"
+        >
+          {busy ? "Retrying…" : "Retry"}
+        </button>
       </div>
     );
   }

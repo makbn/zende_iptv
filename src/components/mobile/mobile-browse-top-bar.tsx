@@ -47,19 +47,19 @@ export function MobileBrowseTopBar() {
     {
       label: "Library",
       href: "/library",
-      active: pathname === "/library",
+      active: pathname === "/library" || pathname.startsWith("/library/"),
       icon: LibraryBig,
     },
     {
       label: "Favorites",
       href: "/favorites",
-      active: pathname === "/favorites",
+      active: pathname === "/favorites" || pathname.startsWith("/favorites/"),
       icon: Heart,
     },
     {
       label: "DVR",
       href: "/recordings",
-      active: pathname === "/recordings",
+      active: pathname === "/recordings" || pathname.startsWith("/recordings/"),
       icon: LayoutGrid,
     },
   ];

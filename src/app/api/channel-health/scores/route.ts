@@ -10,7 +10,21 @@ export async function GET(request: Request) {
   const gate = await gateApiRequest(request);
   if ("response" in gate) return gate.response;
 
+  const { searchParams } = new URL(request.url);
+  const hashesParam = searchParams.get("hashes");
+  const wanted = hashesParam
+    ? new Set(
+        hashesParam
+          .split(",")
+          .map((h) => h.trim())
+          .filter(Boolean),
+      )
+    : null;
+
   const rows = await prisma.healthAggregate.findMany({
+    ...(wanted && wanted.size > 0
+      ? { where: { urlHash: { in: [...wanted] } } }
+      : {}),
     select: {
       urlHash: true,
       tier: true,

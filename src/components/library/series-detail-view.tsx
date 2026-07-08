@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, Play } from "lucide-react";
 
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
@@ -20,7 +20,6 @@ import {
   type ViewingEntry,
 } from "@/lib/watch/viewing-stats";
 import { cn } from "@/lib/utils";
-import { useSyncExternalStore } from "react";
 
 type Props = {
   seriesId: string;
@@ -31,11 +30,9 @@ type Props = {
 };
 
 function useViewingHistory(): ViewingEntry[] {
-  return useSyncExternalStore(
-    subscribeViewingStats,
-    () => listTopFrequentChannels(200),
-    () => [],
-  );
+  const [epoch, setEpoch] = useState(0);
+  useEffect(() => subscribeViewingStats(() => setEpoch((n) => n + 1)), []);
+  return useMemo(() => listTopFrequentChannels(200), [epoch]);
 }
 
 export function SeriesDetailView({
@@ -106,7 +103,7 @@ export function SeriesDetailView({
     : null;
 
   return (
-    <div className="min-h-screen bg-[var(--tv-page-bg)] text-white">
+    <div className="min-h-screen bg-[var(--tv-page-bg)] pb-28 pt-[5.35rem] text-white md:pb-16 md:pt-0">
       <div className="relative overflow-hidden">
         {cover ? (
           <div
@@ -117,7 +114,7 @@ export function SeriesDetailView({
         ) : null}
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-[var(--tv-page-bg)] to-[var(--tv-page-bg)]" />
 
-        <div className="relative mx-auto max-w-6xl px-4 pb-8 pt-[max(1rem,env(safe-area-inset-top))] sm:px-8 sm:pt-8">
+        <div className="relative mx-auto max-w-6xl px-4 pb-8 pt-4 sm:px-8 sm:pt-8">
           <Link
             href="/library?tab=series"
             className="mb-6 inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[14px] text-white/65 outline-none hover:bg-white/8 hover:text-white focus-visible:ring-2 focus-visible:ring-white"
@@ -208,7 +205,7 @@ export function SeriesDetailView({
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-4 pb-16 sm:px-8">
+      <div className="mx-auto max-w-6xl px-4 pb-28 sm:px-8 md:pb-16">
         {playError ? <NavErrorBanner message={playError} onDismiss={() => setPlayError(null)} /> : null}
 
         {loading ? (

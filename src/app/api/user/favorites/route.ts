@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { gateApiRequest } from "@/lib/auth/gate-api";
+import { lookupChannelsByUrls } from "@/lib/library/catalog";
 import { prisma } from "@/lib/db/prisma";
 
 export const runtime = "nodejs";
@@ -19,6 +21,9 @@ export async function GET(request: Request) {
   const userId = await resolveUserId(request);
   if (userId instanceof Response) return userId;
 
+  const { searchParams } = new URL(request.url);
+  const enrich = searchParams.get("enrich") === "1";
+
   const rows = await prisma.userFavorite.findMany({
     where: { userId },
     orderBy: { addedAt: "desc" },
@@ -32,7 +37,40 @@ export async function GET(request: Request) {
     },
   });
 
-  return NextResponse.json(rows);
+  if (!enrich) {
+    return NextResponse.json(rows);
+  }
+
+  const presetId = BUILTIN_PLAYLIST_SOURCES[0]?.presetId;
+  const catalogByUrl =
+    presetId != null
+      ? await lookupChannelsByUrls(
+          presetId,
+          rows.map((r) => r.url),
+        )
+      : new Map();
+
+  return NextResponse.json(
+    rows.map((row) => {
+      const live = catalogByUrl.get(row.url);
+      const channel = live
+        ? {
+            ...live,
+            ...(row.tvgId?.trim() && !live.tvgId?.trim()
+              ? { tvgId: row.tvgId.trim() }
+              : {}),
+          }
+        : {
+            url: row.url,
+            name: row.name,
+            duration: -1,
+            ...(row.tvgId?.trim() ? { tvgId: row.tvgId.trim() } : {}),
+            ...(row.tvgLogo ? { tvgLogo: row.tvgLogo } : {}),
+            ...(row.groupTitle ? { groupTitle: row.groupTitle } : {}),
+          };
+      return { ...row, channel };
+    }),
+  );
 }
 
 export async function POST(request: Request) {

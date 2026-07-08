@@ -23,14 +23,12 @@ import {
   TV_BROWSE_TOP_PAD_CLASS,
 } from "@/components/tv/tv-top-bar";
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
-import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import {
-  enrichFavoriteWithCatalog,
   listFavorites,
   subscribeFavorites,
 } from "@/lib/favorites/favorites-store";
 import { useChannelHealthLookup } from "@/features/health/use-channel-health";
-import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
+import { useEnrichedFavorites } from "@/features/iptv/use-enriched-favorites";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
 import { cn } from "@/lib/utils";
 import {
@@ -44,8 +42,6 @@ import {
   Star,
   X,
 } from "lucide-react";
-
-const source = BUILTIN_PLAYLIST_SOURCES[0]!;
 
 const VIEW_STORAGE = "zenede.favoritesView";
 const PAGE_STEP = 60;
@@ -85,15 +81,14 @@ export function TvFavoritesPage() {
 
   const rawFavorites = useMemo(() => listFavorites(), [favEpoch]);
 
-  const { channels: catalog } = useCatalogBootstrap(source);
-  const { getScoreForChannel } = useChannelHealthLookup(catalog);
-
-  const enriched = useMemo(() => {
-    return rawFavorites.map((f) => enrichFavoriteWithCatalog(f, catalog));
-  }, [rawFavorites, catalog]);
+  const enriched = useEnrichedFavorites();
+  const { getScoreForChannel } = useChannelHealthLookup(enriched);
 
   const sorted = useMemo(() => {
-    const list = enriched.slice();
+    const byUrl = new Map(enriched.map((ch) => [ch.url, ch]));
+    const list = rawFavorites.map(
+      (f) => byUrl.get(f.url) ?? { url: f.url, name: f.name, duration: -1 },
+    );
     if (sort === "name") {
       list.sort((a, b) =>
         (a.name ?? "").localeCompare(b.name ?? "", undefined, {

@@ -159,3 +159,22 @@ export async function queryLibraryCatalog(
     facets,
   };
 }
+
+/** Resolve catalog rows for specific URLs (favorites enrich). */
+export async function lookupChannelsByUrls(
+  presetId: string,
+  urls: string[],
+): Promise<Map<string, M3uChannel>> {
+  const wanted = new Set(urls.filter(Boolean));
+  if (wanted.size === 0) return new Map();
+
+  const merged = await loadMergedLibraryCatalogCached(presetId);
+  const out = new Map<string, M3uChannel>();
+  for (const channel of merged) {
+    if (wanted.has(channel.url)) {
+      out.set(channel.url, channel);
+    }
+    if (out.size >= wanted.size) break;
+  }
+  return out;
+}

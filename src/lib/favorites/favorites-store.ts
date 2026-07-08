@@ -18,6 +18,18 @@ type Store = {
 
 const MAX_FAVORITES = 500;
 
+let favoriteUrlSet: Set<string> | null = null;
+
+function rebuildFavoriteUrlSet(store?: Store): Set<string> {
+  favoriteUrlSet = new Set((store ?? readStore()).favorites.map((f) => f.url));
+  return favoriteUrlSet;
+}
+
+function getFavoriteUrlSet(): Set<string> {
+  if (!favoriteUrlSet) return rebuildFavoriteUrlSet();
+  return favoriteUrlSet;
+}
+
 function readStore(): Store {
   if (typeof window === "undefined") return { favorites: [] };
   try {
@@ -34,6 +46,7 @@ function readStore(): Store {
 function writeStore(store: Store) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+    rebuildFavoriteUrlSet(store);
   } catch {
     /* quota */
   }
@@ -93,6 +106,38 @@ export async function hydrateFavoritesFromServer(): Promise<void> {
   }
 }
 
+/** Server-enriched favorite rows as playable channels (no full client catalog). */
+export async function fetchEnrichedFavoritesFromApi(): Promise<M3uChannel[]> {
+  try {
+    const res = await zendeFetch("/api/user/favorites?enrich=1");
+    if (!res.ok) return listFavorites().map((f) => enrichFavoriteWithCatalog(f, []));
+    const rows = (await res.json()) as Array<{
+      channel?: M3uChannel;
+      url: string;
+      name: string;
+      tvgId?: string | null;
+      tvgLogo?: string | null;
+      groupTitle?: string | null;
+    }>;
+    return rows.map((row) => {
+      if (row.channel) return row.channel;
+      return enrichFavoriteWithCatalog(
+        {
+          url: row.url,
+          name: row.name,
+          ...(row.tvgId?.trim() ? { tvgId: row.tvgId.trim() } : {}),
+          ...(row.tvgLogo ? { tvgLogo: row.tvgLogo } : {}),
+          ...(row.groupTitle ? { groupTitle: row.groupTitle } : {}),
+          addedAt: 0,
+        },
+        [],
+      );
+    });
+  } catch {
+    return listFavorites().map((f) => enrichFavoriteWithCatalog(f, []));
+  }
+}
+
 // ── Public API ───────────────────────────────────────────────────────────────
 
 export function listFavorites(): FavoriteChannel[] {
@@ -103,7 +148,7 @@ export function listFavorites(): FavoriteChannel[] {
 
 export function isFavorite(url: string): boolean {
   if (!url) return false;
-  return readStore().favorites.some((f) => f.url === url);
+  return getFavoriteUrlSet().has(url);
 }
 
 export function addFavorite(

@@ -134,7 +134,7 @@ export function BoardView() {
         </p>
         <Link
           href="/"
-          className="rounded-full bg-white px-6 py-2.5 text-[15px] font-semibold text-black hover:bg-white/90"
+          className="rounded-full bg-[var(--zen-frost)] px-6 py-2.5 text-[15px] font-semibold text-[var(--zen-void)] hover:bg-white/90"
         >
           Back to Home
         </Link>
@@ -151,12 +151,12 @@ export function BoardView() {
     <div className="fixed inset-0 flex flex-col bg-black text-white">
 
       {/* ── header ── */}
-      <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-white/[0.08] px-3 py-2 sm:h-12 sm:px-4 sm:py-0">
+      <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-white/[0.1] bg-black/72 px-3 py-2 shadow-[0_18px_60px_-34px_rgba(0,0,0,0.92)] backdrop-blur-xl sm:h-12 sm:px-4 sm:py-0">
         {/* Left: back + title */}
         <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="flex min-h-10 items-center gap-1.5 rounded-full px-2 text-[13px] text-white/50 outline-none transition-colors hover:text-white"
+            className="flex min-h-10 items-center gap-1.5 rounded-full px-2 text-[13px] font-semibold text-white/55 outline-none transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
             aria-label="Back to home"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -164,7 +164,7 @@ export function BoardView() {
           </Link>
           <span className="hidden text-white/[0.15] sm:inline">|</span>
           <p className="hidden text-[13px] font-medium text-white/60 sm:block">
-            Board &mdash;{" "}
+            Board -{" "}
             <span className="text-white/90">
               {n} channel{n !== 1 ? "s" : ""}
             </span>
@@ -178,8 +178,8 @@ export function BoardView() {
             onClick={() => setAudioMenuOpen((v) => !v)}
             aria-label="Select audio source"
             className={cn(
-              "flex min-h-10 items-center gap-2 rounded-full px-3 py-1.5 text-[13px] font-medium outline-none transition-colors",
-              "border border-white/[0.10] bg-white/[0.06] hover:bg-white/[0.10]",
+              "flex min-h-10 items-center gap-2 rounded-full px-3 py-1.5 text-[13px] font-semibold outline-none transition-colors",
+              "border border-white/[0.12] bg-white/[0.07] hover:bg-white/[0.11] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
               audioMenuOpen && "bg-white/[0.12]",
             )}
           >
@@ -197,8 +197,8 @@ export function BoardView() {
           {audioMenuOpen && (
             <div
               className={cn(
-                "absolute right-0 top-[calc(100%+6px)] z-50 min-w-[min(82vw,240px)] overflow-hidden rounded-xl py-1",
-                "border border-white/[0.12] bg-black/90 shadow-2xl backdrop-blur-2xl",
+                "absolute right-0 top-[calc(100%+8px)] z-50 min-w-[min(82vw,260px)] overflow-hidden rounded-[22px] p-1",
+                "border border-white/[0.14] bg-black/90 shadow-2xl backdrop-blur-2xl",
               )}
             >
               {/* Mute all option */}

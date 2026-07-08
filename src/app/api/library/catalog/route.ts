@@ -32,6 +32,8 @@ export async function GET(request: Request) {
     const q = url.searchParams.get("q") ?? undefined;
     const group = url.searchParams.get("group");
     const language = url.searchParams.get("language");
+    const country = url.searchParams.get("country");
+    const year = url.searchParams.get("year");
     const offset = Math.max(0, Number.parseInt(url.searchParams.get("offset") ?? "0", 10) || 0);
     const limit = Math.min(
       500,
@@ -46,6 +48,8 @@ export async function GET(request: Request) {
         q,
         group: group?.trim() ? group.trim() : null,
         language: language?.trim() ? language.trim().toLowerCase() : null,
+        country: country?.trim() ? country.trim().toLowerCase() : null,
+        year: year?.trim() ? year.trim() : null,
         offset,
         limit,
       });

@@ -1,3 +1,7 @@
+"use client";
+
+import { syncPlaybackPositionStub } from "@/lib/playback/sync-playback-position";
+
 const STORAGE_KEY = "zenede.playback.position.v1";
 const MAX_ENTRIES = 400;
 const SAVE_INTERVAL_MS = 15_000;
@@ -65,6 +69,7 @@ export function createPlaybackPositionSaver(url: string | null) {
     if (now - lastSave < SAVE_INTERVAL_MS) return;
     lastSave = now;
     savePlaybackPosition(url, position);
+    void syncPlaybackPositionStub(url, position);
   };
 }
 

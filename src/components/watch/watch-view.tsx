@@ -9,6 +9,10 @@ import {
   Loader2,
   Maximize2,
   Minimize2,
+  Circle,
+  Subtitles,
+  Languages,
+  Info,
   Pause,
   PictureInPicture,
   Play,
@@ -23,7 +27,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   type ReactNode,
 } from "react";
 
@@ -35,6 +38,7 @@ import {
   tryWebkitVideoExitFullscreen,
   videoWebkitDisplayingFullscreen,
 } from "@/lib/player/fullscreen-helpers";
+import { contentTypeFromStreamUrl } from "@/lib/channels/content-type";
 import { mergeBuiltinAndManual } from "@/lib/channels/merge-catalog";
 import {
   listManualChannelEntries,
@@ -43,8 +47,18 @@ import {
 import { BrowseShellRefContext } from "@/components/glass/browse-chrome";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
-import { getParsedPlaylist } from "@/lib/storage/playlist-cache-db";
-import { padFrequentRingWithCatalog } from "@/lib/watch/watch-channel-ring";
+import { getWatchReturnHref } from "@/lib/navigation/watch-browse-origin";
+import {
+  useCatalogChannels,
+  useCatalogMeta,
+} from "@/features/iptv/catalog-context";
+import { listFavorites } from "@/lib/favorites/favorites-store";
+import { zendeFetch } from "@/lib/auth/zende-fetch";
+import {
+  buildChannelRing,
+  type ChannelZapMode,
+  ZAP_MODE_LABELS,
+} from "@/lib/watch/watch-channel-ring";
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
 import type { PlayerError, PlayerSession } from "@/components/player/stream-player";
 
@@ -53,7 +67,6 @@ const StreamPlayer = dynamic(
     import("@/components/player/stream-player").then((m) => m.StreamPlayer),
   { ssr: false },
 );
-import { getWatchReturnHref } from "@/lib/navigation/watch-browse-origin";
 import {
   createWatchUrl,
   fetchRecordingWatchMeta,
@@ -80,8 +93,31 @@ import {
   createPlaybackPositionSaver,
   getPlaybackPosition,
 } from "@/lib/playback/playback-position";
+import {
+  REMOTE_COMMAND_EVENT,
+  useRemoteControl,
+} from "@/features/remote/remote-control-context";
 
 const FREQUENT_RING = 15;
+const ZAP_MODE_STORAGE = "zenede.zapMode";
+
+function readZapMode(): ChannelZapMode {
+  if (typeof window === "undefined") return "frequent";
+  const v = sessionStorage.getItem(ZAP_MODE_STORAGE);
+  if (v === "favorites" || v === "group") return v;
+  return "frequent";
+}
+
+function favoritesRingEntries(): ViewingEntry[] {
+  return listFavorites().map((f) => ({
+    url: f.url,
+    name: f.name,
+    ...(f.tvgLogo ? { tvgLogo: f.tvgLogo } : {}),
+    ...(f.groupTitle ? { groupTitle: f.groupTitle } : {}),
+    lastOpenedAt: f.addedAt,
+    openCount: 0,
+  }));
+}
 
 /** Hide top/bottom chrome after this many ms with no pointer activity (unless hovering chrome). */
 const CHROME_IDLE_MS = 3000;
@@ -96,6 +132,26 @@ function formatClock(seconds: number): string {
   const mm = h > 0 ? String(m).padStart(2, "0") : String(m);
   const ss = String(s).padStart(2, "0");
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+type PipCapableVideo = HTMLVideoElement & {
+  webkitSupportsPresentationMode?: (mode: string) => boolean;
+  webkitSetPresentationMode?: (mode: string) => void;
+  webkitPresentationMode?: string;
+};
+
+function isPipAvailable(video?: HTMLVideoElement | null): boolean {
+  if (typeof document === "undefined") return false;
+  if (document.pictureInPictureEnabled) return true;
+  const pipVideo = video as PipCapableVideo | null;
+  return Boolean(pipVideo?.webkitSupportsPresentationMode?.("picture-in-picture"));
+}
+
+function isPipActive(video?: HTMLVideoElement | null): boolean {
+  if (!video) return false;
+  const pipVideo = video as PipCapableVideo;
+  if (document.pictureInPictureElement === video) return true;
+  return pipVideo.webkitPresentationMode === "picture-in-picture";
 }
 
 function navigateRingEntry(
@@ -134,7 +190,10 @@ function bufferedAheadRatio(
 
 export function WatchView() {
   const router = useRouter();
+  const remote = useRemoteControl();
   const searchParams = useSearchParams();
+  const { ensureFullCatalog } = useCatalogMeta();
+  const catalogFromContext = useCatalogChannels();
   const sessionId = searchParams.get("id");
   const recordingId = searchParams.get("recording");
   const legacyUrlEncoded = searchParams.get("url");
@@ -286,11 +345,30 @@ export function WatchView() {
 
   const playbackMeta = sessionMeta?.playback;
   const expectedDuration = playbackMeta?.durationSeconds ?? 0;
+  const isRecordedPlayback = Boolean(recordingId);
+
+  const resolvedPlaybackKind = useMemo(() => {
+    if (playbackMeta?.contentKind) return playbackMeta.contentKind;
+    if (!canonicalUrl) return undefined;
+    const fromUrl = contentTypeFromStreamUrl(canonicalUrl);
+    if (fromUrl === "movie") return "movie" as const;
+    if (fromUrl === "series") return "episode" as const;
+    if (fromUrl === "live") return "live" as const;
+    return undefined;
+  }, [playbackMeta?.contentKind, canonicalUrl]);
 
   const isVodContent =
-    playbackMeta?.contentKind === "movie" ||
-    playbackMeta?.contentKind === "episode" ||
-    sessionMeta?.playbackMode === "progressive";
+    resolvedPlaybackKind === "movie" ||
+    resolvedPlaybackKind === "episode" ||
+    (sessionMeta?.playbackMode === "progressive" &&
+      resolvedPlaybackKind !== "live");
+
+  const isVodPlayback = isRecordedPlayback || isVodContent;
+
+  const isLivePlayback =
+    !isRecordedPlayback &&
+    !isVodPlayback &&
+    (resolvedPlaybackKind === "live" || resolvedPlaybackKind === undefined);
 
   const { displayName: titleDisplay, resolutionLabel: titleResolutionBadge } =
     useMemo(() => parseChannelLabel(title), [title]);
@@ -334,8 +412,15 @@ export function WatchView() {
   const [playerRetryEpoch, setPlayerRetryEpoch] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [pipActive, setPipActive] = useState(false);
+  const [pipCapable, setPipCapable] = useState(false);
   const [chromeVisible, setChromeVisible] = useState(true);
   const [catalogChannels, setCatalogChannels] = useState<M3uChannel[]>([]);
+  const [zapMode, setZapMode] = useState<ChannelZapMode>("frequent");
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [recordingBusy, setRecordingBusy] = useState(false);
+  const [recordingHint, setRecordingHint] = useState<string | null>(null);
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
+  const remoteControlActive = Boolean(remote?.activeSession);
   /** Viewing stats read localStorage; server snapshot has no entries — defer peek until mounted. */
   const [ringPeekClientReady, setRingPeekClientReady] = useState(false);
 
@@ -344,15 +429,28 @@ export function WatchView() {
 
   const [catalogMergeEpoch, setCatalogMergeEpoch] = useState(0);
 
-  const frequentRing = useMemo(() => {
+  useEffect(() => {
+    queueMicrotask(() => setZapMode(readZapMode()));
+  }, []);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(ZAP_MODE_STORAGE, zapMode);
+    } catch {
+      /* ignore */
+    }
+  }, [zapMode]);
+
+  const channelRing = useMemo(() => {
     void statsEpoch;
-    const base = listTopFrequentChannels(FREQUENT_RING);
-    if (catalogChannels.length === 0) return base;
-    return padFrequentRingWithCatalog(base, catalogChannels, {
+    return buildChannelRing(zapMode, {
       targetSize: FREQUENT_RING,
+      catalog: catalogChannels,
+      frequentOrdered: listTopFrequentChannels(FREQUENT_RING),
+      favoritesOrdered: favoritesRingEntries(),
       currentGroupTitle: group ?? null,
     });
-  }, [statsEpoch, catalogChannels, group]);
+  }, [statsEpoch, catalogChannels, group, zapMode]);
 
   useEffect(() => {
     return subscribeViewingStats(() =>
@@ -375,19 +473,14 @@ export function WatchView() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    const presetId = BUILTIN_PLAYLIST_SOURCES[0]?.presetId;
-    if (!presetId) return;
-    void getParsedPlaylist(presetId).then((cached) => {
-      if (cancelled) return;
-      const base = cached?.channels ?? [];
-      const manual = listManualChannelEntries().map((e) => e.channel);
-      setCatalogChannels(mergeBuiltinAndManual(base, manual));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [catalogMergeEpoch]);
+    void ensureFullCatalog();
+  }, [ensureFullCatalog, catalogMergeEpoch]);
+
+  useEffect(() => {
+    const base = catalogFromContext;
+    const manual = listManualChannelEntries().map((e) => e.channel);
+    setCatalogChannels(mergeBuiltinAndManual(base, manual));
+  }, [catalogFromContext, catalogMergeEpoch]);
 
   useEffect(() => {
     if (
@@ -450,15 +543,22 @@ export function WatchView() {
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
+    const syncPip = () => {
+      setPipActive(isPipActive(v));
+      setPipCapable(isPipAvailable(v));
+    };
     const onEnter = () => setPipActive(true);
     const onLeave = () => setPipActive(false);
     v.addEventListener("enterpictureinpicture", onEnter);
     v.addEventListener("leavepictureinpicture", onLeave);
+    v.addEventListener("webkitpresentationmodechanged", syncPip);
+    syncPip();
     return () => {
       v.removeEventListener("enterpictureinpicture", onEnter);
       v.removeEventListener("leavepictureinpicture", onLeave);
+      v.removeEventListener("webkitpresentationmodechanged", syncPip);
     };
-  }, [playbackSrc]);
+  }, [playbackSrc, playerSession]);
 
   const clearChromeIdleTimer = useCallback(() => {
     if (chromeIdleTimerRef.current) {
@@ -502,15 +602,15 @@ export function WatchView() {
     };
   }, [revealChrome, clearChromeIdleTimer]);
 
-  const ringNavAvailable = frequentRing.length > 0 && Boolean(canonicalUrl);
+  const ringNavAvailable = channelRing.length > 0 && Boolean(canonicalUrl);
 
   const prevEntry =
     ringNavAvailable && canonicalUrl
-      ? navigateRingEntry(frequentRing, canonicalUrl, -1)
+      ? navigateRingEntry(channelRing, canonicalUrl, -1)
       : null;
   const nextEntry =
     ringNavAvailable && canonicalUrl
-      ? navigateRingEntry(frequentRing, canonicalUrl, 1)
+      ? navigateRingEntry(channelRing, canonicalUrl, 1)
       : null;
 
   const jumpToRingChannel = useCallback(
@@ -532,6 +632,14 @@ export function WatchView() {
     [router],
   );
 
+  const cycleZapMode = useCallback(() => {
+    setZapMode((mode) => {
+      const order: ChannelZapMode[] = ["frequent", "favorites", "group"];
+      const idx = order.indexOf(mode);
+      return order[(idx + 1) % order.length]!;
+    });
+  }, []);
+
   const watchFavoriteChannel = useMemo(
     () =>
       recordingId || !canonicalUrl
@@ -546,7 +654,9 @@ export function WatchView() {
   );
 
   const seekRatio =
-    Number.isFinite(effectiveDuration) && effectiveDuration > 0
+    isVodPlayback &&
+    Number.isFinite(effectiveDuration) &&
+    effectiveDuration > 0
       ? Math.min(1, Math.max(0, currentTime / effectiveDuration))
       : null;
 
@@ -649,11 +759,42 @@ export function WatchView() {
     return bindVideo();
   }, [bindVideo, playbackSrc]);
 
+  useEffect(() => {
+    queueMicrotask(() => setAutoplayBlocked(false));
+  }, [playbackSrc, playerRetryEpoch]);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !playbackSrc) return;
+
+    const kickAutoplay = () => {
+      if (!v.paused) {
+        setAutoplayBlocked(false);
+        return;
+      }
+      void v.play()
+        .then(() => setAutoplayBlocked(false))
+        .catch(() => setAutoplayBlocked(true));
+    };
+
+    v.addEventListener("canplay", kickAutoplay);
+    const timer = window.setTimeout(kickAutoplay, 200);
+    return () => {
+      v.removeEventListener("canplay", kickAutoplay);
+      window.clearTimeout(timer);
+    };
+  }, [playbackSrc, playerRetryEpoch]);
+
   const togglePlay = useCallback(() => {
     const v = videoRef.current;
     if (!v) return;
-    if (v.paused) void v.play().catch(() => {});
-    else v.pause();
+    if (v.paused) {
+      void v.play()
+        .then(() => setAutoplayBlocked(false))
+        .catch(() => setAutoplayBlocked(true));
+    } else {
+      v.pause();
+    }
   }, []);
 
   const toggleMute = useCallback(() => {
@@ -704,9 +845,18 @@ export function WatchView() {
   }, []);
 
   const togglePip = useCallback(async () => {
-    const v = videoRef.current;
-    if (!v || !document.pictureInPictureEnabled) return;
+    const v = videoRef.current as PipCapableVideo | null;
+    if (!v || !isPipAvailable(v)) return;
     try {
+      if (v.webkitSupportsPresentationMode?.("picture-in-picture")) {
+        const nextMode =
+          v.webkitPresentationMode === "picture-in-picture"
+            ? "inline"
+            : "picture-in-picture";
+        v.webkitSetPresentationMode?.(nextMode);
+        setPipActive(nextMode === "picture-in-picture");
+        return;
+      }
       if (document.pictureInPictureElement === v) {
         await document.exitPictureInPicture();
       } else {
@@ -753,6 +903,92 @@ export function WatchView() {
     [seekRatio, effectiveDuration],
   );
 
+  const remoteAwareTogglePlay = useCallback(() => {
+    if (remoteControlActive) {
+      void remote?.sendCommand({ type: "togglePlay" });
+      return;
+    }
+    togglePlay();
+  }, [remoteControlActive, remote, togglePlay]);
+
+  const remoteAwareSkipSeconds = useCallback(
+    (delta: number) => {
+      if (remoteControlActive) {
+        void remote?.sendCommand({ type: "skip", payload: { seconds: delta } });
+        return;
+      }
+      skipSeconds(delta);
+    },
+    [remoteControlActive, remote, skipSeconds],
+  );
+
+  const remoteAwareSeekTo = useCallback(
+    (seconds: number) => {
+      if (remoteControlActive) {
+        void remote?.sendCommand({ type: "seekTo", payload: { seconds } });
+        return;
+      }
+      const v = videoRef.current;
+      if (!v || !isVodPlayback) return;
+      const clamped = Math.min(
+        Math.max(0, seconds),
+        Number.isFinite(effectiveDuration) ? effectiveDuration : seconds,
+      );
+      v.currentTime = clamped;
+      setCurrentTime(clamped);
+    },
+    [remoteControlActive, remote, isVodPlayback, effectiveDuration],
+  );
+
+  useEffect(() => {
+    const onRemoteCommand = (event: Event) => {
+      const custom = event as CustomEvent<
+        | { type: "togglePlay" | "play" | "pause" }
+        | { type: "skip"; payload: { seconds: number } }
+        | { type: "seekTo"; payload: { seconds: number } }
+      >;
+      const command = custom.detail;
+      if (!command) return;
+
+      if (command.type === "togglePlay") {
+        togglePlay();
+        return;
+      }
+
+      if (command.type === "play" || command.type === "pause") {
+        const v = videoRef.current;
+        if (!v) return;
+        if (command.type === "play") {
+          void v.play().catch(() => {});
+        } else {
+          v.pause();
+        }
+        return;
+      }
+
+      if (command.type === "skip") {
+        skipSeconds(command.payload.seconds);
+        return;
+      }
+
+      if (command.type === "seekTo") {
+        const v = videoRef.current;
+        if (!v || !isVodPlayback) return;
+        const clamped = Math.min(
+          Math.max(0, command.payload.seconds),
+          Number.isFinite(effectiveDuration)
+            ? effectiveDuration
+            : command.payload.seconds,
+        );
+        v.currentTime = clamped;
+        setCurrentTime(clamped);
+      }
+    };
+
+    window.addEventListener(REMOTE_COMMAND_EVENT, onRemoteCommand);
+    return () => window.removeEventListener(REMOTE_COMMAND_EVENT, onRemoteCommand);
+  }, [togglePlay, skipSeconds, isVodPlayback, effectiveDuration]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (
@@ -772,10 +1008,10 @@ export function WatchView() {
         jumpToRingChannel(nextEntry);
       } else if (e.code === "ArrowLeft" && e.shiftKey) {
         e.preventDefault();
-        skipSeconds(-10);
+        skipSeconds(-15);
       } else if (e.code === "ArrowRight" && e.shiftKey) {
         e.preventDefault();
-        skipSeconds(10);
+        skipSeconds(15);
       } else if (e.code === "KeyM") {
         e.preventDefault();
         toggleMute();
@@ -785,6 +1021,22 @@ export function WatchView() {
       } else if (e.code === "KeyP" && e.shiftKey) {
         e.preventDefault();
         void togglePip();
+      } else if (e.code === "KeyI") {
+        e.preventDefault();
+        setInfoOpen((open) => !open);
+      } else if (e.code === "ChannelUp" || e.code === "PageUp") {
+        if (nextEntry) {
+          e.preventDefault();
+          jumpToRingChannel(nextEntry);
+        }
+      } else if (e.code === "ChannelDown" || e.code === "PageDown") {
+        if (prevEntry) {
+          e.preventDefault();
+          jumpToRingChannel(prevEntry);
+        }
+      } else if (e.code === "KeyZ" && e.shiftKey) {
+        e.preventDefault();
+        cycleZapMode();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -800,6 +1052,7 @@ export function WatchView() {
     jumpToRingChannel,
     skipSeconds,
     revealChrome,
+    cycleZapMode,
   ]);
 
   const qualityEnabled =
@@ -816,23 +1069,47 @@ export function WatchView() {
   }, [qualityEnabled, playerSession, currentLoadLevel]);
 
   const qualityOptions = playerSession?.getQualityOptions() ?? [];
+  const audioTracks = playerSession?.getAudioTracks() ?? [];
+  const subtitleTracks = playerSession?.getSubtitleTracks() ?? [];
+  const currentAudioTrack = playerSession?.hls?.audioTrack ?? 0;
+  const currentSubtitleTrack = playerSession?.hls?.subtitleTrack ?? -1;
 
-  /** Browser-only API: server snapshot must be false so SSR/hydration match; then client reads PiP support. */
-  const pipSupported = useSyncExternalStore(
-    () => () => {},
-    () =>
-      typeof document !== "undefined" &&
-      Boolean(document.pictureInPictureEnabled),
-    () => false,
-  );
-
-  const isVod =
-    isVodContent ||
-    (Number.isFinite(effectiveDuration) &&
-      effectiveDuration > 0 &&
-      effectiveDuration !== Infinity);
-
-  const isRecordedPlayback = Boolean(recordingId);
+  const startRecording = useCallback(async () => {
+    if (!canonicalUrl || recordingId || !isLivePlayback) return;
+    setRecordingBusy(true);
+    setRecordingHint(null);
+    try {
+      const res = await zendeFetch("/api/recordings/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channelUrl: canonicalUrl,
+          channelName: title,
+          channelLogo: logo ?? null,
+          channelGroup: group ?? null,
+          durationMinutes: 120,
+        }),
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        recordingId?: string;
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(
+          typeof body.error === "string" ? body.error : `HTTP ${res.status}`,
+        );
+      }
+      setRecordingHint(
+        body.recordingId
+          ? `Recording started (${body.recordingId.slice(0, 8)}…).`
+          : "Recording started.",
+      );
+    } catch (e) {
+      setRecordingHint(e instanceof Error ? e.message : "Could not start recording.");
+    } finally {
+      setRecordingBusy(false);
+    }
+  }, [canonicalUrl, recordingId, isLivePlayback, title, logo, group]);
 
   if (
     ((sessionId || recordingId) && sessionLoading) ||
@@ -852,7 +1129,7 @@ export function WatchView() {
         <p className="text-[17px] text-white/70">{sessionMetaError}</p>
         <Link
           href="/library"
-          className="rounded-full bg-white px-6 py-2.5 text-[15px] font-semibold text-black"
+          className="rounded-full bg-[var(--zen-frost)] px-6 py-2.5 text-[15px] font-semibold text-[var(--zen-void)]"
         >
           Back to Library
         </Link>
@@ -866,31 +1143,13 @@ export function WatchView() {
         <p className="text-[17px] text-white/70">No stream was selected.</p>
         <Link
           href="/"
-          className="rounded-full bg-white px-6 py-2.5 text-[15px] font-semibold text-black"
+          className="rounded-full bg-[var(--zen-frost)] px-6 py-2.5 text-[15px] font-semibold text-[var(--zen-void)]"
         >
           Back to Home
         </Link>
       </div>
     );
   }
-
-  const liveOrClock = isRecordedPlayback ? (
-    isVod ? (
-      <span className="tabular-nums text-white/90">
-        <span className="text-white/50">Recorded</span>{" "}
-        <span className="text-white/35">·</span>{" "}
-        {formatClock(currentTime)} / {formatClock(effectiveDuration)}
-      </span>
-    ) : (
-      <span className="tabular-nums text-white/90">Recorded</span>
-    )
-  ) : isVod ? (
-    <span className="tabular-nums text-white/90">
-      {formatClock(currentTime)} / {formatClock(effectiveDuration)}
-    </span>
-  ) : (
-    <span className="tabular-nums text-white/90">Live</span>
-  );
 
   return (
     <BrowseShellRefContext.Provider value={containerRef}>
@@ -899,6 +1158,21 @@ export function WatchView() {
         className="fixed inset-0 z-0 overflow-hidden bg-black text-white"
       >
         <div className="absolute inset-0">
+          <div
+            className="absolute inset-0 z-0"
+            onClick={() => {
+              if (isVodPlayback) {
+                remoteAwareTogglePlay();
+                return;
+              }
+              const v = videoRef.current;
+              if (v?.paused) {
+                void v.play()
+                  .then(() => setAutoplayBlocked(false))
+                  .catch(() => setAutoplayBlocked(true));
+              }
+            }}
+          >
           <StreamPlayer
             key={`${playbackSrc}-${playerRetryEpoch}`}
             ref={videoRef}
@@ -912,6 +1186,21 @@ export function WatchView() {
             }}
             className="absolute inset-0 h-full w-full object-contain"
           />
+          </div>
+
+          {autoplayBlocked && !playerFatalError ? (
+            <button
+              type="button"
+              onClick={() => togglePlay()}
+              className="pointer-events-auto absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-black/45 px-6 text-center outline-none"
+              aria-label="Tap to play"
+            >
+              <span className="flex size-16 items-center justify-center rounded-full bg-white/12 ring-1 ring-white/20">
+                <Play className="size-8 pl-1 text-white" fill="currentColor" aria-hidden />
+              </span>
+              <span className="text-[16px] font-semibold text-white">Tap to play</span>
+            </button>
+          ) : null}
 
           <div
             className={cn(
@@ -944,10 +1233,17 @@ export function WatchView() {
                   <p className="text-[14px] font-semibold text-red-400">
                     Playback failed
                   </p>
-                  <p className="mt-1 font-mono text-[11px] text-white/60 break-all">
-                    {playerFatalError.details}
-                    {playerFatalError.reason ? ` — ${playerFatalError.reason}` : ""}
+                  <p className="mt-1 text-[14px] leading-relaxed text-white/70">
+                    This stream could not be played. It may be offline, blocked in
+                    your browser, or use an unsupported format.
                   </p>
+                  <details className="mt-2 text-[12px] text-white/40">
+                    <summary className="cursor-pointer select-none">Technical details</summary>
+                    <p className="mt-1 break-all font-mono">
+                      {playerFatalError.details}
+                      {playerFatalError.reason ? ` — ${playerFatalError.reason}` : ""}
+                    </p>
+                  </details>
                   <div className="mt-4 flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -955,14 +1251,14 @@ export function WatchView() {
                         setPlayerFatalError(null);
                         setPlayerRetryEpoch((n) => n + 1);
                       }}
-                      className="rounded-xl bg-white px-4 py-2 text-[14px] font-semibold text-zinc-950 outline-none hover:shadow-md focus-visible:ring-2 focus-visible:ring-white"
+                      className="rounded-full bg-[var(--zen-frost)] px-4 py-2 text-[14px] font-semibold text-[var(--zen-void)] outline-none hover:shadow-md focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
                     >
                       Retry
                     </button>
                     <button
                       type="button"
                       onClick={() => router.replace(getWatchReturnHref())}
-                      className="rounded-xl border border-white/12 bg-white/6 px-4 py-2 text-[14px] font-semibold text-white outline-none hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white"
+                      className="rounded-full border border-white/12 bg-white/6 px-4 py-2 text-[14px] font-semibold text-white outline-none hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
                     >
                       Go back
                     </button>
@@ -972,11 +1268,82 @@ export function WatchView() {
             </div>
           )}
 
+          {infoOpen ? (
+            <div className="absolute inset-0 z-[35] flex items-center justify-center bg-black/60 px-4">
+              <ZenedeGlass variant="panelCompact" className="max-w-md w-full">
+                <div className="px-5 py-4 text-left">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-white/45">
+                        Now playing
+                      </p>
+                      <h2 className="mt-1 truncate text-[18px] font-semibold text-white">
+                        {titleDisplay}
+                      </h2>
+                      {group ? (
+                        <p className="mt-1 truncate text-[13px] text-white/50">{group}</p>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setInfoOpen(false)}
+                      className="rounded-lg px-2 py-1 text-[13px] text-white/55 hover:bg-white/10"
+                    >
+                      Esc
+                    </button>
+                  </div>
+
+                  <div className="mt-4 rounded-xl border border-white/[0.08] bg-black/25 px-3 py-2.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-white/40">
+                      Channel zap
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {(["frequent", "favorites", "group"] as const).map((mode) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => setZapMode(mode)}
+                          className={cn(
+                            "rounded-full px-3 py-1.5 text-[13px] font-semibold outline-none",
+                            zapMode === mode
+                              ? "bg-white text-zinc-950"
+                              : "border border-white/[0.12] text-white/75 hover:bg-white/[0.08]",
+                          )}
+                        >
+                          {ZAP_MODE_LABELS[mode]}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-[12px] text-white/40">
+                      ↑↓ or Channel ± to change channel · Shift+Z cycles mode
+                    </p>
+                  </div>
+
+                  {isLivePlayback && !recordingId ? (
+                    <button
+                      type="button"
+                      disabled={recordingBusy}
+                      onClick={() => void startRecording()}
+                      className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-rose-500/90 px-4 py-3 text-[15px] font-semibold text-white outline-none hover:bg-rose-500 disabled:opacity-50"
+                    >
+                      <Circle className="size-4 fill-current" aria-hidden />
+                      {recordingBusy ? "Starting…" : "Record 2 hours"}
+                    </button>
+                  ) : null}
+                  {recordingHint ? (
+                    <p className="mt-2 text-[13px] text-emerald-300/90">{recordingHint}</p>
+                  ) : null}
+                </div>
+              </ZenedeGlass>
+            </div>
+          ) : null}
+
           <div
+            inert={!chromeVisible ? true : undefined}
             className={cn(
-              "absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-3 transition-opacity duration-300 ease-out motion-reduce:transition-none",
+              "absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 transition-opacity duration-300 ease-out motion-reduce:transition-none",
               "bg-gradient-to-b from-black/85 via-black/40 to-transparent",
-              "p-4 pb-12 pt-[max(1rem,env(safe-area-inset-top))]",
+              "p-3 pb-10 pt-[max(0.65rem,env(safe-area-inset-top))]",
               chromeVisible ? "opacity-100" : "pointer-events-none opacity-0",
             )}
             onMouseEnter={onChromePointerEnter}
@@ -990,7 +1357,7 @@ export function WatchView() {
               </GlassTextButton>
               <div className="min-w-0 flex-1">
                 <div className="flex min-w-0 items-center gap-2">
-              <h1 className="truncate text-[15px] font-semibold tracking-tight sm:text-[17px]">
+              <h1 className="truncate text-[14px] font-semibold tracking-tight sm:text-[15px]">
                     {titleDisplay}
                   </h1>
                   {titleResolutionBadge ? (
@@ -1004,11 +1371,11 @@ export function WatchView() {
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-sky-300/90">
                     Recorded
                   </span>
-                ) : isVod ? (
+                ) : isVodPlayback ? (
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-sky-300/90">
                     VOD
                   </span>
-                ) : !Number.isFinite(duration) || duration === Infinity ? (
+                ) : isLivePlayback ? (
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-emerald-400/90">
                     <span className="relative flex h-2 w-2">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60 opacity-75" />
@@ -1025,12 +1392,19 @@ export function WatchView() {
                   className="shrink-0"
                 />
               ) : null}
+              <GlassIconButton
+                aria-label="Stream info"
+                onClick={() => setInfoOpen((open) => !open)}
+                className="shrink-0"
+              >
+                <Info className="h-4 w-4" />
+              </GlassIconButton>
             </div>
             <Link
               href="/library"
               className={cn(
-                "pointer-events-auto hidden min-h-11 shrink-0 items-center rounded-full px-3 py-2 text-[15px] font-medium sm:flex",
-                "text-white/70 outline-none hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-white",
+                "pointer-events-auto hidden min-h-9 shrink-0 items-center rounded-full px-2.5 py-1.5 text-[13px] font-medium sm:flex",
+                "text-white/70 outline-none hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
               )}
             >
               Library
@@ -1038,6 +1412,7 @@ export function WatchView() {
           </div>
 
         <div
+          inert={!chromeVisible ? true : undefined}
           className={cn(
             "absolute inset-x-0 bottom-0 z-30 w-full transition-opacity duration-300 ease-out motion-reduce:transition-none",
             chromeVisible ? "opacity-100" : "pointer-events-none opacity-0",
@@ -1045,14 +1420,15 @@ export function WatchView() {
           onMouseEnter={onChromePointerEnter}
           onMouseLeave={onChromePointerLeave}
         >
-          <div className="mx-auto flex w-full max-w-[min(100vw,1920px)] flex-col gap-2 px-2 sm:gap-2.5 sm:px-4">
-            {ringPeekClientReady &&
+          <div className="mx-auto flex w-full max-w-[min(100vw,1920px)] flex-col gap-1.5 px-2 sm:px-3">
+            {isLivePlayback &&
+            ringPeekClientReady &&
             ringNavAvailable &&
             prevEntry &&
             nextEntry ? (
               <div className="pointer-events-auto relative z-[1]">
                 <FrequentChannelPeek
-                  ring={frequentRing}
+                  ring={channelRing}
                   streamUrl={canonicalUrl}
                   nowTitle={title}
                   nowLogo={logo}
@@ -1062,14 +1438,18 @@ export function WatchView() {
               </div>
             ) : null}
 
-            <ZenedeGlass
-              variant="panel"
+            <div
               className={cn(
-                "relative w-full rounded-t-[28px] rounded-b-none border-x-0 border-b-0",
-                "shadow-[0_-18px_48px_-24px_rgba(0,0,0,0.85)]",
+                "relative w-full overflow-hidden rounded-t-[20px] rounded-b-none border-x-0 border-b-0",
+                "border border-white/[0.1] border-b-transparent bg-black/78",
+                "shadow-[0_-14px_48px_-28px_rgba(0,0,0,0.92)] backdrop-blur-xl ring-1 ring-white/[0.04]",
               )}
             >
-              <div className="px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-4 sm:pt-4">
+              <div
+                className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--zen-signal)]/55 to-transparent"
+                aria-hidden
+              />
+              <div className="px-2.5 pb-[max(0.65rem,env(safe-area-inset-bottom))] pt-2 sm:px-3">
                 {playbackMeta?.contentKind === "episode" && playbackMeta.seriesId ? (
                   <EpisodePlaybackControls
                     playback={playbackMeta}
@@ -1079,64 +1459,100 @@ export function WatchView() {
                   />
                 ) : null}
 
+                <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] tabular-nums text-white/55">
+                  {isLivePlayback ? (
+                    <span className="inline-flex items-center gap-1.5 font-medium uppercase tracking-wide text-emerald-300/88">
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60 opacity-75" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                      </span>
+                      Live
+                    </span>
+                  ) : isRecordedPlayback ? (
+                    <span className="font-medium uppercase tracking-wide text-sky-300/88">
+                      Recorded
+                    </span>
+                  ) : (
+                    <span>{formatClock(currentTime)}</span>
+                  )}
+                  <div className="flex items-center gap-1.5">
+                    {isVodPlayback ? (
+                      <button
+                        type="button"
+                        onClick={() => remoteAwareSeekTo(0)}
+                        className="rounded-full border border-white/[0.12] bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/68 hover:bg-white/[0.08]"
+                      >
+                        Start over
+                      </button>
+                    ) : null}
+                    <span className="text-white/45">
+                      {isVodPlayback
+                        ? formatClock(effectiveDuration)
+                        : isLivePlayback
+                          ? "Buffering"
+                          : ""}
+                    </span>
+                  </div>
+                </div>
+
                 {seekRatio !== null ? (
                   <SeekBar
                     ratio={seekRatio}
                     bufferRatio={bufferRatio}
-                    onSeek={onSeek}
+                    onSeek={(clientX, rect) => {
+                      if (remoteControlActive && effectiveDuration > 0) {
+                        const x = Math.min(Math.max(clientX, rect.left), rect.right);
+                        const ratio = (x - rect.left) / rect.width;
+                        remoteAwareSeekTo(ratio * effectiveDuration);
+                        return;
+                      }
+                      onSeek(clientX, rect);
+                    }}
                     disabled={!Number.isFinite(effectiveDuration) || effectiveDuration <= 0}
                   />
                 ) : (
-                  <div className="relative mb-4 h-2 w-full overflow-hidden rounded-full bg-white/15">
-                    <div
-                      className="absolute inset-y-0 left-0 rounded-full bg-white/28 transition-[width] duration-300"
-                      style={{
-                        width: `${Math.min(100, bufferRatio * 100 || 12)}%`,
-                      }}
-                    />
-                  </div>
+                  <LiveBufferBar bufferRatio={bufferRatio} />
                 )}
 
-                <div className="flex flex-col gap-3 sm:gap-4">
-                  <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-between">
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  {isVod ? (
-                    <GlassIconButton
-                      aria-label="Back 10 seconds"
-                      onClick={() => skipSeconds(-10)}
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <div className="flex shrink-0 items-center gap-1">
+                    {isVodPlayback ? (
+                      <GlassIconButton
+                        aria-label="Back 15 seconds"
+                        onClick={() => remoteAwareSkipSeconds(-15)}
+                      >
+                        <Rewind className="h-4 w-4" />
+                      </GlassIconButton>
+                    ) : null}
+
+                    <GlassPrimaryButton
+                      aria-label={playing ? "Pause" : "Play"}
+                      onClick={remoteAwareTogglePlay}
                     >
-                      <Rewind className="h-5 w-5" />
-                    </GlassIconButton>
-                  ) : null}
+                      {playing ? (
+                        <Pause className="h-4 w-4" fill="currentColor" />
+                      ) : (
+                        <Play className="h-4 w-4 pl-0.5" fill="currentColor" />
+                      )}
+                    </GlassPrimaryButton>
 
-                  <GlassPrimaryButton
-                    aria-label={playing ? "Pause" : "Play"}
-                    onClick={togglePlay}
-                  >
-                    {playing ? (
-                      <Pause className="h-7 w-7" fill="currentColor" />
-                    ) : (
-                      <Play className="h-7 w-7 pl-1" fill="currentColor" />
-                    )}
-                  </GlassPrimaryButton>
+                    {isVodPlayback ? (
+                      <GlassIconButton
+                        aria-label="Forward 15 seconds"
+                        onClick={() => remoteAwareSkipSeconds(15)}
+                      >
+                        <FastForward className="h-4 w-4" />
+                      </GlassIconButton>
+                    ) : null}
+                  </div>
 
-                  {isVod ? (
-                    <GlassIconButton
-                      aria-label="Forward 10 seconds"
-                      onClick={() => skipSeconds(10)}
-                    >
-                      <FastForward className="h-5 w-5" />
-                    </GlassIconButton>
-                  ) : null}
-                </div>
-
-                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <div className="ml-auto flex min-w-0 items-center gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   <Menu.Root modal={false}>
                     <GlassIconMenuTrigger
                       aria-label="Playback speed"
-                      disabled={!isVod}
+                      disabled={!isVodPlayback}
                     >
-                      <Gauge className="h-5 w-5" />
+                      <Gauge className="h-4 w-4" />
                     </GlassIconMenuTrigger>
                     <Menu.Portal>
                       <Menu.Positioner
@@ -1145,7 +1561,7 @@ export function WatchView() {
                         sideOffset={10}
                         className="z-[100]"
                       >
-                        <Menu.Popup className="min-w-[140px] origin-bottom rounded-2xl border border-white/[0.14] bg-black/55 p-1 shadow-2xl outline-none backdrop-blur-2xl backdrop-saturate-150">
+                        <Menu.Popup className="min-w-[140px] origin-bottom rounded-2xl border border-white/[0.14] bg-zinc-950/95 p-1 shadow-2xl outline-none">
                           <Menu.Viewport>
                             <Menu.Group>
                               <Menu.GroupLabel className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-white/45">
@@ -1189,7 +1605,7 @@ export function WatchView() {
                         sideOffset={10}
                         className="z-[100]"
                       >
-                        <Menu.Popup className="min-w-[180px] origin-bottom rounded-2xl border border-white/[0.14] bg-black/55 p-1 shadow-2xl outline-none backdrop-blur-2xl backdrop-saturate-150">
+                        <Menu.Popup className="min-w-[180px] origin-bottom rounded-2xl border border-white/[0.14] bg-zinc-950/95 p-1 shadow-2xl outline-none">
                           <Menu.Viewport>
                             <Menu.Group>
                               <Menu.GroupLabel className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-white/45">
@@ -1227,8 +1643,74 @@ export function WatchView() {
                     </Menu.Portal>
                   </Menu.Root>
 
-                  <div className="hidden items-center gap-2 sm:flex">
-                    <span className="text-[13px] text-white/45">Vol</span>
+                  {audioTracks.length > 1 ? (
+                    <Menu.Root modal={false}>
+                      <GlassIconMenuTrigger aria-label="Audio track">
+                        <Languages className="h-4 w-4" />
+                      </GlassIconMenuTrigger>
+                      <Menu.Portal>
+                        <Menu.Positioner side="top" align="end" sideOffset={10} className="z-[100]">
+                          <Menu.Popup className="min-w-[180px] origin-bottom rounded-2xl border border-white/[0.14] bg-zinc-950/95 p-1 shadow-2xl outline-none">
+                            <Menu.Viewport>
+                              <Menu.Group>
+                                <Menu.GroupLabel className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-white/45">
+                                  Audio
+                                </Menu.GroupLabel>
+                                {audioTracks.map((t) => (
+                                  <Menu.Item
+                                    key={t.index}
+                                    className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-white/90 outline-none data-[highlighted]:bg-white/12"
+                                    onClick={() => playerSession?.setAudioTrack(t.index)}
+                                  >
+                                    {t.label}
+                                    {currentAudioTrack === t.index ? (
+                                      <span className="text-emerald-400">✓</span>
+                                    ) : null}
+                                  </Menu.Item>
+                                ))}
+                              </Menu.Group>
+                            </Menu.Viewport>
+                          </Menu.Popup>
+                        </Menu.Positioner>
+                      </Menu.Portal>
+                    </Menu.Root>
+                  ) : null}
+
+                  {subtitleTracks.length > 1 ? (
+                    <Menu.Root modal={false}>
+                      <GlassIconMenuTrigger aria-label="Subtitles">
+                        <Subtitles className="h-4 w-4" />
+                      </GlassIconMenuTrigger>
+                      <Menu.Portal>
+                        <Menu.Positioner side="top" align="end" sideOffset={10} className="z-[100]">
+                          <Menu.Popup className="min-w-[180px] origin-bottom rounded-2xl border border-white/[0.14] bg-zinc-950/95 p-1 shadow-2xl outline-none">
+                            <Menu.Viewport>
+                              <Menu.Group>
+                                <Menu.GroupLabel className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-white/45">
+                                  Subtitles
+                                </Menu.GroupLabel>
+                                {subtitleTracks.map((t) => (
+                                  <Menu.Item
+                                    key={t.index}
+                                    className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-white/90 outline-none data-[highlighted]:bg-white/12"
+                                    onClick={() => playerSession?.setSubtitleTrack(t.index)}
+                                  >
+                                    {t.label}
+                                    {currentSubtitleTrack === t.index ? (
+                                      <span className="text-emerald-400">✓</span>
+                                    ) : null}
+                                  </Menu.Item>
+                                ))}
+                              </Menu.Group>
+                            </Menu.Viewport>
+                          </Menu.Popup>
+                        </Menu.Positioner>
+                      </Menu.Portal>
+                    </Menu.Root>
+                  ) : null}
+
+                  <div className="hidden items-center gap-1.5 sm:flex">
+                    <span className="text-[11px] text-white/40">Vol</span>
                     <input
                       aria-label="Volume"
                       type="range"
@@ -1238,8 +1720,8 @@ export function WatchView() {
                       value={volume}
                       onChange={(e) => setVol(Number(e.target.value))}
                       className={cn(
-                        "h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-white/15",
-                        "[&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white",
+                        "h-1 w-20 cursor-pointer appearance-none rounded-full bg-white/15",
+                        "[&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white",
                       )}
                     />
                   </div>
@@ -1249,13 +1731,13 @@ export function WatchView() {
                     onClick={toggleMute}
                   >
                     {muted ? (
-                      <VolumeX className="h-5 w-5" />
+                      <VolumeX className="h-4 w-4" />
                     ) : (
-                      <Volume2 className="h-5 w-5" />
+                      <Volume2 className="h-4 w-4" />
                     )}
                   </GlassIconButton>
 
-                  {pipSupported ? (
+                  {pipCapable ? (
                     <GlassIconButton
                       aria-label={
                         pipActive
@@ -1263,8 +1745,9 @@ export function WatchView() {
                           : "Picture in picture"
                       }
                       onClick={() => void togglePip()}
+                      className={pipActive ? "border-[var(--zen-signal)]/45 bg-[var(--zen-signal)]/12" : undefined}
                     >
-                      <PictureInPicture className="h-5 w-5" />
+                      <PictureInPicture className="h-4 w-4" />
                     </GlassIconButton>
                   ) : null}
 
@@ -1273,25 +1756,15 @@ export function WatchView() {
                     onClick={toggleFullscreen}
                   >
                     {fs ? (
-                      <Minimize2 className="h-5 w-5" />
+                      <Minimize2 className="h-4 w-4" />
                     ) : (
-                      <Maximize2 className="h-5 w-5" />
+                      <Maximize2 className="h-4 w-4" />
                     )}
                   </GlassIconButton>
-
-                  <div className="tabular-nums text-[13px] text-white/55">
-                    {liveOrClock}
                   </div>
                 </div>
               </div>
-
-              <p className="hidden text-center text-[11px] leading-relaxed text-white/35 sm:block">
-                Skip ±10s: Shift+← → · PiP: Shift+P · If playback fails, the
-                stream may be unsupported in this browser.
-              </p>
             </div>
-          </div>
-        </ZenedeGlass>
           </div>
         </div>
         </div>
@@ -1308,18 +1781,16 @@ function GlassTextButton({
   onClick: () => void;
 }) {
   return (
-    <ZenedeGlass variant="heroSecondary" className="inline-flex shrink-0">
-      <button
-        type="button"
-        onClick={onClick}
-        className={cn(
-          "rounded-full px-3 py-2 text-[15px] font-medium text-white/90 outline-none",
-          "hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-white",
-        )}
-      >
-        {children}
-      </button>
-    </ZenedeGlass>
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex shrink-0 rounded-full border border-white/[0.16] bg-black/58 px-2.5 py-1.5 text-[13px] font-semibold text-white/90 outline-none backdrop-blur-xl",
+        "transition-colors hover:bg-white/[0.08] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -1337,21 +1808,20 @@ function GlassIconButton({
   "aria-label": string;
 }) {
   return (
-    <ZenedeGlass variant="iconChip" className={cn("inline-flex", className)}>
-      <button
-        type="button"
-        aria-label={ariaLabel}
-        disabled={disabled}
-        onClick={onClick}
-        className={cn(
-          "flex h-12 min-w-12 items-center justify-center rounded-full text-white outline-none transition sm:h-11 sm:min-w-11",
-          "hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-white",
-          "disabled:cursor-not-allowed disabled:opacity-35",
-        )}
-      >
-        {children}
-      </button>
-    </ZenedeGlass>
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-9 min-w-9 items-center justify-center rounded-full border border-white/[0.14] bg-black/50 text-white outline-none transition-colors sm:h-10 sm:min-w-10",
+        "hover:bg-white/[0.08] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
+        "disabled:cursor-not-allowed disabled:opacity-35",
+        className,
+      )}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -1365,19 +1835,17 @@ function GlassPrimaryButton({
   "aria-label": string;
 }) {
   return (
-    <ZenedeGlass variant="ctaPill" className="inline-flex">
-      <button
-        type="button"
-        aria-label={ariaLabel}
-        onClick={onClick}
-        className={cn(
-          "flex h-16 min-w-16 items-center justify-center rounded-full text-black outline-none sm:h-14 sm:min-w-14",
-          "focus-visible:ring-2 focus-visible:ring-white",
-        )}
-      >
-        {children}
-      </button>
-    </ZenedeGlass>
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-10 min-w-10 items-center justify-center rounded-full border border-white/[0.2] bg-[var(--zen-frost)] text-[var(--zen-void)] outline-none sm:h-11 sm:min-w-11",
+        "shadow-[0_8px_24px_-12px_rgba(56,217,255,0.5)] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -1394,20 +1862,34 @@ function GlassIconMenuTrigger({
   "aria-label": string;
 }) {
   return (
-    <ZenedeGlass variant="iconChip" className={cn("inline-flex", className)}>
-      <Menu.Trigger
-        disabled={disabled}
-        aria-label={ariaLabel}
-        className={cn(
-          "flex h-12 min-w-12 items-center justify-center rounded-full bg-transparent text-white outline-none sm:h-11 sm:min-w-11",
-          "hover:bg-white/8 focus-visible:ring-2 focus-visible:ring-white",
-          "disabled:cursor-not-allowed disabled:opacity-35",
-          "data-[popup-open]:bg-white/12",
-        )}
-      >
-        {children}
-      </Menu.Trigger>
-    </ZenedeGlass>
+    <Menu.Trigger
+      disabled={disabled}
+      aria-label={ariaLabel}
+      className={cn(
+        "inline-flex h-9 min-w-9 items-center justify-center rounded-full border border-white/[0.14] bg-black/50 text-white outline-none sm:h-10 sm:min-w-10",
+        "hover:bg-white/[0.08] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
+        "disabled:cursor-not-allowed disabled:opacity-35",
+        "data-[popup-open]:bg-white/[0.12]",
+        className,
+      )}
+    >
+      {children}
+    </Menu.Trigger>
+  );
+}
+
+function LiveBufferBar({ bufferRatio }: { bufferRatio: number }) {
+  return (
+    <div
+      className="relative mb-2 h-2 w-full overflow-hidden rounded-full border border-white/[0.08] bg-white/[0.08]"
+      aria-hidden
+    >
+      <div
+        className="absolute inset-y-0 left-0 rounded-full bg-white/20 transition-[width] duration-300"
+        style={{ width: `${Math.min(100, bufferRatio * 100 || 8)}%` }}
+      />
+      <div className="absolute inset-y-0 left-0 w-10 rounded-full bg-gradient-to-r from-emerald-300/85 to-white/65" />
+    </div>
   );
 }
 
@@ -1442,7 +1924,7 @@ function SeekBar({
       aria-valuemax={100}
       aria-valuenow={Math.round(ratio * 100)}
       className={cn(
-        "group relative mb-4 h-4 w-full cursor-pointer overflow-hidden rounded-full bg-white/12 sm:h-2.5",
+        "group relative mb-2 h-2 w-full cursor-pointer overflow-hidden rounded-full border border-white/[0.08] bg-white/[0.08]",
         disabled && "cursor-default opacity-50",
       )}
       onPointerDown={(e) => {
@@ -1456,11 +1938,11 @@ function SeekBar({
       }}
     >
       <div
-        className="absolute inset-y-0 left-0 bg-white/22"
+        className="absolute inset-y-0 left-0 bg-white/20"
         style={{ width: `${Math.min(100, bufferRatio * 100)}%` }}
       />
       <div
-        className="absolute inset-y-0 left-0 bg-gradient-to-r from-white/90 to-white/70"
+        className="absolute inset-y-0 left-0 bg-gradient-to-r from-cyan-300 to-white"
         style={{ width: `${ratio * 100}%` }}
       />
     </div>

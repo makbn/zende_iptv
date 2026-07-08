@@ -6,6 +6,10 @@ import {
   type AggregatedStreamRow,
 } from "@/lib/iptv/aggregated-channels";
 import { getRequestOrigin } from "@/lib/http/request-origin";
+import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
+import type { M3uChannel } from "@/core/playlist/m3u-parse";
+import { resolveLibraryContentType } from "@/lib/channels/content-type";
+import { prisma } from "@/lib/db/prisma";
 
 /** Xtream-compatible live stream JSON (subset of fields commonly used by IPTV players). */
 export function xtreamLiveStreamJson(
@@ -75,6 +79,73 @@ async function filteredLiveStreams(categoryId?: string): Promise<unknown[]> {
   return filtered.map((row, idx) => xtreamLiveStreamJson(row, idx + 1));
 }
 
+async function loadMovieChannels(): Promise<M3uChannel[]> {
+  const out: M3uChannel[] = [];
+  for (const src of BUILTIN_PLAYLIST_SOURCES) {
+    const row = await prisma.playlistCatalogCache.findUnique({
+      where: { presetId: src.presetId },
+    });
+    if (!row) continue;
+    try {
+      const parsed = JSON.parse(row.channelsJson) as M3uChannel[];
+      if (!Array.isArray(parsed)) continue;
+      for (const ch of parsed) {
+        if (ch?.name && typeof ch.url === "string") {
+          if (resolveLibraryContentType(ch) === "movie") out.push(ch);
+        }
+      }
+    } catch {
+      /* skip */
+    }
+  }
+  return out;
+}
+
+function xtreamVodStreamJson(
+  channel: M3uChannel,
+  streamId: number,
+  categoryId: string,
+): Record<string, string | number> {
+  return {
+    num: streamId,
+    name: channel.name,
+    stream_type: "movie",
+    stream_id: streamId,
+    stream_icon: channel.tvgLogo ?? "",
+    rating: "",
+    rating_5based: 0,
+    added: "0",
+    category_id: categoryId,
+    container_extension: "mp4",
+    custom_sid: "",
+    direct_source: "",
+  };
+}
+
+async function filteredVodStreams(categoryId?: string): Promise<unknown[]> {
+  const movies = await loadMovieChannels();
+  const groupNames = new Set<string>();
+  for (const ch of movies) {
+    groupNames.add((ch.groupTitle ?? "").trim() || "Movies");
+  }
+  const sortedGroups = [...groupNames].sort((a, b) => a.localeCompare(b));
+  const groupToCatId = new Map<string, string>();
+  sortedGroups.forEach((name, idx) => groupToCatId.set(name, String(idx + 1)));
+
+  const filtered =
+    categoryId !== undefined && categoryId !== null && `${categoryId}`.trim() !== ""
+      ? movies.filter((ch) => {
+          const g = (ch.groupTitle ?? "").trim() || "Movies";
+          return groupToCatId.get(g) === `${categoryId}`.trim();
+        })
+      : movies;
+
+  return filtered.map((ch, idx) => {
+    const g = (ch.groupTitle ?? "").trim() || "Movies";
+    return xtreamVodStreamJson(ch, idx + 1, groupToCatId.get(g) ?? "1");
+  });
+}
+
 /** Placeholder grid — real listings would pipe iptv-org / XMLTV guides into Xtream-shaped rows. */
 function buildPlaceholderEpgListings(streamId: string, slotCount: number): unknown[] {
   const limit = Math.min(96, Math.max(1, slotCount));
@@ -132,6 +203,58 @@ export async function handleXtreamAction(
     const streamId = url.searchParams.get("stream_id")?.trim() ?? "";
     const limitRaw = url.searchParams.get("limit");
     const n = Math.min(24, Math.max(1, parseInt(limitRaw || "4", 10) || 4));
+
+    const { streams } = await getAggregatedXtreamCatalog();
+    const row = streams.find((r) => String(r.streamId) === streamId);
+    const tvgId = row?.channel.tvgId?.trim();
+
+    if (tvgId) {
+      const { createServerLogger } = await import("@/core/logging/server");
+      const log = createServerLogger("iptv.xtreamShortEpg");
+      const { loadEpgMergeForIds, materializeProgramsFromMerge } = await import(
+        "@/lib/epg/build-epg-programs"
+      );
+      const merge = await loadEpgMergeForIds([tvgId], log);
+      const payload = await materializeProgramsFromMerge(merge, [tvgId], log);
+      const slot = payload.programs[tvgId];
+      const listings: Record<string, unknown>[] = [];
+      const slots = [slot?.current, slot?.next].filter(Boolean) as Array<{
+        title: string;
+        startMs: number;
+        stopMs: number;
+      }>;
+      for (let i = 0; i < Math.min(n, slots.length); i++) {
+        const s = slots[i]!;
+        const startSec = Math.floor(s.startMs / 1000);
+        const stopSec = Math.floor(s.stopMs / 1000);
+        const isoFmt = (ms: number) =>
+          new Date(ms).toISOString().replace("T", " ").slice(0, 19);
+        listings.push({
+          id: `${streamId}_${startSec}`,
+          channel_id: streamId,
+          title: s.title,
+          lang: "en",
+          description: s.title,
+          start_timestamp: String(startSec),
+          stop_timestamp: String(stopSec),
+          start: isoFmt(s.startMs),
+          end: isoFmt(s.stopMs),
+          stop: isoFmt(s.stopMs),
+          now_playing: i === 0 ? 1 : 0,
+          has_archive: 0,
+        });
+      }
+      while (listings.length < n) {
+        listings.push(
+          ...(buildPlaceholderEpgListings(streamId || "0", n - listings.length) as Record<
+            string,
+            unknown
+          >[]),
+        );
+      }
+      return Response.json({ epg_listings: listings.slice(0, n) });
+    }
+
     const listings = buildPlaceholderEpgListings(streamId || "0", n);
     return Response.json({ epg_listings: listings });
   }
@@ -144,11 +267,16 @@ export async function handleXtreamAction(
 
   if (
     action === "get_vod_categories" ||
-    action === "get_vod_streams" ||
     action === "get_series_categories" ||
     action === "get_series"
   ) {
     return Response.json([]);
+  }
+
+  if (action === "get_vod_streams") {
+    const cat = url.searchParams.get("category_id");
+    const data = await filteredVodStreams(cat ?? undefined);
+    return Response.json(data);
   }
 
   if (action === "get_vod_info") {

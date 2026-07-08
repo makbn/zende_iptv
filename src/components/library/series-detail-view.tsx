@@ -6,6 +6,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, Play } from "lucide-react";
 
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import {
+  BROWSE_BOTTOM_PAD_MOBILE,
+  BROWSE_TOP_PAD,
+} from "@/components/layout/browse-page-shell";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import { useSeriesInfo } from "@/features/iptv/use-series-info";
 import { buildEpisodeWatchChannel, formatEpisodeCode } from "@/lib/playback/play-episode";
@@ -103,28 +107,36 @@ export function SeriesDetailView({
     : null;
 
   return (
-    <div className="min-h-screen bg-[var(--tv-page-bg)] pb-28 pt-[5.35rem] text-white md:pb-16 md:pt-0">
+    <main
+      id="main"
+      className={cn(
+        "zen-page-bg min-h-screen text-white",
+        BROWSE_TOP_PAD,
+        BROWSE_BOTTOM_PAD_MOBILE,
+        "md:pb-16",
+      )}
+    >
       <div className="relative overflow-hidden">
         {cover ? (
           <div
-            className="absolute inset-0 scale-105 bg-cover bg-center opacity-35 blur-2xl"
+            className="absolute inset-0 scale-110 bg-cover bg-center opacity-35 blur-3xl saturate-125"
             style={{ backgroundImage: `url(${cover})` }}
             aria-hidden
           />
         ) : null}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-[var(--tv-page-bg)] to-[var(--tv-page-bg)]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-[var(--tv-page-bg)]/92 to-[var(--tv-page-bg)]" />
 
         <div className="relative mx-auto max-w-6xl px-4 pb-8 pt-4 sm:px-8 sm:pt-8">
           <Link
             href="/library?tab=series"
-            className="mb-6 inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[14px] text-white/65 outline-none hover:bg-white/8 hover:text-white focus-visible:ring-2 focus-visible:ring-white"
+            className="mb-6 inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 py-2 text-[14px] font-semibold text-white/68 outline-none hover:bg-white/8 hover:text-white focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden />
             Library
           </Link>
 
           <div className="flex flex-col gap-6 sm:flex-row sm:items-end">
-            <div className="mx-auto w-40 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-black/40 shadow-2xl sm:mx-0 sm:w-52">
+            <div className="mx-auto w-40 shrink-0 overflow-hidden rounded-[26px] border border-white/12 bg-black/48 shadow-[0_28px_90px_-38px_rgba(0,0,0,0.95)] sm:mx-0 sm:w-52">
               {cover ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={cover} alt="" className="aspect-[2/3] w-full object-cover" />
@@ -136,17 +148,17 @@ export function SeriesDetailView({
             </div>
 
             <div className="min-w-0 flex-1 text-center sm:text-left">
-              <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-white/40">
+              <p className="zen-kicker">
                 TV Show
               </p>
-              <h1 className="mt-2 text-[28px] font-bold tracking-tight sm:text-[36px]">
+              <h1 className="zen-page-title mt-3">
                 {title}
               </h1>
               {groupTitle ? (
                 <p className="mt-2 text-[14px] text-white/45">{groupTitle}</p>
               ) : null}
               {showPlot ? (
-                <p className="mt-4 max-w-3xl text-[15px] leading-relaxed text-white/55">
+                <p className="zen-body-muted mt-4 max-w-3xl">
                   {showPlot}
                 </p>
               ) : null}
@@ -157,7 +169,7 @@ export function SeriesDetailView({
                     type="button"
                     disabled={playBusy}
                     onClick={() => void playEpisode(continueTarget.ep, continueTarget.index)}
-                    className="outline-none disabled:opacity-50"
+                    className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] disabled:opacity-50"
                   >
                     <ZenedeGlass variant="ctaPill">
                       <span className="flex min-w-[10rem] flex-col items-start gap-0.5 px-6 py-3 text-left">
@@ -188,7 +200,7 @@ export function SeriesDetailView({
                     type="button"
                     disabled={playBusy || loading}
                     onClick={() => void playEpisode(episodesBySeason.flat[0]!, 0)}
-                    className="outline-none disabled:opacity-50"
+                    className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] disabled:opacity-50"
                   >
                     <ZenedeGlass variant="ctaPill">
                       <span className="flex items-center gap-2 px-6 py-3 text-[15px] font-semibold text-zinc-950">
@@ -223,9 +235,9 @@ export function SeriesDetailView({
                   type="button"
                   onClick={() => setSeasonTab(season)}
                   className={cn(
-                    "shrink-0 rounded-full px-4 py-2 text-[14px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-white",
+                    "shrink-0 rounded-full px-4 py-2 text-[14px] font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
                     activeSeason === season
-                      ? "bg-white text-zinc-950"
+                      ? "bg-[var(--zen-frost)] text-[var(--zen-void)]"
                       : "bg-white/8 text-white/70 hover:bg-white/12",
                   )}
                 >
@@ -241,9 +253,9 @@ export function SeriesDetailView({
                     type="button"
                     disabled={playBusy}
                     onClick={() => void playEpisode(ep, ep.index)}
-                    className="group flex w-full items-center gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-left outline-none transition-colors hover:bg-white/[0.07] focus-visible:ring-2 focus-visible:ring-white disabled:opacity-50"
+                    className="group flex w-full items-center gap-4 rounded-[22px] border border-white/[0.1] bg-white/[0.05] px-4 py-3 text-left outline-none transition-colors hover:bg-white/[0.08] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] disabled:opacity-50"
                   >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-[13px] font-semibold text-white/80 group-hover:bg-white/15">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/12 text-[13px] font-semibold text-white/82 group-hover:bg-white/16">
                       {ep.episodeNum || "·"}
                     </span>
                     <span className="min-w-0 flex-1">
@@ -265,6 +277,6 @@ export function SeriesDetailView({
           </>
         )}
       </div>
-    </div>
+    </main>
   );
 }

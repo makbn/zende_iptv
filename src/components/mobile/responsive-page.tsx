@@ -1,14 +1,16 @@
-"use client";
-
 import type { ReactNode } from "react";
-
-import { useSmallScreen } from "@/components/mobile/use-small-screen";
 
 type Props = {
   mobile: ReactNode;
   desktop: ReactNode;
 };
 
+/** CSS-only responsive split — both trees SSR without hydration flash. */
 export function ResponsivePage({ mobile, desktop }: Props) {
-  return useSmallScreen() ? mobile : desktop;
+  return (
+    <>
+      <div className="md:hidden">{mobile}</div>
+      <div className="hidden md:block">{desktop}</div>
+    </>
+  );
 }

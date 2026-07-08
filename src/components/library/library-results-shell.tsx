@@ -24,12 +24,12 @@ export function LibraryResultsShell({
     <div id={id} className={cn("relative scroll-mt-24", className)}>
       {busy ? (
         <div
-          className="pointer-events-none absolute inset-0 z-20 flex items-start justify-center bg-black/35 pt-20 backdrop-blur-[2px] sm:pt-28"
+          className="pointer-events-none absolute inset-0 z-20 flex items-start justify-center bg-black/18 pt-20 sm:pt-28"
           role="status"
           aria-live="polite"
           aria-busy="true"
         >
-          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/70 px-5 py-3 shadow-xl">
+          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/82 px-5 py-3 shadow-xl">
             <Loader2 className="h-5 w-5 animate-spin text-white" aria-hidden />
             <span className="text-[14px] font-medium text-white/90">{label}</span>
           </div>
@@ -38,7 +38,7 @@ export function LibraryResultsShell({
       <div
         className={cn(
           "transition-opacity duration-200",
-          busy && "pointer-events-none opacity-45",
+          busy && "pointer-events-none opacity-85",
         )}
       >
         {children}

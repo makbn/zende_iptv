@@ -10,8 +10,11 @@ export type GlassVariant =
   | "heroSecondary"
   | "panel"
   | "panelCompact"
+  | "surface"
+  | "mediaCard"
   | "iconChip"
-  | "ctaPill";
+  | "ctaPill"
+  | "danger";
 
 /** Curated presets aligned with liquid-glass-react defaults — tuned for dark IPTV UI. */
 export const GLASS_PRESETS: Record<
@@ -80,6 +83,26 @@ export const GLASS_PRESETS: Record<
     mode: "standard",
     padding: "0",
   },
+  surface: {
+    displacementScale: 44,
+    blurAmount: 0.05,
+    saturation: 142,
+    aberrationIntensity: 1.5,
+    elasticity: 0.18,
+    cornerRadius: 24,
+    mode: "prominent",
+    padding: "0",
+  },
+  mediaCard: {
+    displacementScale: 48,
+    blurAmount: 0.054,
+    saturation: 146,
+    aberrationIntensity: 1.7,
+    elasticity: 0.23,
+    cornerRadius: 26,
+    mode: "polar",
+    padding: "0",
+  },
   iconChip: {
     displacementScale: 44,
     blurAmount: 0.055,
@@ -100,5 +123,15 @@ export const GLASS_PRESETS: Record<
     mode: "standard",
     padding: "0",
     overLight: true,
+  },
+  danger: {
+    displacementScale: 48,
+    blurAmount: 0.052,
+    saturation: 136,
+    aberrationIntensity: 1.65,
+    elasticity: 0.22,
+    cornerRadius: 24,
+    mode: "prominent",
+    padding: "0",
   },
 };

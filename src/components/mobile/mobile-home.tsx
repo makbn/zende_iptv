@@ -5,16 +5,23 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
 
-import { ZenedeLogoWave } from "@/components/loading/zenede-logo-wave";
+import {
+  CinematicButton,
+  CinematicCommandPanel,
+} from "@/components/layout/cinematic-v2";
+import { TvContinueEmpty } from "@/components/tv/tv-continue-empty";
 import { MobileChannelCard } from "@/components/mobile/mobile-channel-card";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { useChannelHealthLookup } from "@/features/health/use-channel-health";
-import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
+import { ZenedeLogoWave } from "@/components/loading/zenede-logo-wave";
+import { useCatalogMeta } from "@/features/iptv/catalog-context";
+import { useContinueWatchingItems } from "@/features/iptv/use-continue-watching";
 import { useLibraryCatalog } from "@/features/iptv/use-library-catalog";
+import { parseChannelLabel } from "@/lib/channel/channel-label";
+import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
-import { cn } from "@/lib/utils";
 import {
   listRecentPlayback,
   listTopByPlayCount,
@@ -23,6 +30,7 @@ import {
 } from "@/lib/watch/viewing-stats";
 
 const source = BUILTIN_PLAYLIST_SOURCES[0]!;
+const DEFAULT_RECOMMENDATION_LANGUAGE = "en";
 
 function dedupeChannels(list: M3uChannel[]): M3uChannel[] {
   const seen = new Set<string>();
@@ -59,21 +67,21 @@ function MobileShelf({
       aria-label={title}
     >
       <div className="px-4">
-        <h2 className="text-[19px] font-semibold tracking-tight text-white">
+        <h2 className="zen-section-title">
           {title}
         </h2>
-        <p className="mt-0.5 max-w-[34ch] text-[13px] leading-snug text-white/44">
+        <p className="mt-1 max-w-[34ch] text-[13px] leading-snug text-white/52">
           {description}
         </p>
       </div>
-      <div className="tv-row-scroll zen-stagger-row mt-3 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-4 pb-2 sm:gap-3">
+      <div className="tv-row-scroll zen-stagger-row mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 sm:gap-3.5">
         {channels.map((channel, index) => (
           <MobileChannelCard
             key={`${title}-${channel.url}-${index}`}
             channel={channel}
             healthScore={getScoreForChannel(channel)}
             onSelect={onSelect}
-            className="w-[78vw] max-w-[320px] shrink-0 snap-start"
+            className="w-[44vw] min-w-[148px] max-w-[178px] shrink-0 snap-start sm:w-[30vw] sm:max-w-[190px]"
           />
         ))}
       </div>
@@ -83,8 +91,9 @@ function MobileShelf({
 
 export function MobileHome() {
   const router = useRouter();
+  const { navigate, onNavigateClick } = useRemoteNavigation();
   const { openChannel, navError, clearNavError } = useWatchNavigation();
-  const catalog = useCatalogBootstrap(source);
+  const catalog = useCatalogMeta();
   const discoverCatalog = useLibraryCatalog({
     presetId: source.presetId,
     contentTab: "all",
@@ -93,6 +102,26 @@ export function MobileHome() {
     languageFilter: null,
     offset: 0,
     pageSize: 18,
+  });
+  const recommendedMoviesCatalog = useLibraryCatalog({
+    presetId: source.presetId,
+    contentTab: "movie",
+    query: "",
+    groupFilter: null,
+    languageFilter: DEFAULT_RECOMMENDATION_LANGUAGE,
+    countryFilter: null,
+    offset: 0,
+    pageSize: 12,
+  });
+  const recommendedSeriesCatalog = useLibraryCatalog({
+    presetId: source.presetId,
+    contentTab: "series",
+    query: "",
+    groupFilter: null,
+    languageFilter: DEFAULT_RECOMMENDATION_LANGUAGE,
+    countryFilter: null,
+    offset: 0,
+    pageSize: 12,
   });
   const {
     busy,
@@ -120,8 +149,6 @@ export function MobileHome() {
     const discover = discoverCatalog.channels.filter((c) => !skip.has(c.url));
     return dedupeChannels([...recent, ...frequent, ...discover]);
   }, [statsEpoch, discoverCatalog.channels]);
-
-  const { getScoreForChannel } = useChannelHealthLookup(shelfChannels);
 
   useEffect(() => {
     if (!catalogLoaded) return;
@@ -165,9 +192,75 @@ export function MobileHome() {
     return shelfChannels.find((channel) => channel.tvgLogo) ?? shelfChannels[0];
   }, [shelfChannels, statsEpoch]);
 
+  const continueWatching = useContinueWatchingItems(12);
+  const coldStart = continueWatching.length === 0;
+  const recommendedMovies = useMemo(
+    () => dedupeChannels(recommendedMoviesCatalog.channels).slice(0, 12),
+    [recommendedMoviesCatalog.channels],
+  );
+  const recommendedSeries = useMemo(
+    () => dedupeChannels(recommendedSeriesCatalog.channels).slice(0, 12),
+    [recommendedSeriesCatalog.channels],
+  );
+  const hasColdStartRecommendations =
+    recommendedMovies.length > 0 || recommendedSeries.length > 0;
+  const showColdStartRecommendations =
+    coldStart &&
+    recentChannels.length === 0 &&
+    frequentChannels.length === 0 &&
+    hasColdStartRecommendations;
+  const healthLookupChannels = useMemo(
+    () => [
+      ...shelfChannels,
+      ...recommendedMovies,
+      ...recommendedSeries,
+    ],
+    [shelfChannels, recommendedMovies, recommendedSeries],
+  );
+  const { getScoreForChannel } = useChannelHealthLookup(healthLookupChannels);
+
+  const hero = useMemo(() => {
+    if (!featured) {
+      return {
+        eyebrow: "Zenede",
+        title: "Live TV",
+        subtitle: "Your recently watched channels surface here after setup.",
+        backdropUrl: null as string | null,
+        primaryLabel: "Open Library",
+        secondaryLabel: "Settings",
+      };
+    }
+    return {
+      eyebrow: featured.groupTitle ?? "Live TV",
+      title: parseChannelLabel(featured.name?.trim() || "Channel").displayName,
+      subtitle:
+        "Jump back in, browse what you watch often, or explore something new.",
+      backdropUrl: featured.tvgLogo ?? null,
+      primaryLabel: "Play",
+      secondaryLabel: "Library",
+    };
+  }, [featured]);
+
+  function handlePrimary() {
+    if (busy) return;
+    if (!featured) {
+      navigate("/library");
+      return;
+    }
+    openChannel(featured);
+  }
+
+  function handleSecondary() {
+    if (!featured) {
+      navigate("/settings");
+      return;
+    }
+    navigate("/library");
+  }
+
   if (!catalogLoaded) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[var(--tv-page-bg)] px-4 text-white/45">
+      <div className="zen-page-bg flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-white/45">
         <ZenedeLogoWave size="md" />
         <p className="sr-only">Loading</p>
       </div>
@@ -176,13 +269,16 @@ export function MobileHome() {
 
   if (metaFailed) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[var(--tv-page-bg)] px-4 text-center text-white/55">
-        <p className="text-[15px] font-medium">Could not reach the catalog server.</p>
+      <div className="zen-page-bg flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center text-white/60">
+        <p className="zen-kicker">Catalog offline</p>
+        <p className="max-w-sm text-[21px] font-semibold tracking-[-0.04em] text-white">
+          Could not reach the catalog server.
+        </p>
         <button
           type="button"
           disabled={busy}
           onClick={() => void refreshCatalog()}
-          className="min-h-[46px] rounded-xl bg-white px-5 text-[14px] font-semibold text-zinc-950 disabled:opacity-45"
+          className="min-h-[46px] rounded-full bg-[var(--zen-frost)] px-5 text-[14px] font-semibold text-[var(--zen-void)] disabled:opacity-45"
         >
           {busy ? "Retrying…" : "Retry"}
         </button>
@@ -192,82 +288,83 @@ export function MobileHome() {
 
   if ((channelCount ?? 0) === 0) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--tv-page-bg)] px-4 text-white/45">
+      <div className="zen-page-bg flex min-h-screen items-center justify-center px-4 text-white/45">
         <p className="text-[15px] font-medium">Opening setup…</p>
       </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[var(--tv-page-bg)] pb-28 pt-[5.35rem] text-foreground">
-      <section className="px-4">
-        <div
-          className={cn(
-            "relative overflow-hidden rounded-2xl border border-white/[0.09] bg-white/[0.038] px-3.5 py-3 ring-1 ring-white/[0.04]",
-            "backdrop-blur-md transition-[border-color,box-shadow] duration-300 ease-out",
-            "hover:border-white/[0.12] hover:shadow-[0_20px_50px_-32px_rgba(0,0,0,0.65)]",
-            "motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100",
-          )}
-        >
-          <div className="pointer-events-none absolute inset-0 opacity-55" aria-hidden>
-            <div className="absolute inset-x-[-18%] top-[-48%] h-[68%] rounded-full bg-[radial-gradient(circle,oklch(0.44_0.14_264/0.38),transparent_62%)] blur-2xl" />
-            {featured?.tvgLogo ? (
-              <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={featured.tvgLogo}
-                  alt=""
-                  className="absolute right-2 top-3 max-h-14 max-w-[4.5rem] object-contain opacity-[0.18] blur-[0.5px]"
-                  loading="lazy"
-                />
-              </>
-            ) : null}
+    <main className="zen-page-bg min-h-screen pb-28 pt-[5.35rem] text-foreground">
+      <section className="px-4 pb-4">
+        <CinematicCommandPanel className="rounded-[24px] p-4">
+          <p className="zen-kicker">{hero.eyebrow}</p>
+          <h1 className="mt-2 text-[clamp(1.75rem,8vw,2.7rem)] font-semibold leading-[0.95] tracking-[-0.065em] text-white">
+            {hero.title}
+          </h1>
+          <p className="mt-2 text-[13px] leading-relaxed text-white/54">
+            {hero.subtitle}
+          </p>
+          <p className="mt-3 rounded-[18px] border border-white/[0.09] bg-black/25 px-3 py-2 text-[12px] font-medium leading-relaxed text-white/48">
+            {continueWatching.length > 0
+              ? "Pick up where you left off or jump into Library."
+              : showColdStartRecommendations
+                ? "No history yet, so we’re starting with English movies and shows."
+                : "Start from the featured item or browse by type in Library."}
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <CinematicButton onClick={handlePrimary} disabled={busy}>
+              {hero.primaryLabel}
+            </CinematicButton>
+            <CinematicButton
+              variant="secondary"
+              onClick={handleSecondary}
+              disabled={busy}
+            >
+              {hero.secondaryLabel}
+            </CinematicButton>
           </div>
-
-          <div className="relative z-10">
-            <div className="flex flex-wrap items-end justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">
-                  Zenede
-                </p>
-                <h1 className="mt-0.5 max-w-[16ch] text-[clamp(1.45rem,6.2vw,1.75rem)] font-semibold leading-[1.08] tracking-tight text-white">
-                  Live TV, built for touch.
-                </h1>
-              </div>
-              {channelCount != null ? (
-                <span className="shrink-0 rounded-lg border border-white/[0.08] bg-black/35 px-2 py-1 text-[10px] leading-none text-white/50 ring-1 ring-white/[0.03]">
-                  <span className="font-semibold tabular-nums text-white/88">
-                    {channelCount.toLocaleString()}
-                  </span>{" "}
-                  channels
-                </span>
-              ) : null}
-            </div>
-            <p className="mt-2 max-w-[36ch] text-[13px] leading-snug text-white/48">
-              Rows below update from your watch history — Library has search and filters.
-            </p>
-
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                disabled={busy || !featured}
-                onClick={() => featured && openChannel(featured)}
-                className="zen-pressable min-h-[46px] rounded-xl bg-white px-3 text-[14px] font-semibold text-zinc-950 outline-none transition-shadow hover:shadow-md hover:shadow-black/25 disabled:opacity-45 focus-visible:ring-2 focus-visible:ring-white"
-              >
-                Play
-              </button>
-              <Link
-                href="/library"
-                className="zen-pressable flex min-h-[46px] items-center justify-center rounded-xl border border-white/[0.12] bg-white/[0.07] px-3 text-[14px] font-semibold text-white outline-none transition-colors hover:bg-white/[0.11] focus-visible:ring-2 focus-visible:ring-white"
-              >
-                Library
-              </Link>
-            </div>
-          </div>
-        </div>
+        </CinematicCommandPanel>
       </section>
 
-      <div className="mt-6 space-y-8">
+      <div className="relative z-10 space-y-6 px-0">
+        {continueWatching.length > 0 ? (
+          <MobileShelf
+            id="continue"
+            title="Continue Watching"
+            description="Resume where you left off on this device."
+            channels={continueWatching.map((item) => item.channel)}
+            getScoreForChannel={getScoreForChannel}
+            onSelect={openChannel}
+          />
+        ) : null}
+        {continueWatching.length === 0 && !showColdStartRecommendations ? (
+          <section className="px-4" aria-label="Continue Watching">
+            <TvContinueEmpty />
+          </section>
+        ) : null}
+
+        {showColdStartRecommendations ? (
+          <>
+            <MobileShelf
+              id="recommended-movies"
+              title="English movies to try"
+              description="A first row from your English on-demand catalog."
+              channels={recommendedMovies}
+              getScoreForChannel={getScoreForChannel}
+              onSelect={openChannel}
+            />
+            <MobileShelf
+              id="recommended-series"
+              title="English shows to sample"
+              description="Series suggestions before your watch history exists."
+              channels={recommendedSeries}
+              getScoreForChannel={getScoreForChannel}
+              onSelect={openChannel}
+            />
+          </>
+        ) : null}
+
         <MobileShelf
           id="recent"
           title="Recently Watched"
@@ -320,6 +417,7 @@ export function MobileHome() {
             <div className="grid grid-cols-2 gap-2">
               <Link
                 href="/library"
+                onClick={onNavigateClick("/library")}
                 className="zen-pressable flex min-h-[46px] items-center justify-center rounded-xl bg-white text-[14px] font-semibold text-zinc-950 outline-none transition-shadow hover:shadow-md hover:shadow-black/20 focus-visible:ring-2 focus-visible:ring-white"
               >
                 Open Library
@@ -337,6 +435,12 @@ export function MobileHome() {
           </div>
         </section>
       </div>
+
+      <footer className="mt-8 border-t border-white/[0.06] px-4 py-8 text-center">
+        <p className="text-[12px] leading-relaxed text-white/35">
+          Third-party streams. You are responsible for content you access.
+        </p>
+      </footer>
 
       {navError && <NavErrorBanner message={navError} onDismiss={clearNavError} />}
     </main>

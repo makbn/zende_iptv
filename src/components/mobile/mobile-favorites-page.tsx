@@ -10,7 +10,7 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
-import { Heart, Search, X } from "lucide-react";
+import { Heart, Radio, Search, X } from "lucide-react";
 
 import { MobileChannelCard } from "@/components/mobile/mobile-channel-card";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
@@ -21,6 +21,7 @@ import {
 } from "@/lib/favorites/favorites-store";
 import { useChannelHealthLookup } from "@/features/health/use-channel-health";
 import { useEnrichedFavorites } from "@/features/iptv/use-enriched-favorites";
+import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +30,7 @@ const PAGE_STEP = 50;
 type SortMode = "recent" | "name" | "group";
 
 export function MobileFavoritesPage() {
+  const { onNavigateClick } = useRemoteNavigation();
   const { openChannel, navError, clearNavError } = useWatchNavigation();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [favEpoch, setFavEpoch] = useState(0);
@@ -117,12 +119,12 @@ export function MobileFavoritesPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-[var(--tv-page-bg)] pb-28 pt-[5.35rem] text-foreground">
+    <main className="zen-page-bg min-h-screen pb-28 pt-[5.35rem] text-foreground">
       <section className="px-4">
         <div
           className={cn(
-            "relative overflow-hidden rounded-2xl border border-white/[0.09] bg-white/[0.035] px-3.5 py-2.5 ring-1 ring-white/[0.04]",
-            "backdrop-blur-md transition-[border-color,box-shadow] duration-300 ease-out",
+            "relative overflow-hidden rounded-[24px] border border-white/[0.11] bg-white/[0.055] px-4 py-3 ring-1 ring-white/[0.05]",
+            "backdrop-blur-xl transition-[border-color,box-shadow] duration-300 ease-out",
             "hover:border-white/[0.12] hover:shadow-[0_12px_40px_-28px_rgba(0,0,0,0.55)]",
             "motion-safe:animate-fav-hero-in motion-reduce:animate-none motion-reduce:opacity-100",
           )}
@@ -136,7 +138,7 @@ export function MobileFavoritesPage() {
               <Heart className="size-2.5 fill-amber-300/90 text-amber-300" aria-hidden />
               Saved
             </span>
-            <h1 className="min-w-0 text-[1.25rem] font-semibold leading-none tracking-tight text-white sm:text-[1.35rem]">
+            <h1 className="min-w-0 text-[1.45rem] font-semibold leading-none tracking-[-0.055em] text-white sm:text-[1.55rem]">
               Favorites
             </h1>
             {enriched.length > 0 ? (
@@ -169,6 +171,16 @@ export function MobileFavoritesPage() {
           <p className="relative mt-1.5 text-[11.5px] leading-snug text-white/42">
             Search and sort — your grid starts below.
           </p>
+          {enriched.length > 0 ? (
+            <Link
+              href="/guide"
+              onClick={onNavigateClick("/guide")}
+              className="relative mt-3 flex min-h-11 items-center justify-center gap-2 rounded-full border border-[var(--zen-signal)]/25 bg-[var(--zen-signal)]/10 px-4 text-[13px] font-semibold text-cyan-100/90 outline-none ring-1 ring-[var(--zen-signal)]/15 active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+            >
+              <Radio className="size-4" aria-hidden />
+              Open TV guide
+            </Link>
+          ) : null}
         </div>
       </section>
 
@@ -177,7 +189,7 @@ export function MobileFavoritesPage() {
           <section className="sticky top-[5.35rem] z-40 mt-2 px-3" aria-label="Favorite filters">
             <ZenedeGlass
               variant="panelCompact"
-              className="rounded-[20px] border-white/[0.1] bg-black/58 p-2.5 shadow-[0_12px_40px_-24px_rgba(0,0,0,0.75)] transition-[box-shadow,transform] duration-300 ease-out"
+              className="rounded-[24px] border-white/[0.12] bg-black/62 p-2.5 shadow-[0_18px_58px_-28px_rgba(0,0,0,0.9)] transition-[box-shadow,transform] duration-300 ease-out"
             >
               <label className="relative block">
                 <span className="sr-only">Search favorites</span>
@@ -189,7 +201,7 @@ export function MobileFavoritesPage() {
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   onKeyDown={onSearchKeyDown}
-                  className="h-12 w-full rounded-[20px] border border-white/[0.11] bg-black/35 pl-11 pr-11 text-[16px] text-white outline-none placeholder:text-white/34 focus-visible:ring-2 focus-visible:ring-white/35"
+                  className="h-12 w-full rounded-[20px] border border-white/[0.11] bg-black/35 pl-11 pr-11 text-[16px] text-white outline-none placeholder:text-white/34 focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]/60"
                 />
                 {query ? (
                   <button
@@ -203,7 +215,7 @@ export function MobileFavoritesPage() {
                 ) : null}
               </label>
 
-              <div className="tv-row-scroll zen-stagger-row mt-3 flex gap-2 overflow-x-auto pb-0.5">
+              <div className="tv-row-scroll zen-stagger-row mt-3 flex gap-2 overflow-x-auto pb-0.5" role="group" aria-label="Sort favorites">
                 {(
                   [
                     ["recent", "Recent"],
@@ -214,37 +226,35 @@ export function MobileFavoritesPage() {
                   <button
                     key={id}
                     type="button"
+                    aria-pressed={sort === id}
                     onClick={() => setSort(id)}
                     className={cn(
                       "min-h-10 shrink-0 rounded-2xl px-4 text-[13px] font-semibold outline-none transition-[transform,background-color,color,box-shadow] duration-200 ease-out",
                       "active:scale-[0.98]",
-                      sort === id
-                        ? "bg-white text-zinc-950 shadow-sm"
+                        sort === id
+                          ? "bg-[var(--zen-frost)] text-[var(--zen-void)] shadow-sm"
                         : "border border-white/[0.1] bg-white/[0.06] text-white/70 hover:bg-white/[0.1] hover:text-white/85",
                     )}
                   >
                     {label}
                   </button>
                 ))}
-                {groupOptions.map(([group, count]) => (
-                  <button
-                    key={group}
-                    type="button"
-                    onClick={() =>
-                      setGroupFilter((current) => (current === group ? null : group))
-                    }
-                    className={cn(
-                      "min-h-10 shrink-0 rounded-2xl px-4 text-[13px] font-semibold outline-none transition-[transform,background-color,color,box-shadow] duration-200 ease-out",
-                      "active:scale-[0.98]",
-                      groupFilter === group
-                        ? "bg-white text-zinc-950 shadow-sm"
-                        : "border border-white/[0.1] bg-white/[0.06] text-white/70 hover:bg-white/[0.1] hover:text-white/85",
-                    )}
-                  >
-                    {group} <span className="opacity-55">{count}</span>
-                  </button>
-                ))}
               </div>
+              {groupOptions.length > 0 ? (
+                <select
+                  value={groupFilter ?? ""}
+                  onChange={(event) => setGroupFilter(event.target.value || null)}
+                  className="mt-2 h-11 w-full rounded-[18px] border border-white/[0.11] bg-black/45 px-3 text-[14px] font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                  aria-label="Category"
+                >
+                  <option value="">All categories</option>
+                  {groupOptions.map(([group, count]) => (
+                    <option key={group} value={group}>
+                      {group} ({count.toLocaleString()})
+                    </option>
+                  ))}
+                </select>
+              ) : null}
             </ZenedeGlass>
           </section>
 
@@ -304,7 +314,7 @@ export function MobileFavoritesPage() {
               <button
                 type="button"
                 onClick={() => setVisibleCount((count) => count + PAGE_STEP)}
-                className="mt-4 flex min-h-[48px] w-full items-center justify-center rounded-2xl bg-white text-[14px] font-semibold text-zinc-950 outline-none transition-[transform,box-shadow] duration-200 hover:shadow-lg hover:shadow-black/20 active:scale-[0.99] motion-reduce:transform-none"
+                className="mt-4 flex min-h-[48px] w-full items-center justify-center rounded-full bg-[var(--zen-frost)] text-[14px] font-semibold text-[var(--zen-void)] outline-none transition-[transform,box-shadow] duration-200 hover:shadow-lg hover:shadow-black/20 active:scale-[0.99] motion-reduce:transform-none"
               >
                 Load more
               </button>
@@ -323,7 +333,8 @@ export function MobileFavoritesPage() {
             </p>
             <Link
               href="/library"
-              className="mt-5 flex min-h-[52px] items-center justify-center rounded-2xl bg-white text-[15px] font-semibold text-zinc-950 outline-none transition-[transform,box-shadow] duration-200 ease-out hover:shadow-lg hover:shadow-black/20 active:scale-[0.99] motion-reduce:transform-none focus-visible:ring-2 focus-visible:ring-white"
+              onClick={onNavigateClick("/library")}
+              className="mt-5 flex min-h-[52px] items-center justify-center rounded-full bg-[var(--zen-frost)] text-[15px] font-semibold text-[var(--zen-void)] outline-none transition-[transform,box-shadow] duration-200 ease-out hover:shadow-lg hover:shadow-black/20 active:scale-[0.99] motion-reduce:transform-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
             >
               Open Library
             </Link>

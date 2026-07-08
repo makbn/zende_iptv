@@ -6,6 +6,7 @@ import { ZenedeGlass } from "@/components/glass/zenede-glass";
 import { TvCatalogSetupStrip } from "@/components/tv/tv-catalog-setup-strip";
 import { TvManualChannelsSection } from "@/components/tv/tv-manual-channels-section";
 import { TvPersonalLibraryCard } from "@/components/tv/tv-personal-library-card";
+import { TvParentalControlsCard } from "@/components/tv/tv-parental-controls-card";
 import { TvPlaybackPrefsCard } from "@/components/tv/tv-playback-prefs-card";
 import { TvSettingsAuthPanel } from "@/components/tv/tv-settings-auth-panel";
 import { TvSettingsIntegrationsPanel } from "@/components/tv/tv-settings-integrations-panel";
@@ -105,18 +106,18 @@ export function MobileSettingsPage() {
   }, [secret]);
 
   return (
-    <main className="min-h-screen bg-[var(--tv-page-bg)] pb-28 pt-[5.35rem] text-foreground">
+    <main className="zen-page-bg min-h-screen pb-28 pt-[5.35rem] text-foreground">
       <section className="px-4">
         <div
           className={cn(
-            "rounded-2xl border border-white/[0.09] bg-white/[0.035] px-3.5 py-2.5 ring-1 ring-white/[0.04]",
-            "backdrop-blur-md motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100",
+            "rounded-[24px] border border-white/[0.11] bg-white/[0.055] px-4 py-3 ring-1 ring-white/[0.05]",
+            "backdrop-blur-xl motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100",
           )}
         >
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">
+          <p className="zen-kicker text-[10px]">
             Zenede
           </p>
-          <h1 className="mt-0.5 text-[1.25rem] font-semibold leading-none tracking-tight text-white sm:text-[1.35rem]">
+          <h1 className="mt-1 text-[1.45rem] font-semibold leading-none tracking-[-0.055em] text-white sm:text-[1.55rem]">
             Settings
           </h1>
           <p className="mt-1.5 max-w-[36ch] text-[11.5px] leading-snug text-white/42">
@@ -128,9 +129,9 @@ export function MobileSettingsPage() {
       <section className="sticky top-[5.35rem] z-40 mt-2 px-3" aria-label="Settings sections">
         <ZenedeGlass
           variant="panelCompact"
-          className="rounded-[20px] border-white/[0.1] bg-black/58 p-2 shadow-[0_14px_44px_-26px_rgba(0,0,0,0.78)] transition-shadow duration-300"
+          className="rounded-[24px] border-white/[0.12] bg-black/62 p-2 shadow-[0_18px_58px_-28px_rgba(0,0,0,0.9)] transition-shadow duration-300"
         >
-          <div className="tv-row-scroll flex gap-2 overflow-x-auto">
+          <div className="tv-row-scroll flex gap-2 overflow-x-auto" role="tablist" aria-label="Settings">
             {(
               [
                 ["catalog", "Catalog"],
@@ -143,13 +144,15 @@ export function MobileSettingsPage() {
               <button
                 key={id}
                 type="button"
+                role="tab"
+                aria-selected={tab === id}
                 onClick={() => setTab(id)}
                 className={cn(
                   "zen-pressable min-h-11 shrink-0 rounded-2xl px-4 text-[13px] font-semibold outline-none",
                   "transition-[background-color,color,transform,box-shadow] duration-200 ease-out active:scale-[0.99] motion-reduce:transform-none",
-                  "focus-visible:ring-2 focus-visible:ring-white",
+                  "focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
                   tab === id
-                    ? "bg-white text-zinc-950 shadow-sm"
+                    ? "bg-[var(--zen-frost)] text-[var(--zen-void)] shadow-sm"
                     : "border border-white/[0.1] bg-white/[0.06] text-white/70 hover:bg-white/[0.1]",
                 )}
               >
@@ -160,37 +163,71 @@ export function MobileSettingsPage() {
         </ZenedeGlass>
       </section>
 
-      <div className="mt-4 space-y-6 px-4">
+      <div className="mt-4 space-y-4 px-4" role="tabpanel">
         {tab === "catalog" ? (
           <>
-            <TvCatalogSetupStrip
-              source={source}
-              busy={catalogBusy}
-              error={catalogError}
-              registered={registered}
-              channelCount={channelCount}
-              manualChannelCount={manualChannelCount}
-              onRefresh={() => void refreshCatalog()}
-            />
-            <TvPlaybackPrefsCard />
-            <TvPersonalLibraryCard />
-            <TvManualChannelsSection />
+            <details open className="group rounded-[26px] border border-white/[0.1] bg-white/[0.04] ring-1 ring-white/[0.04]">
+              <summary className="cursor-pointer list-none px-4 py-3.5 text-[16px] font-semibold text-white marker:content-none [&::-webkit-details-marker]:hidden">
+                Catalog & playback
+              </summary>
+              <div className="space-y-4 border-t border-white/[0.06] p-4 pt-3">
+                <TvCatalogSetupStrip
+                  source={source}
+                  busy={catalogBusy}
+                  error={catalogError}
+                  registered={registered}
+                  channelCount={channelCount}
+                  manualChannelCount={manualChannelCount}
+                  onRefresh={() => void refreshCatalog()}
+                />
+                <TvPlaybackPrefsCard />
+                <TvParentalControlsCard />
+                <TvPersonalLibraryCard />
+                <TvManualChannelsSection />
+              </div>
+            </details>
           </>
         ) : null}
 
-        {tab === "authentication" ? <TvSettingsAuthPanel /> : null}
-        {tab === "integrations" ? <TvSettingsIntegrationsPanel /> : null}
-        {tab === "proxies" ? <TvSettingsProxiesPanel /> : null}
+        {tab === "authentication" ? (
+          <details open className="rounded-[26px] border border-white/[0.1] bg-white/[0.04] ring-1 ring-white/[0.04]">
+            <summary className="cursor-pointer list-none px-4 py-3.5 text-[16px] font-semibold text-white marker:content-none [&::-webkit-details-marker]:hidden">
+              Authentication
+            </summary>
+            <div className="border-t border-white/[0.06] p-4 pt-3">
+              <TvSettingsAuthPanel />
+            </div>
+          </details>
+        ) : null}
+
+        {tab === "integrations" ? (
+          <details open className="rounded-[26px] border border-white/[0.1] bg-white/[0.04] ring-1 ring-white/[0.04]">
+            <summary className="cursor-pointer list-none px-4 py-3.5 text-[16px] font-semibold text-white marker:content-none [&::-webkit-details-marker]:hidden">
+              Integrations
+            </summary>
+            <div className="border-t border-white/[0.06] p-4 pt-3">
+              <TvSettingsIntegrationsPanel />
+            </div>
+          </details>
+        ) : null}
+
+        {tab === "proxies" ? (
+          <details open className="rounded-[26px] border border-white/[0.1] bg-white/[0.04] ring-1 ring-white/[0.04]">
+            <summary className="cursor-pointer list-none px-4 py-3.5 text-[16px] font-semibold text-white marker:content-none [&::-webkit-details-marker]:hidden">
+              VPN proxies
+            </summary>
+            <div className="border-t border-white/[0.06] p-4 pt-3">
+              <TvSettingsProxiesPanel />
+            </div>
+          </details>
+        ) : null}
 
         {tab === "server" ? (
-          <section className="rounded-[26px] border border-white/[0.1] bg-white/[0.04] p-5">
-            <h2 className="text-[20px] font-semibold text-white">
-              Server key
-            </h2>
-            <p className="mt-2 text-[14px] leading-relaxed text-white/50">
-              Save the optional operator key in this tab, then run a manual
-              channel-health sweep.
-            </p>
+          <details open className="rounded-[26px] border border-white/[0.1] bg-white/[0.04] ring-1 ring-white/[0.04]">
+            <summary className="cursor-pointer list-none px-4 py-3.5 text-[16px] font-semibold text-white marker:content-none [&::-webkit-details-marker]:hidden">
+              Server tools
+            </summary>
+            <div className="border-t border-white/[0.06] p-4 pt-3">
             <label className="mt-4 block">
               <span className="sr-only">Operator secret</span>
               <input
@@ -199,14 +236,14 @@ export function MobileSettingsPage() {
                 placeholder="Bearer token"
                 value={secret}
                 onChange={(event) => setSecret(event.target.value)}
-                className="h-12 w-full rounded-2xl border border-white/[0.12] bg-black/30 px-4 text-[16px] text-white outline-none placeholder:text-white/35 focus-visible:ring-2 focus-visible:ring-white/30"
+                className="h-12 w-full rounded-2xl border border-white/[0.12] bg-black/30 px-4 text-[16px] text-white outline-none placeholder:text-white/35 focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]/60"
               />
             </label>
             <div className="mt-4 grid gap-3">
               <button
                 type="button"
                 onClick={saveSecret}
-                className="min-h-[52px] rounded-2xl bg-white text-[15px] font-semibold text-zinc-950 outline-none transition-[transform,box-shadow,background-color] duration-200 ease-out hover:shadow-md hover:shadow-black/20 active:scale-[0.99] motion-reduce:transform-none focus-visible:ring-2 focus-visible:ring-white"
+                className="min-h-[52px] rounded-full bg-[var(--zen-frost)] text-[15px] font-semibold text-[var(--zen-void)] outline-none transition-[transform,box-shadow,background-color] duration-200 ease-out hover:shadow-md hover:shadow-black/20 active:scale-[0.99] motion-reduce:transform-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
               >
                 Save key
               </button>
@@ -214,7 +251,7 @@ export function MobileSettingsPage() {
                 type="button"
                 disabled={runBusy}
                 onClick={() => void runHealthSweep()}
-                className="min-h-[52px] rounded-2xl border border-white/[0.12] bg-white/[0.06] text-[15px] font-semibold text-white disabled:opacity-45 outline-none transition-[background-color,box-shadow,transform] duration-200 ease-out hover:bg-white/[0.085] hover:shadow-[0_14px_44px_-26px_rgba(0,0,0,0.55)] active:scale-[0.99] motion-reduce:transform-none focus-visible:ring-2 focus-visible:ring-white"
+                className="min-h-[52px] rounded-full border border-white/[0.12] bg-white/[0.06] text-[15px] font-semibold text-white disabled:opacity-45 outline-none transition-[background-color,box-shadow,transform] duration-200 ease-out hover:bg-white/[0.085] hover:shadow-[0_14px_44px_-26px_rgba(0,0,0,0.55)] active:scale-[0.99] motion-reduce:transform-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
               >
                 {runBusy ? "Running…" : "Run health sweep"}
               </button>
@@ -227,7 +264,8 @@ export function MobileSettingsPage() {
                 {runStatus}
               </p>
             ) : null}
-          </section>
+            </div>
+          </details>
         ) : null}
       </div>
     </main>

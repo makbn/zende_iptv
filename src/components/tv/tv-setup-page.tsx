@@ -8,6 +8,7 @@ import { TvCatalogSetupStrip } from "@/components/tv/tv-catalog-setup-strip";
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
+import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
 import { cn } from "@/lib/utils";
 import { TV_BROWSE_TOP_PAD_CLASS } from "@/components/tv/tv-top-bar";
 
@@ -18,6 +19,7 @@ const source = BUILTIN_PLAYLIST_SOURCES[0]!;
  */
 export function TvSetupPage() {
   const router = useRouter();
+  const { onNavigateClick } = useRemoteNavigation();
   const {
     busy,
     error,
@@ -36,7 +38,7 @@ export function TvSetupPage() {
   }, [catalogLoaded, channelCount, router]);
 
   return (
-    <div className="min-h-screen bg-[var(--tv-page-bg)] text-foreground">
+    <div className="zen-page-bg min-h-screen text-foreground">
       <main
         className={cn(
           "flex min-h-screen flex-col pb-24",
@@ -45,13 +47,13 @@ export function TvSetupPage() {
       >
         <div className="mx-auto flex w-full max-w-[1920px] flex-1 flex-col justify-center px-6 sm:px-10 lg:px-14 xl:px-20">
           <div className="mb-7 text-center motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/45 sm:text-[13px]">
+            <p className="zen-kicker">
               Welcome
             </p>
-            <h1 className="mt-2 text-[clamp(1.65rem,4.5vw,2.35rem)] font-semibold tracking-tight text-white">
+            <h1 className="zen-page-title mt-3">
               Set up Zenede
             </h1>
-            <p className="mx-auto mt-3 max-w-md text-[15px] leading-snug text-white/52 sm:text-[16px] sm:leading-relaxed">
+            <p className="zen-body-muted mx-auto mt-3 max-w-md sm:text-[16px]">
               Add the built-in channel index once. Home then shows recents and picks — tuned for the big screen.
             </p>
           </div>
@@ -67,7 +69,11 @@ export function TvSetupPage() {
           />
 
           <div className="mt-10 flex flex-col items-center gap-4">
-            <Link href="/settings" className="outline-none">
+            <Link
+              href="/settings"
+              onClick={onNavigateClick("/settings")}
+              className="outline-none"
+            >
               <ZenedeGlass variant="heroSecondary" className="inline-block">
                 <span className="flex min-h-[44px] min-w-[160px] items-center justify-center px-6 text-[16px] font-semibold text-white">
                   Advanced options

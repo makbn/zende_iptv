@@ -5,7 +5,7 @@ import { SignJWT, jwtVerify } from "jose";
 
 import { getJwtSecretBytes } from "@/lib/auth/jwt-secret";
 
-const ACCESS_EXPIRY = "15m";
+const ACCESS_EXPIRY = "14d";
 
 export async function signAccessToken(payload: {
   userId: string;

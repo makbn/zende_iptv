@@ -49,7 +49,10 @@ type CatalogContextValue = {
   clearError: () => void;
 };
 
-const CatalogCtx = createContext<CatalogContextValue | null>(null);
+const CatalogMetaCtx = createContext<Omit<CatalogContextValue, "channels"> | null>(
+  null,
+);
+const CatalogChannelsCtx = createContext<M3uChannel[]>([]);
 
 export function CatalogProvider({
   source,
@@ -204,6 +207,14 @@ export function CatalogProvider({
         throw new Error("No channels after refresh — check server logs.");
       }
 
+      const manual =
+        getManualChannelCount() <= 500
+          ? listManualChannelEntries().map((e) => e.channel)
+          : [];
+      void syncChannelRegistry(mergeBuiltinAndManual(parsed, manual), source.presetId).catch(
+        () => {},
+      );
+
       log.info("Catalog persisted (server)", {
         presetId: source.presetId,
         channelCount: meta.channelCount,
@@ -225,14 +236,13 @@ export function CatalogProvider({
   const registered = (serverChannelCount ?? 0) > 0 || baseChannels.length > 0;
   const manualChannelCount = useMemo(() => getManualChannelCount(), [manualEpoch]);
 
-  const value = useMemo<CatalogContextValue>(
+  const metaValue = useMemo<Omit<CatalogContextValue, "channels">>(
     () => ({
       busy,
       error,
       channelCount,
       builtinChannelCount: baseChannels.length,
       manualChannelCount,
-      channels,
       catalogLoaded,
       channelsHydrated,
       metaFailed,
@@ -248,7 +258,6 @@ export function CatalogProvider({
       channelCount,
       baseChannels.length,
       manualChannelCount,
-      channels,
       catalogLoaded,
       channelsHydrated,
       metaFailed,
@@ -259,13 +268,32 @@ export function CatalogProvider({
     ],
   );
 
-  return <CatalogCtx.Provider value={value}>{children}</CatalogCtx.Provider>;
+  return (
+    <CatalogMetaCtx.Provider value={metaValue}>
+      <CatalogChannelsCtx.Provider value={channels}>
+        {children}
+      </CatalogChannelsCtx.Provider>
+    </CatalogMetaCtx.Provider>
+  );
+}
+
+export function useCatalogMeta(): Omit<CatalogContextValue, "channels"> {
+  const ctx = useContext(CatalogMetaCtx);
+  if (!ctx) {
+    throw new Error("useCatalogMeta requires CatalogProvider");
+  }
+  return ctx;
+}
+
+export function useCatalogChannels(): M3uChannel[] {
+  return useContext(CatalogChannelsCtx);
 }
 
 export function useCatalogContext(): CatalogContextValue {
-  const ctx = useContext(CatalogCtx);
-  if (!ctx) {
-    throw new Error("useCatalogContext requires CatalogProvider");
-  }
-  return ctx;
+  const meta = useCatalogMeta();
+  const channelsList = useCatalogChannels();
+  return useMemo(
+    () => ({ ...meta, channels: channelsList }),
+    [meta, channelsList],
+  );
 }

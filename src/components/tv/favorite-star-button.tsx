@@ -6,7 +6,7 @@ import { useSyncExternalStore } from "react";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import {
   isFavorite,
-  subscribeFavorites,
+  subscribeFavoriteUrl,
   toggleFavorite,
 } from "@/lib/favorites/favorites-store";
 import { cn } from "@/lib/utils";
@@ -26,7 +26,7 @@ export function FavoriteStarButton({
   size = "sm",
 }: Props) {
   const active = useSyncExternalStore(
-    subscribeFavorites,
+    (onChange) => subscribeFavoriteUrl(channel.url, onChange),
     () => isFavorite(channel.url),
     () => false,
   );

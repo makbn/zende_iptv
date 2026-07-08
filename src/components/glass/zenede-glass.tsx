@@ -23,6 +23,7 @@ const LiquidGlass = dynamic(
 /** Opt-in: liquid-glass-react uses centered positioning that breaks full-width UI — default off. */
 const LIQUID_GLASS_ENABLED =
   process.env.NEXT_PUBLIC_LIQUID_GLASS === "true";
+const LIQUID_VARIANTS = new Set<GlassVariant>(["heroPrimary", "ctaPill"]);
 
 let hydratedFlag = false;
 
@@ -67,16 +68,28 @@ function GlassFallback({
   style?: CSSProperties;
   children: ReactNode;
 }) {
-  const base =
-    variant === "heroPrimary" || variant === "ctaPill"
-      ? "bg-white/[0.92] shadow-[0_12px_40px_-12px_rgba(0,0,0,0.55)] ring-1 ring-black/10"
-      : variant === "navRail"
-        ? "border-b border-white/[0.08] bg-black/40 backdrop-blur-2xl backdrop-saturate-150"
-        : variant === "heroSecondary"
-          ? "border border-white/[0.18] bg-white/[0.08] backdrop-blur-xl"
-          : variant === "iconChip"
-            ? "border border-white/[0.14] bg-white/[0.07] backdrop-blur-xl"
-            : "border border-white/[0.1] bg-white/[0.06] backdrop-blur-2xl ring-1 ring-white/[0.06]";
+  const base = {
+    navRail:
+      "border-b border-white/[0.1] bg-black/48 backdrop-blur-xl supports-[backdrop-filter]:bg-black/38",
+    heroPrimary:
+      "bg-[var(--zen-frost)] text-[var(--zen-void)] shadow-[0_18px_52px_-18px_rgba(56,217,255,0.45)] ring-1 ring-white/35",
+    heroSecondary:
+      "border border-white/[0.18] bg-white/[0.075] backdrop-blur-xl ring-1 ring-white/[0.06]",
+    panel:
+      "zen-panel ring-1 ring-white/[0.055]",
+    panelCompact:
+      "border border-white/[0.11] bg-white/[0.065] backdrop-blur-xl ring-1 ring-white/[0.055] shadow-[0_18px_60px_-34px_rgba(0,0,0,0.88)]",
+    surface:
+      "zen-card backdrop-blur-xl ring-1 ring-white/[0.05]",
+    mediaCard:
+      "border border-white/[0.11] bg-white/[0.06] backdrop-blur-xl ring-1 ring-white/[0.05] shadow-[0_24px_70px_-38px_rgba(0,0,0,0.9)]",
+    iconChip:
+      "border border-white/[0.13] bg-white/[0.075] backdrop-blur-xl ring-1 ring-white/[0.055] shadow-[0_12px_36px_-24px_rgba(0,0,0,0.9)]",
+    ctaPill:
+      "bg-[var(--zen-frost)] text-[var(--zen-void)] shadow-[0_16px_44px_-18px_rgba(56,217,255,0.45)] ring-1 ring-white/30",
+    danger:
+      "border border-red-400/25 bg-red-950/35 text-red-50 backdrop-blur-xl ring-1 ring-red-300/10",
+  }[variant];
 
   const radius =
     variant === "heroPrimary" ||
@@ -85,17 +98,19 @@ function GlassFallback({
     variant === "iconChip"
       ? "rounded-full"
       : variant === "panel"
-        ? "rounded-[28px]"
-        : variant === "panelCompact"
-          ? "rounded-[22px]"
-          : "";
+        ? "rounded-[32px]"
+        : variant === "panelCompact" || variant === "surface" || variant === "danger"
+          ? "rounded-[24px]"
+          : variant === "mediaCard"
+            ? "rounded-[26px]"
+            : "";
 
   return (
     <div
       className={cn(
         radius,
         base,
-        "transition-[box-shadow,transform,border-color,background-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+        "transition-[box-shadow,transform,border-color,background-color,filter] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
         className,
       )}
       style={style}
@@ -141,7 +156,10 @@ export function ZenedeGlass({
 
   const preset = GLASS_PRESETS[variant];
 
-  if (!isClient || reduceMotion || !LIQUID_GLASS_ENABLED) {
+  const canUseLiquid =
+    LIQUID_GLASS_ENABLED && LIQUID_VARIANTS.has(variant);
+
+  if (!isClient || reduceMotion || !canUseLiquid) {
     return (
       <GlassFallback variant={variant} className={className} style={style}>
         {children}

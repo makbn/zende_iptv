@@ -11,6 +11,17 @@ export function getStreamHlsConfig(): Partial<HlsConfig> {
     enableWorker: true,
     lowLatencyMode: false,
 
+    // ManagedMediaSource (default in hls.js 1.6+) rejects some IPTV AAC profiles
+    // (e.g. mp4a.40.1) on Chrome — regular MSE is more compatible.
+    preferManagedMediaSource: false,
+
+    // IPTV feeds often have short GOPs / odd A/V alignment.
+    stretchShortVideoTrack: true,
+    forceKeyFrameOnDiscontinuity: true,
+
+    // Prefer AAC-LC when manifest omits or mislabels audio codec.
+    defaultAudioCodec: "mp4a.40.2",
+
     // Softer live edge: stay slightly behind the manifest edge so fewer requests hit expired segments (upstream 404).
     liveSyncDurationCount: 6,
     liveMaxLatencyDurationCount: 120,

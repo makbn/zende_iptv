@@ -6,17 +6,24 @@ import { useCallback, useState } from "react";
 import { TvCatalogSetupStrip } from "@/components/tv/tv-catalog-setup-strip";
 import { TvManualChannelsSection } from "@/components/tv/tv-manual-channels-section";
 import { TvPersonalLibraryCard } from "@/components/tv/tv-personal-library-card";
+import { TvParentalControlsCard } from "@/components/tv/tv-parental-controls-card";
 import { TvPlaybackPrefsCard } from "@/components/tv/tv-playback-prefs-card";
 import { TvSettingsAuthPanel } from "@/components/tv/tv-settings-auth-panel";
 import { TvSettingsIntegrationsPanel } from "@/components/tv/tv-settings-integrations-panel";
 import { TvSettingsProxiesPanel } from "@/components/tv/tv-settings-proxies-panel";
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import {
+  CinematicCommandPanel,
+  CinematicHero,
+  CinematicMetrics,
+} from "@/components/layout/cinematic-v2";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { createClientLogger } from "@/core/logging/client";
 import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
 import { TV_BROWSE_TOP_PAD_CLASS } from "@/components/tv/tv-top-bar";
 import { Z_ACCESS } from "@/lib/auth/token-storage-keys";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
+import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
 import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "zenede.cronSecret";
@@ -28,6 +35,7 @@ const source = BUILTIN_PLAYLIST_SOURCES[0]!;
 type SettingsTab = "catalog" | "authentication" | "integrations" | "proxies" | "server";
 
 export function TvSettingsPage() {
+  const { onNavigateClick } = useRemoteNavigation();
   const [tab, setTab] = useState<SettingsTab>("catalog");
   const catalog = useCatalogBootstrap(source);
   const {
@@ -118,19 +126,41 @@ export function TvSettingsPage() {
   }, [secret]);
 
   return (
-    <div className="min-h-screen bg-[var(--tv-page-bg)] text-foreground">
+    <div className="zen-page-bg min-h-screen text-foreground">
       <main className={cn("pb-24", TV_BROWSE_TOP_PAD_CLASS)}>
-        <header className="mx-auto max-w-[1920px] px-6 pt-7 sm:px-10 lg:px-14 xl:px-20 motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/45 sm:text-[13px]">
-            Zenede
-          </p>
-          <h1 className="mt-1.5 text-[clamp(1.6rem,3.6vw,2.1rem)] font-semibold tracking-tight text-white">
-            Settings
-          </h1>
-          <p className="mt-2 max-w-2xl text-[15px] leading-snug text-white/46 sm:text-[16px] sm:leading-relaxed">
-            Catalog, security, integrations, and hosting tools — pick a tab below.
-          </p>
-        </header>
+        <CinematicHero
+          className="pt-8"
+          eyebrow="Settings"
+          title="Settings"
+          description="Catalog, access, integrations, VPN routing, playback, and server tools."
+          aside={
+            <CinematicCommandPanel>
+              <p className="zen-kicker">System status</p>
+              <CinematicMetrics
+                className="mt-4"
+                metrics={[
+                  {
+                    label: "Channels",
+                    value: channelCount != null ? channelCount.toLocaleString() : "0",
+                    tone: "signal",
+                  },
+                  {
+                    label: "Manual",
+                    value: manualChannelCount.toLocaleString(),
+                  },
+                  {
+                    label: "Catalog",
+                    value: registered ? "Ready" : "Setup",
+                    tone: registered ? "signal" : "ember",
+                  },
+                ]}
+              />
+              <p className="mt-5 text-[14px] leading-relaxed text-white/56">
+                Pick a section below.
+              </p>
+            </CinematicCommandPanel>
+          }
+        />
 
         <div className="mx-auto mt-5 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
           <div
@@ -154,11 +184,11 @@ export function TvSettingsPage() {
                 aria-selected={tab === id}
                 onClick={() => setTab(id)}
                 className={cn(
-                  "-mb-px rounded-t-lg px-4 py-2.5 text-[15px] font-medium outline-none",
+                  "-mb-px rounded-t-[18px] px-4 py-2.5 text-[15px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
                   "transition-[color,background-color,border-color,transform] duration-200 ease-out",
                   "motion-safe:hover:-translate-y-px",
                   tab === id
-                    ? "border border-b-0 border-white/[0.12] bg-white/[0.06] text-white"
+                    ? "border border-b-0 border-white/[0.14] bg-white/[0.08] text-white"
                     : "border border-transparent text-white/45 hover:text-white/75",
                 )}
               >
@@ -184,8 +214,8 @@ export function TvSettingsPage() {
 
             <div className="mx-auto mt-8 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
               <TvPlaybackPrefsCard />
+              <TvParentalControlsCard />
             </div>
-
             <div className="mx-auto mt-8 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
               <TvPersonalLibraryCard />
             </div>
@@ -218,7 +248,7 @@ export function TvSettingsPage() {
           <div className="mx-auto mt-8 max-w-[1920px] space-y-8 px-6 sm:px-10 lg:px-14 xl:px-20">
           <section
             className={cn(
-              "rounded-2xl border border-white/[0.1] bg-white/[0.04] p-6 ring-1 ring-white/[0.04]",
+              "zen-panel rounded-[28px] p-6",
             )}
             aria-labelledby="health-operator-heading"
           >
@@ -246,7 +276,7 @@ export function TvSettingsPage() {
                 className={cn(
                   "mt-1 h-12 w-full rounded-xl border border-white/[0.12] bg-black/30 px-4",
                   "text-[16px] text-white placeholder:text-white/35",
-                  "outline-none ring-offset-[var(--tv-page-bg)] focus-visible:ring-2 focus-visible:ring-white",
+                  "outline-none ring-offset-[var(--tv-page-bg)] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
                 )}
               />
             </label>
@@ -322,6 +352,7 @@ export function TvSettingsPage() {
           <p className="text-[15px]">
             <Link
               href="/"
+              onClick={onNavigateClick("/")}
               className="font-medium text-white/85 underline-offset-4 hover:underline"
             >
               ← Home

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { AuthGate, AuthProvider } from "@/features/auth/auth-context";
 import { CatalogProvider } from "@/features/iptv/catalog-context";
+import { RemoteControlProvider } from "@/features/remote/remote-control-context";
 import { UserDataSync } from "@/components/providers/user-data-sync";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 
@@ -14,7 +15,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
     <AuthProvider>
       <CatalogProvider source={catalogSource}>
         <UserDataSync />
-        <AuthGate>{children}</AuthGate>
+        <RemoteControlProvider>
+          <AuthGate>{children}</AuthGate>
+        </RemoteControlProvider>
       </CatalogProvider>
     </AuthProvider>
   );

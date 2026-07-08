@@ -232,23 +232,27 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const searchParams = useSearchParams();
   const { ready, authEnabled, user } = useAuth();
 
+  const isLoginPath =
+    pathname === "/login" || pathname === "/login/pair";
+
   useEffect(() => {
     if (!ready) return;
     if (!authEnabled) return;
     if (!user) return;
-    if (pathname !== "/login") return;
+    if (!isLoginPath) return;
+    if (pathname === "/login/pair") return;
     const next = searchParams.get("next");
     router.replace(next && next.startsWith("/") ? next : "/");
-  }, [ready, authEnabled, user, pathname, router, searchParams]);
+  }, [ready, authEnabled, user, isLoginPath, pathname, router, searchParams]);
 
   useEffect(() => {
     if (!ready) return;
     if (!authEnabled) return;
     if (user) return;
-    if (pathname === "/login") return;
+    if (isLoginPath) return;
     const next = pathname + (searchParams?.toString() ? `?${searchParams}` : "");
     router.replace(`/login?next=${encodeURIComponent(next || "/")}`);
-  }, [ready, authEnabled, user, pathname, router, searchParams]);
+  }, [ready, authEnabled, user, isLoginPath, pathname, router, searchParams]);
 
   if (!ready) {
     return (
@@ -259,7 +263,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     );
   }
 
-  if (authEnabled && !user && pathname !== "/login") {
+  if (authEnabled && !user && !isLoginPath) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[var(--tv-page-bg)] text-white/50">
         <ZenedeLogoWave size="sm" />

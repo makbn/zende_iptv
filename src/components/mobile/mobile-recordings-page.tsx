@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
+import { startTransition, useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle,
   CalendarClock,
@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import {
   TvRecordingRecentIssues,
   type RecordingIssueItem,
@@ -25,9 +26,11 @@ import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { createClientLogger } from "@/core/logging/client";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
+import { useChannelSearch } from "@/features/iptv/use-channel-search";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
 import { RECORDING_ENCODER_GONE_CODE } from "@/lib/recordings/recording-api-codes";
+import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
 import { cn } from "@/lib/utils";
 
 const log = createClientLogger("shell.MobileRecordingsPage");
@@ -116,11 +119,13 @@ function downloadBlob(filename: string, blob: Blob) {
 }
 
 export function MobileRecordingsPage() {
-  const { channels, catalogLoaded } = useCatalogBootstrap(source, {
-    ensureFull: true,
-  });
+  const { onNavigateClick } = useRemoteNavigation();
+  const [channelQuery, setChannelQuery] = useState("");
+  const { catalogLoaded } = useCatalogBootstrap(source);
+  const { channels: searchChannels } = useChannelSearch(channelQuery, 24);
   const [overview, setOverview] = useState<OverviewPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [stuckStopDialog, setStuckStopDialog] = useState<{
     id: string;
@@ -133,7 +138,6 @@ export function MobileRecordingsPage() {
   const [libraryDeleteError, setLibraryDeleteError] = useState<string | null>(
     null,
   );
-  const [channelQuery, setChannelQuery] = useState("");
   const [selected, setSelected] = useState<M3uChannel | null>(null);
   const [tab, setTab] = useState<"schedule" | "now">("schedule");
   const [startLocal, setStartLocal] = useState(() =>
@@ -197,17 +201,7 @@ export function MobileRecordingsPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [libraryDeleteTarget]);
 
-  const filteredChannels = useMemo(() => {
-    const q = channelQuery.trim().toLowerCase();
-    const list = q
-      ? channels.filter((channel) => {
-          const label = parseChannelLabel(channel.name).displayName.toLowerCase();
-          const group = (channel.groupTitle ?? "").toLowerCase();
-          return label.includes(q) || group.includes(q);
-        })
-      : channels;
-    return list.slice(0, 18);
-  }, [channelQuery, channels]);
+  const filteredChannels = searchChannels;
 
   const submitSchedule = async () => {
     if (!selected) return;
@@ -228,7 +222,7 @@ export function MobileRecordingsPage() {
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: unknown };
-        alert(typeof body?.error === "string" ? body.error : "Could not create schedule.");
+        setActionError(typeof body?.error === "string" ? body.error : "Could not create schedule.");
         return;
       }
       await load();
@@ -254,7 +248,7 @@ export function MobileRecordingsPage() {
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: unknown };
-        alert(typeof body?.error === "string" ? body.error : "Could not start recording.");
+        setActionError(typeof body?.error === "string" ? body.error : "Could not start recording.");
         return;
       }
       await load();
@@ -286,7 +280,7 @@ export function MobileRecordingsPage() {
           });
           return;
         }
-        alert(msg);
+        setActionError(msg);
         return;
       }
       await load();
@@ -325,7 +319,7 @@ export function MobileRecordingsPage() {
       const res = await zendeFetch(`/api/recordings/schedules/${id}`, {
         method: "DELETE",
       });
-      if (!res.ok) alert("Cancel failed.");
+      if (!res.ok) setActionError("Cancel failed.");
       await load();
     } finally {
       setBusy(false);
@@ -337,7 +331,7 @@ export function MobileRecordingsPage() {
     const res = await zendeFetch(`/api/recordings/${item.id}/download`);
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as { error?: unknown };
-      alert(
+      setActionError(
         typeof body?.error === "string" ? body.error : "Download failed.",
       );
       return;
@@ -372,25 +366,26 @@ export function MobileRecordingsPage() {
 
   if (!catalogLoaded) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--tv-page-bg)] px-4 text-white/45">
+      <div className="zen-page-bg flex min-h-screen items-center justify-center px-4 text-white/45">
         <p className="text-[15px] font-medium">Loading…</p>
       </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[var(--tv-page-bg)] pb-28 pt-[5.35rem] text-foreground">
+    <>
+    <main className="zen-page-bg min-h-screen pb-28 pt-[5.35rem] text-foreground">
       <section className="px-4">
         <div
           className={cn(
-            "rounded-2xl border border-white/[0.09] bg-white/[0.035] px-3.5 py-2.5 ring-1 ring-white/[0.04]",
-            "backdrop-blur-md motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100",
+            "rounded-[24px] border border-white/[0.11] bg-white/[0.055] px-4 py-3 ring-1 ring-white/[0.05]",
+            "backdrop-blur-xl motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100",
           )}
         >
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">
+          <p className="zen-kicker text-[10px]">
             Zenede
           </p>
-          <h1 className="mt-0.5 text-[1.25rem] font-semibold leading-none tracking-tight text-white sm:text-[1.35rem]">
+          <h1 className="mt-1 text-[1.45rem] font-semibold leading-none tracking-[-0.055em] text-white sm:text-[1.55rem]">
             Recordings
           </h1>
           <p className="mt-1.5 max-w-[36ch] text-[11.5px] leading-snug text-white/42">
@@ -413,6 +408,13 @@ export function MobileRecordingsPage() {
           </div>
         ) : null}
 
+        {!overview && !loadError ? (
+          <div className="flex items-center justify-center gap-2 py-10 text-[15px] text-white/45">
+            <Loader2 className="size-5 animate-spin" aria-hidden />
+            Loading library…
+          </div>
+        ) : null}
+
         <ZenedeGlass
           variant="panel"
           className="rounded-[30px] border-white/[0.1] bg-white/[0.05] p-4"
@@ -425,7 +427,7 @@ export function MobileRecordingsPage() {
               value={channelQuery}
               onChange={(event) => setChannelQuery(event.target.value)}
               placeholder="Search channel or group"
-              className="h-12 w-full rounded-2xl border border-white/[0.1] bg-black/35 pl-11 pr-3 text-[16px] text-white outline-none placeholder:text-white/30 focus-visible:ring-2 focus-visible:ring-white/25"
+              className="h-12 w-full rounded-[20px] border border-white/[0.11] bg-black/35 pl-11 pr-3 text-[16px] text-white outline-none placeholder:text-white/34 focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]/60"
             />
           </label>
 
@@ -481,7 +483,7 @@ export function MobileRecordingsPage() {
                 onClick={() => setTab(id)}
                 className={cn(
                   "flex min-h-11 items-center justify-center gap-2 rounded-xl text-[14px] font-semibold",
-                  tab === id ? "bg-white text-zinc-950" : "text-white/55",
+                  tab === id ? "bg-[var(--zen-frost)] text-[var(--zen-void)]" : "text-white/55",
                 )}
               >
                 <Icon className="size-4" aria-hidden />
@@ -527,7 +529,7 @@ export function MobileRecordingsPage() {
                 type="button"
                 disabled={busy || !selected || (overview !== null && !overview.ffmpegAvailable)}
                 onClick={() => void submitSchedule()}
-                className="flex min-h-[52px] items-center justify-center rounded-2xl bg-white text-[15px] font-semibold text-zinc-950 disabled:opacity-45"
+                className="flex min-h-[52px] items-center justify-center rounded-full bg-[var(--zen-frost)] text-[15px] font-semibold text-[var(--zen-void)] disabled:opacity-45"
               >
                 {busy ? <Loader2 className="size-5 animate-spin" aria-hidden /> : "Add schedule"}
               </button>
@@ -700,6 +702,9 @@ export function MobileRecordingsPage() {
                         ) : (
                           <Link
                             href={`/watch?recording=${encodeURIComponent(item.id)}`}
+                            onClick={onNavigateClick(
+                              `/watch?recording=${encodeURIComponent(item.id)}`,
+                            )}
                             className={cn(
                               "flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-emerald-400/30 bg-emerald-500/15 text-[14px] font-semibold text-emerald-100",
                               "outline-none transition-colors hover:bg-emerald-500/25",
@@ -916,5 +921,9 @@ export function MobileRecordingsPage() {
         </div>
       ) : null}
     </main>
+    {actionError ? (
+      <NavErrorBanner message={actionError} onDismiss={() => setActionError(null)} />
+    ) : null}
+    </>
   );
 }

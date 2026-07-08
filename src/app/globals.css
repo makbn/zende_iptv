@@ -50,6 +50,12 @@
 
 :root {
   --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --zen-void: #05060a;
+  --zen-midnight: #09111f;
+  --zen-signal: #38d9ff;
+  --zen-ember: #ff6b4a;
+  --zen-frost: #f7faff;
+  --zen-mist: #9aa8b8;
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -84,22 +90,22 @@
 }
 
 .dark {
-  /* Deeper cinematic base (Apple TV “black”) */
-  --tv-page-bg: oklch(0.07 0 0);
+  /* Deeper cinematic base for the streaming UI. */
+  --tv-page-bg: var(--zen-void);
   --background: var(--tv-page-bg);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --foreground: var(--zen-frost);
+  --card: color-mix(in srgb, var(--zen-midnight) 72%, black);
+  --card-foreground: var(--zen-frost);
+  --popover: color-mix(in srgb, var(--zen-midnight) 82%, black);
+  --popover-foreground: var(--zen-frost);
+  --primary: var(--zen-frost);
+  --primary-foreground: var(--zen-void);
+  --secondary: color-mix(in srgb, var(--zen-midnight) 78%, white 4%);
+  --secondary-foreground: var(--zen-frost);
+  --muted: color-mix(in srgb, var(--zen-midnight) 82%, white 3%);
+  --muted-foreground: var(--zen-mist);
+  --accent: color-mix(in srgb, var(--zen-signal) 18%, var(--zen-midnight));
+  --accent-foreground: var(--zen-frost);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
@@ -125,6 +131,11 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 18% -12%, rgba(56, 217, 255, 0.18), transparent 34rem),
+      radial-gradient(circle at 88% 8%, rgba(255, 107, 74, 0.11), transparent 28rem),
+      linear-gradient(135deg, var(--zen-void) 0%, #070a12 46%, var(--zen-midnight) 100%);
     font-family:
       -apple-system,
       BlinkMacSystemFont,
@@ -141,6 +152,7 @@
   }
   html {
     @apply font-sans;
+    background: var(--tv-page-bg);
   }
 }
 
@@ -152,6 +164,122 @@
   }
   .tv-row-scroll::-webkit-scrollbar {
     display: none;
+  }
+
+  .zen-safe-top {
+    padding-top: max(0.75rem, env(safe-area-inset-top));
+  }
+
+  .zen-safe-bottom {
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+
+  .zen-page-bg {
+    background:
+      radial-gradient(circle at 12% 0%, rgba(56, 217, 255, 0.16), transparent 28rem),
+      radial-gradient(circle at 80% 10%, rgba(255, 107, 74, 0.1), transparent 30rem),
+      linear-gradient(145deg, var(--zen-void), #060914 48%, var(--zen-midnight));
+  }
+
+  .zen-signal-beams {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .zen-signal-beams::before,
+  .zen-signal-beams::after {
+    content: "";
+    position: absolute;
+    inset: -24% -12%;
+    opacity: 0.62;
+    filter: blur(1px);
+    transform: rotate(-10deg);
+    background:
+      linear-gradient(90deg, transparent 0 12%, rgba(56, 217, 255, 0.11) 16%, transparent 25% 42%, rgba(247, 250, 255, 0.055) 48%, transparent 58% 100%);
+    mask-image: linear-gradient(to bottom, black, transparent 74%);
+  }
+
+  .zen-signal-beams::after {
+    opacity: 0.42;
+    transform: rotate(13deg) translateY(-6%);
+    background:
+      linear-gradient(90deg, transparent 0 24%, rgba(255, 107, 74, 0.08) 31%, transparent 40% 62%, rgba(56, 217, 255, 0.08) 69%, transparent 78% 100%);
+  }
+
+  .zen-kicker {
+    color: color-mix(in srgb, var(--zen-signal) 74%, white);
+    font-size: 0.69rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .zen-display {
+    color: var(--zen-frost);
+    font-size: clamp(2rem, 4.5vw, 4rem);
+    font-weight: 650;
+    letter-spacing: -0.065em;
+    line-height: 0.95;
+  }
+
+  .zen-page-title {
+    color: var(--zen-frost);
+    font-size: clamp(1.75rem, 3vw, 3.25rem);
+    font-weight: 650;
+    letter-spacing: -0.055em;
+    line-height: 0.98;
+  }
+
+  .zen-section-title {
+    color: var(--zen-frost);
+    font-size: 1.25rem;
+    font-weight: 650;
+    letter-spacing: -0.03em;
+    line-height: 1.08;
+  }
+
+  .zen-body-muted {
+    color: color-mix(in srgb, var(--zen-mist) 84%, transparent);
+    font-size: 0.95rem;
+    line-height: 1.65;
+  }
+
+  .zen-panel {
+    border: 1px solid rgba(247, 250, 255, 0.1);
+    background:
+      linear-gradient(145deg, rgba(247, 250, 255, 0.09), rgba(247, 250, 255, 0.035)),
+      rgba(5, 6, 10, 0.42);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 28px 90px -44px rgba(0, 0, 0, 0.92);
+    backdrop-filter: blur(22px) saturate(1.35);
+  }
+
+  .zen-card {
+    border: 1px solid rgba(247, 250, 255, 0.1);
+    background:
+      linear-gradient(150deg, rgba(247, 250, 255, 0.082), rgba(247, 250, 255, 0.032)),
+      rgba(9, 17, 31, 0.5);
+    box-shadow: 0 18px 62px -34px rgba(0, 0, 0, 0.9);
+  }
+
+  .zen-chip {
+    border: 1px solid rgba(247, 250, 255, 0.12);
+    background: rgba(247, 250, 255, 0.07);
+    color: rgba(247, 250, 255, 0.82);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .zen-focus-ring {
+    outline: none;
+  }
+
+  .zen-focus-ring:focus-visible {
+    box-shadow:
+      0 0 0 2px var(--tv-page-bg),
+      0 0 0 4px color-mix(in srgb, var(--zen-signal) 74%, white);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -287,11 +415,11 @@
   }
 
   .motion-safe\:animate-zen-shell-in {
-    animation: zen-shell-in 0.44s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: zen-shell-in 0.2s ease-out both;
   }
 
   .motion-safe\:animate-zen-row-lift {
-    animation: zen-row-lift-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: zen-row-lift-in 0.18s ease-out both;
   }
 
   .zen-pressable {
@@ -319,7 +447,24 @@
   }
 
   .motion-safe\:animate-zen-browse-mount {
-    animation: zen-browse-mount 0.55s cubic-bezier(0.16, 1, 0.32, 1) both;
+    animation: zen-browse-mount 0.7s cubic-bezier(0.16, 1, 0.32, 1) both;
+  }
+
+  @keyframes zen-cinema-in {
+    from {
+      opacity: 0;
+      transform: translateY(18px) scale(0.985);
+      filter: blur(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      filter: blur(0);
+    }
+  }
+
+  .motion-safe\:animate-zen-cinema-in {
+    animation: zen-cinema-in 0.64s cubic-bezier(0.16, 1, 0.32, 1) both;
   }
 
   /** Slow ambient drift behind TV hero (GPU-friendly transforms) */
@@ -380,49 +525,8 @@
     }
   }
 
-  @media (prefers-reduced-motion: no-preference) {
-    .zen-stagger-row > * {
-      animation: zen-stagger-in 0.58s cubic-bezier(0.16, 1, 0.3, 1) both;
-    }
-    .zen-stagger-row > *:nth-child(1) {
-      animation-delay: 0ms;
-    }
-    .zen-stagger-row > *:nth-child(2) {
-      animation-delay: 45ms;
-    }
-    .zen-stagger-row > *:nth-child(3) {
-      animation-delay: 90ms;
-    }
-    .zen-stagger-row > *:nth-child(4) {
-      animation-delay: 135ms;
-    }
-    .zen-stagger-row > *:nth-child(5) {
-      animation-delay: 180ms;
-    }
-    .zen-stagger-row > *:nth-child(6) {
-      animation-delay: 225ms;
-    }
-    .zen-stagger-row > *:nth-child(7) {
-      animation-delay: 270ms;
-    }
-    .zen-stagger-row > *:nth-child(8) {
-      animation-delay: 315ms;
-    }
-    .zen-stagger-row > *:nth-child(9) {
-      animation-delay: 360ms;
-    }
-    .zen-stagger-row > *:nth-child(10) {
-      animation-delay: 405ms;
-    }
-    .zen-stagger-row > *:nth-child(11) {
-      animation-delay: 450ms;
-    }
-    .zen-stagger-row > *:nth-child(12) {
-      animation-delay: 495ms;
-    }
-    .zen-stagger-row > *:nth-child(n + 13) {
-      animation-delay: 520ms;
-    }
+  .zen-stagger-row > * {
+    animation: none !important;
   }
 
   @keyframes zende-mexican-wave-bar {
@@ -504,15 +608,15 @@
   }
 
   .glass-list-row {
-    @apply flex min-h-[52px] items-center gap-3 rounded-xl px-4 py-3 text-left outline-none;
-    @apply border border-white/[0.07] bg-white/[0.05] backdrop-blur-xl ring-1 ring-white/[0.05];
-    @apply transition-[transform,background-color,border-color,box-shadow] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)];
+    @apply flex min-h-[56px] items-center gap-3 rounded-2xl px-4 py-3 text-left outline-none;
+    @apply border border-white/[0.1] bg-white/[0.055] backdrop-blur-xl ring-1 ring-white/[0.05];
+    @apply transition-[transform,background-color,border-color,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)];
   }
   .glass-list-row:hover {
-    @apply border-white/[0.14] bg-white/[0.09] shadow-lg shadow-black/30;
+    @apply border-white/[0.16] bg-white/[0.095] shadow-2xl shadow-black/35;
   }
   .glass-list-row:focus-visible {
-    @apply ring-2 ring-white ring-offset-2 ring-offset-[var(--tv-page-bg)];
+    @apply ring-2 ring-[var(--zen-signal)] ring-offset-2 ring-offset-[var(--tv-page-bg)];
   }
   @media (prefers-reduced-motion: no-preference) {
     .glass-list-row:hover {

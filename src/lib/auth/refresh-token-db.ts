@@ -15,7 +15,7 @@ export async function createRefreshToken(userId: string): Promise<{
   const rawToken = randomBytes(32).toString("hex");
   const tokenHash = hashRefreshToken(rawToken);
   const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 30);
+  expiresAt.setDate(expiresAt.getDate() + 14);
   await prisma.refreshToken.create({
     data: {
       tokenHash,

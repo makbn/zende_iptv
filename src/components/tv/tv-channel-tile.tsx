@@ -3,16 +3,22 @@
 import { ContextMenu } from "@base-ui/react/context-menu";
 import { Menu } from "@base-ui/react/menu";
 import type { KeyboardEvent } from "react";
-import { ListMinus, Play, Star } from "lucide-react";
+import { ListMinus, Play, Star, Tv } from "lucide-react";
 
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 
 import { FavoriteStarButton } from "@/components/tv/favorite-star-button";
-import { ChannelResolutionBadge } from "@/components/tv/channel-resolution-badge";
 import { ChannelHealthBadge } from "@/components/health/channel-health-badge";
+import {
+  ChannelArtBadge,
+  ChannelLogo,
+  gradientFromChannelName,
+  sanitizeGroupTitle,
+} from "@/components/channels/channel-presentation";
 import { tvTileFocusClass } from "@/components/tv/tv-focus";
 import type { HealthScoreDto } from "@/features/health/use-channel-health";
-import { parseChannelLabel } from "@/lib/channel/channel-label";
+import { channelArtBadgeLabel, parseChannelLabel } from "@/lib/channel/channel-label";
+import { resolveLibraryContentType } from "@/lib/channels/content-type";
 import { cn } from "@/lib/utils";
 
 export type TvChannelTileContextMenu = {
@@ -24,6 +30,8 @@ export type TvChannelTileContextMenu = {
 type Props = {
   channel: M3uChannel;
   onSelect?: (channel: M3uChannel) => void;
+  onPreview?: (channel: M3uChannel) => void;
+  fastMode?: boolean;
   healthScore?: HealthScoreDto;
   className?: string;
   /** Star overlay to add/remove favorites (default on). */
@@ -33,35 +41,27 @@ type Props = {
 };
 
 function gradientFromName(name: string) {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h + name.charCodeAt(i) * (i + 1)) % 360;
-  return `linear-gradient(145deg, oklch(0.35 0.12 ${h}) 0%, oklch(0.18 0.06 ${(h + 40) % 360}) 100%)`;
+  return gradientFromChannelName(name);
 }
 
-/** Hide playlist placeholders (e.g. "Undefined") when there is no useful group label. */
 function channelMetaLine(groupTitle?: string): string | null {
-  const raw = groupTitle?.trim();
-  if (!raw) return null;
-  const lower = raw.toLowerCase();
-  if (lower === "undefined" || lower === "unknown" || lower === "n/a" || lower === "na") {
-    return null;
-  }
-  return raw;
+  return sanitizeGroupTitle(groupTitle);
 }
 
 export function TvChannelTile({
   channel,
   onSelect,
+  onPreview,
+  fastMode = true,
   healthScore,
   className,
   showFavoriteStar = true,
   contextMenu,
 }: Props) {
-  const { displayName, resolutionLabel } = parseChannelLabel(
-    channel.name?.trim() || "Untitled",
-  );
-  const label = displayName;
+  const parsed = parseChannelLabel(channel.name?.trim() || "Untitled");
+  const { displayName: label } = parsed;
   const meta = channelMetaLine(channel.groupTitle);
+  const contentType = resolveLibraryContentType(channel);
 
   const open = () => onSelect?.(channel);
 
@@ -73,7 +73,7 @@ export function TvChannelTile({
   };
 
   const articleClass = cn(
-    "group relative w-[260px] shrink-0 snap-start sm:w-[288px]",
+    "group relative w-[178px] shrink-0 snap-start sm:w-[214px]",
     className,
   );
 
@@ -93,23 +93,23 @@ export function TvChannelTile({
       >
         <div
           className={cn(
-            "relative aspect-video w-full overflow-hidden rounded-2xl",
-            "bg-zinc-900/90 ring-1 ring-white/[0.08]",
-            "shadow-[0_16px_48px_-12px_rgba(0,0,0,0.75)]",
-            "transition-[transform,box-shadow,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform",
-            "group-hover:shadow-[0_28px_60px_-14px_rgba(0,0,0,0.88)] motion-safe:group-hover:scale-[1.025] motion-safe:group-hover:ring-white/[0.12]",
+            "relative aspect-[2/3] w-full overflow-hidden rounded-[28px]",
+            "border border-white/[0.11] bg-zinc-950/90 ring-1 ring-white/[0.06]",
+            fastMode
+              ? "shadow-[0_12px_34px_-21px_rgba(0,0,0,0.8)]"
+              : "shadow-[0_24px_70px_-30px_rgba(0,0,0,0.94)] transition-[transform,box-shadow,border-color,filter] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform group-hover:border-white/[0.2] group-hover:shadow-[0_38px_90px_-30px_rgba(0,0,0,0.96)] motion-safe:group-hover:scale-[1.022] motion-safe:group-hover:ring-white/[0.12]",
           )}
         >
           {channel.tvgLogo ? (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={channel.tvgLogo}
-                alt=""
-                className="absolute inset-0 m-auto max-h-[72%] max-w-[78%] object-contain opacity-[0.96]"
-                loading="lazy"
+              <ChannelLogo
+                name={label}
+                logoUrl={channel.tvgLogo}
+                className="absolute inset-0 rounded-none"
+                fit="cover"
+                aspect="fill"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 h-[48%] bg-gradient-to-t from-black/82 via-black/36 to-transparent" />
             </>
           ) : (
             <div
@@ -119,29 +119,37 @@ export function TvChannelTile({
               <span className="text-center text-[15px] font-semibold leading-snug text-white/95 drop-shadow-sm">
                 {label}
               </span>
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 h-[48%] bg-gradient-to-t from-black/74 via-black/26 to-transparent" />
             </div>
           )}
+          <div
+            className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,transparent_0_36%,rgba(255,255,255,0.12)_46%,transparent_58%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+            aria-hidden
+          />
+          <div
+            className="pointer-events-none absolute inset-y-4 left-3 w-1 rounded-full bg-[var(--zen-signal)]/0 transition-colors duration-300 group-hover:bg-[var(--zen-signal)]/70"
+            aria-hidden
+          />
           <div className="absolute left-2 top-2 z-10">
-            <ChannelHealthBadge score={healthScore} />
+            {contentType === "live" ? <ChannelHealthBadge score={healthScore} /> : null}
           </div>
-          <div className="absolute inset-x-0 bottom-0 p-3 pt-8">
-            <p className="line-clamp-2 text-[14px] font-semibold leading-tight text-white drop-shadow-md">
+          <div className="absolute inset-x-0 bottom-0 p-3.5 pt-8">
+            <p className="line-clamp-2 text-[15px] font-semibold leading-tight tracking-[-0.02em] text-white drop-shadow-md">
               {label}
             </p>
             {meta ? (
-              <p className="mt-0.5 truncate text-[12px] font-medium text-white/55">
+              <p className="mt-1 truncate text-[12px] font-medium text-white/58">
                 {meta}
               </p>
             ) : null}
           </div>
         </div>
       </div>
-      {resolutionLabel || showFavoriteStar ? (
+      {(channelArtBadgeLabel(parsed, contentType) || showFavoriteStar) ? (
         <div className="pointer-events-none absolute right-2 top-2 z-20 flex flex-col items-end gap-1">
-          {resolutionLabel ? (
+          {channelArtBadgeLabel(parsed, contentType) ? (
             <div className="pointer-events-auto">
-              <ChannelResolutionBadge label={resolutionLabel} />
+              <ChannelArtBadge parsed={parsed} contentType={contentType} />
             </div>
           ) : null}
           {showFavoriteStar ? (
@@ -151,11 +159,31 @@ export function TvChannelTile({
           ) : null}
         </div>
       ) : null}
+      {onPreview ? (
+        <div className="pointer-events-auto absolute bottom-2 right-2 z-20">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onPreview(channel);
+            }}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border border-white/[0.16] bg-black/62 px-3 py-1.5 text-[12px] font-semibold text-white/88 outline-none backdrop-blur-xl",
+              "hover:bg-white/[0.12] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
+            )}
+            aria-label={`Preview ${label}`}
+          >
+            <Tv className="h-3.5 w-3.5" aria-hidden />
+            Preview
+          </button>
+        </div>
+      ) : null}
     </>
   );
 
   const glassPopupClass =
-    "min-w-[220px] rounded-2xl border border-white/[0.14] bg-black/55 p-1 shadow-2xl outline-none backdrop-blur-2xl backdrop-saturate-150";
+    "min-w-[220px] rounded-[22px] border border-white/[0.14] bg-black/72 p-1.5 shadow-2xl outline-none backdrop-blur-2xl backdrop-saturate-150";
 
   if (!contextMenu) {
     return (

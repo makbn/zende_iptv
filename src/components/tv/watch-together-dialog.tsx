@@ -7,13 +7,14 @@ import { Check, Loader2, Play, X } from "lucide-react";
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
 import { cn } from "@/lib/utils";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
-import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
-import { getParsedPlaylist } from "@/lib/storage/playlist-cache-db";
-import { listManualChannelEntries } from "@/lib/channels/manual-channels-store";
-import { mergeBuiltinAndManual } from "@/lib/channels/merge-catalog";
 import { createWatchUrl } from "@/lib/navigation/watch-url";
+import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
+import {
+  useLibraryCatalog,
+} from "@/features/iptv/use-library-catalog";
 
 const MAX = 6;
+const source = BUILTIN_PLAYLIST_SOURCES[0]!;
 
 type Props = { open: boolean; onClose: () => void };
 
@@ -23,25 +24,33 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [q, setQ] = useState("");
-  const [catalog, setCatalog] = useState<M3uChannel[]>([]);
   const [selected, setSelected] = useState<M3uChannel[]>([]);
   const [launching, setLaunching] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const { channels, loading, refreshing, hasMore } = useLibraryCatalog({
+    presetId: source.presetId,
+    contentTab: "live",
+    query: q,
+    groupFilter: null,
+    languageFilter: null,
+    offset,
+    pageSize: 500,
+  });
 
-  // Load catalog once when dialog first opens
+  // Reset local UI state when dialog opens.
   useEffect(() => {
     if (!open) return;
     queueMicrotask(() => {
       setQ("");
+      setSelected([]);
+      setOffset(0);
       inputRef.current?.focus();
     });
-    const presetId = BUILTIN_PLAYLIST_SOURCES[0]?.presetId;
-    if (!presetId) return;
-    void getParsedPlaylist(presetId).then((cached) => {
-      const base = cached?.channels ?? [];
-      const manual = listManualChannelEntries().map((e) => e.channel);
-      setCatalog(mergeBuiltinAndManual(base, manual));
-    });
   }, [open]);
+
+  useEffect(() => {
+    setOffset(0);
+  }, [q]);
 
   // Escape to close
   useEffect(() => {
@@ -81,14 +90,6 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
       setLaunching(false);
     }
   }, [selected, launching, onClose, router]);
-
-  const filtered = q.trim()
-    ? catalog.filter(
-        (ch) =>
-          ch.name.toLowerCase().includes(q.toLowerCase()) ||
-          ch.groupTitle?.toLowerCase().includes(q.toLowerCase()),
-      )
-    : catalog;
 
   if (!open) return null;
 
@@ -158,17 +159,17 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
 
           {/* Channel list */}
           <div className="flex-1 overflow-y-auto overscroll-contain">
-            {catalog.length === 0 ? (
+            {loading || refreshing ? (
               <div className="flex items-center justify-center py-14">
                 <Loader2 className="h-6 w-6 animate-spin text-white/30" />
               </div>
-            ) : filtered.length === 0 ? (
+            ) : channels.length === 0 ? (
               <p className="px-5 py-10 text-center text-[14px] text-white/35">
                 No channels match &quot;{q}&quot;
               </p>
             ) : (
               <ul className="divide-y divide-white/[0.05]">
-                {filtered.slice(0, 300).map((ch) => {
+                {channels.slice(0, 500).map((ch) => {
                   const isSelected = selected.some((c) => c.url === ch.url);
                   const atMax = !isSelected && selected.length >= MAX;
                   return (
@@ -238,6 +239,22 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
                 })}
               </ul>
             )}
+            {!loading && channels.length > 0 && hasMore ? (
+              <div className="px-5 py-3">
+                <button
+                  type="button"
+                  onClick={() => setOffset((n) => n + 500)}
+                  className={cn(
+                    "w-full rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-[13px] font-semibold text-white/85 outline-none",
+                    "hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-white",
+                    refreshing && "opacity-50",
+                  )}
+                  disabled={refreshing}
+                >
+                  {refreshing ? "Loading more…" : "Load more live channels"}
+                </button>
+              </div>
+            ) : null}
           </div>
 
           {/* Footer */}

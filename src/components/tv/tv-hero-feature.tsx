@@ -30,37 +30,38 @@ export function TvHeroFeature({
 }: Props) {
   return (
     <section
-      className="relative min-h-[min(52svh,560px)] w-full overflow-hidden pt-20 sm:min-h-[min(54svh,600px)]"
+      className="relative min-h-[min(62svh,700px)] w-full overflow-hidden pt-20 sm:min-h-[min(64svh,740px)]"
       aria-labelledby="hero-title"
     >
+      <div className="zen-signal-beams" aria-hidden />
       <div className="pointer-events-none absolute inset-0 tv-hero-ambient zen-hero-ambient-breathe">
         <div
           className={cn(
-            "absolute inset-0 opacity-90",
-            "bg-[radial-gradient(ellipse_120%_80%_at_50%_-10%,oklch(0.42_0.18_264)_0%,transparent_55%)]",
+            "absolute inset-0 opacity-85",
+            "bg-[radial-gradient(ellipse_120%_80%_at_46%_-10%,rgba(56,217,255,0.24)_0%,transparent_55%)]",
           )}
         />
         <div
           className={cn(
-            "absolute inset-0 opacity-80 mix-blend-screen",
-            "bg-[radial-gradient(ellipse_90%_60%_at_80%_40%,oklch(0.35_0.12_200)_0%,transparent_50%)]",
+            "absolute inset-0 opacity-70 mix-blend-screen",
+            "bg-[radial-gradient(ellipse_90%_60%_at_82%_40%,rgba(56,217,255,0.18)_0%,transparent_52%)]",
           )}
         />
         <div
           className={cn(
-            "absolute inset-0 opacity-35",
-            "bg-[radial-gradient(circle_at_20%_80%,oklch(0.5_0.15_25)_0%,transparent_45%)]",
+            "absolute inset-0 opacity-45",
+            "bg-[radial-gradient(circle_at_18%_82%,rgba(255,107,74,0.16)_0%,transparent_44%)]",
           )}
         />
       </div>
 
       {backdropUrl ? (
-        <div className="pointer-events-none absolute inset-0 opacity-[0.22]">
+        <div className="pointer-events-none absolute inset-0 opacity-[0.24]">
           {/* eslint-disable-next-line @next/next/no-img-element -- arbitrary IPTV logo origins */}
           <img
             src={backdropUrl}
             alt=""
-            className="absolute inset-0 size-full object-cover object-center blur-[2px] scale-105"
+            className="absolute inset-0 size-full scale-110 object-cover object-center blur-[6px] saturate-125"
           />
         </div>
       ) : null}
@@ -68,7 +69,7 @@ export function TvHeroFeature({
       <div
         className={cn(
           "pointer-events-none absolute inset-0",
-          "bg-gradient-to-b from-black/20 via-black/55 to-[var(--tv-page-bg)]",
+          "bg-gradient-to-b from-black/18 via-black/58 to-[var(--tv-page-bg)]",
         )}
       />
       <div
@@ -78,21 +79,21 @@ export function TvHeroFeature({
         )}
       />
 
-      <div className="relative z-10 flex min-h-[min(46svh,480px)] flex-col justify-end px-6 pb-24 sm:min-h-[min(48svh,520px)] sm:px-10 sm:pb-28 lg:px-14 lg:pb-32 xl:px-20">
-        <div className="flex max-w-[min(100%,820px)] flex-col gap-2 sm:gap-2.5 zen-stagger-row">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/52 sm:text-[13px]">
+      <div className="relative z-10 flex min-h-[min(56svh,640px)] flex-col justify-end px-6 pb-28 sm:min-h-[min(58svh,680px)] sm:px-10 sm:pb-32 lg:px-14 lg:pb-36 xl:px-20">
+        <div className="motion-safe:animate-zen-cinema-in flex max-w-[min(100%,940px)] flex-col gap-2.5 sm:gap-3">
+          <p className="zen-kicker">
             {eyebrow}
           </p>
           <h1
             id="hero-title"
             className={cn(
-              "text-balance font-semibold tracking-[-0.028em] text-white",
-              "text-[clamp(2rem,5.2vw,3.35rem)] leading-[1.06] sm:leading-[1.05]",
+              "text-balance font-semibold tracking-[-0.07em] text-white",
+              "text-[clamp(2.5rem,7vw,6.35rem)] leading-[0.92]",
             )}
           >
             {title}
           </h1>
-          <p className="max-w-[560px] text-pretty text-[16px] leading-snug text-white/70 sm:text-[17px]">
+          <p className="max-w-[650px] text-pretty text-[16px] leading-relaxed text-white/68 sm:text-[18px]">
             {subtitle}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2.5 sm:mt-3 sm:gap-3">
@@ -100,13 +101,13 @@ export function TvHeroFeature({
               type="button"
               onClick={onPrimary}
               disabled={primaryDisabled}
-              className="group border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-4 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-45"
+              className="group rounded-full border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] focus-visible:ring-offset-4 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-45"
             >
               <ZenedeGlass
                 variant="heroPrimary"
                 className="inline-block transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform motion-safe:group-hover:scale-[1.03] motion-safe:group-active:scale-[0.97] group-disabled:group-hover:scale-100"
               >
-                <span className="flex min-h-[48px] min-w-[148px] items-center justify-center px-8 text-[17px] font-semibold text-zinc-950">
+                <span className="flex min-h-[52px] min-w-[160px] items-center justify-center px-8 text-[17px] font-semibold text-[var(--zen-void)]">
                   {primaryLabel}
                 </span>
               </ZenedeGlass>
@@ -116,13 +117,13 @@ export function TvHeroFeature({
                 type="button"
                 onClick={onSecondary}
                 disabled={secondaryDisabled}
-                className="group border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-4 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-45"
+                className="group rounded-full border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] focus-visible:ring-offset-4 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-45"
               >
                 <ZenedeGlass
                   variant="heroSecondary"
                   className="inline-block transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform motion-safe:group-hover:scale-[1.03] motion-safe:group-active:scale-[0.97]"
                 >
-                  <span className="flex min-h-[48px] min-w-[148px] items-center justify-center px-8 text-[17px] font-semibold text-white">
+                  <span className="flex min-h-[52px] min-w-[160px] items-center justify-center px-8 text-[17px] font-semibold text-white">
                     {secondaryLabel}
                   </span>
                 </ZenedeGlass>

@@ -2,6 +2,7 @@ import { Suspense } from "react";
 
 import { SeriesDetailView } from "@/components/library/series-detail-view";
 import { ResponsivePage } from "@/components/mobile/responsive-page";
+import { BrowsePageFallback } from "@/components/states/browse-page-fallback";
 
 type Props = {
   params: Promise<{ seriesId: string }>;
@@ -13,11 +14,7 @@ export default async function ShowPage({ params, searchParams }: Props) {
   const q = await searchParams;
 
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-[var(--tv-page-bg)] pt-20" aria-hidden />
-      }
-    >
+    <Suspense fallback={<BrowsePageFallback />}>
       <ResponsivePage
         mobile={
           <SeriesDetailView

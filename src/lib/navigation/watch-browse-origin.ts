@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 
 export const WATCH_BROWSE_ORIGIN_KEY = "zenede.watch.browseOrigin";
@@ -23,16 +23,19 @@ export function getWatchReturnHref(): string {
  */
 export function WatchBrowseOriginTracker() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     if (!pathname.startsWith("/watch")) {
       try {
-        sessionStorage.setItem(WATCH_BROWSE_ORIGIN_KEY, pathname || "/");
+        const qs = searchParams.toString();
+        const href = qs ? `${pathname}?${qs}` : pathname;
+        sessionStorage.setItem(WATCH_BROWSE_ORIGIN_KEY, href || "/");
       } catch {
         /* ignore quota / private mode */
       }
     }
-  }, [pathname]);
+  }, [pathname, searchParams]);
 
   return null;
 }

@@ -124,9 +124,11 @@ export async function POST(request: Request) {
   try {
     const started = Date.now();
     let meta: PlaybackSessionMeta = parsed.data.meta ?? {};
-    if (!meta.contentKind) {
-      const inferred = inferContentKindFromUrl(upstream.href);
-      if (inferred) meta = { ...meta, contentKind: inferred };
+    const inferred = inferContentKindFromUrl(upstream.href);
+    if (inferred) {
+      if (!meta.contentKind || (meta.contentKind === "live" && inferred !== "live")) {
+        meta = { ...meta, contentKind: inferred };
+      }
     }
     const resolvedDuration = await resolvePlaybackDurationSeconds(upstream.href, meta);
     if (resolvedDuration && !meta.durationSeconds) {

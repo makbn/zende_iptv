@@ -180,7 +180,7 @@ export function addFavorite(
     }
   }
   writeStore(store);
-  notifyFavoritesUpdated();
+  notifyFavoritesUpdated(input.url);
   serverAdd(row);
 }
 
@@ -188,7 +188,7 @@ export function removeFavorite(url: string): void {
   const store = readStore();
   store.favorites = store.favorites.filter((f) => f.url !== url);
   writeStore(store);
-  notifyFavoritesUpdated();
+  notifyFavoritesUpdated(url);
   serverRemove(url);
 }
 
@@ -213,19 +213,36 @@ export function toggleFavorite(
   return true;
 }
 
-export function notifyFavoritesUpdated(): void {
+type FavoriteListener = { url: string | null; cb: () => void };
+const favoriteListeners = new Set<FavoriteListener>();
+
+export function notifyFavoritesUpdated(changedUrl?: string): void {
   if (typeof window === "undefined") return;
+  for (const listener of favoriteListeners) {
+    if (listener.url == null || listener.url === changedUrl) {
+      listener.cb();
+    }
+  }
   window.dispatchEvent(new Event("zenede-favorites-update"));
 }
 
 export function subscribeFavorites(onChange: () => void): () => void {
+  return subscribeFavoriteUrl(null, onChange);
+}
+
+/** Subscribe to favorite changes for one URL (or all when url is null). */
+export function subscribeFavoriteUrl(
+  url: string | null,
+  onChange: () => void,
+): () => void {
   if (typeof window === "undefined") return () => {};
-  const run = () => onChange();
-  window.addEventListener("storage", run);
-  window.addEventListener("zenede-favorites-update", run);
+  const entry: FavoriteListener = { url, cb: onChange };
+  favoriteListeners.add(entry);
+  const onStorage = () => onChange();
+  window.addEventListener("storage", onStorage);
   return () => {
-    window.removeEventListener("storage", run);
-    window.removeEventListener("zenede-favorites-update", run);
+    favoriteListeners.delete(entry);
+    window.removeEventListener("storage", onStorage);
   };
 }
 

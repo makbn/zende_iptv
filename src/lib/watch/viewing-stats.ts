@@ -1,4 +1,5 @@
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
+import { resolveLibraryContentType } from "@/lib/channels/content-type";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 
 const STORAGE_KEY = "zenede.viewing.v1";
@@ -173,13 +174,19 @@ export function viewingEntryToChannel(
   catalog: M3uChannel[],
 ): M3uChannel {
   const found = catalog.find((c) => c.url === entry.url);
-  if (found) return found;
+  const channel: M3uChannel =
+    found ??
+    ({
+      name: entry.name,
+      url: entry.url,
+      duration: -1,
+      ...(entry.tvgLogo ? { tvgLogo: entry.tvgLogo } : {}),
+      ...(entry.groupTitle ? { groupTitle: entry.groupTitle } : {}),
+    } satisfies M3uChannel);
+  if (channel.contentType) return channel;
   return {
-    name: entry.name,
-    url: entry.url,
-    duration: -1,
-    ...(entry.tvgLogo ? { tvgLogo: entry.tvgLogo } : {}),
-    ...(entry.groupTitle ? { groupTitle: entry.groupTitle } : {}),
+    ...channel,
+    contentType: resolveLibraryContentType(channel),
   };
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
-import Hls from "hls.js";
 import type { HlsConfig } from "hls.js";
+import type Hls from "hls.js";
 import {
   forwardRef,
   useCallback,
@@ -14,6 +14,7 @@ import type { PlaybackMode } from "@/lib/stream/playback-url";
 import { cn } from "@/lib/utils";
 
 export type QualityOption = { index: number; label: string };
+export type MediaTrackOption = { index: number; label: string };
 
 export type PlayerSession = {
   video: HTMLVideoElement;
@@ -21,6 +22,10 @@ export type PlayerSession = {
   isNativeHls: boolean;
   getQualityOptions(): QualityOption[];
   setQualityLevel(levelIndex: number): void;
+  getAudioTracks(): MediaTrackOption[];
+  setAudioTrack(index: number): void;
+  getSubtitleTracks(): MediaTrackOption[];
+  setSubtitleTrack(index: number): void;
 };
 
 export type PlayerError = {
@@ -65,6 +70,17 @@ function parseHeightFromResolution(res?: string): number | undefined {
   return m ? parseInt(m[2]!, 10) : undefined;
 }
 
+function nativeTextTracks(video: HTMLVideoElement): MediaTrackOption[] {
+  const tracks = video.textTracks;
+  const out: MediaTrackOption[] = [{ index: -1, label: "Off" }];
+  for (let i = 0; i < tracks.length; i++) {
+    const t = tracks[i]!;
+    const label = t.label || t.language || `Subtitle ${i + 1}`;
+    out.push({ index: i, label });
+  }
+  return out;
+}
+
 function mergeRefs<T>(
   ...refs: Array<React.Ref<T> | undefined>
 ): React.RefCallback<T> {
@@ -105,18 +121,15 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
       onErrorRef.current = onError;
     });
 
-    /**
-     * Run after paint and defer `loadSource` one frame so rapid mount/unmount (e.g. React 19
-     * `reappearLayoutEffects` / navigation) does not leave two HLS instances fetching the same
-     * manifest or overlapping segment requests.
-     */
     useEffect(() => {
       const video = innerRef.current;
       if (!video || !src) return;
 
       let hls: Hls | null = null;
+      let HlsModule: typeof import("hls.js").default | null = null;
       let networkRetryTimer: ReturnType<typeof setTimeout> | null = null;
       let mediaHardResetTimer: ReturnType<typeof setTimeout> | null = null;
+      let hlsRecreateAttempt = 0;
       const hlsMode = shouldUseHls(src, playbackMode);
       let isNativeHls = false;
       let cancelled = false;
@@ -149,6 +162,43 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
           if (!hls) return;
           hls.loadLevel = levelIndex;
         },
+        getAudioTracks(): MediaTrackOption[] {
+          if (hls?.audioTracks?.length) {
+            return hls.audioTracks.map((t, i) => ({
+              index: i,
+              label: t.name || t.lang || `Audio ${i + 1}`,
+            }));
+          }
+          return [];
+        },
+        setAudioTrack(index: number) {
+          if (!hls?.audioTracks?.length) return;
+          hls.audioTrack = index;
+          bumpSession();
+        },
+        getSubtitleTracks(): MediaTrackOption[] {
+          if (hls?.subtitleTracks?.length) {
+            return [
+              { index: -1, label: "Off" },
+              ...hls.subtitleTracks.map((t, i) => ({
+                index: i,
+                label: t.name || t.lang || `Subtitle ${i + 1}`,
+              })),
+            ];
+          }
+          return nativeTextTracks(video);
+        },
+        setSubtitleTrack(index: number) {
+          if (hls?.subtitleTracks?.length) {
+            hls.subtitleTrack = index;
+            bumpSession();
+            return;
+          }
+          for (let i = 0; i < video.textTracks.length; i++) {
+            video.textTracks[i]!.mode = i === index ? "showing" : "disabled";
+          }
+          bumpSession();
+        },
       });
 
       const clearMediaHardResetTimer = () => {
@@ -161,8 +211,8 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
       const startPlayback = () => {
         if (cancelled) return;
 
-        if (hlsMode && Hls.isSupported()) {
-          /** After a successful fragment, the next media error starts from step 1 again. */
+        if (hlsMode && HlsModule?.isSupported()) {
+          const HlsCtor = HlsModule;
           let mediaErrorStage = 0;
           let networkRetries = 0;
 
@@ -176,10 +226,6 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
             mediaErrorStage = 0;
           };
 
-          /**
-           * `bufferAppendError` often leaves `video.error` set; soft `recoverMediaError()` is not
-           * always enough. Detach, `video.load()`, reattach — similar to many manual pause/play recoveries.
-           */
           const hardResetMediaElement = (thenReloadSource: boolean) => {
             if (!hls || cancelled) return;
             clearMediaHardResetTimer();
@@ -201,7 +247,56 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
 
           const onManifestParsed = () => {
             resetMediaErrorStage();
+            hlsRecreateAttempt = 0;
             bumpSession();
+            void video.play().catch(() => {});
+          };
+
+          const isAudioCodecError = (details: string | undefined, reason?: string) => {
+            if (
+              details === HlsCtor.ErrorDetails.BUFFER_ADD_CODEC_ERROR ||
+              details === HlsCtor.ErrorDetails.BUFFER_INCOMPATIBLE_CODECS_ERROR
+            ) {
+              return true;
+            }
+            if (details === HlsCtor.ErrorDetails.BUFFER_APPEND_ERROR) {
+              const msg = (reason ?? "").toLowerCase();
+              return msg.includes("audio sourcebuffer") || msg.includes("mp4a");
+            }
+            return false;
+          };
+
+          const destroyHlsInstance = () => {
+            if (!hls || !HlsModule) return;
+            hls.off(HlsModule.Events.ERROR);
+            hls.off(HlsModule.Events.MANIFEST_PARSED);
+            hls.off(HlsModule.Events.LEVEL_SWITCHED);
+            hls.off(HlsModule.Events.FRAG_BUFFERED);
+            hls.off(HlsModule.Events.AUDIO_TRACKS_UPDATED);
+            hls.off(HlsModule.Events.SUBTITLE_TRACKS_UPDATED);
+            hls.stopLoad();
+            hls.destroy();
+            hls = null;
+          };
+
+          const attachHlsInstance = (configOverrides?: Partial<HlsConfig>) => {
+            if (!HlsModule || cancelled) return;
+            destroyHlsInstance();
+            mediaErrorStage = 0;
+            hls = new HlsCtor({
+              ...getStreamHlsConfig(),
+              ...hlsConfigExtra,
+              ...configOverrides,
+            });
+            hls.on(HlsCtor.Events.MANIFEST_PARSED, onManifestParsed);
+            hls.on(HlsCtor.Events.LEVEL_SWITCHED, bumpSession);
+            hls.on(HlsCtor.Events.FRAG_BUFFERED, resetMediaErrorStage);
+            hls.on(HlsCtor.Events.AUDIO_TRACKS_UPDATED, bumpSession);
+            hls.on(HlsCtor.Events.SUBTITLE_TRACKS_UPDATED, bumpSession);
+            hls.on(HlsCtor.Events.ERROR, onHlsError);
+            hls.loadSource(src);
+            hls.attachMedia(video);
+            onSessionChangeRef.current?.(buildSession());
           };
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -225,12 +320,36 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
               return;
             }
 
-            if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+            if (data.type === HlsCtor.ErrorTypes.MEDIA_ERROR) {
               const details = data.details as string | undefined;
+              const reason = err.reason;
               const appendWithVideoError =
-                (details === Hls.ErrorDetails.BUFFER_APPEND_ERROR ||
-                  details === Hls.ErrorDetails.BUFFER_APPENDING_ERROR) &&
+                (details === HlsCtor.ErrorDetails.BUFFER_APPEND_ERROR ||
+                  details === HlsCtor.ErrorDetails.BUFFER_APPENDING_ERROR) &&
                 video.error != null;
+
+              if (isAudioCodecError(details, reason)) {
+                if (mediaErrorStage === 0) {
+                  mediaErrorStage = 1;
+                  hls!.swapAudioCodec();
+                  hls!.recoverMediaError();
+                  return;
+                }
+                if (mediaErrorStage === 1) {
+                  mediaErrorStage = 2;
+                  hardResetMediaElement(true);
+                  return;
+                }
+                if (mediaErrorStage === 2 && hlsRecreateAttempt < 1) {
+                  mediaErrorStage = 0;
+                  hlsRecreateAttempt++;
+                  attachHlsInstance({
+                    preferManagedMediaSource: false,
+                    defaultAudioCodec: "mp4a.40.5",
+                  });
+                  return;
+                }
+              }
 
               if (mediaErrorStage === 0) {
                 if (appendWithVideoError) {
@@ -260,7 +379,7 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
               }
             }
 
-            if (data.type === Hls.ErrorTypes.NETWORK_ERROR && networkRetries < 3) {
+            if (data.type === HlsCtor.ErrorTypes.NETWORK_ERROR && networkRetries < 3) {
               networkRetries++;
               networkRetryTimer = setTimeout(() => {
                 networkRetryTimer = null;
@@ -272,46 +391,75 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
             onErrorRef.current?.(err);
           };
 
-          hls = new Hls({
-            ...getStreamHlsConfig(),
-            ...hlsConfigExtra,
-          });
-          hls.on(Hls.Events.MANIFEST_PARSED, onManifestParsed);
-          hls.on(Hls.Events.LEVEL_SWITCHED, bumpSession);
-          hls.on(Hls.Events.FRAG_BUFFERED, resetMediaErrorStage);
-          hls.on(Hls.Events.ERROR, onHlsError);
-          hls.loadSource(src);
-          hls.attachMedia(video);
+          attachHlsInstance();
         } else if (hlsMode && video.canPlayType("application/vnd.apple.mpegurl")) {
           isNativeHls = true;
           video.src = src;
+          video.addEventListener("loadedmetadata", bumpSession);
+          video.addEventListener(
+            "canplay",
+            () => {
+              void video.play().catch(() => {});
+            },
+            { once: true },
+          );
         } else {
           video.src = src;
+          video.addEventListener(
+            "canplay",
+            () => {
+              void video.play().catch(() => {});
+            },
+            { once: true },
+          );
         }
 
         onSessionChangeRef.current?.(buildSession());
       };
 
       let deferredRafId: number | null = null;
-      const raf1 = requestAnimationFrame(() => {
-        deferredRafId = requestAnimationFrame(startPlayback);
-      });
+      let raf1 = 0;
+
+      void (async () => {
+        if (hlsMode) {
+          try {
+            const mod = await import("hls.js");
+            if (cancelled) return;
+            HlsModule = mod.default;
+          } catch (e) {
+            console.warn("[player] hls.js load failed", e);
+          }
+        }
+        if (cancelled) return;
+        raf1 = requestAnimationFrame(() => {
+          deferredRafId = requestAnimationFrame(startPlayback);
+        });
+      })();
 
       return () => {
         cancelled = true;
         clearMediaHardResetTimer();
         if (networkRetryTimer) clearTimeout(networkRetryTimer);
-        cancelAnimationFrame(raf1);
+        if (raf1) cancelAnimationFrame(raf1);
         if (deferredRafId !== null) cancelAnimationFrame(deferredRafId);
         if (hls) {
-          hls.off(Hls.Events.ERROR);
-          hls.off(Hls.Events.MANIFEST_PARSED);
-          hls.off(Hls.Events.LEVEL_SWITCHED);
-          hls.off(Hls.Events.FRAG_BUFFERED);
+          try {
+            if (HlsModule) {
+              hls.off(HlsModule.Events.ERROR);
+              hls.off(HlsModule.Events.MANIFEST_PARSED);
+              hls.off(HlsModule.Events.LEVEL_SWITCHED);
+              hls.off(HlsModule.Events.FRAG_BUFFERED);
+              hls.off(HlsModule.Events.AUDIO_TRACKS_UPDATED);
+              hls.off(HlsModule.Events.SUBTITLE_TRACKS_UPDATED);
+            }
+          } catch {
+            /* ignore */
+          }
           hls.stopLoad();
           hls.destroy();
           hls = null;
         }
+        video.removeEventListener("loadedmetadata", bumpSession);
         onSessionChangeRef.current?.(null);
         video.pause();
         video.removeAttribute("src");

@@ -14,7 +14,7 @@ import {
 } from "react";
 
 import { ChannelHealthBadge } from "@/components/health/channel-health-badge";
-import { ChannelResolutionBadge } from "@/components/tv/channel-resolution-badge";
+import { ChannelArtBadge } from "@/components/channels/channel-presentation";
 import { FavoriteStarButton } from "@/components/tv/favorite-star-button";
 import { FavoritesEpgTimeline } from "@/components/tv/favorites-epg-timeline";
 import { TvChannelTile } from "@/components/tv/tv-channel-tile";
@@ -24,12 +24,19 @@ import {
 } from "@/components/tv/tv-top-bar";
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
 import {
+  CinematicCommandPanel,
+  CinematicHero,
+  CinematicMetrics,
+} from "@/components/layout/cinematic-v2";
+import {
   listFavorites,
   subscribeFavorites,
 } from "@/lib/favorites/favorites-store";
 import { useChannelHealthLookup } from "@/features/health/use-channel-health";
 import { useEnrichedFavorites } from "@/features/iptv/use-enriched-favorites";
+import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
+import { contentTypeFromStreamUrl, resolveLibraryContentType } from "@/lib/channels/content-type";
 import { cn } from "@/lib/utils";
 import {
   ArrowRight,
@@ -53,6 +60,7 @@ const FAV_PAGE_GUTTER =
 type SortMode = "recent" | "name" | "group";
 
 export function TvFavoritesPage() {
+  const { onNavigateClick } = useRemoteNavigation();
   const { openChannel, navError, clearNavError } = useWatchNavigation();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [favEpoch, setFavEpoch] = useState(0);
@@ -79,7 +87,10 @@ export function TvFavoritesPage() {
     }
   }, [view]);
 
-  const rawFavorites = useMemo(() => listFavorites(), [favEpoch]);
+  const rawFavorites = useMemo(() => {
+    void favEpoch;
+    return listFavorites();
+  }, [favEpoch]);
 
   const enriched = useEnrichedFavorites();
   const { getScoreForChannel } = useChannelHealthLookup(enriched);
@@ -107,7 +118,7 @@ export function TvFavoritesPage() {
       });
     } else {
       const order = new Map(
-        rawFavorites.map((f, i) => [f.url, f.addedAt]),
+        rawFavorites.map((f) => [f.url, f.addedAt]),
       );
       list.sort(
         (a, b) =>
@@ -167,62 +178,37 @@ export function TvFavoritesPage() {
   const favCount = enriched.length;
 
   return (
-    <div className="min-h-screen bg-[var(--tv-page-bg)] text-foreground">
+    <div className="zen-page-bg min-h-screen text-foreground">
       <main className={cn("pb-28", TV_BROWSE_TOP_PAD_CLASS)}>
-        <div className="relative overflow-hidden">
-          <div className="pointer-events-none absolute inset-0 opacity-[0.35]" aria-hidden>
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_75%_45%_at_30%_-15%,oklch(0.38_0.12_35),transparent_58%)]" />
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_55%_40%_at_85%_35%,oklch(0.32_0.1_285),transparent_52%)]" />
-          </div>
-
-          <header
-            className={cn(
-              "relative pb-3 pt-6 sm:pb-4 sm:pt-7 lg:pb-5 lg:pt-8",
-              FAV_PAGE_GUTTER,
-              "motion-safe:animate-fav-hero-in motion-reduce:animate-none motion-reduce:opacity-100",
-            )}
-          >
-            <div className="flex flex-col gap-2 sm:gap-2.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/25 bg-amber-400/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-200/90">
-                  <Star className="size-3 fill-amber-400/90 text-amber-300" aria-hidden />
-                  Saved
-                </span>
-                {favCount > 0 ? (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="inline-flex items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.04] px-2 py-0.5 ring-1 ring-white/[0.03]">
-                      <span className="tabular-nums text-[13px] font-semibold text-white">
-                        {favCount.toLocaleString()}
-                      </span>
-                      <span className="text-[10px] font-medium text-white/40">
-                        channels
-                      </span>
-                    </span>
-                    <span className="inline-flex items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.04] px-2 py-0.5 ring-1 ring-white/[0.03]">
-                      <span className="tabular-nums text-[13px] font-semibold text-white">
-                        {groupOptions.length.toLocaleString()}
-                      </span>
-                      <span className="text-[10px] font-medium text-white/40">
-                        groups
-                      </span>
-                    </span>
-                  </div>
-                ) : null}
+        <CinematicHero
+          className="pb-7 pt-8"
+          eyebrow="Saved"
+          title="Favorites"
+          description="Search, sort, and open saved channels."
+          aside={
+            <CinematicCommandPanel>
+              <div className="flex items-center gap-2">
+                <Star className="size-4 fill-amber-300 text-amber-200" aria-hidden />
+                <p className="zen-kicker">Saved channels</p>
               </div>
-              <h1 className="text-[clamp(1.45rem,3.2vw,2rem)] font-semibold tracking-tight text-white">
-                Favorites
-              </h1>
-              <p className="max-w-2xl text-[13px] leading-snug text-white/44 sm:text-[14px] sm:leading-relaxed">
-                Search, sort, and filter — star channels from Library, Home, or Watch.
-                <span className="text-white/32"> · </span>
-                <span className="text-white/38">
-                  <span className="text-white/52">Recent</span> for newest,{" "}
-                  <span className="text-white/52">A–Z</span> to scan long lists.
-                </span>
-              </p>
-            </div>
-          </header>
-        </div>
+              <CinematicMetrics
+                className="mt-4"
+                metrics={[
+                  { label: "Saved", value: favCount.toLocaleString(), tone: "ember" },
+                  { label: "Groups", value: groupOptions.length.toLocaleString() },
+                  { label: "Shown", value: filtered.length.toLocaleString(), tone: "signal" },
+                ]}
+              />
+              <Link
+                href="/guide"
+                onClick={onNavigateClick("/guide")}
+                className="mt-5 inline-flex min-h-12 items-center justify-center rounded-full bg-[var(--zen-frost)] px-5 text-[15px] font-semibold text-[var(--zen-void)] outline-none transition-transform focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] motion-safe:hover:scale-[1.02]"
+              >
+                Open TV guide
+              </Link>
+            </CinematicCommandPanel>
+          }
+        />
 
         <div
           className={cn(
@@ -261,7 +247,7 @@ export function TvFavoritesPage() {
                         "h-[52px] w-full rounded-2xl border border-white/[0.12] bg-black/35 pl-12 pr-11",
                         "text-[17px] text-white placeholder:text-white/35",
                         "outline-none transition-shadow duration-200",
-                        "focus-visible:border-white/25 focus-visible:ring-2 focus-visible:ring-white/25",
+                        "focus-visible:border-[var(--zen-signal)]/60 focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]/45",
                         favCount === 0 && "opacity-40",
                       )}
                     />
@@ -272,7 +258,7 @@ export function TvFavoritesPage() {
                         className={cn(
                           "absolute right-3 flex size-9 items-center justify-center rounded-xl",
                           "text-white/50 outline-none transition-colors hover:bg-white/10 hover:text-white",
-                          "focus-visible:ring-2 focus-visible:ring-white",
+                          "focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
                         )}
                         aria-label="Clear search"
                       >
@@ -303,7 +289,7 @@ export function TvFavoritesPage() {
                             "rounded-xl px-3.5 py-2 text-[13px] font-semibold outline-none transition-[color,background-color,transform,box-shadow] duration-200 ease-out sm:text-[14px]",
                             "enabled:active:scale-[0.98]",
                             sort === id
-                              ? "bg-white text-zinc-950 shadow-sm"
+                              ? "bg-[var(--zen-frost)] text-[var(--zen-void)] shadow-sm"
                               : "text-white/55 hover:bg-white/[0.06] hover:text-white disabled:opacity-35",
                           )}
                           aria-pressed={sort === id}
@@ -328,7 +314,7 @@ export function TvFavoritesPage() {
                           "inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-[14px] font-semibold outline-none transition-[color,background-color,transform,box-shadow] duration-200 ease-out",
                           "enabled:active:scale-[0.98]",
                           view === "posters"
-                            ? "bg-white text-zinc-950 shadow-sm"
+                            ? "bg-[var(--zen-frost)] text-[var(--zen-void)] shadow-sm"
                             : "text-white/55 hover:bg-white/[0.06] hover:text-white disabled:opacity-35",
                         )}
                         aria-pressed={view === "posters"}
@@ -344,7 +330,7 @@ export function TvFavoritesPage() {
                           "inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-[14px] font-semibold outline-none transition-[color,background-color,transform,box-shadow] duration-200 ease-out",
                           "enabled:active:scale-[0.98]",
                           view === "compact"
-                            ? "bg-white text-zinc-950 shadow-sm"
+                            ? "bg-[var(--zen-frost)] text-[var(--zen-void)] shadow-sm"
                             : "text-white/55 hover:bg-white/[0.06] hover:text-white disabled:opacity-35",
                         )}
                         aria-pressed={view === "compact"}
@@ -369,61 +355,25 @@ export function TvFavoritesPage() {
                 </div>
 
                 {favCount > 0 && groupOptions.length > 0 ? (
-                  <div className="flex flex-col gap-2 border-t border-white/[0.06] pt-4">
-                    <p className="text-[12px] font-medium uppercase tracking-[0.12em] text-white/35">
-                      Categories
-                    </p>
-                    <div
-                      className={cn(
-                        "zen-stagger-row flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none]",
-                        "[&::-webkit-scrollbar]:hidden",
-                      )}
-                      role="tablist"
-                      aria-label="Filter saved by category"
+                  <label className="grid gap-1.5 border-t border-white/[0.06] pt-3 sm:max-w-md">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/35">
+                      Category
+                    </span>
+                    <select
+                      value={groupFilter ?? ""}
+                      onChange={(event) =>
+                        setGroupFilter(event.target.value || null)
+                      }
+                      className="h-11 rounded-2xl border border-white/[0.12] bg-black/45 px-3 text-[14px] font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
                     >
-                      <button
-                        type="button"
-                        role="tab"
-                        aria-selected={groupFilter === null}
-                        onClick={() => setGroupFilter(null)}
-                        className={cn(
-                          "shrink-0 rounded-full px-4 py-2 text-[14px] font-semibold outline-none transition-colors",
-                          groupFilter === null
-                            ? "bg-white text-zinc-950"
-                            : "border border-white/[0.12] bg-white/[0.05] text-white/75 hover:bg-white/[0.09]",
-                        )}
-                      >
-                        All
-                      </button>
+                      <option value="">All categories</option>
                       {groupOptions.map(([name, count]) => (
-                        <button
-                          key={name}
-                          type="button"
-                          role="tab"
-                          aria-selected={groupFilter === name}
-                          onClick={() => setGroupFilter(name)}
-                          className={cn(
-                            "flex max-w-[220px] shrink-0 items-center gap-2 rounded-full px-4 py-2 text-[14px] font-semibold outline-none transition-colors",
-                            groupFilter === name
-                              ? "bg-white text-zinc-950"
-                              : "border border-white/[0.12] bg-white/[0.05] text-white/75 hover:bg-white/[0.09]",
-                          )}
-                        >
-                          <span className="truncate">{name}</span>
-                          <span
-                            className={cn(
-                              "shrink-0 rounded-md px-1.5 py-0.5 text-[11px] tabular-nums font-semibold",
-                              groupFilter === name
-                                ? "bg-zinc-950/10 text-zinc-900"
-                                : "bg-white/[0.08] text-white/45",
-                            )}
-                          >
-                            {count.toLocaleString()}
-                          </span>
-                        </button>
+                        <option key={name} value={name}>
+                          {name} ({count.toLocaleString()})
+                        </option>
                       ))}
-                    </div>
-                  </div>
+                    </select>
+                  </label>
                 ) : null}
 
                 {activeFilters ? (
@@ -478,9 +428,10 @@ export function TvFavoritesPage() {
               <div className="relative mt-10 flex flex-wrap items-center justify-center gap-3">
                 <Link
                   href="/library"
+                  onClick={onNavigateClick("/library")}
                   className={cn(
-                    "inline-flex items-center gap-2 rounded-full bg-white px-7 py-3 text-[15px] font-semibold text-zinc-950",
-                    "outline-none transition-[transform,box-shadow] hover:scale-[1.02] hover:shadow-lg focus-visible:ring-2 focus-visible:ring-white",
+                    "inline-flex items-center gap-2 rounded-full bg-[var(--zen-frost)] px-7 py-3 text-[15px] font-semibold text-[var(--zen-void)]",
+                    "outline-none transition-[transform,box-shadow] hover:scale-[1.02] hover:shadow-lg focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
                   )}
                 >
                   Open Library
@@ -488,9 +439,10 @@ export function TvFavoritesPage() {
                 </Link>
                 <Link
                   href="/"
+                  onClick={onNavigateClick("/")}
                   className={cn(
                     "inline-flex items-center gap-2 rounded-full border border-white/[0.18] bg-white/[0.06] px-7 py-3 text-[15px] font-semibold text-white",
-                    "outline-none transition-colors hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-white",
+                    "outline-none transition-colors hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
                   )}
                 >
                   Browse Home
@@ -510,7 +462,7 @@ export function TvFavoritesPage() {
                   setQuery("");
                   setGroupFilter(null);
                 }}
-                className="mt-6 rounded-full bg-white px-6 py-2.5 text-[15px] font-semibold text-zinc-950 outline-none transition-transform hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-white"
+                className="mt-6 rounded-full bg-[var(--zen-frost)] px-6 py-2.5 text-[15px] font-semibold text-[var(--zen-void)] outline-none transition-transform hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
               >
                 Reset filters
               </button>
@@ -522,7 +474,7 @@ export function TvFavoritesPage() {
                   <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/38">
                     Library
                   </p>
-                  <h2 className="mt-1 text-[clamp(1.35rem,2.8vw,1.85rem)] font-semibold tracking-tight text-white">
+                  <h2 className="zen-page-title mt-1 text-[clamp(1.55rem,3vw,2.2rem)]">
                     Your channels
                   </h2>
                   <p className="mt-1 text-[14px] text-white/42">
@@ -565,7 +517,7 @@ export function TvFavoritesPage() {
                     onClick={() =>
                       setVisibleCount((n) => n + PAGE_STEP)
                     }
-                    className="rounded-full border border-white/[0.14] bg-white/[0.06] px-8 py-3 text-[15px] font-semibold text-white outline-none transition-colors hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-white"
+                    className="rounded-full border border-white/[0.14] bg-white/[0.06] px-8 py-3 text-[15px] font-semibold text-white outline-none transition-colors hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
                   >
                     Load more ({(
                       filtered.length - visible.length
@@ -585,7 +537,7 @@ export function TvFavoritesPage() {
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/38">
                   Library
                 </p>
-                <h2 className="mt-1 text-[clamp(1.35rem,2.8vw,1.85rem)] font-semibold tracking-tight text-white">
+                <h2 className="zen-page-title mt-1 text-[clamp(1.55rem,3vw,2.2rem)]">
                   Your channels
                 </h2>
                 <p className="mt-1 text-[14px] text-white/42">
@@ -595,6 +547,7 @@ export function TvFavoritesPage() {
               <ul className="zen-stagger-row flex flex-col gap-2" aria-label="Favorites compact list">
                 {visible.map((ch, i) => {
                   const parsed = parseChannelLabel(ch.name ?? "");
+                  const contentType = resolveLibraryContentType(ch);
                   return (
                     <li
                       key={`${ch.url}-${i}`}
@@ -619,7 +572,7 @@ export function TvFavoritesPage() {
                           onClick={() => openChannel(ch)}
                           className={cn(
                             "flex min-w-0 flex-1 items-center gap-4 text-left outline-none",
-                            "focus-visible:rounded-xl focus-visible:ring-2 focus-visible:ring-white",
+                            "focus-visible:rounded-xl focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
                             "motion-safe:active:scale-[0.995]",
                           )}
                         >
@@ -644,10 +597,11 @@ export function TvFavoritesPage() {
                                 {(parsed.displayName ?? "?").slice(0, 2).toUpperCase()}
                               </div>
                             )}
-                            {parsed.resolutionLabel ? (
+                            {parsed.yearLabel || parsed.resolutionLabel ? (
                               <div className="absolute right-0.5 top-0.5 z-[1]">
-                                <ChannelResolutionBadge
-                                  label={parsed.resolutionLabel}
+                                <ChannelArtBadge
+                                  parsed={parsed}
+                                  contentType={contentType}
                                   className="origin-top-right scale-[0.82]"
                                 />
                               </div>
@@ -686,7 +640,7 @@ export function TvFavoritesPage() {
                     onClick={() =>
                       setVisibleCount((n) => n + PAGE_STEP)
                     }
-                    className="rounded-full border border-white/[0.14] bg-white/[0.06] px-8 py-3 text-[15px] font-semibold text-white outline-none transition-colors hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-white"
+                    className="rounded-full border border-white/[0.14] bg-white/[0.06] px-8 py-3 text-[15px] font-semibold text-white outline-none transition-colors hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
                   >
                     Load more
                   </button>

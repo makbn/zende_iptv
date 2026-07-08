@@ -43,8 +43,12 @@ export function useLibrarySearch(inputRef?: RefObject<HTMLInputElement | null>) 
       const current = searchParams.get("q") ?? "";
       if (trimmed === current) return;
       pendingUrlQuery.current = trimmed;
-      const params = new URLSearchParams();
-      if (trimmed) params.set("q", trimmed);
+      const params = new URLSearchParams(searchParams.toString());
+      if (trimmed) {
+        params.set("q", trimmed);
+      } else {
+        params.delete("q");
+      }
       const qs = params.toString();
       router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     }, 120);

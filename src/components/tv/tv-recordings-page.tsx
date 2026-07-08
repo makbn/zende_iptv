@@ -2,9 +2,15 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState, startTransition } from "react";
+import { useCallback, useEffect, useState, startTransition } from "react";
 
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import {
+  CinematicCommandPanel,
+  CinematicHero,
+  CinematicMetrics,
+} from "@/components/layout/cinematic-v2";
+import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import {
   TvRecordingRecentIssues,
   type RecordingIssueItem,
@@ -17,6 +23,7 @@ import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { createClientLogger } from "@/core/logging/client";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
+import { useChannelSearch } from "@/features/iptv/use-channel-search";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { RECORDING_ENCODER_GONE_CODE } from "@/lib/recordings/recording-api-codes";
@@ -134,14 +141,14 @@ function downloadBlob(filename: string, blob: Blob) {
 }
 
 export function TvRecordingsPage() {
-  const { channels, catalogLoaded } = useCatalogBootstrap(source, {
-    ensureFull: true,
-  });
+  const [channelQuery, setChannelQuery] = useState("");
+  const { catalogLoaded } = useCatalogBootstrap(source);
+  const { channels: searchChannels } = useChannelSearch(channelQuery, 24);
   const [overview, setOverview] = useState<OverviewPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const [channelQuery, setChannelQuery] = useState("");
   const [selected, setSelected] = useState<M3uChannel | null>(null);
 
   const [tab, setTab] = useState<"schedule" | "now">("schedule");
@@ -218,18 +225,7 @@ export function TvRecordingsPage() {
     return () => window.clearInterval(id);
   }, []);
 
-  const filteredChannels = useMemo(() => {
-    const q = channelQuery.trim().toLowerCase();
-    let list = channels;
-    if (q) {
-      list = list.filter((c) => {
-        const label = parseChannelLabel(c.name).displayName.toLowerCase();
-        const g = (c.groupTitle ?? "").toLowerCase();
-        return label.includes(q) || g.includes(q);
-      });
-    }
-    return list.slice(0, 24);
-  }, [channels, channelQuery]);
+  const filteredChannels = searchChannels;
 
   const beginEdit = (s: ApiSchedule) => {
     setEditingId(s.id);
@@ -267,7 +263,7 @@ export function TvRecordingsPage() {
         const j = (await res.json().catch(() => null)) as { error?: unknown };
         const msg =
           typeof j?.error === "string" ? j.error : "Could not create schedule.";
-        alert(msg);
+        setActionError(msg);
         return;
       }
       setStartLocal(toDatetimeLocalValue(new Date()));
@@ -297,7 +293,7 @@ export function TvRecordingsPage() {
         const j = (await res.json().catch(() => null)) as { error?: unknown };
         const msg =
           typeof j?.error === "string" ? j.error : "Could not start recording.";
-        alert(msg);
+        setActionError(msg);
         return;
       }
       setStartRecordingDialogOpen(false);
@@ -330,7 +326,7 @@ export function TvRecordingsPage() {
       });
       if (!res.ok) {
         const j = (await res.json().catch(() => null)) as { error?: unknown };
-        alert(typeof j?.error === "string" ? j.error : "Update failed.");
+        setActionError(typeof j?.error === "string" ? j.error : "Update failed.");
         return;
       }
       setEditingId(null);
@@ -349,7 +345,7 @@ export function TvRecordingsPage() {
       });
       if (!res.ok) {
         const j = (await res.json().catch(() => null)) as { error?: unknown };
-        alert(typeof j?.error === "string" ? j.error : "Cancel failed.");
+        setActionError(typeof j?.error === "string" ? j.error : "Cancel failed.");
         return;
       }
       await load();
@@ -393,7 +389,7 @@ export function TvRecordingsPage() {
           });
           return;
         }
-        alert(msg);
+        setActionError(msg);
         return;
       }
       await load();
@@ -430,7 +426,7 @@ export function TvRecordingsPage() {
     const res = await zendeFetch(`/api/recordings/${item.id}/download`);
     if (!res.ok) {
       const j = (await res.json().catch(() => null)) as { error?: unknown };
-      alert(typeof j?.error === "string" ? j.error : "Download failed.");
+      setActionError(typeof j?.error === "string" ? j.error : "Download failed.");
       return;
     }
     const blob = await res.blob();
@@ -472,47 +468,53 @@ export function TvRecordingsPage() {
 
   if (!catalogLoaded) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--tv-page-bg)] pt-20 text-white/45">
+      <div className="zen-page-bg flex min-h-screen items-center justify-center pt-20 text-white/45">
         <p className="text-[15px] font-medium">Loading…</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[var(--tv-page-bg)] text-foreground">
+    <div className="zen-page-bg min-h-screen text-foreground">
       <main className={cn("pb-28", TV_BROWSE_TOP_PAD_CLASS)}>
-        <div className="relative overflow-hidden">
-          <div
-            className="pointer-events-none absolute inset-0 opacity-[0.35]"
-            aria-hidden
-          >
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,oklch(0.42_0.14_264),transparent_55%)]" />
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_55%_42%_at_12%_55%,oklch(0.34_0.12_18),transparent_52%)]" />
-          </div>
-
-          <header
-            className={cn(
-              "relative mx-auto max-w-[1920px] px-6 pb-4 pt-7 sm:px-10 sm:pb-5 sm:pt-8 lg:px-14 lg:pb-6 xl:px-20",
-              "motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100",
-            )}
-          >
-            <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/45 sm:text-[13px]">
-              Zenede
-            </p>
-            <h1 className="mt-1.5 max-w-[24ch] text-[clamp(1.65rem,3.8vw,2.45rem)] font-semibold tracking-tight text-white">
-              Recordings
-            </h1>
-            <p className="mt-2 max-w-2xl text-[15px] leading-snug text-white/48 sm:text-[16px] sm:leading-relaxed">
-              Schedule captures, monitor live encodes, and download finished MP4s.{" "}
-              <span className="text-white/62">ffmpeg</span> uses your catalog URLs like playback.
-            </p>
-          </header>
-        </div>
+        <CinematicHero
+          className="pb-8 pt-8"
+          eyebrow="Recorder"
+          title="Recordings"
+          description="Schedule, monitor, play, and download recordings."
+          aside={
+            <CinematicCommandPanel>
+              <p className="zen-kicker">Recorder status</p>
+              <CinematicMetrics
+                className="mt-4"
+                metrics={[
+                  {
+                    label: "Scheduled",
+                    value: (overview?.schedules.length ?? 0).toLocaleString(),
+                    tone: "signal",
+                  },
+                  {
+                    label: "Active",
+                    value: (overview?.active.length ?? 0).toLocaleString(),
+                    tone: "ember",
+                  },
+                  {
+                    label: "Library",
+                    value: (overview?.library.length ?? 0).toLocaleString(),
+                  },
+                ]}
+              />
+              <p className="mt-5 text-[14px] leading-relaxed text-white/56">
+                Recording uses your catalog stream URLs.
+              </p>
+            </CinematicCommandPanel>
+          }
+        />
 
         <div className="mx-auto max-w-[1920px] space-y-8 px-6 sm:px-10 lg:px-14 xl:px-20">
           {overview && !overview.ffmpegAvailable ? (
             <div
-              className="flex items-start gap-3 rounded-2xl border border-amber-400/25 bg-amber-500/[0.09] px-4 py-3.5 text-[15px] leading-snug text-amber-100/95"
+              className="flex items-start gap-3 rounded-[24px] border border-amber-300/25 bg-amber-400/[0.1] px-4 py-3.5 text-[15px] leading-snug text-amber-100/95 shadow-[0_18px_58px_-34px_rgba(0,0,0,0.9)] backdrop-blur-xl"
               role="status"
             >
               <AlertTriangle
@@ -533,7 +535,7 @@ export function TvRecordingsPage() {
           ) : null}
 
           {loadError ? (
-            <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-[15px] text-red-100/90">
+            <div className="rounded-[24px] border border-red-400/20 bg-red-500/10 px-4 py-3 text-[15px] text-red-100/90 backdrop-blur-xl">
               {loadError}
             </div>
           ) : null}
@@ -543,11 +545,11 @@ export function TvRecordingsPage() {
               <div>
                 <h2
                   id="rec-start-heading"
-                  className="text-lg font-semibold tracking-tight text-white"
+                  className="zen-section-title"
                 >
                   New recording
                 </h2>
-                <p className="mt-1 max-w-xl text-[15px] leading-relaxed text-white/45">
+                <p className="zen-body-muted mt-1 max-w-xl">
                   Schedule a future capture or start encoding now — pick a channel
                   and times in the recorder.
                 </p>
@@ -1462,6 +1464,9 @@ export function TvRecordingsPage() {
           </div>
         ) : null}
       </main>
+      {actionError ? (
+        <NavErrorBanner message={actionError} onDismiss={() => setActionError(null)} />
+      ) : null}
     </div>
   );
 }

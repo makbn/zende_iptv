@@ -1,7 +1,6 @@
+/** PostCSS is optional — app styles are pre-built pure CSS in src/styles/. */
 const config = {
-  plugins: {
-    "@tailwindcss/postcss": {},
-  },
+  plugins: {},
 };
 
 export default config;

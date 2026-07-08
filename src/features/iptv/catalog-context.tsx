@@ -29,6 +29,7 @@ import {
 } from "@/lib/playlists/server-catalog-api";
 import { syncChannelRegistry } from "@/features/health/registry-sync";
 import { subscribeCatalogCleared } from "@/lib/channels/catalog-events";
+import { zendeFetch } from "@/lib/auth/zende-fetch";
 
 const log = createClientLogger("features.iptv.catalogContext");
 
@@ -163,7 +164,14 @@ export function CatalogProvider({
       }
       if (meta.channelCount === 0) {
         setChannelsHydrated(true);
+        return;
       }
+      void zendeFetch(
+        `/api/library/warm?presetId=${encodeURIComponent(source.presetId)}`,
+        { method: "POST" },
+      ).catch(() => {
+        /* index also builds on first library/home request */
+      });
     })();
     return () => {
       cancelled = true;

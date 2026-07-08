@@ -12,6 +12,8 @@ export const runtime = "nodejs";
 const postBodySchema = z.object({
   sessionId: z.string().trim().optional().nullable(),
   label: z.string().trim().max(80).optional().nullable(),
+  kind: z.enum(["tv", "desktop", "other"]).optional().nullable(),
+  pathname: z.string().trim().max(2048).optional().nullable(),
 });
 
 export async function GET(request: Request) {
@@ -22,6 +24,8 @@ export async function GET(request: Request) {
   const sessions = listRemoteTvSessions(gate.user.id).map((session) => ({
     sessionId: session.sessionId,
     label: session.label,
+    kind: session.kind ?? "other",
+    pathname: session.pathname ?? "/",
     lastSeenAt: session.lastSeenAt,
     createdAt: session.createdAt,
   }));
@@ -48,10 +52,14 @@ export async function POST(request: Request) {
     userId: gate.user.id,
     sessionId: parsed.data.sessionId,
     label: parsed.data.label,
+    kind: parsed.data.kind,
+    pathname: parsed.data.pathname,
   });
   return NextResponse.json({
     sessionId: session.sessionId,
     label: session.label,
+    kind: session.kind,
+    pathname: session.pathname,
     lastSeenAt: session.lastSeenAt,
   });
 }

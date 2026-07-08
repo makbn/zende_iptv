@@ -19,6 +19,10 @@ import { FavoriteStarButton } from "@/components/tv/favorite-star-button";
 import { FavoritesEpgTimeline } from "@/components/tv/favorites-epg-timeline";
 import { TvChannelTile } from "@/components/tv/tv-channel-tile";
 import {
+  POSTER_GRID_CLASS,
+  POSTER_GRID_TILE_CLASS,
+} from "@/components/layout/browse-page-shell";
+import {
   TV_BROWSE_STICKY_TOP_CLASS,
   TV_BROWSE_TOP_PAD_CLASS,
 } from "@/components/tv/tv-top-bar";
@@ -483,18 +487,12 @@ export function TvFavoritesPage() {
                   </p>
                 </div>
               </div>
-              <div
-                className={cn(
-                  "grid w-full gap-x-4 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5",
-                  "justify-items-stretch",
-                )}
-              >
+              <div className={POSTER_GRID_CLASS}>
                 {visible.map((ch, i) => (
                   <div
                     key={`${ch.url}-${i}`}
                     className={cn(
                       "motion-safe:animate-fav-page-tile motion-reduce:animate-none motion-reduce:opacity-100",
-                      "flex justify-center sm:justify-start",
                     )}
                     style={{
                       animationDelay: `${Math.min(i, 28) * 38}ms`,
@@ -505,7 +503,7 @@ export function TvFavoritesPage() {
                       healthScore={getScoreForChannel(ch)}
                       onSelect={openChannel}
                       showFavoriteStar
-                      className="w-full max-w-[320px] sm:max-w-none"
+                      className={POSTER_GRID_TILE_CLASS}
                     />
                   </div>
                 ))}

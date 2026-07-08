@@ -254,6 +254,11 @@ export async function createStreamSession(input: {
   group?: string;
   meta?: PlaybackSessionMeta;
   /**
+   * When false, keep Xtream `/live/.../*.ts` roots as MPEG-TS (used by DVR ffmpeg).
+   * Default true converts them to `.m3u8` for browser HLS.
+   */
+  normalizeXtreamLiveUrl?: boolean;
+  /**
    * Seed cookies to send with every upstream request.  Keys are cookie names,
    * values are cookie values — all scoped to the origin of `upstreamRootUrl`.
    * Use this to hand off authenticated browser cookies for gated streams.
@@ -265,8 +270,14 @@ export async function createStreamSession(input: {
   const started = Date.now();
   const id = randomBytes(18).toString("base64url");
   const expiresAt = new Date(Date.now() + SESSION_IDLE_MS);
-  const upstreamRootUrl = normalizeXtreamLivePlaybackUrl(input.upstreamRootUrl);
-  if (upstreamRootUrl !== input.upstreamRootUrl) {
+  const upstreamRootUrl =
+    input.normalizeXtreamLiveUrl === false
+      ? input.upstreamRootUrl.trim()
+      : normalizeXtreamLivePlaybackUrl(input.upstreamRootUrl);
+  if (
+    input.normalizeXtreamLiveUrl !== false &&
+    upstreamRootUrl !== input.upstreamRootUrl
+  ) {
     log.info("Session upstream normalized ts→m3u8", {
       from: redactStreamUrlForLog(input.upstreamRootUrl),
       to: redactStreamUrlForLog(upstreamRootUrl),

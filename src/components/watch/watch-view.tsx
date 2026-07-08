@@ -905,7 +905,7 @@ export function WatchView() {
 
   const remoteAwareTogglePlay = useCallback(() => {
     if (remoteControlActive) {
-      void remote?.sendCommand({ type: "togglePlay" });
+      void remote?.sendTogglePlay();
       return;
     }
     togglePlay();
@@ -914,7 +914,7 @@ export function WatchView() {
   const remoteAwareSkipSeconds = useCallback(
     (delta: number) => {
       if (remoteControlActive) {
-        void remote?.sendCommand({ type: "skip", payload: { seconds: delta } });
+        void remote?.sendSkip(delta);
         return;
       }
       skipSeconds(delta);
@@ -925,7 +925,7 @@ export function WatchView() {
   const remoteAwareSeekTo = useCallback(
     (seconds: number) => {
       if (remoteControlActive) {
-        void remote?.sendCommand({ type: "seekTo", payload: { seconds } });
+        void remote?.sendSeekTo(seconds);
         return;
       }
       const v = videoRef.current;

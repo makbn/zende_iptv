@@ -8,6 +8,10 @@ import {
   CinematicHero,
   CinematicMetrics,
 } from "@/components/layout/cinematic-v2";
+import {
+  POSTER_GRID_CLASS,
+  POSTER_GRID_TILE_CLASS,
+} from "@/components/layout/browse-page-shell";
 import { TvChannelTile } from "@/components/tv/tv-channel-tile";
 import {
   TV_BROWSE_TOP_PAD_CLASS,
@@ -164,21 +168,14 @@ export function GuidePageView({ mobile = false }: { mobile?: boolean }) {
                   <Loader2 className="size-5 animate-spin text-white/40" aria-hidden />
                 ) : null}
               </div>
-              <div
-                className={cn(
-                  "grid gap-4",
-                  mobile
-                    ? "grid-cols-1"
-                    : "grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5",
-                )}
-              >
+              <div className={cn(mobile ? "grid grid-cols-1 gap-3" : POSTER_GRID_CLASS)}>
                 {discoverLive.map((ch, i) => (
                   <TvChannelTile
                     key={`${ch.url}-${i}`}
                     channel={ch}
                     healthScore={getScoreForChannel(ch)}
                     onSelect={openChannel}
-                    className={mobile ? "w-full max-w-none" : "w-full max-w-[320px]"}
+                    className={POSTER_GRID_TILE_CLASS}
                   />
                 ))}
               </div>

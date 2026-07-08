@@ -23,8 +23,50 @@ type CachedResult = {
   cachedAt: number;
 };
 
-const LIBRARY_CACHE_TTL_MS = 30_000;
+const LIBRARY_CACHE_TTL_MS = 120_000;
 const libraryResultCache = new Map<string, CachedResult>();
+const libraryInflight = new Map<string, Promise<CachedResult>>();
+
+async function fetchLibraryCatalogPage(
+  requestKey: string,
+  params: URLSearchParams,
+  signal: AbortSignal,
+): Promise<CachedResult> {
+  const inflight = libraryInflight.get(requestKey);
+  if (inflight) return inflight;
+
+  const promise = (async () => {
+    const res = await zendeFetch(`/api/library/catalog?${params.toString()}`, {
+      signal,
+    });
+    const body = (await res.json().catch(() => ({}))) as {
+      channels?: M3uChannel[];
+      total?: number;
+      facets?: LibraryFacets;
+      error?: string;
+    };
+    if (!res.ok) {
+      throw new Error(body.error ?? `HTTP ${res.status}`);
+    }
+    return {
+      channels: Array.isArray(body.channels) ? body.channels : [],
+      total: typeof body.total === "number" ? body.total : 0,
+      facets:
+        body.facets ?? {
+          groups: [],
+          languages: [],
+          countries: [],
+          years: [],
+        },
+      cachedAt: Date.now(),
+    };
+  })().finally(() => {
+    libraryInflight.delete(requestKey);
+  });
+
+  libraryInflight.set(requestKey, promise);
+  return promise;
+}
 
 export function useLibraryCatalog(input: {
   presetId: string;
@@ -75,6 +117,7 @@ export function useLibraryCatalog(input: {
     () =>
       subscribeCatalogCleared(() => {
         libraryResultCache.clear();
+        libraryInflight.clear();
         setReloadNonce((n) => n + 1);
       }),
     [],
@@ -131,29 +174,17 @@ export function useLibraryCatalog(input: {
         if (input.countryFilter) params.set("country", input.countryFilter);
         if (input.yearFilter) params.set("year", input.yearFilter);
 
-        const res = await zendeFetch(`/api/library/catalog?${params.toString()}`, {
-          signal: controller.signal,
-        });
-        const body = (await res.json().catch(() => ({}))) as {
-          channels?: M3uChannel[];
-          total?: number;
-          facets?: LibraryFacets;
-          error?: string;
-        };
-        if (!res.ok) {
-          throw new Error(body.error ?? `HTTP ${res.status}`);
-        }
+        const requestKey = params.toString();
+        const fetched = await fetchLibraryCatalogPage(
+          requestKey,
+          params,
+          controller.signal,
+        );
         if (controller.signal.aborted || seq !== requestSeq.current) return;
 
-        const page = Array.isArray(body.channels) ? body.channels : [];
-        const nextTotal = typeof body.total === "number" ? body.total : 0;
-        const nextFacets =
-          body.facets ?? {
-            groups: [],
-            languages: [],
-            countries: [],
-            years: [],
-          };
+        const page = fetched.channels;
+        const nextTotal = fetched.total;
+        const nextFacets = fetched.facets;
         const nextChannels =
           isAppend && !appendFromFreshMount
             ? [...channelsRef.current, ...page]

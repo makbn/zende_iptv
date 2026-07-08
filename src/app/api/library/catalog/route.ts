@@ -4,7 +4,7 @@ import { BUILTIN_PLAYLIST_SOURCES, isBuiltinPresetId } from "@/config/builtin-pl
 import { withApiLogging } from "@/core/logging/api-log";
 import { gateApiRequest } from "@/lib/auth/gate-api";
 import type { LibraryContentType } from "@/lib/channels/content-type";
-import { queryLibraryCatalog } from "@/lib/library/catalog";
+import { queryLibraryCatalog, warmLibraryCatalogIndexIfNeeded } from "@/lib/library/catalog";
 
 export const runtime = "nodejs";
 
@@ -42,6 +42,7 @@ export async function GET(request: Request) {
 
     const started = Date.now();
     try {
+      await warmLibraryCatalogIndexIfNeeded(presetId);
       const result = await queryLibraryCatalog({
         presetId,
         contentType,

@@ -8,7 +8,7 @@ import { createServerLogger } from "@/core/logging/server";
 import { parseM3u } from "@/core/playlist/m3u-parse";
 import { gateApiRequest } from "@/lib/auth/gate-api";
 import { invalidateXtreamCatalogCache } from "@/lib/iptv/aggregated-channels";
-import { invalidateLibraryCatalogCache } from "@/lib/library/catalog";
+import { invalidateLibraryCatalogCache, warmLibraryCatalogIndex } from "@/lib/library/catalog";
 import { prisma } from "@/lib/db/prisma";
 
 export const runtime = "nodejs";
@@ -81,16 +81,23 @@ export async function POST(
     invalidateXtreamCatalogCache();
     invalidateLibraryCatalogCache();
 
+    const warmed = await warmLibraryCatalogIndex(presetId);
+
     const row = await prisma.playlistCatalogCache.findUniqueOrThrow({
       where: { presetId },
     });
 
-    log.info("Catalog persisted", { presetId, channelCount: parsed.length });
+    log.info("Catalog persisted", {
+      presetId,
+      channelCount: parsed.length,
+      indexElapsedMs: warmed.elapsedMs,
+    });
 
     return NextResponse.json({
       ok: true,
       channelCount: parsed.length,
       updatedAt: row.updatedAt.getTime(),
+      indexWarmMs: warmed.elapsedMs,
     });
   } catch (e) {
     log.error("Catalog refresh failed", {

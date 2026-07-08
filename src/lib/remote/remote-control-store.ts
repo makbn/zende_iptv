@@ -32,6 +32,8 @@ export type RemoteTvSession = {
   sessionId: string;
   userId: string;
   label: string;
+  kind: "tv" | "desktop" | "other";
+  pathname: string;
   createdAt: number;
   lastSeenAt: number;
   commandSeq: number;
@@ -64,12 +66,16 @@ export function upsertRemoteTvSession(input: {
   sessionId?: string | null;
   userId: string;
   label?: string | null;
+  kind?: "tv" | "desktop" | "other" | null;
+  pathname?: string | null;
 }): RemoteTvSession {
   purge();
   const existing = input.sessionId ? sessions.get(input.sessionId) : null;
   if (existing && existing.userId === input.userId) {
     existing.lastSeenAt = now();
     if (input.label?.trim()) existing.label = input.label.trim();
+    if (input.kind) existing.kind = input.kind;
+    if (input.pathname?.trim()) existing.pathname = input.pathname.trim();
     return existing;
   }
 
@@ -78,6 +84,8 @@ export function upsertRemoteTvSession(input: {
     sessionId,
     userId: input.userId,
     label: input.label?.trim() || "TV browser",
+    kind: input.kind ?? "other",
+    pathname: input.pathname?.trim() || "/",
     createdAt: now(),
     lastSeenAt: now(),
     commandSeq: 0,

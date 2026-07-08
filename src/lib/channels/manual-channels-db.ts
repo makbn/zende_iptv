@@ -5,7 +5,11 @@ import {
   type StoredManualChannelEntry,
 } from "@/lib/channels/manual-channels-policy";
 import { invalidateXtreamCatalogCache } from "@/lib/iptv/aggregated-channels";
-import { invalidateLibraryCatalogCache } from "@/lib/library/catalog";
+import {
+  invalidateLibraryCatalogCache,
+  warmLibraryCatalogIndex,
+} from "@/lib/library/catalog";
+import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { prisma } from "@/lib/db/prisma";
 
 const MANUAL_STORE_ID = 1;
@@ -29,4 +33,10 @@ export async function saveManualChannelRows(rows: StoredManualChannelEntry[]): P
   });
   invalidateXtreamCatalogCache();
   invalidateLibraryCatalogCache();
+  const presetId = BUILTIN_PLAYLIST_SOURCES[0]?.presetId;
+  if (presetId) {
+    void warmLibraryCatalogIndex(presetId).catch(() => {
+      /* non-fatal — next request rebuilds */
+    });
+  }
 }

@@ -8,7 +8,6 @@ export function registerNodeInstrumentation(): void {
   process.on("unhandledRejection", (reason) => {
     log.error("unhandledRejection", {
       message: reason instanceof Error ? reason.message : String(reason),
-      stack: reason instanceof Error ? reason.stack : undefined,
     });
   });
 

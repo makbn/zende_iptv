@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Zenede</title>
+    <link rel="icon" href="/zenede-logo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/legacy/legacy.css" />
+  </head>
+  <body>
+    <div class="legacy-root">
+      <div id="legacy-screen-boot" class="legacy-screen is-active">
+        <div class="legacy-loading">Loading Zenede…</div>
+      </div>
+
+      <div id="legacy-screen-login" class="legacy-screen">
+        <div class="legacy-login">
+          <h2>Sign in</h2>
+          <form id="legacy-login-form">
+            <div class="legacy-field">
+              <label for="legacy-username">Username</label>
+              <input id="legacy-username" name="username" autocomplete="username" />
+            </div>
+            <div class="legacy-field">
+              <label for="legacy-password">Password</label>
+              <input
+                id="legacy-password"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+              />
+            </div>
+            <button type="submit" class="legacy-btn">Sign in</button>
+          </form>
+        </div>
+      </div>
+
+      <div id="legacy-screen-home" class="legacy-screen">
+        <header class="legacy-header">
+          <h1>Zenede <span class="legacy-badge">TV Lite</span></h1>
+          <p>Browse and play channels on older Samsung TVs.</p>
+        </header>
+        <div id="legacy-status" class="legacy-status"></div>
+        <div id="legacy-shelves" class="legacy-shelves">
+          <div class="legacy-loading">Loading channels…</div>
+        </div>
+      </div>
+
+      <div id="legacy-screen-player" class="legacy-screen">
+        <div class="legacy-player">
+          <div class="legacy-player-bar">
+            <button id="legacy-back" type="button" class="legacy-back">Back</button>
+            <span id="legacy-player-title" class="legacy-player-title">Playing</span>
+          </div>
+          <video id="legacy-video" controls playsinline></video>
+        </div>
+      </div>
+    </div>
+    <script src="/legacy/legacy.js"></script>
+  </body>
+</html>

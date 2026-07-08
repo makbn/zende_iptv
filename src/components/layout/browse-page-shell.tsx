@@ -12,6 +12,11 @@ export const MOBILE_SCROLL_MT = "scroll-mt-24";
 /** Shared content width and horizontal rhythm for TV/desktop browse pages. */
 export const BROWSE_CONTAINER_CLASS =
   "mx-auto w-full max-w-[1920px] px-4 sm:px-6 lg:px-10 xl:px-14";
+/** Dense poster grid — fills container width, aligns with filter bars above. */
+export const POSTER_GRID_CLASS =
+  "grid w-full grid-cols-[repeat(auto-fill,minmax(min(100%,10.5rem),1fr))] gap-x-3 gap-y-5";
+/** Poster tile sizing inside {@link POSTER_GRID_CLASS}. */
+export const POSTER_GRID_TILE_CLASS = "w-full min-w-0";
 /** Shared mobile page gutter. */
 export const BROWSE_MOBILE_GUTTER_CLASS = "px-4";
 

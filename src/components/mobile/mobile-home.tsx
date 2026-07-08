@@ -18,7 +18,7 @@ import { useChannelHealthLookup } from "@/features/health/use-channel-health";
 import { ZenedeLogoWave } from "@/components/loading/zenede-logo-wave";
 import { useCatalogMeta } from "@/features/iptv/catalog-context";
 import { useContinueWatchingItems } from "@/features/iptv/use-continue-watching";
-import { useLibraryCatalog } from "@/features/iptv/use-library-catalog";
+import { useHomeCatalogShelves } from "@/features/iptv/use-home-catalog-shelves";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
 import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
@@ -94,34 +94,12 @@ export function MobileHome() {
   const { navigate, onNavigateClick } = useRemoteNavigation();
   const { openChannel, navError, clearNavError } = useWatchNavigation();
   const catalog = useCatalogMeta();
-  const discoverCatalog = useLibraryCatalog({
+  const homeShelves = useHomeCatalogShelves({
     presetId: source.presetId,
-    contentTab: "all",
-    query: "",
-    groupFilter: null,
-    languageFilter: null,
-    offset: 0,
-    pageSize: 18,
-  });
-  const recommendedMoviesCatalog = useLibraryCatalog({
-    presetId: source.presetId,
-    contentTab: "movie",
-    query: "",
-    groupFilter: null,
-    languageFilter: DEFAULT_RECOMMENDATION_LANGUAGE,
-    countryFilter: null,
-    offset: 0,
-    pageSize: 12,
-  });
-  const recommendedSeriesCatalog = useLibraryCatalog({
-    presetId: source.presetId,
-    contentTab: "series",
-    query: "",
-    groupFilter: null,
-    languageFilter: DEFAULT_RECOMMENDATION_LANGUAGE,
-    countryFilter: null,
-    offset: 0,
-    pageSize: 12,
+    language: DEFAULT_RECOMMENDATION_LANGUAGE,
+    discoverLimit: 18,
+    movieLimit: 12,
+    seriesLimit: 12,
   });
   const {
     busy,
@@ -146,9 +124,9 @@ export function MobileHome() {
         .filter((c) => !recentUrls.has(c.url)),
     );
     const skip = new Set([...recent, ...frequent].map((c) => c.url));
-    const discover = discoverCatalog.channels.filter((c) => !skip.has(c.url));
+    const discover = homeShelves.discover.channels.filter((c) => !skip.has(c.url));
     return dedupeChannels([...recent, ...frequent, ...discover]);
-  }, [statsEpoch, discoverCatalog.channels]);
+  }, [statsEpoch, homeShelves.discover.channels]);
 
   useEffect(() => {
     if (!catalogLoaded) return;
@@ -178,10 +156,10 @@ export function MobileHome() {
       ...recentChannels.map((channel) => channel.url),
       ...frequentChannels.map((channel) => channel.url),
     ]);
-    return discoverCatalog.channels
+    return homeShelves.discover.channels
       .filter((c) => !skip.has(c.url))
       .slice(0, 18);
-  }, [discoverCatalog.channels, frequentChannels, recentChannels]);
+  }, [homeShelves.discover.channels, frequentChannels, recentChannels]);
 
   const featured = useMemo(() => {
     void statsEpoch;
@@ -195,12 +173,12 @@ export function MobileHome() {
   const continueWatching = useContinueWatchingItems(12);
   const coldStart = continueWatching.length === 0;
   const recommendedMovies = useMemo(
-    () => dedupeChannels(recommendedMoviesCatalog.channels).slice(0, 12),
-    [recommendedMoviesCatalog.channels],
+    () => dedupeChannels(homeShelves.movies.channels).slice(0, 12),
+    [homeShelves.movies.channels],
   );
   const recommendedSeries = useMemo(
-    () => dedupeChannels(recommendedSeriesCatalog.channels).slice(0, 12),
-    [recommendedSeriesCatalog.channels],
+    () => dedupeChannels(homeShelves.series.channels).slice(0, 12),
+    [homeShelves.series.channels],
   );
   const hasColdStartRecommendations =
     recommendedMovies.length > 0 || recommendedSeries.length > 0;

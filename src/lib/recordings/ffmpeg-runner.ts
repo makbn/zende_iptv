@@ -66,6 +66,12 @@ function buildFfmpegArgs(input: FfmpegRecordingStart): string[] {
     "-loglevel",
     "warning",
     "-nostats",
+    "-probesize",
+    "32M",
+    "-analyzeduration",
+    "10M",
+    "-fflags",
+    "+genpts+discardcorrupt",
     "-rw_timeout",
     "180000000",
     "-user_agent",
@@ -98,8 +104,20 @@ function buildFfmpegArgs(input: FfmpegRecordingStart): string[] {
     input.upstreamUrl,
     "-t",
     String(dur),
-    "-c",
+    "-map",
+    "0:v:0?",
+    "-map",
+    "0:a:0?",
+    "-c:v",
     "copy",
+    "-c:a",
+    "copy",
+    "-bsf:a",
+    "aac_adtstoasc",
+    "-movflags",
+    "+faststart",
+    "-max_muxing_queue_size",
+    "4096",
     "-f",
     "mp4",
     "-y",
@@ -136,7 +154,10 @@ async function finalizeRecording(
     status = "COMPLETED";
   } else if (opts.code === 0 && !okFile) {
     status = "FAILED";
-    error = "Recording produced an empty file.";
+    const hint =
+      opts.stderrTail.trim().slice(0, 800) ||
+      "The stream may have returned no media (empty playlist or offline channel).";
+    error = `Recording produced an empty file. ${hint}`;
   } else if (okFile && (opts.signal === "SIGINT" || opts.signal === "SIGTERM")) {
     status = "STOPPED_EARLY";
   } else {

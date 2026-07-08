@@ -13,7 +13,11 @@ import {
 
 import { ChannelLogo, sanitizeGroupTitle, ChannelArtBadge } from "@/components/channels/channel-presentation";
 import { TvChannelTile } from "@/components/tv/tv-channel-tile";
-import { BROWSE_CONTAINER_CLASS } from "@/components/layout/browse-page-shell";
+import {
+  BROWSE_CONTAINER_CLASS,
+  POSTER_GRID_CLASS,
+  POSTER_GRID_TILE_CLASS,
+} from "@/components/layout/browse-page-shell";
 import {
   TV_BROWSE_STICKY_TOP_CLASS,
   TV_BROWSE_TOP_PAD_CLASS,
@@ -659,13 +663,8 @@ export function TvLibraryPage() {
               </button>
             </div>
           ) : view === "posters" ? (
-            <div className="flex flex-col gap-10">
-              <div
-                className={cn(
-                  "grid gap-x-4 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5",
-                  "justify-items-start",
-                )}
-              >
+            <div className="flex flex-col gap-6">
+              <div className={POSTER_GRID_CLASS}>
                 {visible.map((ch, i) => (
                   <TvChannelTile
                     key={`${ch.url}-${i}`}
@@ -681,7 +680,7 @@ export function TvLibraryPage() {
                         ? (channel) => setPreviewChannel(channel)
                         : undefined
                     }
-                    className="w-full max-w-[320px] justify-self-center sm:justify-self-start"
+                    className={POSTER_GRID_TILE_CLASS}
                   />
                 ))}
               </div>

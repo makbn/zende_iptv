@@ -1,0 +1,257 @@
+/* Plain CSS for Tizen 3.x / Chromium 47 — no variables, oklch, color-mix, or grid. */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: #05060a;
+  color: #f7faff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overflow: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.legacy-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.legacy-screen {
+  display: none;
+  width: 100%;
+  height: 100%;
+}
+
+.legacy-screen.is-active {
+  display: block;
+}
+
+.legacy-header {
+  padding: 28px 48px 12px;
+}
+
+.legacy-header h1 {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.legacy-header p {
+  margin: 8px 0 0;
+  color: #9aa8b8;
+  font-size: 18px;
+}
+
+.legacy-status {
+  min-height: 24px;
+  margin: 0 48px 8px;
+  color: #ff6b4a;
+  font-size: 16px;
+}
+
+.legacy-loading {
+  padding: 48px;
+  text-align: center;
+  color: #9aa8b8;
+  font-size: 20px;
+}
+
+.legacy-login {
+  width: 420px;
+  max-width: 90%;
+  margin: 80px auto;
+  padding: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: #09111f;
+}
+
+.legacy-login h2 {
+  margin: 0 0 20px;
+  font-size: 26px;
+}
+
+.legacy-field {
+  margin-bottom: 16px;
+}
+
+.legacy-field label {
+  display: block;
+  margin-bottom: 6px;
+  color: #9aa8b8;
+  font-size: 14px;
+}
+
+.legacy-field input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: #05060a;
+  color: #f7faff;
+}
+
+.legacy-btn {
+  display: inline-block;
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 8px;
+  background: #38d9ff;
+  color: #05060a;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.legacy-btn:focus,
+.legacy-tile:focus,
+.legacy-back:focus {
+  outline: 3px solid #38d9ff;
+  outline-offset: 2px;
+}
+
+.legacy-btn-secondary {
+  background: rgba(255, 255, 255, 0.12);
+  color: #f7faff;
+}
+
+.legacy-shelves {
+  height: calc(100% - 120px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0 0 48px;
+}
+
+.legacy-section {
+  margin-bottom: 28px;
+}
+
+.legacy-section h2 {
+  margin: 0 0 14px;
+  padding: 0 48px;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.legacy-row {
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  padding: 0 48px 8px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.legacy-tile {
+  display: inline-block;
+  width: 220px;
+  margin-right: 14px;
+  vertical-align: top;
+  white-space: normal;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  background: #09111f;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  padding: 0;
+}
+
+.legacy-tile.is-focused {
+  border-color: #38d9ff;
+}
+
+.legacy-tile-thumb {
+  width: 100%;
+  height: 124px;
+  border-radius: 10px 10px 0 0;
+  background: #111a2b;
+  background-size: cover;
+  background-position: center;
+}
+
+.legacy-tile-body {
+  padding: 12px;
+}
+
+.legacy-tile-title {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+  max-height: 2.6em;
+  overflow: hidden;
+}
+
+.legacy-tile-meta {
+  display: block;
+  margin-top: 6px;
+  color: #9aa8b8;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.legacy-player {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+}
+
+.legacy-player video {
+  width: 100%;
+  height: 100%;
+  background: #000;
+}
+
+.legacy-player-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 24px 32px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.legacy-back {
+  display: inline-block;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #f7faff;
+  cursor: pointer;
+}
+
+.legacy-player-title {
+  display: inline-block;
+  margin-left: 16px;
+  font-size: 22px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.legacy-badge {
+  display: inline-block;
+  margin-left: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(56, 217, 255, 0.16);
+  color: #38d9ff;
+  font-size: 12px;
+  vertical-align: middle;
+}

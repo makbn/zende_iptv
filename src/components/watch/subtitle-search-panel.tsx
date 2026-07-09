@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Loader2, Search, Subtitles, X } from "lucide-react";
+import { Loader2, Search, Subtitles, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { zendeFetch } from "@/lib/auth/zende-fetch";
@@ -34,8 +34,6 @@ const LANGUAGE_OPTIONS = [
   { code: "ko", label: "Korean" },
 ];
 
-type Phase = "pick" | "subs";
-
 async function parseJsonResponse<T>(res: Response): Promise<T> {
   const text = await res.text();
   try {
@@ -67,7 +65,6 @@ export function SubtitleSearchPanel({
 }: Props) {
   const [wyzieEnabled, setWyzieEnabled] = useState<boolean | null>(null);
   const [tmdbEnabled, setTmdbEnabled] = useState<boolean | null>(null);
-  const [phase, setPhase] = useState<Phase>("pick");
   const [language, setLanguage] = useState("en");
   const [titleQuery, setTitleQuery] = useState("");
   const [releaseFilter, setReleaseFilter] = useState("");
@@ -93,9 +90,6 @@ export function SubtitleSearchPanel({
     setMediaMatches([]);
     setResults([]);
     setError(null);
-
-    const directId = hasResolvableMediaId(ctx, { mediaIdInput: initialTitle });
-    setPhase(directId ? "subs" : "pick");
 
     void zendeFetch("/api/subtitles/status")
       .then((res) => parseJsonResponse<{ enabled?: boolean; tmdbEnabled?: boolean }>(res))
@@ -149,7 +143,6 @@ export function SubtitleSearchPanel({
 
         setResults(Array.isArray(body.results) ? body.results : []);
         if (body.error) setError(body.error);
-        setPhase("subs");
       } catch (e) {
         setResults([]);
         setError(e instanceof Error ? e.message : "Subtitle search failed.");
@@ -169,7 +162,6 @@ export function SubtitleSearchPanel({
 
     const mediaOverride = parseMediaIdOverride(titleQuery);
     if (mediaOverride.imdbId || mediaOverride.tmdbId) {
-      setPhase("subs");
       await searchSubtitles({
         imdbId: mediaOverride.imdbId,
         tmdbId: mediaOverride.tmdbId,
@@ -178,7 +170,6 @@ export function SubtitleSearchPanel({
     }
 
     if (hasResolvableMediaId(ctx) && !titleQuery.trim()) {
-      setPhase("subs");
       await searchSubtitles(null);
       return;
     }
@@ -206,7 +197,6 @@ export function SubtitleSearchPanel({
       }
       const matches = Array.isArray(body.results) ? body.results : [];
       setMediaMatches(matches);
-      setPhase("pick");
       if (matches.length === 0) {
         setError("No movies or shows found on TMDB. Try a different title.");
       }
@@ -223,18 +213,10 @@ export function SubtitleSearchPanel({
       setSelectedMedia(media);
       setError(null);
       setResults([]);
-      setPhase("subs");
+      void searchSubtitles({ tmdbId: media.tmdbId });
     },
-    [],
+    [searchSubtitles],
   );
-
-  const backToTitleSearch = useCallback(() => {
-    setPhase("pick");
-    setSelectedMedia(null);
-    setResults([]);
-    setMediaMatches([]);
-    setError(null);
-  }, []);
 
   const loadSubtitle = useCallback(
     async (result: SubtitleSearchResult) => {
@@ -289,7 +271,6 @@ export function SubtitleSearchPanel({
       role="dialog"
       aria-modal="true"
       aria-label="Search subtitles"
-      onClick={onClose}
     >
       <div
         className="flex max-h-[min(88vh,760px)] w-full max-w-2xl flex-col overflow-hidden rounded-[28px] border border-white/[0.14] bg-zinc-950/96 shadow-2xl"
@@ -302,12 +283,10 @@ export function SubtitleSearchPanel({
               Subtitle search
             </div>
             <h2 className="mt-1 truncate text-[20px] font-semibold tracking-[-0.03em] text-white">
-              {phase === "subs" ? selectedLabel : defaultLabel}
+              {selectedLabel}
             </h2>
             <p className="mt-1 text-[13px] text-white/48">
-              {phase === "pick"
-                ? "Search TMDB by title, pick the right movie or show, then choose subtitles."
-                : "Pick a subtitle file to load into the player."}
+              Search by title or ID, refine by release/language, then load subtitles.
             </p>
           </div>
           <button
@@ -321,37 +300,27 @@ export function SubtitleSearchPanel({
         </div>
 
         <div className="space-y-3 border-b border-white/[0.08] px-5 py-4">
-          {phase === "subs" ? (
-            <button
-              type="button"
-              onClick={backToTitleSearch}
-              className="inline-flex items-center gap-1.5 text-[13px] font-medium text-white/55 hover:text-white"
-            >
-              <ArrowLeft className="size-4" aria-hidden />
-              Change movie or show
-            </button>
-          ) : null}
-
-          <div className="grid gap-3 sm:grid-cols-[1fr_10rem_auto]">
+          <div className="grid gap-3 sm:grid-cols-2">
             <label className="block min-w-0">
-              <span className="text-[12px] font-medium text-white/45">
-                {phase === "pick" ? "Movie or show title" : "Release filter (optional)"}
-              </span>
+              <span className="text-[12px] font-medium text-white/45">Movie or show title</span>
               <input
-                value={phase === "pick" ? titleQuery : releaseFilter}
-                onChange={(e) =>
-                  phase === "pick"
-                    ? setTitleQuery(e.target.value)
-                    : setReleaseFilter(e.target.value)
-                }
+                value={titleQuery}
+                onChange={(e) => setTitleQuery(e.target.value)}
                 className="mt-1.5 h-11 w-full rounded-2xl border border-white/[0.12] bg-black/40 px-3 text-[15px] text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
-                placeholder={
-                  phase === "pick"
-                    ? "e.g. 1899, or tt1234567 / TMDB id"
-                    : "1080p, WEB-DL, release name…"
-                }
+                placeholder="e.g. 1899, or tt1234567 / TMDB id"
               />
             </label>
+            <label className="block min-w-0">
+              <span className="text-[12px] font-medium text-white/45">Release filter (optional)</span>
+              <input
+                value={releaseFilter}
+                onChange={(e) => setReleaseFilter(e.target.value)}
+                className="mt-1.5 h-11 w-full rounded-2xl border border-white/[0.12] bg-black/40 px-3 text-[15px] text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                placeholder="1080p, WEB-DL, release name…"
+              />
+            </label>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-[10rem_1fr]">
             <label className="block">
               <span className="text-[12px] font-medium text-white/45">Language</span>
               <select
@@ -366,19 +335,39 @@ export function SubtitleSearchPanel({
                 ))}
               </select>
             </label>
-            <div className="flex items-end">
+            <div className="flex items-end justify-end gap-2">
               <button
                 type="button"
-                onClick={() => void (phase === "pick" ? searchTitles() : searchSubtitles(null))}
-                disabled={loading || wyzieEnabled === false}
-                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--zen-frost)] px-4 text-[14px] font-semibold text-[var(--zen-void)] disabled:opacity-45 sm:w-auto"
+                onClick={onClose}
+                className="inline-flex h-11 items-center justify-center rounded-2xl border border-white/[0.14] bg-white/[0.05] px-4 text-[14px] font-semibold text-white/80 hover:bg-white/[0.09]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void searchTitles()}
+                disabled={loading}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-white/[0.14] bg-white/[0.09] px-4 text-[14px] font-semibold text-white disabled:opacity-45"
               >
                 {loading ? (
                   <Loader2 className="size-4 animate-spin" aria-hidden />
                 ) : (
                   <Search className="size-4" aria-hidden />
                 )}
-                {phase === "pick" ? "Find title" : "Search"}
+                Find title
+              </button>
+              <button
+                type="button"
+                onClick={() => void searchSubtitles(null)}
+                disabled={loading || wyzieEnabled === false}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[var(--zen-frost)] px-4 text-[14px] font-semibold text-[var(--zen-void)] disabled:opacity-45"
+              >
+                {loading ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                ) : (
+                  <Search className="size-4" aria-hidden />
+                )}
+                Search subtitles
               </button>
             </div>
           </div>
@@ -395,7 +384,7 @@ export function SubtitleSearchPanel({
               .
             </p>
           ) : null}
-          {phase === "pick" && tmdbEnabled === false ? (
+          {tmdbEnabled === false ? (
             <p className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-3 py-2.5 text-[13px] text-amber-100/90">
               Title search needs a free TMDB API key in{" "}
               <Link
@@ -424,108 +413,107 @@ export function SubtitleSearchPanel({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-          {loading && phase === "pick" && mediaMatches.length === 0 ? (
+          {loading && mediaMatches.length === 0 && results.length === 0 ? (
             <div className="flex items-center justify-center gap-2 py-16 text-[14px] text-white/50">
               <Loader2 className="size-5 animate-spin" aria-hidden />
-              Searching TMDB…
+              Searching…
             </div>
-          ) : phase === "pick" && mediaMatches.length > 0 ? (
-            <ul className="space-y-2">
-              {mediaMatches.map((match) => (
-                <li key={`${match.mediaType}-${match.tmdbId}`}>
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={() => void pickMedia(match)}
-                    className={cn(
-                      "flex w-full items-center gap-3 rounded-[22px] border border-white/[0.1] bg-white/[0.04] px-4 py-3 text-left transition-colors",
-                      "hover:border-white/[0.18] hover:bg-white/[0.07] disabled:opacity-50",
-                    )}
-                  >
-                    <div className="flex h-16 w-11 shrink-0 overflow-hidden rounded-lg bg-white/8">
-                      {match.posterUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={match.posterUrl}
-                          alt=""
-                          className="h-full w-full object-cover"
-                        />
-                      ) : null}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[14px] font-semibold text-white">
-                        {match.title}
-                        {match.year ? (
-                          <span className="font-normal text-white/45"> ({match.year})</span>
-                        ) : null}
-                      </p>
-                      <p className="mt-0.5 text-[12px] uppercase tracking-wide text-white/38">
-                        {match.mediaType === "tv" ? "TV show" : "Movie"}
-                      </p>
-                      {match.overview ? (
-                        <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-white/48">
-                          {match.overview}
-                        </p>
-                      ) : null}
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : loading && results.length === 0 ? (
-            <div className="flex items-center justify-center gap-2 py-16 text-[14px] text-white/50">
-              <Loader2 className="size-5 animate-spin" aria-hidden />
-              Searching subtitles…
-            </div>
-          ) : phase === "subs" && results.length === 0 ? (
+          ) : results.length === 0 ? (
             <p className="py-16 text-center text-[14px] text-white/45">
               No subtitles found. Try another language or release filter.
             </p>
           ) : (
-            <ul className="space-y-2">
-              {results.map((result) => {
-                const busy = loadingSubtitleId === result.id;
-                return (
-                  <li key={result.id}>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void loadSubtitle(result)}
-                      className={cn(
-                        "w-full rounded-[22px] border border-white/[0.1] bg-white/[0.04] px-4 py-3 text-left transition-colors",
-                        "hover:border-white/[0.18] hover:bg-white/[0.07] disabled:opacity-50",
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-[14px] font-semibold text-white">
-                            {result.languageName}
-                            {result.hearingImpaired ? (
-                              <span className="ml-2 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/65">
-                                CC
-                              </span>
+            <>
+              {mediaMatches.length > 0 ? (
+                <div className="mb-4 space-y-2">
+                  <p className="px-1 text-[12px] font-semibold uppercase tracking-[0.12em] text-white/38">
+                    Matching titles (optional)
+                  </p>
+                  <ul className="space-y-2">
+                    {mediaMatches.map((match) => (
+                      <li key={`${match.mediaType}-${match.tmdbId}`}>
+                        <button
+                          type="button"
+                          disabled={loading}
+                          onClick={() => void pickMedia(match)}
+                          className={cn(
+                            "flex w-full items-center gap-3 rounded-[22px] border border-white/[0.1] bg-white/[0.04] px-4 py-3 text-left transition-colors",
+                            "hover:border-white/[0.18] hover:bg-white/[0.07] disabled:opacity-50",
+                          )}
+                        >
+                          <div className="flex h-16 w-11 shrink-0 overflow-hidden rounded-lg bg-white/8">
+                            {match.posterUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={match.posterUrl} alt="" className="h-full w-full object-cover" />
                             ) : null}
-                          </p>
-                          <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-white/58">
-                            {result.release}
-                          </p>
-                          <p className="mt-1 text-[11px] text-white/35">
-                            {result.downloadCount > 0
-                              ? `${result.downloadCount.toLocaleString()} downloads`
-                              : null}
-                            {result.source ? ` · ${result.source}` : ""}
-                            {result.format ? ` · ${result.format.toUpperCase()}` : ""}
-                          </p>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[14px] font-semibold text-white">
+                              {match.title}
+                              {match.year ? (
+                                <span className="font-normal text-white/45"> ({match.year})</span>
+                              ) : null}
+                            </p>
+                            <p className="mt-0.5 text-[12px] uppercase tracking-wide text-white/38">
+                              {match.mediaType === "tv" ? "TV show" : "Movie"}
+                            </p>
+                            {match.overview ? (
+                              <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-white/48">
+                                {match.overview}
+                              </p>
+                            ) : null}
+                          </div>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              <ul className="space-y-2">
+                {results.map((result) => {
+                  const busy = loadingSubtitleId === result.id;
+                  return (
+                    <li key={result.id}>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void loadSubtitle(result)}
+                        className={cn(
+                          "w-full rounded-[22px] border border-white/[0.1] bg-white/[0.04] px-4 py-3 text-left transition-colors",
+                          "hover:border-white/[0.18] hover:bg-white/[0.07] disabled:opacity-50",
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-[14px] font-semibold text-white">
+                              {result.languageName}
+                              {result.hearingImpaired ? (
+                                <span className="ml-2 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/65">
+                                  CC
+                                </span>
+                              ) : null}
+                            </p>
+                            <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-white/58">
+                              {result.release}
+                            </p>
+                            <p className="mt-1 text-[11px] text-white/35">
+                              {result.downloadCount > 0
+                                ? `${result.downloadCount.toLocaleString()} downloads`
+                                : null}
+                              {result.source ? ` · ${result.source}` : ""}
+                              {result.format ? ` · ${result.format.toUpperCase()}` : ""}
+                            </p>
+                          </div>
+                          {busy ? (
+                            <Loader2 className="mt-1 size-4 shrink-0 animate-spin text-white/70" />
+                          ) : null}
                         </div>
-                        {busy ? (
-                          <Loader2 className="mt-1 size-4 shrink-0 animate-spin text-white/70" />
-                        ) : null}
-                      </div>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
           )}
         </div>
       </div>

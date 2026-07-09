@@ -91,6 +91,9 @@ export async function searchWyzieSubtitles(
   params.set("key", apiKey);
   params.set("format", "srt");
   params.set("encoding", "utf-8");
+  if (query.type === "movie" || query.type === "episode") {
+    params.set("type", query.type);
+  }
 
   if (query.languages?.trim()) {
     params.set(

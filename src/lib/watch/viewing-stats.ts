@@ -1,6 +1,7 @@
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { resolveLibraryContentType } from "@/lib/channels/content-type";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
+import type { PlaybackSessionMeta } from "@/lib/playback/stream-session-meta";
 
 const STORAGE_KEY = "zenede.viewing.v1";
 
@@ -9,6 +10,8 @@ export type ViewingEntry = {
   name: string;
   tvgLogo?: string;
   groupTitle?: string;
+  playback?: PlaybackSessionMeta;
+  positionSeconds?: number;
   lastOpenedAt: number;
   openCount: number;
 };
@@ -47,6 +50,7 @@ function serverRecord(entry: {
   name: string;
   tvgLogo?: string;
   groupTitle?: string;
+  playback?: PlaybackSessionMeta;
 }) {
   void zendeFetch("/api/user/history", {
     method: "POST",
@@ -74,6 +78,8 @@ export async function hydrateHistoryFromServer(): Promise<void> {
       name: string;
       tvgLogo?: string | null;
       groupTitle?: string | null;
+      playbackJson?: string | null;
+      positionSeconds?: number | null;
       lastOpenedAt: string;
       openCount: number;
     }>;
@@ -82,6 +88,20 @@ export async function hydrateHistoryFromServer(): Promise<void> {
       name: r.name,
       ...(r.tvgLogo ? { tvgLogo: r.tvgLogo } : {}),
       ...(r.groupTitle ? { groupTitle: r.groupTitle } : {}),
+      ...(typeof r.positionSeconds === "number" && r.positionSeconds > 0
+        ? { positionSeconds: r.positionSeconds }
+        : {}),
+      ...(r.playbackJson
+        ? {
+            playback: (() => {
+              try {
+                return JSON.parse(r.playbackJson) as PlaybackSessionMeta;
+              } catch {
+                return undefined;
+              }
+            })(),
+          }
+        : {}),
       lastOpenedAt: new Date(r.lastOpenedAt).getTime(),
       openCount: r.openCount,
     }));
@@ -102,6 +122,7 @@ export function recordPlaybackStart(input: {
   name: string;
   tvgLogo?: string;
   groupTitle?: string;
+  playback?: PlaybackSessionMeta;
 }): void {
   const store = readStore();
   const now = Date.now();
@@ -114,6 +135,7 @@ export function recordPlaybackStart(input: {
       name: input.name || prev.name,
       ...(input.tvgLogo ? { tvgLogo: input.tvgLogo } : {}),
       ...(input.groupTitle ? { groupTitle: input.groupTitle } : {}),
+      ...(input.playback ? { playback: input.playback } : {}),
       lastOpenedAt: now,
       openCount: prev.openCount + 1,
     };
@@ -124,6 +146,7 @@ export function recordPlaybackStart(input: {
       name: input.name || "Live",
       ...(input.tvgLogo ? { tvgLogo: input.tvgLogo } : {}),
       ...(input.groupTitle ? { groupTitle: input.groupTitle } : {}),
+      ...(input.playback ? { playback: input.playback } : {}),
       lastOpenedAt: now,
       openCount: 1,
     };
@@ -223,4 +246,19 @@ export async function clearViewingHistory(): Promise<void> {
   await zendeFetch("/api/user/history?all=1", { method: "DELETE" }).catch(
     () => {/* best-effort */},
   );
+}
+
+/** Persist latest watch position for Continue Watching resume cards. */
+export function updateViewingPosition(url: string, positionSeconds: number): void {
+  if (!url || !Number.isFinite(positionSeconds) || positionSeconds < 5) return;
+  const store = readStore();
+  const idx = store.entries.findIndex((e) => e.url === url);
+  if (idx < 0) return;
+  const prev = store.entries[idx]!;
+  store.entries[idx] = {
+    ...prev,
+    positionSeconds: Math.round(positionSeconds),
+  };
+  writeStore(store);
+  notifyViewingStatsUpdated();
 }

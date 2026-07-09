@@ -34,6 +34,8 @@ export async function GET(request: Request) {
       name: true,
       tvgLogo: true,
       groupTitle: true,
+      playbackJson: true,
+      positionSeconds: true,
       lastOpenedAt: true,
       openCount: true,
     },
@@ -46,7 +48,14 @@ export async function POST(request: Request) {
   const userId = await resolveUserId(request);
   if (userId instanceof Response) return userId;
 
-  let body: { url?: string; name?: string; tvgLogo?: string; groupTitle?: string };
+  let body: {
+    url?: string;
+    name?: string;
+    tvgLogo?: string;
+    groupTitle?: string;
+    playback?: unknown;
+    positionSeconds?: number;
+  };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -65,6 +74,11 @@ export async function POST(request: Request) {
       name: (body.name ?? "").trim() || "Live",
       tvgLogo: body.tvgLogo ?? null,
       groupTitle: body.groupTitle ?? null,
+      playbackJson: body.playback ? JSON.stringify(body.playback) : null,
+      positionSeconds:
+        typeof body.positionSeconds === "number" && body.positionSeconds > 0
+          ? Math.round(body.positionSeconds)
+          : null,
       openCount: 1,
       lastOpenedAt: new Date(),
     },
@@ -72,6 +86,11 @@ export async function POST(request: Request) {
       name: (body.name ?? "").trim() || "Live",
       tvgLogo: body.tvgLogo ?? null,
       groupTitle: body.groupTitle ?? null,
+      playbackJson: body.playback ? JSON.stringify(body.playback) : null,
+      positionSeconds:
+        typeof body.positionSeconds === "number" && body.positionSeconds > 0
+          ? Math.round(body.positionSeconds)
+          : undefined,
       openCount: { increment: 1 },
       lastOpenedAt: new Date(),
     },

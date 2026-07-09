@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
 import { TvCatalogSetupStrip } from "@/components/tv/tv-catalog-setup-strip";
@@ -17,6 +17,7 @@ import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
 import { Z_ACCESS } from "@/lib/auth/token-storage-keys";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { cn } from "@/lib/utils";
+import { useSearchParams } from "next/navigation";
 
 const STORAGE_KEY = "zenede.cronSecret";
 const source = BUILTIN_PLAYLIST_SOURCES[0]!;
@@ -25,6 +26,7 @@ const log = createClientLogger("shell.MobileSettingsPage");
 type SettingsTab = "catalog" | "authentication" | "integrations" | "proxies" | "server";
 
 export function MobileSettingsPage() {
+  const searchParams = useSearchParams();
   const [tab, setTab] = useState<SettingsTab>("catalog");
   const catalog = useCatalogBootstrap(source);
   const {
@@ -47,6 +49,19 @@ export function MobileSettingsPage() {
   const [savedHint, setSavedHint] = useState<string | null>(null);
   const [runStatus, setRunStatus] = useState<string | null>(null);
   const [runBusy, setRunBusy] = useState(false);
+
+  useEffect(() => {
+    const requested = searchParams.get("tab");
+    if (
+      requested === "catalog" ||
+      requested === "authentication" ||
+      requested === "integrations" ||
+      requested === "proxies" ||
+      requested === "server"
+    ) {
+      setTab(requested);
+    }
+  }, [searchParams]);
 
   const saveSecret = useCallback(() => {
     try {

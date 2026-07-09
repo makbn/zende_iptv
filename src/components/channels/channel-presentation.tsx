@@ -9,6 +9,7 @@ import {
   type ParsedChannelLabel,
 } from "@/lib/channel/channel-label";
 import type { LibraryContentType } from "@/lib/channels/content-type";
+import { secureImageUrl } from "@/lib/media/secure-image-url";
 import { cn } from "@/lib/utils";
 
 export function gradientFromChannelName(name: string): string {
@@ -48,25 +49,36 @@ export function ChannelLogo({
   aspect = "video",
 }: ChannelLogoProps) {
   const [failed, setFailed] = useState(false);
-  const showLogo = Boolean(logoUrl?.trim()) && !failed;
+  const resolvedLogo = secureImageUrl(logoUrl);
+  const showLogo = Boolean(resolvedLogo) && !failed;
+  const fillMode = aspect === "fill";
 
   return (
     <div
       className={cn(
-        "relative w-full overflow-hidden rounded-xl bg-white/[0.04]",
-        aspect === "video" && "aspect-video",
+        fillMode
+          ? "channel-logo--fill"
+          : "relative w-full overflow-hidden rounded-xl bg-white/[0.04]",
+        !fillMode && aspect === "video" && "aspect-video",
         className,
       )}
     >
       {showLogo ? (
         <img
-          src={logoUrl!}
+          src={resolvedLogo!}
           alt=""
           loading={eager ? "eager" : "lazy"}
           decoding="async"
           className={cn(
-            "absolute inset-0 h-full w-full",
-            fit === "cover" ? "object-cover p-0" : "object-contain p-2",
+            "channel-logo__img",
+            fillMode
+              ? fit === "cover"
+                ? "poster-tile__cover"
+                : "object-contain p-2"
+              : cn(
+                  "absolute inset-0 h-full w-full",
+                  fit === "cover" ? "object-cover p-0" : "object-contain p-2",
+                ),
           )}
           onError={() => setFailed(true)}
         />

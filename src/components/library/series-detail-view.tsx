@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, Play } from "lucide-react";
 
@@ -17,7 +16,7 @@ import {
   getPlaybackPosition,
   playbackProgressRatio,
 } from "@/lib/playback/playback-position";
-import { createWatchUrl } from "@/lib/navigation/watch-url";
+import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
 import {
   listTopFrequentChannels,
   subscribeViewingStats,
@@ -45,16 +44,18 @@ export function SeriesDetailView({
   fallbackLogo,
   fallbackGroup,
 }: Props) {
-  const router = useRouter();
-  const { loading, error, episodesBySeason, showTitle, showPlot, showCover } =
+  const { openChannel, navError: watchNavError, clearNavError } = useWatchNavigation();
+  const { loading, error, episodesBySeason, showTitle, showPlot, showCover, showBackdrop } =
     useSeriesInfo(seriesId);
   const history = useViewingHistory();
   const [seasonTab, setSeasonTab] = useState<string | null>(null);
   const [playBusy, setPlayBusy] = useState(false);
   const [playError, setPlayError] = useState<string | null>(null);
+  const displayPlayError = playError ?? watchNavError;
 
   const title = showTitle ?? fallbackTitle ?? "Show";
   const cover = showCover || fallbackLogo || "";
+  const heroArt = showBackdrop || cover;
   const groupTitle = fallbackGroup;
 
   const activeSeason = seasonTab ?? episodesBySeason.seasons[0] ?? null;
@@ -76,9 +77,10 @@ export function SeriesDetailView({
   }, [episodesBySeason.flat, history]);
 
   const playEpisode = useCallback(
-    async (episode: (typeof episodesBySeason.flat)[0], episodeIndex: number) => {
+    (episode: (typeof episodesBySeason.flat)[0], episodeIndex: number) => {
       setPlayBusy(true);
       setPlayError(null);
+      clearNavError();
       try {
         const channel = buildEpisodeWatchChannel({
           seriesId,
@@ -88,15 +90,14 @@ export function SeriesDetailView({
           episode,
           episodeIndex,
         });
-        const href = await createWatchUrl(channel);
-        router.push(href);
+        openChannel(channel);
       } catch (err) {
         setPlayError(err instanceof Error ? err.message : "Could not start playback.");
       } finally {
         setPlayBusy(false);
       }
     },
-    [seriesId, title, cover, groupTitle, router],
+    [clearNavError, cover, groupTitle, openChannel, seriesId, title],
   );
 
   const continueProgress = continueTarget
@@ -117,12 +118,18 @@ export function SeriesDetailView({
       )}
     >
       <div className="relative overflow-hidden">
-        {cover ? (
-          <div
-            className="absolute inset-0 scale-110 bg-cover bg-center opacity-35 blur-3xl saturate-125"
-            style={{ backgroundImage: `url(${cover})` }}
-            aria-hidden
-          />
+        {heroArt ? (
+          <div className="absolute inset-0 overflow-hidden" aria-hidden>
+            {/* Fallback treatment for low-res artwork: enlarged, desaturated and pixel-emphasized */}
+            {/* so compression artifacts are less distracting at hero scale. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={heroArt}
+              alt=""
+              className="h-full w-full scale-[1.18] object-cover opacity-45 grayscale saturate-0 [image-rendering:pixelated]"
+            />
+            <div className="absolute inset-0 bg-black/28 backdrop-blur-[2px]" />
+          </div>
         ) : null}
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-[var(--tv-page-bg)]/92 to-[var(--tv-page-bg)]" />
 
@@ -218,7 +225,15 @@ export function SeriesDetailView({
       </div>
 
       <div className="mx-auto max-w-6xl px-4 pb-28 sm:px-8 md:pb-16">
-        {playError ? <NavErrorBanner message={playError} onDismiss={() => setPlayError(null)} /> : null}
+        {displayPlayError ? (
+          <NavErrorBanner
+            message={displayPlayError}
+            onDismiss={() => {
+              setPlayError(null);
+              clearNavError();
+            }}
+          />
+        ) : null}
 
         {loading ? (
           <p className="py-12 text-center text-[15px] text-white/45">Loading seasons…</p>

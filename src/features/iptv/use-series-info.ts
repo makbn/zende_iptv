@@ -79,6 +79,28 @@ export function useSeriesInfo(seriesId: string | null) {
     return typeof cover === "string" ? cover.trim() : "";
   }, [data?.info]);
 
+  const showBackdrop = useMemo(() => {
+    const info = data?.info;
+    if (!info || typeof info !== "object") return "";
+    const src = info as Record<string, unknown>;
+    const candidates = [
+      src.cover_big,
+      src.backdrop_path,
+      src.backdrop,
+      src.backdrop_url,
+      src.movie_image,
+      src.cover,
+    ];
+    for (const value of candidates) {
+      if (typeof value === "string" && value.trim()) return value.trim();
+      if (Array.isArray(value)) {
+        const first = value.find((v) => typeof v === "string" && v.trim());
+        if (typeof first === "string") return first.trim();
+      }
+    }
+    return "";
+  }, [data?.info]);
+
   return {
     data,
     loading,
@@ -88,5 +110,6 @@ export function useSeriesInfo(seriesId: string | null) {
     showTitle,
     showPlot,
     showCover,
+    showBackdrop,
   };
 }

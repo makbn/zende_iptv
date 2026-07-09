@@ -72,8 +72,10 @@ export function TvChannelTile({
     }
   };
 
+  const fillsGridCell = className?.includes("poster-grid__tile");
   const articleClass = cn(
-    "group relative w-[178px] shrink-0 snap-start sm:w-[214px]",
+    "group relative snap-start",
+    fillsGridCell ? "w-full min-w-0" : "w-[178px] shrink-0 sm:w-[214px]",
     className,
   );
 
@@ -93,7 +95,7 @@ export function TvChannelTile({
       >
         <div
           className={cn(
-            "relative aspect-[2/3] w-full overflow-hidden rounded-[28px]",
+            "poster-tile__frame rounded-[28px]",
             "border border-white/[0.11] bg-zinc-950/90 ring-1 ring-white/[0.06]",
             fastMode
               ? "shadow-[0_12px_34px_-21px_rgba(0,0,0,0.8)]"
@@ -105,7 +107,6 @@ export function TvChannelTile({
               <ChannelLogo
                 name={label}
                 logoUrl={channel.tvgLogo}
-                className="absolute inset-0 rounded-none"
                 fit="cover"
                 aspect="fill"
               />

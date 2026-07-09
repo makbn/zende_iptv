@@ -10,6 +10,7 @@ import { applyPublicCorsProxyUnwrap } from "@/lib/stream/public-cors-proxy-url";
 import { normalizeXtreamLivePlaybackUrl } from "@/lib/stream/playback-url";
 import { redactStreamUrlForLog } from "@/lib/stream/redact-stream-url";
 import {
+  enrichPlaybackSearchMeta,
   inferContentKindFromUrl,
   resolvePlaybackDurationSeconds,
 } from "@/lib/playback/resolve-duration";
@@ -45,6 +46,9 @@ const bodySchema = z.object({
       episodeNum: z.string().max(16).optional(),
       episodeTitle: z.string().max(512).optional(),
       episodeIndex: z.number().int().min(0).optional(),
+      searchTitle: z.string().max(512).optional(),
+      year: z.string().max(8).optional(),
+      imdbId: z.string().max(32).optional(),
     })
     .optional(),
 });
@@ -134,6 +138,11 @@ export async function POST(request: Request) {
     if (resolvedDuration && !meta.durationSeconds) {
       meta = { ...meta, durationSeconds: resolvedDuration };
     }
+    meta = await enrichPlaybackSearchMeta(
+      upstream.href,
+      meta,
+      (parsed.data.title ?? "").trim() || "Live",
+    );
 
     const id = await createStreamSession({
       upstreamRootUrl: upstream.href,

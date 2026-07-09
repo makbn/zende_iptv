@@ -200,6 +200,7 @@ export async function startImmediateRecording(input: {
   spawnFfmpegRecording({
     recordingId: id,
     upstreamUrl: prep.upstreamUrl,
+    inputMode: prep.inputMode,
     durationSec,
     outputPath: absPath,
   });
@@ -286,6 +287,7 @@ export async function tryDispatchSchedule(scheduleId: string): Promise<boolean> 
     spawnFfmpegRecording({
       recordingId: payload.recordingId,
       upstreamUrl: prep.upstreamUrl,
+      inputMode: prep.inputMode,
       durationSec: payload.durationSec,
       outputPath: absPath,
     });

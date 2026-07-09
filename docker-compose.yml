@@ -31,6 +31,10 @@ services:
       # Optional: Bearer for cron, registry sync, health sweep APIs (Settings → Server).
       # CRON_SECRET: "change-me-to-a-long-random-string"
 
+      # Optional: VOD subtitle search via OpenSubtitles (free API key at opensubtitles.com).
+      # WYZIE_API_KEY: "your-wyzie-key"
+      # TMDB_API_KEY: "your-tmdb-key"
+
       # Optional EPG: comma-separated HTTPS XMLTV URLs (e.g. self-hosted guide from
       # https://github.com/iptv-org/epg — publish guide.xml and allowlist the hostname).
       # ZENDE_EPG_GUIDE_URLS: "https://your-host/guide.xml"

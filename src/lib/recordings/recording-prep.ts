@@ -31,6 +31,8 @@ export type PreparedRecordingSource = {
   rawChannelUrl: string;
   /** HLS/MPEG-TS entry URL for ffmpeg — always this app's `/api/stream/proxy/{session}` (VPN/cookies upstream). */
   upstreamUrl: string;
+  /** Demuxer mode expected behind the relay URL. */
+  inputMode: "hls" | "mpegts";
   /** Opaque stream session backing the relay (same row as watch). */
   relaySessionId: string;
 };
@@ -187,10 +189,12 @@ export async function prepareRecordingSource(
 
   const relayBase = loopbackRelayBase();
   const upstreamUrl = `${relayBase}/api/stream/proxy/${relaySessionId}`;
+  const inputMode = /\.ts(\?|$)/i.test(upstream.href) ? "mpegts" : "hls";
 
   return {
     rawChannelUrl: trimmed,
     upstreamUrl,
+    inputMode,
     relaySessionId,
   };
 }

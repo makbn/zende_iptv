@@ -91,6 +91,12 @@ function PairLoginForm() {
         <p className="mt-2 text-[15px] leading-relaxed text-white/55">
           You can close this page. Your TV should continue automatically.
         </p>
+        <Link
+          href="/"
+          className="mt-6 inline-flex min-h-[48px] items-center justify-center rounded-full border border-white/[0.16] bg-white/[0.07] px-6 text-[15px] font-semibold text-white/88 outline-none transition hover:bg-white/[0.12] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+        >
+          Go to Home
+        </Link>
       </div>
     );
   }

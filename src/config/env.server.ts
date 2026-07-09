@@ -24,6 +24,10 @@ const serverEnvSchema = z.object({
     .default(false),
   /** Optional. Public origin for HLS rewrite (e.g. https://live.example.com). See getRequestOrigin. */
   PUBLIC_APP_URL: z.string().optional(),
+  /** Wyzie Subs API key for VOD subtitle search (https://sub.wyzie.io). */
+  WYZIE_API_KEY: z.string().optional(),
+  /** TMDB API key for resolving movie/show titles to ids (https://developer.themoviedb.org). */
+  TMDB_API_KEY: z.string().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
@@ -38,6 +42,8 @@ export function getServerEnv(): ServerEnv {
     LOG_LEVEL: process.env.LOG_LEVEL,
     LOG_PRETTY: process.env.LOG_PRETTY,
     PUBLIC_APP_URL: process.env.PUBLIC_APP_URL,
+    WYZIE_API_KEY: process.env.WYZIE_API_KEY,
+    TMDB_API_KEY: process.env.TMDB_API_KEY,
   });
   return cached;
 }

@@ -1,4 +1,5 @@
 import { zendeFetch } from "@/lib/auth/zende-fetch";
+import { updateViewingPosition } from "@/lib/watch/viewing-stats";
 
 /** Best-effort resume sync stub — server may ignore until API is fully implemented. */
 export async function syncPlaybackPositionStub(
@@ -6,6 +7,7 @@ export async function syncPlaybackPositionStub(
   positionSeconds: number,
 ): Promise<void> {
   if (!url || !Number.isFinite(positionSeconds) || positionSeconds < 5) return;
+  updateViewingPosition(url, positionSeconds);
   try {
     await zendeFetch("/api/user/playback-position", {
       method: "POST",

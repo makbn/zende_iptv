@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
-import { isXtreamSeriesContainer } from "@/lib/channels/content-type";
+import { resolveLibraryContentType } from "@/lib/channels/content-type";
 import { playbackMetaForChannel } from "@/lib/navigation/playback-meta-for-channel";
 import { createWatchUrl, type CreateWatchInput } from "@/lib/navigation/watch-url";
 import { showPageHrefFromChannel } from "@/lib/navigation/show-page";
@@ -17,7 +17,7 @@ export function useWatchNavigation() {
 
   const openChannel = useCallback(
     (ch: Pick<M3uChannel, "url" | "name"> & Partial<Pick<M3uChannel, "tvgLogo" | "groupTitle" | "tvgId" | "contentType">> & { playback?: CreateWatchInput["playback"] }) => {
-      if (isXtreamSeriesContainer(ch as M3uChannel)) {
+      if (resolveLibraryContentType(ch as M3uChannel) === "series") {
         const href = showPageHrefFromChannel(ch as M3uChannel);
         if (href) {
           if (remote?.activeSession) {

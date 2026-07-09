@@ -191,6 +191,10 @@ model UserViewingHistory {
   name         String
   tvgLogo      String?
   groupTitle   String?
+  /// Serialized PlaybackSessionMeta for VOD resume (series/movie context).
+  playbackJson String?
+  /// Last saved position in seconds for this canonical URL.
+  positionSeconds Int?
   lastOpenedAt DateTime @default(now())
   openCount    Int      @default(1)
 
@@ -221,6 +225,14 @@ model XtreamPortalConfig {
   username  String
   password  String
   updatedAt DateTime @updatedAt
+}
+
+/// Wyzie Subs + TMDB keys for VOD subtitle search (Settings → Integrations).
+model SubtitleSettings {
+  id          Int      @id @default(1)
+  wyzieApiKey String?
+  tmdbApiKey  String?
+  updatedAt   DateTime @updatedAt
 }
 
 enum RecordingScheduleStatus {

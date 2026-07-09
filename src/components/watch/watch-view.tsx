@@ -17,6 +17,7 @@ import {
   PictureInPicture,
   Play,
   Rewind,
+  Search,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -80,7 +81,9 @@ import {
 import { FavoriteStarButton } from "@/components/tv/favorite-star-button";
 import { ChannelResolutionBadge } from "@/components/tv/channel-resolution-badge";
 import { EpisodePlaybackControls } from "@/components/watch/episode-playback-controls";
+import { SubtitleSearchPanel } from "@/components/watch/subtitle-search-panel";
 import { queuePlaybackHealthProbe } from "@/features/health/queue-playback-health-probe";
+import { useExternalSubtitles } from "@/lib/player/use-external-subtitles";
 import type { ViewingEntry } from "@/lib/watch/viewing-stats";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
 import {
@@ -408,6 +411,8 @@ export function WatchView() {
   const [playerSession, setPlayerSession] = useState<PlayerSession | null>(
     null,
   );
+  const [subtitleSearchOpen, setSubtitleSearchOpen] = useState(false);
+  const externalSubtitles = useExternalSubtitles(playerSession?.video ?? null);
   const [playerFatalError, setPlayerFatalError] = useState<PlayerError | null>(null);
   const [playerRetryEpoch, setPlayerRetryEpoch] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1);
@@ -496,6 +501,7 @@ export function WatchView() {
       name: title,
       ...(logo ? { tvgLogo: logo } : {}),
       ...(group ? { groupTitle: group } : {}),
+      ...(playbackMeta ? { playback: playbackMeta } : {}),
     });
     notifyViewingStatsUpdated();
     queuePlaybackHealthProbe({
@@ -559,6 +565,11 @@ export function WatchView() {
       v.removeEventListener("webkitpresentationmodechanged", syncPip);
     };
   }, [playbackSrc, playerSession]);
+
+  useEffect(() => {
+    externalSubtitles.clearTracks();
+    setSubtitleSearchOpen(false);
+  }, [playbackSrc, externalSubtitles.clearTracks]);
 
   const clearChromeIdleTimer = useCallback(() => {
     if (chromeIdleTimerRef.current) {
@@ -1073,6 +1084,29 @@ export function WatchView() {
   const subtitleTracks = playerSession?.getSubtitleTracks() ?? [];
   const currentAudioTrack = playerSession?.hls?.audioTrack ?? 0;
   const currentSubtitleTrack = playerSession?.hls?.subtitleTrack ?? -1;
+  const hasBuiltinSubtitles = subtitleTracks.length > 1;
+  const showSubtitleControls = isVodPlayback;
+
+  const handleBuiltinSubtitle = useCallback(
+    (index: number) => {
+      playerSession?.setSubtitleTrack(index);
+      if (index < 0) {
+        externalSubtitles.markOff();
+      } else {
+        externalSubtitles.turnOffExternal();
+        externalSubtitles.markBuiltinActive();
+      }
+    },
+    [externalSubtitles, playerSession],
+  );
+
+  const handleExternalSubtitle = useCallback(
+    (trackId: string) => {
+      playerSession?.setSubtitleTrack(-1);
+      externalSubtitles.selectExternalTrack(trackId);
+    },
+    [externalSubtitles, playerSession],
+  );
 
   const startRecording = useCallback(async () => {
     if (!canonicalUrl || recordingId || !isLivePlayback) return;
@@ -1676,31 +1710,68 @@ export function WatchView() {
                     </Menu.Root>
                   ) : null}
 
-                  {subtitleTracks.length > 1 ? (
+                  {showSubtitleControls ? (
                     <Menu.Root modal={false}>
                       <GlassIconMenuTrigger aria-label="Subtitles">
                         <Subtitles className="h-4 w-4" />
                       </GlassIconMenuTrigger>
                       <Menu.Portal>
                         <Menu.Positioner side="top" align="end" sideOffset={10} className="z-[100]">
-                          <Menu.Popup className="min-w-[180px] origin-bottom rounded-2xl border border-white/[0.14] bg-zinc-950/95 p-1 shadow-2xl outline-none">
+                          <Menu.Popup className="min-w-[220px] origin-bottom rounded-2xl border border-white/[0.14] bg-zinc-950/95 p-1 shadow-2xl outline-none">
                             <Menu.Viewport>
                               <Menu.Group>
                                 <Menu.GroupLabel className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-white/45">
                                   Subtitles
                                 </Menu.GroupLabel>
-                                {subtitleTracks.map((t) => (
+                                <Menu.Item
+                                  className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-white/90 outline-none data-[highlighted]:bg-white/12"
+                                  onClick={() => {
+                                    handleBuiltinSubtitle(-1);
+                                    externalSubtitles.markOff();
+                                  }}
+                                >
+                                  Off
+                                  {currentSubtitleTrack < 0 &&
+                                  !externalSubtitles.activeTrackId ? (
+                                    <span className="text-emerald-400">✓</span>
+                                  ) : null}
+                                </Menu.Item>
+                                {hasBuiltinSubtitles
+                                  ? subtitleTracks
+                                      .filter((track) => track.index >= 0)
+                                      .map((track) => (
+                                        <Menu.Item
+                                          key={`builtin-${track.index}`}
+                                          className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-white/90 outline-none data-[highlighted]:bg-white/12"
+                                          onClick={() => handleBuiltinSubtitle(track.index)}
+                                        >
+                                          {track.label}
+                                          {currentSubtitleTrack === track.index &&
+                                          externalSubtitles.activeSource !== "external" ? (
+                                            <span className="text-emerald-400">✓</span>
+                                          ) : null}
+                                        </Menu.Item>
+                                      ))
+                                  : null}
+                                {externalSubtitles.tracks.map((track) => (
                                   <Menu.Item
-                                    key={t.index}
+                                    key={`external-${track.id}`}
                                     className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-white/90 outline-none data-[highlighted]:bg-white/12"
-                                    onClick={() => playerSession?.setSubtitleTrack(t.index)}
+                                    onClick={() => handleExternalSubtitle(track.id)}
                                   >
-                                    {t.label}
-                                    {currentSubtitleTrack === t.index ? (
+                                    {track.label}
+                                    {externalSubtitles.activeTrackId === track.id ? (
                                       <span className="text-emerald-400">✓</span>
                                     ) : null}
                                   </Menu.Item>
                                 ))}
+                                <Menu.Item
+                                  className="mt-1 flex cursor-pointer items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-[14px] font-medium text-[var(--zen-signal)] outline-none data-[highlighted]:bg-white/10"
+                                  onClick={() => setSubtitleSearchOpen(true)}
+                                >
+                                  <Search className="size-4" aria-hidden />
+                                  Search online…
+                                </Menu.Item>
                               </Menu.Group>
                             </Menu.Viewport>
                           </Menu.Popup>
@@ -1769,6 +1840,17 @@ export function WatchView() {
         </div>
         </div>
       </div>
+      {isVodPlayback ? (
+        <SubtitleSearchPanel
+          open={subtitleSearchOpen}
+          onClose={() => setSubtitleSearchOpen(false)}
+          title={title}
+          playback={playbackMeta}
+          onSelect={(track) => {
+            externalSubtitles.addTrack(track);
+          }}
+        />
+      ) : null}
     </BrowseShellRefContext.Provider>
   );
 }

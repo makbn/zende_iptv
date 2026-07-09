@@ -190,6 +190,13 @@ export function TvHome() {
     navigate("/library");
   }
 
+  function openContinueItem(item: (typeof continueWatching)[number]) {
+    openChannel({
+      ...item.channel,
+      ...(item.playback ? { playback: item.playback } : {}),
+    });
+  }
+
   const discoverSlice = useMemo(() => {
     const skip = new Set<string>([
       ...recentChannels.map((c) => c.url),
@@ -307,12 +314,12 @@ export function TvHome() {
             description="Unfinished episodes, movies, and replays."
           >
             <CinematicRail>
-              {continueWatching.map(({ channel, progress }, i) => (
-                <div key={`cw-${channel.url}-${i}`} className="relative w-[260px] shrink-0 snap-start sm:w-[288px]">
+              {continueWatching.map((item, i) => (
+                <div key={`cw-${item.channel.url}-${i}`} className="relative w-[260px] shrink-0 snap-start sm:w-[288px]">
                   <TvChannelTile
-                    channel={channel}
-                    healthScore={getScoreForChannel(channel)}
-                    onSelect={(c) => openChannel(c)}
+                    channel={item.channel}
+                    healthScore={getScoreForChannel(item.channel)}
+                    onSelect={() => openContinueItem(item)}
                   />
                   <div
                     className="pointer-events-none absolute inset-x-3 bottom-3 h-1 overflow-hidden rounded-full bg-white/15"
@@ -320,7 +327,7 @@ export function TvHome() {
                   >
                     <div
                       className="h-full rounded-full bg-[var(--zen-signal)]"
-                      style={{ width: `${Math.round(progress * 100)}%` }}
+                      style={{ width: `${Math.round(item.progress * 100)}%` }}
                     />
                   </div>
                 </div>

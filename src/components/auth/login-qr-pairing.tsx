@@ -118,11 +118,11 @@ export function LoginQrPairing({ onComplete }: Props) {
       </p>
 
       <div className="mt-5 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
-        <div className="rounded-[22px] bg-white p-3 shadow-[0_20px_60px_-28px_rgba(56,217,255,0.65)]">
+        <div className="rounded-[22px] bg-white p-3 shadow-[0_20px_60px_-28px_rgba(56,217,255,0.65)] sm:p-4">
           {pairUrl && status !== "error" ? (
-            <QRCode value={pairUrl} size={168} level="M" />
+            <QRCode value={pairUrl} size={240} level="M" />
           ) : (
-            <div className="flex h-[168px] w-[168px] items-center justify-center text-[13px] text-zinc-500">
+            <div className="flex h-[240px] w-[240px] items-center justify-center text-[13px] text-zinc-500">
               {status === "loading" ? "Preparing…" : "Unavailable"}
             </div>
           )}

@@ -4,6 +4,7 @@ import { Copy, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { TvSettingsSubtitlesPanel } from "@/components/tv/tv-settings-subtitles-panel";
 import { createClientLogger } from "@/core/logging/client";
 import { useAuth } from "@/features/auth/auth-context";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
@@ -194,6 +195,8 @@ export function TvSettingsIntegrationsPanel() {
 
   return (
     <div className="space-y-10">
+      <TvSettingsSubtitlesPanel />
+
       <section
         className={cn(
           "rounded-2xl border border-white/[0.1] bg-white/[0.04] p-6 ring-1 ring-white/[0.04]",

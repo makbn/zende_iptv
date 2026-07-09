@@ -13,6 +13,10 @@ export type PlaybackSessionMeta = {
   episodeTitle?: string;
   /** Index in the flat sorted episode list from get_series_info. */
   episodeIndex?: number;
+  /** Best-effort title for subtitle search (without quality/year noise). */
+  searchTitle?: string;
+  year?: string;
+  imdbId?: string;
 };
 
 export function parsePlaybackSessionMeta(raw: string | null | undefined): PlaybackSessionMeta {
@@ -40,6 +44,9 @@ export function serializePlaybackSessionMeta(meta: PlaybackSessionMeta): string 
   if (meta.episodeIndex != null && Number.isFinite(meta.episodeIndex) && meta.episodeIndex >= 0) {
     clean.episodeIndex = Math.floor(meta.episodeIndex);
   }
+  if (meta.searchTitle?.trim()) clean.searchTitle = meta.searchTitle.trim();
+  if (meta.year?.trim()) clean.year = meta.year.trim();
+  if (meta.imdbId?.trim()) clean.imdbId = meta.imdbId.trim();
   return JSON.stringify(clean);
 }
 

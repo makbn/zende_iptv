@@ -55,6 +55,7 @@ async function readEncoderSidecar(
 export type FfmpegRecordingStart = {
   recordingId: string;
   upstreamUrl: string;
+  inputMode: "hls" | "mpegts";
   durationSec: number;
   outputPath: string;
 };
@@ -80,14 +81,6 @@ function buildFfmpegArgs(input: FfmpegRecordingStart): string[] {
     internalRelayFfmpegHeadersBlock(),
     "-protocol_whitelist",
     "file,http,https,tcp,tls,crypto,data",
-    // Relay playlists use /api/stream/proxy/...?h=<hash> — no ".ts" in the path; default
-    // allowed_segment_extensions rejects those URLs (see ffmpeg hls demuxer AVOptions).
-    "-allowed_extensions",
-    "ALL",
-    "-allowed_segment_extensions",
-    "ALL",
-    "-extension_picky",
-    "0",
     "-reconnect",
     "1",
     "-reconnect_streamed",
@@ -99,6 +92,18 @@ function buildFfmpegArgs(input: FfmpegRecordingStart): string[] {
     "-http_persistent",
     "0",
   ];
+  if (input.inputMode === "hls") {
+    args.push(
+      // Relay playlists use /api/stream/proxy/...?h=<hash> — no ".ts" in the path; default
+      // allowed_segment_extensions rejects those URLs (see ffmpeg hls demuxer AVOptions).
+      "-allowed_extensions",
+      "ALL",
+      "-allowed_segment_extensions",
+      "ALL",
+      "-extension_picky",
+      "0",
+    );
+  }
   args.push(
     "-i",
     input.upstreamUrl,

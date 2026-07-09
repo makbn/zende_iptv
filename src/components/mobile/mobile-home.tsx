@@ -236,6 +236,13 @@ export function MobileHome() {
     navigate("/library");
   }
 
+  function openContinueItem(item: (typeof continueWatching)[number]) {
+    openChannel({
+      ...item.channel,
+      ...(item.playback ? { playback: item.playback } : {}),
+    });
+  }
+
   if (!catalogLoaded) {
     return (
       <div className="zen-page-bg flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-white/45">
@@ -313,7 +320,14 @@ export function MobileHome() {
             description="Resume where you left off on this device."
             channels={continueWatching.map((item) => item.channel)}
             getScoreForChannel={getScoreForChannel}
-            onSelect={openChannel}
+            onSelect={(channel) => {
+              const item = continueWatching.find((entry) => entry.channel.url === channel.url);
+              if (item) {
+                openContinueItem(item);
+                return;
+              }
+              openChannel(channel);
+            }}
           />
         ) : null}
         {continueWatching.length === 0 && !showColdStartRecommendations ? (

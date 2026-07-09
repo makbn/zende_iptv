@@ -14,6 +14,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Gamepad2, Monitor, Tv, X } from "lucide-react";
 
 import { useAuth } from "@/features/auth/auth-context";
+import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { cn } from "@/lib/utils";
 
 type RemoteCommand =
@@ -55,6 +56,7 @@ export const REMOTE_COMMAND_EVENT = "zende:remote-command";
 
 const TV_SESSION_KEY = "zende.remote.tvSessionId";
 const ACTIVE_SESSION_KEY = "zende.remote.activeSessionId";
+const DISMISSED_SESSION_KEY = "zende.remote.dismissedSessionId";
 
 function isTvBrowser(): boolean {
   if (typeof navigator === "undefined") return false;
@@ -63,13 +65,24 @@ function isTvBrowser(): boolean {
   );
 }
 
+function isLikelyTvSurface(): boolean {
+  if (typeof window === "undefined") return false;
+  if (isTvBrowser()) return true;
+  const coarse = window.matchMedia("(pointer: coarse)").matches;
+  if (coarse) return false;
+  return window.matchMedia("(min-width: 1024px)").matches;
+}
+
 function isLikelyMobileController(): boolean {
   if (typeof window === "undefined") return false;
-  return window.matchMedia("(max-width: 767px)").matches;
+  const ua = navigator.userAgent;
+  const mobileUa = /android|iphone|ipad|ipod|mobile|phone|tablet|silk/i.test(ua);
+  const coarse = window.matchMedia("(pointer: coarse)").matches;
+  return mobileUa || (coarse && window.matchMedia("(max-width: 1024px)").matches);
 }
 
 function detectSessionKind(): "tv" | "desktop" | "other" {
-  if (isTvBrowser()) return "tv";
+  if (isTvBrowser() || isLikelyTvSurface()) return "tv";
   if (isLikelyMobileController()) return "other";
   return "desktop";
 }
@@ -91,8 +104,18 @@ function buildSessionLabel(): string {
   return "TV browser";
 }
 
+function remotePathname(path: string): string {
+  const raw = path.split("#")[0] ?? path;
+  const queryStart = raw.indexOf("?");
+  return queryStart === -1 ? raw : raw.slice(0, queryStart);
+}
+
+function remotePathsMatch(a: string, b: string): boolean {
+  return remotePathname(a) === remotePathname(b);
+}
+
 function pathnameLabel(pathname: string): string {
-  const path = pathname.split("?")[0] ?? pathname;
+  const path = remotePathname(pathname);
   if (path === "/" || path === "") return "Home";
   if (path.startsWith("/library")) return "Library";
   if (path.startsWith("/favorites")) return "Favorites";
@@ -152,17 +175,29 @@ function SessionKindIcon({
 }
 
 export function RemoteControlProvider({ children }: { children: ReactNode }) {
-  const { user, authEnabled } = useAuth();
+  const { user, authEnabled, ready } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [sessions, setSessions] = useState<RemoteSessionSummary[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [sessionPickerOpen, setSessionPickerOpen] = useState(false);
+  const [promptOpen, setPromptOpen] = useState(false);
   const [tvSessionId, setTvSessionId] = useState<string | null>(null);
+  const [isMobileController, setIsMobileController] = useState(false);
+  const [isTvTarget, setIsTvTarget] = useState(false);
   const commandCursorRef = useRef(0);
   const lastLocalNavigateRef = useRef(0);
-  const isMobileController = isLikelyMobileController();
-  const isTvTarget = isTvBrowser();
+  const pendingRemotePathRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const updateSurface = () => {
+      setIsMobileController(isLikelyMobileController());
+      setIsTvTarget(isLikelyTvSurface());
+    };
+    updateSurface();
+    window.addEventListener("resize", updateSurface);
+    return () => window.removeEventListener("resize", updateSurface);
+  }, []);
 
   const activeSession = useMemo(
     () => sessions.find((session) => session.sessionId === activeSessionId) ?? null,
@@ -170,22 +205,31 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
   );
 
   const refreshSessions = useCallback(async () => {
-    if (!authEnabled || !user) {
+    if (!ready || !authEnabled || !user) {
       setSessions([]);
       return [];
     }
-    const response = await fetch("/api/remote/sessions", { cache: "no-store" });
+    const response = await zendeFetch("/api/remote/sessions", { cache: "no-store" });
     if (!response.ok) return [];
     const payload = (await response.json()) as { sessions?: RemoteSessionSummary[] };
     const next = Array.isArray(payload.sessions) ? payload.sessions : [];
     setSessions(next);
+
+    if (isMobileController && !activeSessionId) {
+      const preferred = preferSession(next);
+      const dismissed = readStoredSessionId(DISMISSED_SESSION_KEY);
+      if (preferred && dismissed !== preferred.sessionId) {
+        setPromptOpen(true);
+      }
+    }
+
     return next;
-  }, [authEnabled, user]);
+  }, [activeSessionId, authEnabled, isMobileController, ready, user]);
 
   const sendCommand = useCallback(
     async (command: RemoteCommand) => {
       if (!activeSessionId) return false;
-      const response = await fetch(`/api/remote/sessions/${activeSessionId}/commands`, {
+      const response = await zendeFetch(`/api/remote/sessions/${activeSessionId}/commands`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(command),
@@ -199,11 +243,9 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
     (href: string) => {
       if (!href.startsWith("/")) return;
       const target = href.split("#")[0] ?? href;
-      const current = `${pathname}`;
-      if (target !== current) {
-        lastLocalNavigateRef.current = Date.now();
-        router.push(href);
-      }
+      if (remotePathsMatch(target, pathname)) return;
+      lastLocalNavigateRef.current = Date.now();
+      router.push(href);
     },
     [pathname, router],
   );
@@ -211,8 +253,11 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
   const sendNavigate = useCallback(
     async (href: string) => {
       if (!activeSessionId) return false;
+      pendingRemotePathRef.current = remotePathname(href);
       mirrorNavigate(href);
-      return sendCommand({ type: "navigate", payload: { href } });
+      const sent = await sendCommand({ type: "navigate", payload: { href } });
+      if (!sent) pendingRemotePathRef.current = null;
+      return sent;
     },
     [activeSessionId, mirrorNavigate, sendCommand],
   );
@@ -231,7 +276,9 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
       if (!target) return;
       setActiveSessionId(target.sessionId);
       writeStoredSessionId(ACTIVE_SESSION_KEY, target.sessionId);
+      writeStoredSessionId(DISMISSED_SESSION_KEY, null);
       setSessionPickerOpen(false);
+      setPromptOpen(false);
       if (target.pathname) {
         mirrorNavigate(target.pathname);
       }
@@ -249,14 +296,19 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const exitRemoteMode = useCallback(() => {
+    if (activeSessionId) {
+      writeStoredSessionId(DISMISSED_SESSION_KEY, activeSessionId);
+    }
+    pendingRemotePathRef.current = null;
     setActiveSessionId(null);
     writeStoredSessionId(ACTIVE_SESSION_KEY, null);
     setSessionPickerOpen(false);
-  }, []);
+    setPromptOpen(false);
+  }, [activeSessionId]);
 
   // TV target: register heartbeat and poll commands
   useEffect(() => {
-    if (!authEnabled || !user || !isTvTarget) return;
+    if (!ready || !authEnabled || !user || !isTvTarget) return;
 
     let cancelled = false;
     let sessionId = readStoredSessionId(TV_SESSION_KEY);
@@ -266,7 +318,7 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
         typeof window !== "undefined"
           ? `${window.location.pathname}${window.location.search}`
           : "/";
-      const response = await fetch("/api/remote/sessions", {
+      const response = await zendeFetch("/api/remote/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -287,7 +339,7 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
 
     const pollCommands = async () => {
       if (!sessionId) return;
-      const response = await fetch(
+      const response = await zendeFetch(
         `/api/remote/sessions/${sessionId}/commands?after=${commandCursorRef.current}`,
         { cache: "no-store" },
       );
@@ -319,16 +371,16 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
       window.clearInterval(heartbeatTimer);
       window.clearInterval(commandTimer);
     };
-  }, [authEnabled, isTvTarget, user]);
+  }, [authEnabled, isTvTarget, ready, user]);
 
   // Mobile controller: poll available sessions (faster while controlling)
   useEffect(() => {
-    if (!authEnabled || !user || !isMobileController) return;
+    if (!ready || !authEnabled || !user || !isMobileController) return;
     void refreshSessions();
     const interval = activeSessionId ? 2_000 : 5_000;
     const timer = window.setInterval(() => void refreshSessions(), interval);
     return () => window.clearInterval(timer);
-  }, [activeSessionId, authEnabled, isMobileController, refreshSessions, user]);
+  }, [activeSessionId, authEnabled, isMobileController, ready, refreshSessions, user]);
 
   // Restore active session from storage
   useEffect(() => {
@@ -350,7 +402,26 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
     if (!isMobileController || !activeSessionId || !activeSession?.pathname) return;
     const tvPath = activeSession.pathname;
     const mobilePath = pathname;
-    if (tvPath === mobilePath) return;
+    if (remotePathsMatch(tvPath, mobilePath)) {
+      if (
+        pendingRemotePathRef.current &&
+        remotePathname(tvPath) === pendingRemotePathRef.current
+      ) {
+        pendingRemotePathRef.current = null;
+      }
+      return;
+    }
+
+    const pending = pendingRemotePathRef.current;
+    if (pending) {
+      // Phone sent a navigate; wait for TV heartbeat to catch up instead of pulling back.
+      if (remotePathname(mobilePath) === pending) return;
+      if (remotePathname(tvPath) === pending) {
+        pendingRemotePathRef.current = null;
+        return;
+      }
+    }
+
     // Avoid fighting with a navigate we just sent from the phone
     if (Date.now() - lastLocalNavigateRef.current < 2_000) return;
     mirrorNavigate(tvPath);
@@ -398,11 +469,66 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
   );
 
   const tvPathLabel = activeSession ? pathnameLabel(activeSession.pathname) : null;
-  const mobileOutOfSync = Boolean(activeSession && activeSession.pathname !== pathname);
+  const mobileOutOfSync = Boolean(
+    activeSession && !remotePathsMatch(activeSession.pathname, pathname),
+  );
+  const preferredSession = preferSession(sessions);
 
   return (
     <RemoteControlContext.Provider value={value}>
       {children}
+      {isMobileController && promptOpen && preferredSession && !activeSession && !sessionPickerOpen ? (
+        <div className="fixed inset-x-3 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-[120] md:hidden">
+          <div className="rounded-[26px] border border-white/[0.13] bg-black/86 p-4 text-white shadow-[0_24px_70px_-28px_rgba(0,0,0,0.95)] backdrop-blur-2xl ring-1 ring-white/[0.06]">
+            <p className="zen-kicker">Remote control</p>
+            <p className="mt-2 text-[18px] font-semibold tracking-[-0.04em]">
+              Control {preferredSession.label}?
+            </p>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-white/52">
+              Use this phone to search, play, and control playback on your TV.
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => enterRemoteMode(preferredSession.sessionId)}
+                className="min-h-11 rounded-full bg-[var(--zen-frost)] px-4 text-[14px] font-semibold text-[var(--zen-void)]"
+              >
+                Control TV
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  writeStoredSessionId(DISMISSED_SESSION_KEY, preferredSession.sessionId);
+                  setPromptOpen(false);
+                }}
+                className="min-h-11 rounded-full border border-white/[0.14] bg-white/[0.06] px-4 text-[14px] font-semibold text-white/78"
+              >
+                Not now
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {isMobileController && (activeSession || sessions.length > 0) && !sessionPickerOpen ? (
+        <div className="fixed right-3 top-[calc(5.35rem+env(safe-area-inset-top))] z-[115] md:hidden">
+          <div className="flex items-center gap-2 rounded-full border border-white/[0.13] bg-black/72 p-1.5 text-white shadow-2xl backdrop-blur-2xl">
+            <button
+              type="button"
+              onClick={() =>
+                activeSession ? exitRemoteMode() : openSessionPicker()
+              }
+              className={cn(
+                "min-h-10 rounded-full px-3 text-[12px] font-semibold",
+                activeSession
+                  ? "bg-[var(--zen-signal)]/18 text-white"
+                  : "bg-white/[0.08] text-white/76",
+              )}
+            >
+              {activeSession ? "Exit TV control" : "Control TV"}
+            </button>
+          </div>
+        </div>
+      ) : null}
       {isMobileController && sessionPickerOpen ? (
         <div
           className="fixed inset-0 z-[120] flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm"

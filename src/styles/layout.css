@@ -1,0 +1,63 @@
+/* Shared browse layout — poster grids for Library / Favorites / Guide */
+
+.poster-grid {
+  display: grid;
+  width: 100%;
+  /* auto-fill + capped max track width: tiles never stretch to fill the row when few results */
+  grid-template-columns: repeat(auto-fill, minmax(10.5rem, 12.5rem));
+  gap: 0.75rem;
+  justify-content: start;
+}
+
+@media (min-width: 640px) {
+  .poster-grid {
+    grid-template-columns: repeat(auto-fill, minmax(11.125rem, 13.375rem));
+  }
+}
+
+@media (min-width: 1280px) {
+  .poster-grid {
+    grid-template-columns: repeat(auto-fill, minmax(10.5rem, 12.75rem));
+  }
+}
+
+.poster-grid__tile {
+  width: 100%;
+  min-width: 0;
+  max-width: 13.375rem;
+}
+
+/* Unlayered poster frame — aspect-ratio must not depend on utility layers. */
+.poster-tile__frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+}
+
+.poster-tile__cover,
+.channel-logo--fill > .channel-logo__img {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
+  object-position: center;
+}
+
+.channel-logo--fill {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}

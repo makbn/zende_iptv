@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { TvCatalogSetupStrip } from "@/components/tv/tv-catalog-setup-strip";
 import { TvManualChannelsSection } from "@/components/tv/tv-manual-channels-section";
@@ -25,6 +25,7 @@ import { Z_ACCESS } from "@/lib/auth/token-storage-keys";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
 import { cn } from "@/lib/utils";
+import { useSearchParams } from "next/navigation";
 
 const STORAGE_KEY = "zenede.cronSecret";
 
@@ -36,6 +37,7 @@ type SettingsTab = "catalog" | "authentication" | "integrations" | "proxies" | "
 
 export function TvSettingsPage() {
   const { onNavigateClick } = useRemoteNavigation();
+  const searchParams = useSearchParams();
   const [tab, setTab] = useState<SettingsTab>("catalog");
   const catalog = useCatalogBootstrap(source);
   const {
@@ -58,6 +60,19 @@ export function TvSettingsPage() {
   const [savedHint, setSavedHint] = useState<string | null>(null);
   const [runStatus, setRunStatus] = useState<string | null>(null);
   const [runBusy, setRunBusy] = useState(false);
+
+  useEffect(() => {
+    const requested = searchParams.get("tab");
+    if (
+      requested === "catalog" ||
+      requested === "authentication" ||
+      requested === "integrations" ||
+      requested === "proxies" ||
+      requested === "server"
+    ) {
+      setTab(requested);
+    }
+  }, [searchParams]);
 
   const saveSecret = useCallback(() => {
     try {

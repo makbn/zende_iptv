@@ -8,6 +8,7 @@ import {
   parseXtreamEpisodeIdFromStreamUrl,
   parseXtreamVodIdFromStreamUrl,
 } from "@/lib/iptv/xtream-url";
+import { parseChannelLabel } from "@/lib/channel/channel-label";
 import {
   parseXtreamDurationSeconds,
   type PlaybackSessionMeta,
@@ -62,6 +63,84 @@ export async function resolvePlaybackDurationSeconds(
   }
 
   return undefined;
+}
+
+function extractImdbId(info?: Record<string, unknown>): string | undefined {
+  if (!info) return undefined;
+  const raw =
+    info.imdb ??
+    info.imdb_id ??
+    info.imdbId ??
+    info.tmdb_id ??
+    info.tmdb;
+  if (raw == null) return undefined;
+  const value = String(raw).trim().replace(/^tt/i, "");
+  return /^\d{5,10}$/.test(value) ? value : undefined;
+}
+
+function extractYear(info?: Record<string, unknown>): string | undefined {
+  if (!info) return undefined;
+  const raw = info.year ?? info.releasedate ?? info.release_date ?? info.releaseDate;
+  if (raw == null) return undefined;
+  const text = String(raw).trim();
+  const match = /^(\d{4})/.exec(text);
+  return match?.[1];
+}
+
+/** Enrich VOD session metadata used for subtitle search. */
+export async function enrichPlaybackSearchMeta(
+  upstreamUrl: string,
+  meta: PlaybackSessionMeta,
+  title: string,
+): Promise<PlaybackSessionMeta> {
+  const parsed = parseChannelLabel(title);
+  let next: PlaybackSessionMeta = {
+    ...meta,
+    searchTitle: meta.searchTitle?.trim() || parsed.displayName,
+    year: meta.year?.trim() || parsed.yearLabel,
+  };
+
+  if (next.imdbId) return next;
+
+  const creds =
+    (await loadXtreamPortalCredentials()) ??
+    parseXtreamCredentialsFromStreamUrl(upstreamUrl);
+  if (!creds) return next;
+
+  const vodId = parseXtreamVodIdFromStreamUrl(upstreamUrl);
+  if (vodId) {
+    const vod = await fetchXtreamVodInfo(creds, vodId);
+    const info = vod?.info as Record<string, unknown> | undefined;
+    next = {
+      ...next,
+      imdbId: extractImdbId(info) ?? next.imdbId,
+      year: next.year ?? extractYear(info),
+      searchTitle:
+        next.searchTitle ??
+        (typeof info?.name === "string" ? info.name.trim() : undefined) ??
+        (typeof vod?.movie_data?.name === "string"
+          ? vod.movie_data.name.trim()
+          : undefined),
+    };
+    return next;
+  }
+
+  const episodeId = parseXtreamEpisodeIdFromStreamUrl(upstreamUrl);
+  if (episodeId && meta.seriesId) {
+    const series = await fetchXtreamSeriesInfo(creds, meta.seriesId);
+    const seriesInfo = series?.info as Record<string, unknown> | undefined;
+    next = {
+      ...next,
+      imdbId: extractImdbId(seriesInfo) ?? next.imdbId,
+      year: next.year ?? extractYear(seriesInfo),
+      seriesTitle:
+        next.seriesTitle?.trim() ||
+        (typeof seriesInfo?.name === "string" ? seriesInfo.name.trim() : undefined) ||
+        next.seriesTitle,
+    };
+  }
+
+  return next;
 }
 
 export function inferContentKindFromUrl(url: string): PlaybackSessionMeta["contentKind"] {

@@ -13,6 +13,18 @@ import { getStreamHlsConfig } from "@/lib/player/hls-live-config";
 import type { PlaybackMode } from "@/lib/stream/playback-url";
 import { cn } from "@/lib/utils";
 
+/**
+ * iPhone/iPad: prefer Safari's native HLS. hls.js ManagedMediaSource on iOS 17.1+
+ * sets disableRemotePlayback and breaks Picture-in-Picture / AirPlay.
+ */
+function prefersNativeAppleHls(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  if (/iPhone|iPod|iPad/i.test(ua)) return true;
+  // iPadOS 13+ may report as MacIntel with touch
+  return navigator.platform === "MacIntel" && (navigator.maxTouchPoints ?? 0) > 1;
+}
+
 export type QualityOption = { index: number; label: string };
 export type MediaTrackOption = { index: number; label: string };
 
@@ -123,6 +135,15 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
 
     useEffect(() => {
       const video = innerRef.current;
+      if (!video) return;
+      // Safari AirPlay / PiP hint (attribute, not a React prop).
+      video.setAttribute("x-webkit-airplay", "allow");
+      video.disablePictureInPicture = false;
+      video.disableRemotePlayback = false;
+    }, [src]);
+
+    useEffect(() => {
+      const video = innerRef.current;
       if (!video || !src) return;
 
       let hls: Hls | null = null;
@@ -211,7 +232,14 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
       const startPlayback = () => {
         if (cancelled) return;
 
-        if (hlsMode && HlsModule?.isSupported()) {
+        const canNativeHls =
+          video.canPlayType("application/vnd.apple.mpegurl") !== "";
+        // Native first on Apple mobile so PiP/AirPlay keep working.
+        const useNativeHls = hlsMode && canNativeHls && prefersNativeAppleHls();
+        const useHlsJs =
+          hlsMode && Boolean(HlsModule?.isSupported()) && !useNativeHls;
+
+        if (useHlsJs && HlsModule) {
           const HlsCtor = HlsModule;
           let mediaErrorStage = 0;
           let networkRetries = 0;
@@ -392,8 +420,11 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
           };
 
           attachHlsInstance();
-        } else if (hlsMode && video.canPlayType("application/vnd.apple.mpegurl")) {
+        } else if (hlsMode && canNativeHls) {
           isNativeHls = true;
+          // Ensure remote playback / PiP stay enabled for Safari.
+          video.disablePictureInPicture = false;
+          video.disableRemotePlayback = false;
           video.src = src;
           video.addEventListener("loadedmetadata", bumpSession);
           video.addEventListener(
@@ -404,6 +435,8 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
             { once: true },
           );
         } else {
+          video.disablePictureInPicture = false;
+          video.disableRemotePlayback = false;
           video.src = src;
           video.addEventListener(
             "canplay",
@@ -473,6 +506,9 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
         className={cn("h-full w-full bg-black object-contain", className)}
         controls={controls}
         playsInline
+        // Keep remote playback / PiP allowed (hls.js ManagedMediaSource may flip these).
+        disablePictureInPicture={false}
+        disableRemotePlayback={false}
         preload="auto"
         autoPlay
       />

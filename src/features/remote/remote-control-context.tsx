@@ -110,6 +110,11 @@ function remotePathname(path: string): string {
   return queryStart === -1 ? raw : raw.slice(0, queryStart);
 }
 
+function sanitizeRemoteHref(href: string): string {
+  if (!href.startsWith("/")) return href;
+  return remotePathname(href);
+}
+
 function remotePathsMatch(a: string, b: string): boolean {
   return remotePathname(a) === remotePathname(b);
 }
@@ -253,19 +258,19 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
   const sendNavigate = useCallback(
     async (href: string) => {
       if (!activeSessionId) return false;
-      pendingRemotePathRef.current = remotePathname(href);
-      mirrorNavigate(href);
-      const sent = await sendCommand({ type: "navigate", payload: { href } });
+      const targetHref = sanitizeRemoteHref(href);
+      pendingRemotePathRef.current = remotePathname(targetHref);
+      const sent = await sendCommand({ type: "navigate", payload: { href: targetHref } });
       if (!sent) pendingRemotePathRef.current = null;
       return sent;
     },
-    [activeSessionId, mirrorNavigate, sendCommand],
+    [activeSessionId, sendCommand],
   );
 
   const syncMobileToTv = useCallback(() => {
-    if (!activeSession?.pathname) return;
-    mirrorNavigate(activeSession.pathname);
-  }, [activeSession?.pathname, mirrorNavigate]);
+    // Deliberately no-op: avoid copying mobile/TV URL state (watch session IDs, etc.)
+    // across devices. Remote should send user actions, not session-bound page URLs.
+  }, []);
 
   const enterRemoteMode = useCallback(
     (sessionId?: string) => {
@@ -279,11 +284,8 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
       writeStoredSessionId(DISMISSED_SESSION_KEY, null);
       setSessionPickerOpen(false);
       setPromptOpen(false);
-      if (target.pathname) {
-        mirrorNavigate(target.pathname);
-      }
     },
-    [activeSessionId, mirrorNavigate, sessions],
+    [activeSessionId, sessions],
   );
 
   const openSessionPicker = useCallback(() => {
@@ -315,9 +317,7 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
 
     const heartbeat = async () => {
       const currentPath =
-        typeof window !== "undefined"
-          ? `${window.location.pathname}${window.location.search}`
-          : "/";
+        typeof window !== "undefined" ? window.location.pathname : "/";
       const response = await zendeFetch("/api/remote/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -401,36 +401,16 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isMobileController || !activeSessionId || !activeSession?.pathname) return;
     const tvPath = activeSession.pathname;
-    const mobilePath = pathname;
-    if (remotePathsMatch(tvPath, mobilePath)) {
-      if (
-        pendingRemotePathRef.current &&
-        remotePathname(tvPath) === pendingRemotePathRef.current
-      ) {
-        pendingRemotePathRef.current = null;
-      }
-      return;
+    if (
+      pendingRemotePathRef.current &&
+      remotePathname(tvPath) === pendingRemotePathRef.current
+    ) {
+      pendingRemotePathRef.current = null;
     }
-
-    const pending = pendingRemotePathRef.current;
-    if (pending) {
-      // Phone sent a navigate; wait for TV heartbeat to catch up instead of pulling back.
-      if (remotePathname(mobilePath) === pending) return;
-      if (remotePathname(tvPath) === pending) {
-        pendingRemotePathRef.current = null;
-        return;
-      }
-    }
-
-    // Avoid fighting with a navigate we just sent from the phone
-    if (Date.now() - lastLocalNavigateRef.current < 2_000) return;
-    mirrorNavigate(tvPath);
   }, [
     activeSession?.pathname,
     activeSessionId,
     isMobileController,
-    mirrorNavigate,
-    pathname,
   ]);
 
   const value = useMemo<RemoteControlContextValue>(

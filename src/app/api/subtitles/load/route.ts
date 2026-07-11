@@ -4,7 +4,10 @@ import { z } from "zod";
 import { gateApiRequest } from "@/lib/auth/gate-api";
 import { wyzieConfigured } from "@/lib/subtitles/wyzie-config";
 import { fetchWyzieSubtitlePayload } from "@/lib/subtitles/wyzie-client";
-import { storeSubtitleVtt } from "@/lib/subtitles/subtitle-cache";
+import {
+  readSubtitleVttBySourceUrl,
+  storeSubtitleVtt,
+} from "@/lib/subtitles/subtitle-cache";
 
 export const runtime = "nodejs";
 
@@ -36,12 +39,23 @@ export async function POST(request: Request) {
   }
 
   try {
+    const cached = readSubtitleVttBySourceUrl(parsed.data.url);
+    if (cached) {
+      return NextResponse.json({
+        trackId: cached.trackId,
+        label: parsed.data.label,
+        language: parsed.data.language,
+        vttUrl: `/api/subtitles/vtt/${cached.trackId}`,
+      });
+    }
+
     const payload = await fetchWyzieSubtitlePayload(parsed.data.url);
     const trackId = storeSubtitleVtt({
       label: parsed.data.label,
       language: parsed.data.language,
       text: payload.text,
       fileName: parsed.data.fileName ?? payload.fileName,
+      sourceUrl: parsed.data.url,
     });
 
     return NextResponse.json({

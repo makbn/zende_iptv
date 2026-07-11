@@ -144,17 +144,24 @@ type PipCapableVideo = HTMLVideoElement & {
 };
 
 function isPipAvailable(video?: HTMLVideoElement | null): boolean {
-  if (typeof document === "undefined") return false;
-  if (document.pictureInPictureEnabled) return true;
-  const pipVideo = video as PipCapableVideo | null;
-  return Boolean(pipVideo?.webkitSupportsPresentationMode?.("picture-in-picture"));
+  if (typeof document === "undefined" || !video) return false;
+  const pipVideo = video as PipCapableVideo;
+  // iOS Safari: WebKit presentation mode is the reliable PiP API.
+  if (pipVideo.webkitSupportsPresentationMode?.("picture-in-picture")) {
+    return true;
+  }
+  if (video.disablePictureInPicture) return false;
+  return Boolean(
+    document.pictureInPictureEnabled &&
+      typeof video.requestPictureInPicture === "function",
+  );
 }
 
 function isPipActive(video?: HTMLVideoElement | null): boolean {
   if (!video) return false;
   const pipVideo = video as PipCapableVideo;
-  if (document.pictureInPictureElement === video) return true;
-  return pipVideo.webkitPresentationMode === "picture-in-picture";
+  if (pipVideo.webkitPresentationMode === "picture-in-picture") return true;
+  return document.pictureInPictureElement === video;
 }
 
 function navigateRingEntry(
@@ -558,11 +565,16 @@ export function WatchView() {
     v.addEventListener("enterpictureinpicture", onEnter);
     v.addEventListener("leavepictureinpicture", onLeave);
     v.addEventListener("webkitpresentationmodechanged", syncPip);
+    // iOS often reports PiP support only after media is ready / playing.
+    v.addEventListener("loadedmetadata", syncPip);
+    v.addEventListener("play", syncPip);
     syncPip();
     return () => {
       v.removeEventListener("enterpictureinpicture", onEnter);
       v.removeEventListener("leavepictureinpicture", onLeave);
       v.removeEventListener("webkitpresentationmodechanged", syncPip);
+      v.removeEventListener("loadedmetadata", syncPip);
+      v.removeEventListener("play", syncPip);
     };
   }, [playbackSrc, playerSession]);
 
@@ -859,12 +871,16 @@ export function WatchView() {
     const v = videoRef.current as PipCapableVideo | null;
     if (!v || !isPipAvailable(v)) return;
     try {
-      if (v.webkitSupportsPresentationMode?.("picture-in-picture")) {
+      // Must be playing for iOS WebKit PiP to accept the mode change.
+      if (v.paused) {
+        await v.play().catch(() => undefined);
+      }
+      if (typeof v.webkitSetPresentationMode === "function") {
         const nextMode =
           v.webkitPresentationMode === "picture-in-picture"
             ? "inline"
             : "picture-in-picture";
-        v.webkitSetPresentationMode?.(nextMode);
+        v.webkitSetPresentationMode(nextMode);
         setPipActive(nextMode === "picture-in-picture");
         return;
       }
@@ -874,7 +890,7 @@ export function WatchView() {
         await v.requestPictureInPicture();
       }
     } catch {
-      /* ignore */
+      /* ignore — browser may deny PiP without a clear reason */
     }
   }, []);
 

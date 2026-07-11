@@ -1,6 +1,8 @@
 # Zenede
 
-**Zenede** is a self-hosted **IPTV hub**: an app that combines a TV-style web UI with a **server-side stream relay**, **per-channel VPN / proxy routing**, **scheduled and ad-hoc recordings** (ffmpeg), **channel health probes**, **EPG** for favorites, and **Xtream-compatible** URLs for external players (e.g. TiviMate). The browser does not pull raw provider URLs for playback—sessions go through **`/api/stream/proxy/...`**, where the server applies your proxy, cookies, and HLS rewrites. Zenede does not host or transcode third-party streams; it orchestrates access to URLs you supply.
+**Zenede** is a self-hosted **IPTV hub**: a TV- and phone-friendly web UI with a **server-side stream relay**, **per-channel VPN / proxy routing**, **DVR recordings** (ffmpeg), **VOD subtitles**, **phone→TV remote control**, **channel health**, **EPG**, **HDHomeRun-style DVR endpoints** for Plex/Jellyfin, and an **Xtream-compatible portal** for apps like TiviMate.
+
+The browser does not pull raw provider URLs for playback—sessions go through **`/api/stream/proxy/...`**, where the server applies your proxy, cookies, and HLS rewrites. Zenede does not host or transcode third-party streams; it orchestrates access to URLs you supply.
 
 ## Screenshots
 
@@ -11,14 +13,18 @@
 
 | Area | Details |
 |------|---------|
-| **Stream relay** | Registers an upstream URL in a short-lived **stream session**; the player and tools use **`/api/stream/proxy/{id}`**. Upstream fetches use **undici** with optional **HTTP/SOCKS** or **Gluetun** VPN, cookie jars, redirects, and **M3U8 rewriting** so segments and keys stay on your origin. |
-| **Web UI** | Home, **Library** (catalog), **Watch** (HLS.js), **Favorites** (with EPG strip), **Recordings** (DVR), **Board**, **Settings** (proxies, integrations, auth, playback prefs), optional **Setup** / **Login**. |
-| **VPN / proxy per channel** | In **Settings → VPN Proxies**, define direct proxies or **Gluetun** (NordVPN, ExpressVPN, ProtonVPN, custom OpenVPN/WireGuard). Assign channels by URL hash so only those streams use that exit; others stay direct. |
-| **IPTV apps** | **Settings → Integrations**: portal credentials for **Xtream-style** clients — `player_api.php`, `get.php`, `xmltv.php`, `/live/...` on the same host as the app. |
-| **Recordings** | Start captures from the UI; server runs **ffmpeg** against the **same relay URL** as playback (VPN/cookies apply). Schedules and metadata in SQLite; MP4s on disk — in Docker, **`ZENDE_RECORDINGS_DIR`** points at **`/data/recordings`** on the **`zende-data`** volume so files survive rebuilds. |
+| **Stream relay** | Registers an upstream URL in a short-lived **stream session**; the player and tools use **`/api/stream/proxy/{id}`**. Upstream fetches use **undici** with optional **HTTP/SOCKS** or **Gluetun** VPN, cookie jars, redirects, and **M3U8 rewriting** so segments and keys stay on your origin. On **iPhone/iPad**, live HLS prefers Safari’s **native player** so Picture-in-Picture and AirPlay keep working. |
+| **Web UI** | Responsive **TV** and **mobile** layouts: **Home**, **Library** (live / movies / shows), **series detail** (seasons & episodes), **Watch**, **Favorites**, **Guide**, **Recordings** (DVR), **Board**, **Settings**, optional **Setup** / **Login**. |
+| **Phone remote** | Sign in on your phone and **control the TV browser** (navigate, play/pause, seek) without sharing the phone’s playback session URL with the TV. |
+| **QR login** | On the TV login screen, scan a **QR code** with your phone to approve sign-in (or enter credentials on mobile). |
+| **VPN / proxy per channel** | **Settings → VPN Proxies**: direct proxies or **Gluetun** (NordVPN, ExpressVPN, ProtonVPN, custom OpenVPN/WireGuard). Assign channels by URL hash so only those streams use that exit. |
+| **IPTV apps** | **Settings → Integrations**: portal credentials for **Xtream-style** clients — `player_api.php`, `get.php`, `xmltv.php`, `/live/...` on the same host. |
+| **HDHomeRun DVR** | Emulates HDHomeRun discovery / lineup / tune endpoints so **Plex** or **Jellyfin** can use Zenede as a Live TV / DVR source (`discover.json`, `lineup.json`, `/hdhr/stream/...`). |
+| **Recordings** | Start or schedule captures from the UI; **ffmpeg** records through the **same relay** as playback (VPN/cookies apply). Metadata in SQLite; MP4s on disk — in Docker, **`ZENDE_RECORDINGS_DIR=/data/recordings`** on the **`zende-data`** volume. |
+| **Subtitles (VOD)** | Search and load external subtitles via **Wyzie** (+ optional **TMDB** title match) in **Settings → Integrations**. Search results and loaded VTT tracks are **cached ~7 days** on disk (`ZENDE_SUBTITLES_DIR`, default `/data/subtitles` in Docker). |
 | **Channel health** | Registry sync, probes, aggregates (tiers), optional **cron**-style jobs (`CRON_SECRET`). |
-| **EPG** | Favorites **“What’s on”** uses merged XMLTV sources + iptvx-style resolution; optional **`ZENDE_EPG_GUIDE_URLS`** for self-hosted guides ([iptv-org/epg](https://github.com/iptv-org/epg)). |
-| **Auth & data** | Optional JWT auth, admin users, per-user **favorites** and **history** when enabled. **SQLite** (file or Docker volume) for catalog cache, proxies, portal keys, sessions, recordings metadata. |
+| **EPG** | Favorites **“What’s on”** and **Guide** use merged XMLTV sources; optional **`ZENDE_EPG_GUIDE_URLS`** for self-hosted guides ([iptv-org/epg](https://github.com/iptv-org/epg)). |
+| **Auth & data** | Optional JWT auth, admin users, QR pairing, per-user **favorites** / **history** / **playback position**. **SQLite** for catalog cache, proxies, portal keys, sessions, recordings, subtitle settings. |
 
 Legal note: default catalog presets may link to third-party streams; you are responsible for rights and local law. See iptv-org’s [legal section](https://github.com/iptv-org/iptv#legal).
 
@@ -33,9 +39,24 @@ docker compose up --build
 
 Open **http://localhost:8077** (or set `PORT` / `DOCKER_PUBLISH` in `.env` — see [Advanced setup](docs/ADVANCED.md)).
 
-On first boot the entrypoint runs **`prisma migrate deploy`** against the persisted database on the **`zende-data`** volume. Recording MP4s are written to **`/data/recordings`** on that same volume so they survive image rebuilds and container recreation.
+On first boot the entrypoint runs **`prisma migrate deploy`** against the persisted database on the **`zende-data`** volume. Recordings and subtitle cache live under **`/data`** on that same volume so they survive image rebuilds.
 
 For production, set a strong **`AUTH_JWT_SECRET`** in `.env`. Behind a reverse proxy, ensure **`Host`** and **`X-Forwarded-Proto`** (or **`Forwarded`**) reach the app so HLS URLs rewrite correctly; use **`PUBLIC_APP_URL`** only if those headers are missing.
+
+### Useful environment variables
+
+| Variable | Purpose |
+|----------|---------|
+| `AUTH_JWT_SECRET` | Signs access/refresh tokens when login is enabled (required in production). |
+| `CRON_SECRET` | Optional Bearer token for cron / health / registry APIs. |
+| `ZENDE_RECORDINGS_DIR` | DVR MP4 root (Compose default: `/data/recordings`). |
+| `ZENDE_SUBTITLES_DIR` | Subtitle search + VTT cache (Compose default: `/data/subtitles`, ~7-day TTL). |
+| `WYZIE_API_KEY` / `TMDB_API_KEY` | Optional env fallbacks for subtitle search (or set keys in Settings → Integrations). |
+| `ZENDE_EPG_GUIDE_URLS` | Optional comma-separated XMLTV guide URLs. |
+| `PUBLIC_APP_URL` | Force public origin for rewritten stream URLs when proxy headers are missing. |
+| `DOCKER_PUBLISH` | Bind a specific host IP/port (e.g. `192.168.1.50:8077:8077`). |
+
+Full reference: [Advanced setup](docs/ADVANCED.md).
 
 ## Quick start (local dev)
 
@@ -44,15 +65,27 @@ npm install
 npm run dev
 ```
 
-Default port **8077**; override with **`PORT`** and other variables in a **`.env`** file (see [Advanced setup](docs/ADVANCED.md)). Install **ffmpeg** on the host if you use recordings outside Docker.
+Default port **8077**; override with **`PORT`**. Install **ffmpeg** on the host if you use recordings outside Docker.
+
+```bash
+npm test                 # unit tests
+npm run test:recording   # recording-focused checks
+```
 
 ## Documentation
 
-* **[Advanced setup](docs/ADVANCED.md)** — iptv-org pipeline, full Docker/env reference, VPN/Gluetun, per-channel assignment, Xtream portal notes, authentication, cron/health jobs, EPG env vars.
+* **[Advanced setup](docs/ADVANCED.md)** — iptv-org pipeline, Docker/env reference, VPN/Gluetun, per-channel assignment, Xtream portal, authentication, cron/health, EPG.
+
+## Stack
+
+* **Next.js 16** (App Router) + **React 19** + **Prisma** / **SQLite**
+* **hls.js** (desktop) / **native HLS** on Apple mobile
+* **ffmpeg** for DVR, **undici** + optional **Gluetun** for upstream fetches
+* Committed CSS utilities for broad TV / older-browser compatibility
 
 ## Summary
 
-Zenede is a **self-hosted IPTV control plane**: relayed playback and recordings through your server, **optional per-channel VPN exits**, **Xtream-compatible** portals for hardware/apps, and optional multi-user auth—without redistributing stream content.
+Zenede is a **self-hosted IPTV control plane**: relayed playback and recordings through your server, optional per-channel VPN exits, phone remote + QR login, VOD subtitles, HDHomeRun for Plex/Jellyfin, and Xtream-compatible portals—without redistributing stream content.
 
 ## Disclaimer
 

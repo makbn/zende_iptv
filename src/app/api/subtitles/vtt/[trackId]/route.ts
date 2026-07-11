@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { readSubtitleVtt } from "@/lib/subtitles/subtitle-cache";
+import {
+  readSubtitleVtt,
+  SUBTITLE_CACHE_MAX_AGE_SEC,
+} from "@/lib/subtitles/subtitle-cache";
 
 export const runtime = "nodejs";
 
@@ -17,7 +20,7 @@ export async function GET(_request: Request, context: RouteContext) {
     status: 200,
     headers: {
       "Content-Type": "text/vtt; charset=utf-8",
-      "Cache-Control": "private, max-age=3600",
+      "Cache-Control": `private, max-age=${SUBTITLE_CACHE_MAX_AGE_SEC}`,
     },
   });
 }

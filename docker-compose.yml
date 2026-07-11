@@ -12,6 +12,8 @@ services:
       DATABASE_URL: "file:/data/zende.db"
       # DVR MP4 output — must stay on the persisted `/data` volume (same as DATABASE_URL).
       ZENDE_RECORDINGS_DIR: "/data/recordings"
+      # Subtitle VTT + search cache (7-day TTL) — same volume so it survives rebuilds.
+      ZENDE_SUBTITLES_DIR: "/data/subtitles"
       LOG_LEVEL: "${LOG_LEVEL:-info}"
       LOG_PRETTY: "${LOG_PRETTY:-1}"
       NODE_ENV: production

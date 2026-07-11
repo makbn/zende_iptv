@@ -8,7 +8,7 @@ import {
   type RefObject,
 } from "react";
 
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import { ChannelResolutionBadge } from "@/components/tv/channel-resolution-badge";
 import { useMatchMedia } from "@/lib/hooks/use-match-media";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
@@ -429,7 +429,7 @@ function StripTile({
           layout === "compact" && "w-full min-w-0",
         )}
       >
-        <ZenedeGlass
+        <ZendeGlass
           variant="panelCompact"
           className={cn(
             "relative w-full overflow-hidden rounded-[16px]",
@@ -449,7 +449,7 @@ function StripTile({
           >
             {body}
           </div>
-        </ZenedeGlass>
+        </ZendeGlass>
       </div>
     );
   }
@@ -469,7 +469,7 @@ function StripTile({
         "focus-visible:ring-2 focus-visible:ring-white/45 focus-visible:ring-offset-2 focus-visible:ring-offset-black/90",
       )}
     >
-      <ZenedeGlass
+      <ZendeGlass
         variant="panelCompact"
         className={cn(
           "h-full w-full overflow-hidden rounded-[14px]",
@@ -490,7 +490,7 @@ function StripTile({
         >
           {body}
         </div>
-      </ZenedeGlass>
+      </ZendeGlass>
     </button>
   );
 }

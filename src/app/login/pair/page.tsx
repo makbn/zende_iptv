@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useState } from "react";
 
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import { useAuth } from "@/features/auth/auth-context";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { cn } from "@/lib/utils";
@@ -112,7 +112,7 @@ function PairLoginForm() {
   if (user) {
     return (
       <div className="mx-auto w-full max-w-[440px]">
-        <ZenedeGlass
+        <ZendeGlass
           variant="panel"
           className="rounded-[30px] border-white/[0.12] bg-white/[0.055] p-5 sm:p-6"
         >
@@ -132,11 +132,11 @@ function PairLoginForm() {
               onClick={() => void approveCurrentSession()}
               className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] disabled:opacity-50"
             >
-              <ZenedeGlass variant="ctaPill" className="w-full">
+              <ZendeGlass variant="ctaPill" className="w-full">
                 <span className="flex min-h-[52px] items-center justify-center px-6 text-[15px] font-semibold text-[var(--zen-void)]">
                   {busy ? "Approving…" : "Yes, sign in TV"}
                 </span>
-              </ZenedeGlass>
+              </ZendeGlass>
             </button>
             <button
               type="button"
@@ -152,7 +152,7 @@ function PairLoginForm() {
               {error}
             </p>
           ) : null}
-        </ZenedeGlass>
+        </ZendeGlass>
       </div>
     );
   }
@@ -209,11 +209,11 @@ function PairLoginForm() {
           disabled={busy}
           className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] disabled:opacity-50"
         >
-          <ZenedeGlass variant="ctaPill" className="w-full">
+          <ZendeGlass variant="ctaPill" className="w-full">
             <span className="flex min-h-[52px] items-center justify-center px-6 text-[15px] font-semibold text-[var(--zen-void)]">
               {busy ? "Signing in…" : "Sign in on TV"}
             </span>
-          </ZenedeGlass>
+          </ZendeGlass>
         </button>
       </form>
 

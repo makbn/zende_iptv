@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState, startTransition } from "react";
 
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import {
   CinematicCommandPanel,
   CinematicHero,
@@ -559,12 +559,12 @@ export function TvRecordingsPage() {
                 onClick={() => setStartRecordingDialogOpen(true)}
                 className="shrink-0 outline-none"
               >
-                <ZenedeGlass variant="ctaPill">
+                <ZendeGlass variant="ctaPill">
                   <span className="flex items-center gap-2 px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
                     <Plus className="size-4" aria-hidden />
                     Start a recording
                   </span>
-                </ZenedeGlass>
+                </ZendeGlass>
               </button>
             </div>
           </section>
@@ -586,7 +586,7 @@ export function TvRecordingsPage() {
                 aria-labelledby="rec-start-dialog-title"
                 className="relative z-10 my-auto w-full max-w-5xl motion-safe:animate-[glass-modal-pop_0.36s_cubic-bezier(0.16,1,0.3,1)_both]"
               >
-                <ZenedeGlass
+                <ZendeGlass
                   variant="panel"
                   className="flex max-h-[min(92vh,880px)] flex-col overflow-hidden border border-white/[0.12] shadow-[0_40px_120px_-48px_rgba(0,0,0,0.95)]"
                 >
@@ -615,7 +615,7 @@ export function TvRecordingsPage() {
 
                   <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6">
                     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
-                      <ZenedeGlass
+                      <ZendeGlass
                         variant="panel"
                         className="overflow-hidden rounded-[1.35rem] border border-white/[0.1] p-5 shadow-[0_24px_64px_-28px_rgba(0,0,0,0.55)]"
                       >
@@ -690,9 +690,9 @@ export function TvRecordingsPage() {
                             );
                           })}
                         </ul>
-                      </ZenedeGlass>
+                      </ZendeGlass>
 
-                      <ZenedeGlass
+                      <ZendeGlass
                         variant="panel"
                         className="rounded-[1.35rem] border border-white/[0.1] p-5 shadow-[0_24px_64px_-28px_rgba(0,0,0,0.55)]"
                       >
@@ -890,7 +890,7 @@ export function TvRecordingsPage() {
                             </button>
                           </div>
                         ) : null}
-                      </ZenedeGlass>
+                      </ZendeGlass>
                     </div>
                   </div>
 
@@ -903,7 +903,7 @@ export function TvRecordingsPage() {
                       Close
                     </button>
                   </div>
-                </ZenedeGlass>
+                </ZendeGlass>
               </div>
             </div>
           ) : null}
@@ -935,7 +935,7 @@ export function TvRecordingsPage() {
                       : 0;
                   return (
                     <li key={r.id}>
-                      <ZenedeGlass
+                      <ZendeGlass
                         variant="panel"
                         className="relative overflow-hidden rounded-[1.25rem] border border-rose-400/20 bg-rose-500/[0.06] p-4"
                       >
@@ -981,7 +981,7 @@ export function TvRecordingsPage() {
                             Stop &amp; save
                           </button>
                         </div>
-                      </ZenedeGlass>
+                      </ZendeGlass>
                     </li>
                   );
                 })}
@@ -1000,7 +1000,7 @@ export function TvRecordingsPage() {
               <ul className="mt-4 space-y-3">
                 {overview.schedules.map((s) => (
                   <li key={s.id}>
-                    <ZenedeGlass
+                    <ZendeGlass
                       variant="panel"
                       className="rounded-[1.15rem] border border-white/[0.08] p-4 sm:p-5"
                     >
@@ -1133,7 +1133,7 @@ export function TvRecordingsPage() {
                           </div>
                         </div>
                       )}
-                    </ZenedeGlass>
+                    </ZendeGlass>
                   </li>
                 ))}
               </ul>
@@ -1163,7 +1163,7 @@ export function TvRecordingsPage() {
                   const isFailed = item.status === "FAILED";
                   return (
                   <li key={item.id}>
-                    <ZenedeGlass
+                    <ZendeGlass
                       variant="panel"
                       className={cn(
                         "flex flex-col gap-4 rounded-[1.15rem] border border-white/[0.08] p-4 sm:flex-row sm:items-stretch sm:justify-between sm:gap-6 sm:p-5",
@@ -1272,7 +1272,7 @@ export function TvRecordingsPage() {
                           Remove
                         </button>
                       </div>
-                    </ZenedeGlass>
+                    </ZendeGlass>
                   </li>
                   );
                 })}

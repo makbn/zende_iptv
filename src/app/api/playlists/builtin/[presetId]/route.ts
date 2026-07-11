@@ -34,7 +34,7 @@ export async function GET(
   try {
     const upstream = await fetch(source.m3uUrl, {
       headers: {
-        "User-Agent": "Zenede/0.1 (built-in playlist setup; +https://github.com)",
+        "User-Agent": "Zende/0.1 (built-in playlist setup; +https://github.com)",
         Accept: "audio/x-mpegurl, application/vnd.apple.mpegurl, */*",
       },
       next: { revalidate: 3600 },
@@ -56,7 +56,7 @@ export async function GET(
       headers: {
         "Content-Type": "audio/x-mpegurl",
         "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
-        "X-Zenede-Preset": presetId,
+        "X-Zende-Preset": presetId,
       },
     });
   } catch (err) {

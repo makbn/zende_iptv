@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 import { TvCatalogSetupStrip } from "@/components/tv/tv-catalog-setup-strip";
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
 import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
@@ -51,7 +51,7 @@ export function TvSetupPage() {
               Welcome
             </p>
             <h1 className="zen-page-title mt-3">
-              Set up Zenede
+              Set up Zende
             </h1>
             <p className="zen-body-muted mx-auto mt-3 max-w-md sm:text-[16px]">
               Add the built-in channel index once. Home then shows recents and picks — tuned for the big screen.
@@ -74,11 +74,11 @@ export function TvSetupPage() {
               onClick={onNavigateClick("/settings")}
               className="outline-none"
             >
-              <ZenedeGlass variant="heroSecondary" className="inline-block">
+              <ZendeGlass variant="heroSecondary" className="inline-block">
                 <span className="flex min-h-[44px] min-w-[160px] items-center justify-center px-6 text-[16px] font-semibold text-white">
                   Advanced options
                 </span>
-              </ZenedeGlass>
+              </ZendeGlass>
             </Link>
             <p className="max-w-sm text-center text-[14px] leading-relaxed text-white/40">
               Catalog updates and stream health tools live in Settings whenever you

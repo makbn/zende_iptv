@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -56,7 +56,7 @@ export function ConfirmDialog({
         className="w-full max-w-md"
         onClick={(e) => e.stopPropagation()}
       >
-        <ZenedeGlass variant="panelCompact" className="rounded-2xl border-white/10">
+        <ZendeGlass variant="panelCompact" className="rounded-2xl border-white/10">
           <div className="px-5 py-5">
             <h2
               id="confirm-dialog-title"
@@ -95,7 +95,7 @@ export function ConfirmDialog({
               </button>
             </div>
           </div>
-        </ZenedeGlass>
+        </ZendeGlass>
       </div>
     </div>
   );

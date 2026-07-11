@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { GlassSearchModal } from "@/components/glass/glass-search-modal";
 import { WatchTogetherDialog } from "@/components/tv/watch-together-dialog";
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import { useAuth } from "@/features/auth/auth-context";
 import { LayoutGrid, LogOut, Settings, User } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -57,11 +57,11 @@ function HeaderUserMenu({ compact }: { compact: boolean }) {
         title="Sign-in disabled"
         aria-hidden
       >
-        <ZenedeGlass variant="iconChip" className="size-9 opacity-60">
+        <ZendeGlass variant="iconChip" className="size-9 opacity-60">
           <span className="flex size-9 items-center justify-center text-white/55">
             <User size={18} strokeWidth={2.25} aria-hidden />
           </span>
-        </ZenedeGlass>
+        </ZendeGlass>
       </div>
     );
   }
@@ -74,11 +74,11 @@ function HeaderUserMenu({ compact }: { compact: boolean }) {
         className="group relative outline-none"
         aria-label="Sign in"
       >
-        <ZenedeGlass variant="iconChip" className="size-9 opacity-80">
+        <ZendeGlass variant="iconChip" className="size-9 opacity-80">
           <span className="flex size-9 items-center justify-center text-white/70 transition-colors group-hover:text-white">
             <User size={18} strokeWidth={2.25} aria-hidden />
           </span>
-        </ZenedeGlass>
+        </ZendeGlass>
       </Link>
     );
   }
@@ -94,7 +94,7 @@ function HeaderUserMenu({ compact }: { compact: boolean }) {
         aria-expanded={open}
         aria-haspopup="menu"
       >
-        <ZenedeGlass variant="iconChip" className="size-10">
+        <ZendeGlass variant="iconChip" className="size-10">
           <span
             className={cn(
               "flex size-10 items-center justify-center text-[13px] font-semibold text-white/95 transition-colors group-hover:text-white group-focus-visible:text-white",
@@ -104,7 +104,7 @@ function HeaderUserMenu({ compact }: { compact: boolean }) {
           >
             {letter}
           </span>
-        </ZenedeGlass>
+        </ZendeGlass>
       </button>
       {open ? (
         <div
@@ -281,12 +281,12 @@ export function TvTopBar() {
               <Link
                 href="/"
                 onClick={onNavigateClick("/")}
-                aria-label="Zenede home"
+                aria-label="Zende home"
                 className="zen-focus-ring flex shrink-0 items-center gap-2 rounded-full outline-none transition-opacity duration-300 hover:opacity-95 sm:gap-2.5"
               >
                 {/* block + aspect-ratio avoids baseline clipping; removed overflow-hidden on chrome (was cropping) */}
                 <img
-                  src="/zenede-logo.svg"
+                  src="/zende-logo.svg"
                   alt=""
                   width={225}
                   height={82}
@@ -295,7 +295,7 @@ export function TvTopBar() {
                   fetchPriority="high"
                 />
                 <span className="text-[18px] font-semibold tracking-[-0.04em] text-white">
-                  Zenede
+                  Zende
                 </span>
                 <span className="zen-kicker hidden md:inline">
                   Live
@@ -319,11 +319,11 @@ export function TvTopBar() {
                   className="group zen-focus-ring relative rounded-full outline-none"
                   aria-label="Watch multiple channels"
                 >
-                  <ZenedeGlass variant="iconChip" className="size-10">
+                  <ZendeGlass variant="iconChip" className="size-10">
                     <span className="flex size-10 items-center justify-center text-white/78 transition-colors group-hover:text-white">
                       <LayoutGrid size={18} strokeWidth={2.25} aria-hidden />
                     </span>
-                  </ZenedeGlass>
+                  </ZendeGlass>
                 </button>
                 <button
                   type="button"
@@ -331,7 +331,7 @@ export function TvTopBar() {
                   className="group zen-focus-ring relative rounded-full outline-none"
                   aria-label="Search channels"
                 >
-                  <ZenedeGlass variant="iconChip" className="size-10">
+                  <ZendeGlass variant="iconChip" className="size-10">
                     <span className="flex size-10 items-center justify-center text-white/78 transition-colors group-hover:text-white">
                       <svg
                         width="18"
@@ -347,7 +347,7 @@ export function TvTopBar() {
                         <path d="m20 20-4.2-4.2" />
                       </svg>
                     </span>
-                  </ZenedeGlass>
+                  </ZendeGlass>
                 </button>
                 <HeaderUserMenu compact={compact} />
               </div>

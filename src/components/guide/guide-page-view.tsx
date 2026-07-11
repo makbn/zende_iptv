@@ -16,7 +16,7 @@ import { TvChannelTile } from "@/components/tv/tv-channel-tile";
 import {
   TV_BROWSE_TOP_PAD_CLASS,
 } from "@/components/tv/tv-top-bar";
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { useChannelHealthLookup } from "@/features/health/use-channel-health";
 import { useEnrichedFavorites } from "@/features/iptv/use-enriched-favorites";
@@ -138,7 +138,7 @@ export function GuidePageView({ mobile = false }: { mobile?: boolean }) {
               className={mobile ? undefined : "w-full"}
             />
           ) : (
-            <ZenedeGlass variant="panel" className="p-6 text-center">
+            <ZendeGlass variant="panel" className="p-6 text-center">
               <Radio className="mx-auto mb-3 size-8 text-[var(--zen-signal)]/60" aria-hidden />
               <p className="text-[22px] font-semibold tracking-[-0.04em] text-white">No favorites yet</p>
               <p className="zen-body-muted mt-2 text-[14px]">
@@ -150,7 +150,7 @@ export function GuidePageView({ mobile = false }: { mobile?: boolean }) {
               >
                 Open Favorites
               </Link>
-            </ZenedeGlass>
+            </ZendeGlass>
           )}
 
           {discoverLive.length > 0 ? (

@@ -1,4 +1,4 @@
-# Zenede — advanced setup
+# Zende — advanced setup
 
 This document expands on [README.md](../README.md): iptv-org mechanics, Docker options, VPN/Gluetun details, authentication, and automation.
 
@@ -8,7 +8,7 @@ The project **[iptv-org/iptv](https://github.com/iptv-org/iptv)** publishes a **
 
 `https://iptv-org.github.io/iptv/index.m3u`
 
-Zenede registers this URL as the built-in preset in [`src/config/builtin-playlist-sources.ts`](../src/config/builtin-playlist-sources.ts):
+Zende registers this URL as the built-in preset in [`src/config/builtin-playlist-sources.ts`](../src/config/builtin-playlist-sources.ts):
 
 * **Preset ID:** `iptv-org-world-index`
 * **Source URL:** `https://iptv-org.github.io/iptv/index.m3u`
@@ -22,7 +22,7 @@ Zenede registers this URL as the built-in preset in [`src/config/builtin-playlis
 4. **Cache.** Parsed data is stored in IndexedDB per preset to avoid full re-download each session.
 5. **Registry (optional).** Metadata may sync into SQLite-backed registry and health features when those options are enabled.
 
-Streams are operated by third parties. Zenede does not re-host streams; playback uses the URL from the playlist in the browser player. Legal and availability considerations for the index are described in the **[iptv-org Legal](https://github.com/iptv-org/iptv#legal)** section of their repository.
+Streams are operated by third parties. Zende does not re-host streams; playback uses the URL from the playlist in the browser player. Legal and availability considerations for the index are described in the **[iptv-org Legal](https://github.com/iptv-org/iptv#legal)** section of their repository.
 
 ## Local development
 
@@ -76,7 +76,7 @@ By default Compose maps the container port to **all** interfaces (`0.0.0.0`). To
 | `CRON_SECRET` | No | — | `Authorization: Bearer` guard for cron and registry APIs. |
 | `LOG_LEVEL` | No | `info` | Server log verbosity. |
 | `GLUETUN_HOST_WORKDIR` | No | `./gluetun-work` (relative to project dir) | **Host** path where Gluetun OpenVPN/WireGuard config dirs are stored. Must be an absolute host path when running inside Docker — set it in `.env`, e.g. `GLUETUN_HOST_WORKDIR=/your/host/path/gluetun-work`. See [VPN Proxies](#vpn-proxies). |
-| `GLUETUN_CONTAINER_WORKDIR` | No | `/gluetun-work` | Path inside the Zenede container where the same directory is mounted. Do not change unless you edit `docker-compose.yml`. |
+| `GLUETUN_CONTAINER_WORKDIR` | No | `/gluetun-work` | Path inside the Zende container where the same directory is mounted. Do not change unless you edit `docker-compose.yml`. |
 
 Do not commit secrets; inject them via the host environment or your orchestrator.
 
@@ -85,8 +85,8 @@ Do not commit secrets; inject them via the host environment or your orchestrator
 | Mount | Purpose |
 |-------|---------|
 | `zende-data:/data` | Named volume — persists SQLite (`zende.db`) and recordings (`recordings/` when `ZENDE_RECORDINGS_DIR` is under `/data`). Remove with `docker compose down -v`. |
-| `/var/run/docker.sock` | Docker socket — lets Zenede start/stop Gluetun sibling containers. Required for VPN proxy feature. |
-| `GLUETUN_HOST_WORKDIR:/gluetun-work` | Shared config directory — Zenede writes OpenVPN/WireGuard files here; Gluetun containers mount sub-directories from the **host** side of this path. |
+| `/var/run/docker.sock` | Docker socket — lets Zende start/stop Gluetun sibling containers. Required for VPN proxy feature. |
+| `GLUETUN_HOST_WORKDIR:/gluetun-work` | Shared config directory — Zende writes OpenVPN/WireGuard files here; Gluetun containers mount sub-directories from the **host** side of this path. |
 
 ### Common commands
 
@@ -101,20 +101,20 @@ Compose includes a **healthcheck** on `GET /api/health`; wait until the service 
 
 ## VPN proxies (deep dive)
 
-Some streams are geo-blocked or rate-limited by IP. Zenede can route **individual channels** through an HTTP/SOCKS5 proxy or a containerized VPN — all managed from **Settings → VPN Proxies**.
+Some streams are geo-blocked or rate-limited by IP. Zende can route **individual channels** through an HTTP/SOCKS5 proxy or a containerized VPN — all managed from **Settings → VPN Proxies**.
 
 ### How it works
 
 When a channel is assigned to a proxy, every segment, manifest, and key request for that channel passes through the proxy server. The proxy is applied only at the stream session layer — the player itself makes no direct upstream connections.
 
-For VPN-backed proxies, Zenede launches a **[Gluetun](https://github.com/qdm12/gluetun)** Docker container that establishes the VPN tunnel and exposes a local HTTP proxy port on `127.0.0.1`. Zenede then routes the channel's stream traffic through that port.
+For VPN-backed proxies, Zende launches a **[Gluetun](https://github.com/qdm12/gluetun)** Docker container that establishes the VPN tunnel and exposes a local HTTP proxy port on `127.0.0.1`. Zende then routes the channel's stream traffic through that port.
 
 ### Proxy types
 
 | Type | When to use |
 |------|-------------|
 | **Direct proxy** | You already have an HTTP, HTTPS, or SOCKS5 proxy server (e.g. Squid, Dante, or a paid proxy service). Enter the host, port, and optional credentials. |
-| **Gluetun VPN** | You want an isolated VPN tunnel per proxy slot. Requires Docker on the host running Zenede. |
+| **Gluetun VPN** | You want an isolated VPN tunnel per proxy slot. Requires Docker on the host running Zende. |
 
 ### Supported VPN providers (Gluetun)
 
@@ -132,22 +132,22 @@ For VPN-backed proxies, Zenede launches a **[Gluetun](https://github.com/qdm12/g
 2. If the config references external files (`ca`, `cert`, `key`, `tls-auth`, etc.) by filename, extra fields appear automatically — one per referenced file.
 3. Drag and drop each cert/key file directly onto its field to load it, or paste the PEM content manually.
 4. Enter your OpenVPN username and password if the server requires them.
-5. Click **Add VPN**. Zenede resolves any hostnames in `remote` lines to IPs (Gluetun requires IP addresses) and rewrites file paths before writing them into the container.
+5. Click **Add VPN**. Zende resolves any hostnames in `remote` lines to IPs (Gluetun requires IP addresses) and rewrites file paths before writing them into the container.
 
 ### Docker requirements for Gluetun
 
 | Requirement | Where it applies | Notes |
 |-------------|-----------------|-------|
-| Docker socket `/var/run/docker.sock` | Zenede container | Already mounted by `docker-compose.yml`. The entrypoint detects the socket GID at runtime and grants the app user access — no hardcoded group needed. |
-| `/dev/net/tun` device | **Host kernel** | Standard on Linux. Gluetun containers request it via `HostConfig.Devices` when spawned; Zenede itself does **not** need this device. |
-| `NET_ADMIN` capability | **Gluetun containers** | Granted automatically when Zenede starts each Gluetun container. Zenede itself does **not** need `cap_add: [NET_ADMIN]`. |
+| Docker socket `/var/run/docker.sock` | Zende container | Already mounted by `docker-compose.yml`. The entrypoint detects the socket GID at runtime and grants the app user access — no hardcoded group needed. |
+| `/dev/net/tun` device | **Host kernel** | Standard on Linux. Gluetun containers request it via `HostConfig.Devices` when spawned; Zende itself does **not** need this device. |
+| `NET_ADMIN` capability | **Gluetun containers** | Granted automatically when Zende starts each Gluetun container. Zende itself does **not** need `cap_add: [NET_ADMIN]`. |
 | `GLUETUN_HOST_WORKDIR` directory | Host filesystem | Create it once: `mkdir -p /opt/zende/gluetun-work`. Used only for Custom OpenVPN/WireGuard — providers like NordVPN need no config files. |
 
 The Gluetun image (`ghcr.io/qdm12/gluetun:latest`) is pulled automatically on first launch.
 
 #### Why the work directory matters
 
-Gluetun containers are spawned as **siblings** on the host Docker daemon (not nested inside Zenede). Bind-mount paths in `HostConfig.Binds` must resolve on the **host** filesystem. Zenede writes OpenVPN/WireGuard config files to `GLUETUN_CONTAINER_WORKDIR` (inside the container), which is the same physical path as `GLUETUN_HOST_WORKDIR` on the host via the bind mount. When creating the Gluetun container, Zenede passes the host-side path so Docker resolves it correctly.
+Gluetun containers are spawned as **siblings** on the host Docker daemon (not nested inside Zende). Bind-mount paths in `HostConfig.Binds` must resolve on the **host** filesystem. Zende writes OpenVPN/WireGuard config files to `GLUETUN_CONTAINER_WORKDIR` (inside the container), which is the same physical path as `GLUETUN_HOST_WORKDIR` on the host via the bind mount. When creating the Gluetun container, Zende passes the host-side path so Docker resolves it correctly.
 
 ### Assigning channels to a proxy
 
@@ -161,11 +161,11 @@ Open a proxy in **Settings → VPN Proxies** and click the **Channels** button. 
 | **Stop** | Container is stopped and removed; the DB entry retains the configuration. |
 | **Relaunch** | Previous container is removed and a fresh one is created with the current config. |
 
-A proxy in `error` or `stopped` state blocks playback for channels assigned to it — Zenede returns a clear message rather than silently timing out.
+A proxy in `error` or `stopped` state blocks playback for channels assigned to it — Zende returns a clear message rather than silently timing out.
 
 ## IPTV apps (Xtream-style portal)
 
-Zenede can expose an **Xtream Codes–compatible** API for players such as **TiviMate**:
+Zende can expose an **Xtream Codes–compatible** API for players such as **TiviMate**:
 
 * **`player_api.php`**, **`get.php`** (M3U), **`xmltv.php`**, and **`/live/...`** playback URLs.
 * Long-lived **portal keys** under **Settings → Integrations**.

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import { TvCatalogSetupStrip } from "@/components/tv/tv-catalog-setup-strip";
 import { TvManualChannelsSection } from "@/components/tv/tv-manual-channels-section";
 import { TvPersonalLibraryCard } from "@/components/tv/tv-personal-library-card";
@@ -19,7 +19,7 @@ import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
 
-const STORAGE_KEY = "zenede.cronSecret";
+const STORAGE_KEY = "zende.cronSecret";
 const source = BUILTIN_PLAYLIST_SOURCES[0]!;
 const log = createClientLogger("shell.MobileSettingsPage");
 
@@ -130,7 +130,7 @@ export function MobileSettingsPage() {
           )}
         >
           <p className="zen-kicker text-[10px]">
-            Zenede
+            Zende
           </p>
           <h1 className="mt-1 text-[1.45rem] font-semibold leading-none tracking-[-0.055em] text-white sm:text-[1.55rem]">
             Settings
@@ -142,7 +142,7 @@ export function MobileSettingsPage() {
       </section>
 
       <section className="sticky top-[5.35rem] z-40 mt-2 px-3" aria-label="Settings sections">
-        <ZenedeGlass
+        <ZendeGlass
           variant="panelCompact"
           className="rounded-[24px] border-white/[0.12] bg-black/62 p-2 shadow-[0_18px_58px_-28px_rgba(0,0,0,0.9)] transition-shadow duration-300"
         >
@@ -175,7 +175,7 @@ export function MobileSettingsPage() {
               </button>
             ))}
           </div>
-        </ZenedeGlass>
+        </ZendeGlass>
       </section>
 
       <div className="mt-4 space-y-4 px-4" role="tabpanel">

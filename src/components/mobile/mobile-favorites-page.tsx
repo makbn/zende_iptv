@@ -14,7 +14,7 @@ import { Heart, Radio, Search, X } from "lucide-react";
 
 import { MobileChannelCard } from "@/components/mobile/mobile-channel-card";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import {
   listFavorites,
   subscribeFavorites,
@@ -187,7 +187,7 @@ export function MobileFavoritesPage() {
       {enriched.length > 0 ? (
         <>
           <section className="sticky top-[5.35rem] z-40 mt-2 px-3" aria-label="Favorite filters">
-            <ZenedeGlass
+            <ZendeGlass
               variant="panelCompact"
               className="rounded-[24px] border-white/[0.12] bg-black/62 p-2.5 shadow-[0_18px_58px_-28px_rgba(0,0,0,0.9)] transition-[box-shadow,transform] duration-300 ease-out"
             >
@@ -255,7 +255,7 @@ export function MobileFavoritesPage() {
                   ))}
                 </select>
               ) : null}
-            </ZenedeGlass>
+            </ZendeGlass>
           </section>
 
           <section className="mt-3 px-4" aria-live="polite">

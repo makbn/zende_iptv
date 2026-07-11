@@ -1,4 +1,4 @@
-import { ZenedeLogoWave } from "@/components/loading/zenede-logo-wave";
+import { ZendeLogoWave } from "@/components/loading/zende-logo-wave";
 
 /** Next.js App Router: shown while the route segment’s server component is pending. */
 export default function Loading() {
@@ -9,7 +9,7 @@ export default function Loading() {
       aria-live="polite"
     >
       <span className="sr-only">Loading</span>
-      <ZenedeLogoWave size="lg" />
+      <ZendeLogoWave size="lg" />
     </div>
   );
 }

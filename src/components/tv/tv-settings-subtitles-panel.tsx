@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import { useAuth } from "@/features/auth/auth-context";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { cn } from "@/lib/utils";
@@ -272,11 +272,11 @@ export function TvSettingsSubtitlesPanel() {
               onClick={() => void onSave()}
               className="outline-none disabled:opacity-40"
             >
-              <ZenedeGlass variant="ctaPill">
+              <ZendeGlass variant="ctaPill">
                 <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
                   {busy ? "Saving…" : "Save subtitle settings"}
                 </span>
-              </ZenedeGlass>
+              </ZendeGlass>
             </button>
             {state?.tmdbConfigured && state.tmdbApiKeySource === "database" ? (
               <button

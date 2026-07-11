@@ -48,7 +48,7 @@ export async function loadEpgMergeForIds(
         headers: {
           Accept: "application/xml, text/xml, */*",
           "User-Agent":
-            "Zenede/0.1 (EPG; https://github.com/iptv-org/epg community guides)",
+            "Zende/0.1 (EPG; https://github.com/iptv-org/epg community guides)",
         },
         cache: "no-store",
       });

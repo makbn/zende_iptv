@@ -39,7 +39,7 @@ export async function POST(
   try {
     const upstream = await fetch(source.m3uUrl, {
       headers: {
-        "User-Agent": "Zenede/0.1 (catalog refresh; +https://github.com)",
+        "User-Agent": "Zende/0.1 (catalog refresh; +https://github.com)",
         Accept: "audio/x-mpegurl, application/vnd.apple.mpegurl, */*",
       },
     });

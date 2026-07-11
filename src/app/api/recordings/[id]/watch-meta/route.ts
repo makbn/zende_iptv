@@ -50,7 +50,7 @@ export async function GET(request: Request, ctx: Ctx) {
       playbackUrl += `?pt=${encodeURIComponent(pt)}`;
     }
     /** Synthetic — avoids matching live channels in the frequent ring. */
-    const canonicalUrl = `zenede:recording:${id}`;
+    const canonicalUrl = `zende:recording:${id}`;
 
     return NextResponse.json({
       title: row.channelName,

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { ArrowRight, Search, Sparkles } from "lucide-react";
 
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import { useRemoteControl } from "@/features/remote/remote-control-context";
 import { cn } from "@/lib/utils";
 
@@ -72,7 +72,7 @@ export function GlassSearchModal({ open, onClose }: Props) {
         aria-labelledby={labelId}
       >
         <div className="motion-safe:animate-[glass-modal-pop_0.42s_cubic-bezier(0.16,1,0.3,1)_both]">
-          <ZenedeGlass variant="panel" className="overflow-hidden rounded-[34px] shadow-[0_50px_160px_-52px_rgba(0,0,0,0.98)]">
+          <ZendeGlass variant="panel" className="overflow-hidden rounded-[34px] shadow-[0_50px_160px_-52px_rgba(0,0,0,0.98)]">
             <div className="relative overflow-hidden border-b border-white/[0.08] px-5 pb-5 pt-5 sm:px-6">
               <div
                 className="absolute -right-12 -top-20 h-52 w-52 rounded-full bg-[var(--zen-signal)]/16 blur-3xl"
@@ -158,7 +158,7 @@ export function GlassSearchModal({ open, onClose }: Props) {
                 </Link>
               </div>
             </form>
-          </ZenedeGlass>
+          </ZendeGlass>
         </div>
       </div>
     </div>

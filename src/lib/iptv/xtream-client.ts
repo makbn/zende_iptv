@@ -60,7 +60,7 @@ async function xtreamRequest<T>(
   const started = Date.now();
   try {
     const res = await fetch(url, {
-      headers: { "User-Agent": "Zenede/0.1 (xtream client)" },
+      headers: { "User-Agent": "Zende/0.1 (xtream client)" },
       cache: "no-store",
     });
     const text = await res.text();

@@ -1,8 +1,8 @@
-# Zenede
+# Zende
 
-**Zenede** is a self-hosted **IPTV hub**: a TV- and phone-friendly web UI with a **server-side stream relay**, **per-channel VPN / proxy routing**, **DVR recordings** (ffmpeg), **VOD subtitles**, **phone→TV remote control**, **channel health**, **EPG**, **HDHomeRun-style DVR endpoints** for Plex/Jellyfin, and an **Xtream-compatible portal** for apps like TiviMate.
+**Zende** is a self-hosted **IPTV hub**: a TV- and phone-friendly web UI with a **server-side stream relay**, **per-channel VPN / proxy routing**, **DVR recordings** (ffmpeg), **VOD subtitles**, **phone→TV remote control**, **channel health**, **EPG**, **HDHomeRun-style DVR endpoints** for Plex/Jellyfin, and an **Xtream-compatible portal** for apps like TiviMate.
 
-The browser does not pull raw provider URLs for playback—sessions go through **`/api/stream/proxy/...`**, where the server applies your proxy, cookies, and HLS rewrites. Zenede does not host or transcode third-party streams; it orchestrates access to URLs you supply.
+The browser does not pull raw provider URLs for playback—sessions go through **`/api/stream/proxy/...`**, where the server applies your proxy, cookies, and HLS rewrites. Zende does not host or transcode third-party streams; it orchestrates access to URLs you supply.
 
 ## Screenshots
 
@@ -19,7 +19,7 @@ The browser does not pull raw provider URLs for playback—sessions go through *
 | **QR login** | On the TV login screen, scan a **QR code** with your phone to approve sign-in (or enter credentials on mobile). |
 | **VPN / proxy per channel** | **Settings → VPN Proxies**: direct proxies or **Gluetun** (NordVPN, ExpressVPN, ProtonVPN, custom OpenVPN/WireGuard). Assign channels by URL hash so only those streams use that exit. |
 | **IPTV apps** | **Settings → Integrations**: portal credentials for **Xtream-style** clients — `player_api.php`, `get.php`, `xmltv.php`, `/live/...` on the same host. |
-| **HDHomeRun DVR** | Emulates HDHomeRun discovery / lineup / tune endpoints so **Plex** or **Jellyfin** can use Zenede as a Live TV / DVR source (`discover.json`, `lineup.json`, `/hdhr/stream/...`). |
+| **HDHomeRun DVR** | Emulates HDHomeRun discovery / lineup / tune endpoints so **Plex** or **Jellyfin** can use Zende as a Live TV / DVR source (`discover.json`, `lineup.json`, `/hdhr/stream/...`). |
 | **Recordings** | Start or schedule captures from the UI; **ffmpeg** records through the **same relay** as playback (VPN/cookies apply). Metadata in SQLite; MP4s on disk — in Docker, **`ZENDE_RECORDINGS_DIR=/data/recordings`** on the **`zende-data`** volume. |
 | **Subtitles (VOD)** | Search and load external subtitles via **Wyzie** (+ optional **TMDB** title match) in **Settings → Integrations**. Search results and loaded VTT tracks are **cached ~7 days** on disk (`ZENDE_SUBTITLES_DIR`, default `/data/subtitles` in Docker). |
 | **Channel health** | Registry sync, probes, aggregates (tiers), optional **cron**-style jobs (`CRON_SECRET`). |
@@ -85,10 +85,10 @@ npm run test:recording   # recording-focused checks
 
 ## Summary
 
-Zenede is a **self-hosted IPTV control plane**: relayed playback and recordings through your server, optional per-channel VPN exits, phone remote + QR login, VOD subtitles, HDHomeRun for Plex/Jellyfin, and Xtream-compatible portals—without redistributing stream content.
+Zende is a **self-hosted IPTV control plane**: relayed playback and recordings through your server, optional per-channel VPN exits, phone remote + QR login, VOD subtitles, HDHomeRun for Plex/Jellyfin, and Xtream-compatible portals—without redistributing stream content.
 
 ## Disclaimer
 
 Accessing streams without proper rights, or using VPNs or proxies to reach **geo-restricted** or otherwise restricted content, may be **unlawful** where you live. You alone are responsible for the streams, playlists, recordings, and any other material you configure in this application, and for complying with copyright, broadcasting, and computer-misuse rules that apply to you.
 
-**Zenede and its authors provide software only.** We do not supply or endorse specific channels, do not operate your VPN or proxy providers, and **assume no liability** for how you use the app, what you add to it, or any consequences (legal, technical, or otherwise). Use at your own risk.
+**Zende and its authors provide software only.** We do not supply or endorse specific channels, do not operate your VPN or proxy providers, and **assume no liability** for how you use the app, what you add to it, or any consequences (legal, technical, or otherwise). Use at your own risk.

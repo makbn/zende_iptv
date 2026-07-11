@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-/** Paths from `public/zenede-logo.svg` (same pink bars). */
+/** Paths from `public/zende-logo.svg` (same pink bars). */
 const BAR_PATHS = [
   "M17 393l0 60c0,24 36,24 36,0l0 -60c0,-23 -36,-24 -36,0z",
   "M87 393l0 60c0,24 36,24 36,0l0 -60c1,-23 -36,-24 -36,0z",
@@ -25,7 +25,7 @@ const WIDTH_CLASS = {
   lg: "w-[min(72vw,280px)]",
 } as const;
 
-export function ZenedeLogoWave({
+export function ZendeLogoWave({
   className,
   size = "lg",
 }: {

@@ -3,7 +3,7 @@
 import { Loader2 } from "lucide-react";
 
 import type { BuiltinPlaylistSource } from "@/config/builtin-playlist-sources";
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import { TvContentRow } from "@/components/tv/tv-content-row";
 
 type Props = {
@@ -35,7 +35,7 @@ export function TvCatalogSetupStrip({
       description="Caches the public world index on this device. Add your own streams anytime in Settings, or refresh the index here."
     >
       <div className="min-w-full shrink-0 snap-start">
-        <ZenedeGlass variant="panel" className="shadow-[0_24px_80px_-32px_rgba(0,0,0,0.85)]">
+        <ZendeGlass variant="panel" className="shadow-[0_24px_80px_-32px_rgba(0,0,0,0.85)]">
           <div className="flex flex-col gap-5 px-8 py-7 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0 space-y-2">
               <p className="text-[17px] font-semibold tracking-tight text-white">
@@ -67,7 +67,7 @@ export function TvCatalogSetupStrip({
               aria-busy={busy}
               className="group shrink-0 self-start border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--tv-page-bg)] disabled:pointer-events-none disabled:opacity-45"
             >
-              <ZenedeGlass
+              <ZendeGlass
                 variant="heroSecondary"
                 className="inline-flex transition-transform duration-200 group-hover:scale-[1.02] group-active:scale-[0.98]"
               >
@@ -83,10 +83,10 @@ export function TvCatalogSetupStrip({
                     "Add catalog"
                   )}
                 </span>
-              </ZenedeGlass>
+              </ZendeGlass>
             </button>
           </div>
-        </ZenedeGlass>
+        </ZendeGlass>
       </div>
     </TvContentRow>
   );

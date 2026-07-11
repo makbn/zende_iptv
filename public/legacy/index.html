@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Zenede</title>
-    <link rel="icon" href="/zenede-logo.svg" type="image/svg+xml" />
+    <title>Zende</title>
+    <link rel="icon" href="/zende-logo.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/legacy/legacy.css" />
   </head>
   <body>
     <div class="legacy-root">
       <div id="legacy-screen-boot" class="legacy-screen is-active">
-        <div class="legacy-loading">Loading Zenede…</div>
+        <div class="legacy-loading">Loading Zende…</div>
       </div>
 
       <div id="legacy-screen-login" class="legacy-screen">
@@ -32,14 +32,47 @@
             </div>
             <button type="submit" class="legacy-btn">Sign in</button>
           </form>
+          <p class="legacy-login-hint">
+            <button id="legacy-modern-login" type="button" class="legacy-link-btn">
+              Try full app instead
+            </button>
+          </p>
         </div>
       </div>
 
       <div id="legacy-screen-home" class="legacy-screen">
-        <header class="legacy-header">
-          <h1>Zenede <span class="legacy-badge">TV Lite</span></h1>
-          <p>Browse and play channels on older Samsung TVs.</p>
+        <header class="legacy-topbar">
+          <div class="legacy-topbar-title">
+            <h1>Zende <span class="legacy-badge">TV Lite</span></h1>
+          </div>
+          <nav class="legacy-nav" id="legacy-nav">
+            <button type="button" class="legacy-nav-btn is-active" data-tab="home">Home</button>
+            <button type="button" class="legacy-nav-btn" data-tab="library">Library</button>
+            <button type="button" class="legacy-nav-btn" data-tab="favorites">Favorites</button>
+            <button type="button" class="legacy-nav-btn" data-tab="search">Search</button>
+          </nav>
+          <button id="legacy-modern-btn" type="button" class="legacy-btn legacy-btn-secondary">
+            Full app
+          </button>
         </header>
+
+        <div id="legacy-search-bar" class="legacy-toolbar is-hidden">
+          <input
+            id="legacy-search-input"
+            type="search"
+            placeholder="Search live TV, movies, and shows"
+            autocomplete="off"
+          />
+          <button id="legacy-search-go" type="button" class="legacy-btn">Search</button>
+        </div>
+
+        <div id="legacy-library-filters" class="legacy-filter-row is-hidden">
+          <button type="button" class="legacy-filter-btn is-active" data-filter="all">All</button>
+          <button type="button" class="legacy-filter-btn" data-filter="live">Live</button>
+          <button type="button" class="legacy-filter-btn" data-filter="movie">Movies</button>
+          <button type="button" class="legacy-filter-btn" data-filter="series">Shows</button>
+        </div>
+
         <div id="legacy-status" class="legacy-status"></div>
         <div id="legacy-shelves" class="legacy-shelves">
           <div class="legacy-loading">Loading channels…</div>

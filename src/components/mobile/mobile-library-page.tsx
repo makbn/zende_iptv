@@ -22,7 +22,7 @@ import { MobileChannelCard } from "@/components/mobile/mobile-channel-card";
 import { VirtualChannelList } from "@/components/library/virtual-channel-list";
 import { LibraryResultsShell } from "@/components/library/library-results-shell";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { useLibraryCatalog } from "@/features/iptv/use-library-catalog";
 import { useLibraryContentTab } from "@/features/iptv/use-library-content-tab";
@@ -35,8 +35,8 @@ import { LivePreviewDialog } from "@/components/library/live-preview-dialog";
 
 const source = BUILTIN_PLAYLIST_SOURCES[0]!;
 const PAGE_STEP = 60;
-const VIEW_STORAGE = "zenede.mobileLibraryView";
-const LIBRARY_STATE_STORAGE = "zenede.library.state.mobile";
+const VIEW_STORAGE = "zende.mobileLibraryView";
+const LIBRARY_STATE_STORAGE = "zende.library.state.mobile";
 const DEFAULT_LANGUAGE_FILTER = "en";
 
 type FacetOption = { key: string; label: string; count: number };
@@ -240,7 +240,7 @@ export function MobileLibraryPage() {
   return (
     <main className="zen-page-bg min-h-screen pb-28 pt-[5.35rem] text-foreground">
       <section className="px-4">
-        <ZenedeGlass
+        <ZendeGlass
           variant="panelCompact"
           className="relative overflow-hidden rounded-[30px] border-white/[0.12] bg-black/58 p-3 shadow-[0_22px_72px_-40px_rgba(0,0,0,0.94)]"
         >
@@ -462,7 +462,7 @@ export function MobileLibraryPage() {
               </button>
             </div>
           ) : null}
-        </ZenedeGlass>
+        </ZendeGlass>
       </section>
 
       <LibraryResultsShell busy={resultsBusy} label={isSearchPending ? "Searching…" : "Updating results…"}>

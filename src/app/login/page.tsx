@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useState } from "react";
 
 import { LoginQrPairing } from "@/components/auth/login-qr-pairing";
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import { useAuth } from "@/features/auth/auth-context";
 import { cn } from "@/lib/utils";
 
@@ -44,7 +44,7 @@ function LoginForm() {
   return (
     <div className="mx-auto flex min-h-[calc(100svh-6rem)] w-full max-w-[520px] flex-col justify-center motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100 sm:min-h-0">
       <p className="zen-kicker">
-        Zenede
+        Zende
       </p>
       <h1 className="zen-page-title mt-2">
         Sign in
@@ -64,7 +64,7 @@ function LoginForm() {
       </div>
 
       <form
-        id="zenede-login"
+        id="zende-login"
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
@@ -109,15 +109,15 @@ function LoginForm() {
       <div className="mt-8 grid gap-3 sm:flex sm:flex-wrap">
         <button
           type="submit"
-          form="zenede-login"
+          form="zende-login"
           disabled={busy}
           className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] disabled:opacity-50"
         >
-          <ZenedeGlass variant="ctaPill" className="w-full sm:w-auto">
+          <ZendeGlass variant="ctaPill" className="w-full sm:w-auto">
             <span className="flex min-h-[52px] items-center justify-center px-6 py-2.5 text-[15px] font-semibold text-[var(--zen-void)] sm:min-h-0">
               {busy ? "Signing in…" : "Continue"}
             </span>
-          </ZenedeGlass>
+          </ZendeGlass>
         </button>
         <Link
           href="/"

@@ -120,7 +120,7 @@ function GlassFallback({
   );
 }
 
-export type ZenedeGlassProps = {
+export type ZendeGlassProps = {
   variant: GlassVariant;
   className?: string;
   style?: CSSProperties;
@@ -136,12 +136,12 @@ export type ZenedeGlassProps = {
  * `top/left: 50%` and `translate(-50%,-50%)`, which breaks full-width layout if enabled
  * unconditionally — hence opt-in only.
  */
-export function ZenedeGlass({
+export function ZendeGlass({
   variant,
   className,
   style,
   children,
-}: ZenedeGlassProps) {
+}: ZendeGlassProps) {
   const shellRef = useContext(BrowseShellRefContext);
   const isClient = useSyncExternalStore(
     subscribeHydrated,

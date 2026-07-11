@@ -60,7 +60,7 @@ function fetchPlaylistTextLenient(urlRaw: string): Promise<{ statusCode: number;
       {
         method: "GET",
         headers: {
-          "User-Agent": "Zenede/0.1 (playlist import)",
+          "User-Agent": "Zende/0.1 (playlist import)",
           Accept: "audio/x-mpegurl, application/vnd.apple.mpegurl, text/plain, */*",
         },
       },
@@ -238,7 +238,7 @@ async function resolveImportChannels(parsedBody: z.infer<typeof bodySchema>): Pr
     try {
       const upstream = await fetch(parsedBody.url, {
         headers: {
-          "User-Agent": "Zenede/0.1 (playlist import)",
+          "User-Agent": "Zende/0.1 (playlist import)",
           Accept: "audio/x-mpegurl, application/vnd.apple.mpegurl, text/plain, */*",
         },
       });

@@ -1,4 +1,4 @@
-export const CATALOG_CLEARED_EVENT = "zenede-catalog-cleared";
+export const CATALOG_CLEARED_EVENT = "zende-catalog-cleared";
 
 export function notifyCatalogCleared(): void {
   if (typeof window === "undefined") return;

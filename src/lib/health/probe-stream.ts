@@ -1,6 +1,6 @@
 import "server-only";
 
-const UA = "Zenede-HealthCheck/1.0 (+https://github.com)";
+const UA = "Zende-HealthCheck/1.0 (+https://github.com)";
 const TIMEOUT_MS = 12_000;
 
 export type ProbeResult = {

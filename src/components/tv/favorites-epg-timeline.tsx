@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
@@ -43,7 +43,7 @@ function formatWindow(slot: Slot): string {
 
 const CAROUSEL_CARD_W = "min(calc(100vw - 3rem), 292px)";
 
-const EPG_SESSION_KEY = "zenede.fav-epg.v1";
+const EPG_SESSION_KEY = "zende.fav-epg.v1";
 
 type EpgSessionPayload = {
   idsKey: string;
@@ -228,7 +228,7 @@ export function FavoritesEpgTimeline({
       )}
       aria-labelledby="favorites-epg-heading"
     >
-      <ZenedeGlass
+      <ZendeGlass
         variant="panel"
         className={cn(
           "w-full overflow-hidden shadow-[0_24px_70px_-34px_rgba(0,0,0,0.88)]",
@@ -498,7 +498,7 @@ export function FavoritesEpgTimeline({
             </div>
           </div>
         </div>
-      </ZenedeGlass>
+      </ZendeGlass>
     </section>
   );
 }

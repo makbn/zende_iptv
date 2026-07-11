@@ -45,7 +45,7 @@ export function MobileSetupPage() {
               Welcome
             </p>
             <h1 className="mt-1 text-[clamp(1.55rem,5.8vw,1.9rem)] font-semibold leading-tight tracking-[-0.055em] text-white">
-              Set up Zenede
+              Set up Zende
             </h1>
             <p className="mt-2 text-[13px] leading-snug text-white/48">
               Add the built-in index once — Home fills with recents and picks right after.

@@ -4,7 +4,7 @@
 
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 
-const DB_NAME = "zenede";
+const DB_NAME = "zende";
 const DB_VERSION = 1;
 const STORE = "parsedPlaylists";
 
@@ -37,7 +37,7 @@ export async function putParsedPlaylist(
     tx.objectStore(STORE).put(cache);
     tx.oncomplete = () => {
       if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("zenede-playlist-cache-updated"));
+        window.dispatchEvent(new Event("zende-playlist-cache-updated"));
       }
       resolve();
     };

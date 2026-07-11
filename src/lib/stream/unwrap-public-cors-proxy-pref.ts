@@ -1,4 +1,4 @@
-const STORAGE_KEY = "zenede.unwrapPublicCorsProxyUrls";
+const STORAGE_KEY = "zende.unwrapPublicCorsProxyUrls";
 
 /** Default true: server-side proxy should hit the real origin, not a browser CORS bridge. */
 export function readUnwrapPublicCorsProxyUrlsPref(): boolean {

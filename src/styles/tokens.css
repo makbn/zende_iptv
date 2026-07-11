@@ -1,4 +1,4 @@
-/* Zenede design tokens — hex/rgba only (no oklch/color-mix for broad TV + desktop support). */
+/* Zende design tokens — hex/rgba only (no oklch/color-mix for broad TV + desktop support). */
 
 :root {
   --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;

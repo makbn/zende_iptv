@@ -11,7 +11,7 @@ import { TvPlaybackPrefsCard } from "@/components/tv/tv-playback-prefs-card";
 import { TvSettingsAuthPanel } from "@/components/tv/tv-settings-auth-panel";
 import { TvSettingsIntegrationsPanel } from "@/components/tv/tv-settings-integrations-panel";
 import { TvSettingsProxiesPanel } from "@/components/tv/tv-settings-proxies-panel";
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import {
   CinematicCommandPanel,
   CinematicHero,
@@ -27,7 +27,7 @@ import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
 
-const STORAGE_KEY = "zenede.cronSecret";
+const STORAGE_KEY = "zende.cronSecret";
 
 const log = createClientLogger("shell.TvSettingsPage");
 
@@ -302,11 +302,11 @@ export function TvSettingsPage() {
                 onClick={() => saveSecret()}
                 className="outline-none"
               >
-                <ZenedeGlass variant="ctaPill">
+                <ZendeGlass variant="ctaPill">
                   <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
                     Save key
                   </span>
-                </ZenedeGlass>
+                </ZendeGlass>
               </button>
               {savedHint ? (
                 <p className="text-[14px] text-emerald-400/95">{savedHint}</p>
@@ -335,11 +335,11 @@ export function TvSettingsPage() {
                 onClick={() => void runHealthSweep()}
                 className="outline-none disabled:opacity-50"
               >
-                <ZenedeGlass variant="ctaPill">
+                <ZendeGlass variant="ctaPill">
                   <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
                     {runBusy ? "Running…" : "Run full sweep"}
                   </span>
-                </ZenedeGlass>
+                </ZendeGlass>
               </button>
             </div>
             {runStatus ? (
@@ -355,7 +355,7 @@ export function TvSettingsPage() {
               </p>
             ) : null}
             <p className="mt-5 text-[14px] leading-relaxed text-white/38">
-              If you host Zenede on your own server, you can automate these checks so
+              If you host Zende on your own server, you can automate these checks so
               reliability badges stay current without opening Settings. How you schedule
               that depends on your platform—your deployment notes cover it.
             </p>

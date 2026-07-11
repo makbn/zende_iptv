@@ -3,7 +3,7 @@
 import { Copy, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import { TvSettingsSubtitlesPanel } from "@/components/tv/tv-settings-subtitles-panel";
 import { createClientLogger } from "@/core/logging/client";
 import { useAuth } from "@/features/auth/auth-context";
@@ -210,7 +210,7 @@ export function TvSettingsIntegrationsPanel() {
           IPTV players (TiviMate, etc.)
         </h2>
         <p className="mt-2 text-[15px] leading-relaxed text-white/50">
-          Zenede exposes an <span className="text-white/70">Xtream Codes–compatible</span> portal on
+          Zende exposes an <span className="text-white/70">Xtream Codes–compatible</span> portal on
           the same host as the web app. Your catalog is whatever is wired in Settings → Catalog plus
           manual channels: live categories and streams mirror that merged lineup. Playlist URLs use
           the classic <span className="font-mono text-[13px] text-white/60">player_api.php</span>,{" "}
@@ -247,7 +247,7 @@ export function TvSettingsIntegrationsPanel() {
             Plex DVR (HDHomeRun)
           </h2>
           <p className="mt-2 text-[15px] leading-relaxed text-white/50">
-            Zenede emulates an{" "}
+            Zende emulates an{" "}
             <span className="text-white/70">HDHomeRun tuner</span> (same model as{" "}
             <a
               href="https://github.com/Threadfin/Threadfin"
@@ -258,7 +258,7 @@ export function TvSettingsIntegrationsPanel() {
               Threadfin
             </a>
             ) so Plex can use your live catalog as a DVR source. Movies and series stay in the
-            Zenede library — Plex DVR is for live channels only.
+            Zende library — Plex DVR is for live channels only.
           </p>
 
           <dl className="mt-5 grid gap-3 text-[14px] sm:grid-cols-2">
@@ -384,11 +384,11 @@ export function TvSettingsIntegrationsPanel() {
             onClick={() => void onCreate()}
             className="shrink-0 outline-none disabled:opacity-40"
           >
-            <ZenedeGlass variant="ctaPill">
+            <ZendeGlass variant="ctaPill">
               <span className="flex items-center gap-2 px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
                 {createBusy ? "Creating…" : "New portal key"}
               </span>
-            </ZenedeGlass>
+            </ZendeGlass>
           </button>
         </div>
 

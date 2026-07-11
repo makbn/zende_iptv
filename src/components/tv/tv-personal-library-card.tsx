@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import { clearAllFavorites } from "@/lib/favorites/favorites-store";
 import { clearViewingHistory } from "@/lib/watch/viewing-stats";
 import { cn } from "@/lib/utils";
@@ -53,11 +53,11 @@ export function TvPersonalLibraryCard() {
           onClick={() => setConfirmOpen(true)}
           className="outline-none disabled:opacity-50"
         >
-          <ZenedeGlass variant="heroSecondary" className="inline-block">
+          <ZendeGlass variant="heroSecondary" className="inline-block">
             <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-white">
               {busy ? "Clearing…" : "Clear recently watched & favorites"}
             </span>
-          </ZenedeGlass>
+          </ZendeGlass>
         </button>
       </div>
 

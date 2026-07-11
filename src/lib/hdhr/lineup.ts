@@ -46,7 +46,7 @@ export function buildHdhrDiscover(request: Request, friendlyName: string): HdhrD
     FirmwareVersion: getHdhrFirmwareVersion(),
     FriendlyName: friendlyName,
     LineupURL: `${origin}/lineup.json`,
-    Manufacturer: "Zenede",
+    Manufacturer: "Zende",
     ModelNumber: getHdhrFirmwareVersion(),
     TunerCount: getHdhrTunerCount(),
   };

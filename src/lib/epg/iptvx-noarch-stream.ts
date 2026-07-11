@@ -26,7 +26,7 @@ export async function collectProgrammesForXmltvIds(
     headers: {
       Accept: "application/gzip, application/xml, */*",
       "User-Agent":
-        "Zenede/0.1 (EPG merge; iptvx consolidated guide; +https://iptvx.one)",
+        "Zende/0.1 (EPG merge; iptvx consolidated guide; +https://iptvx.one)",
     },
     cache: "no-store",
   });

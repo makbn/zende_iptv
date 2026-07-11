@@ -1,4 +1,4 @@
-const REGISTRY_KEY = "zenede.playlistRegistry.v1";
+const REGISTRY_KEY = "zende.playlistRegistry.v1";
 
 export type RegisteredBuiltinSource = {
   kind: "builtin";

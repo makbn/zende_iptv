@@ -534,7 +534,7 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
             </div>
             {sessions.length === 0 ? (
               <p className="py-6 text-center text-sm text-white/55">
-                No devices online. Open Zenede on your TV (same account) and try again.
+                No devices online. Open Zende on your TV (same account) and try again.
               </p>
             ) : (
               <ul className="max-h-[50vh] space-y-2 overflow-y-auto">

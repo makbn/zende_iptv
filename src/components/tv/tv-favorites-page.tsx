@@ -26,7 +26,7 @@ import {
   TV_BROWSE_STICKY_TOP_CLASS,
   TV_BROWSE_TOP_PAD_CLASS,
 } from "@/components/tv/tv-top-bar";
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import {
   CinematicCommandPanel,
   CinematicHero,
@@ -54,7 +54,7 @@ import {
   X,
 } from "lucide-react";
 
-const VIEW_STORAGE = "zenede.favoritesView";
+const VIEW_STORAGE = "zende.favoritesView";
 const PAGE_STEP = 60;
 
 /** Full-bleed content width — matches hero/sticky for pixel-aligned layout */
@@ -222,7 +222,7 @@ export function TvFavoritesPage() {
           )}
         >
           <div className={cn("py-3.5 sm:py-4", FAV_PAGE_GUTTER)}>
-            <ZenedeGlass
+            <ZendeGlass
               variant="panel"
               className={cn(
                 "shadow-[0_16px_48px_-28px_rgba(0,0,0,0.82)]",
@@ -407,7 +407,7 @@ export function TvFavoritesPage() {
                   </div>
                 ) : null}
               </div>
-            </ZenedeGlass>
+            </ZendeGlass>
           </div>
         </div>
 

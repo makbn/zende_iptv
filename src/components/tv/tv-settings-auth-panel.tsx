@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import { useAuth } from "@/features/auth/auth-context";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { cn } from "@/lib/utils";
@@ -277,11 +277,11 @@ export function TvSettingsAuthPanel() {
             disabled={busy}
             className="outline-none disabled:opacity-50"
           >
-            <ZenedeGlass variant="ctaPill">
+            <ZendeGlass variant="ctaPill">
               <span className="flex px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
                 Enable login & create administrator
               </span>
-            </ZenedeGlass>
+            </ZendeGlass>
           </button>
         </form>
       ) : null}
@@ -294,11 +294,11 @@ export function TvSettingsAuthPanel() {
             {user.role === "ADMIN" ? " (admin)" : ""}
           </span>
           <button type="button" onClick={() => void logout()} className="outline-none">
-            <ZenedeGlass variant="heroSecondary" className="inline-block">
+            <ZendeGlass variant="heroSecondary" className="inline-block">
               <span className="flex px-4 py-2 text-[14px] font-semibold text-white">
                 Sign out
               </span>
-            </ZenedeGlass>
+            </ZendeGlass>
           </button>
         </div>
       ) : null}
@@ -321,11 +321,11 @@ export function TvSettingsAuthPanel() {
                 onClick={() => void onToggleAuth(true)}
                 className="outline-none disabled:opacity-40"
               >
-                <ZenedeGlass variant="ctaPill">
+                <ZendeGlass variant="ctaPill">
                   <span className="flex px-5 py-2.5 text-[14px] font-semibold text-zinc-950">
                     Require login for everyone
                   </span>
-                </ZenedeGlass>
+                </ZendeGlass>
               </button>
             ) : (
               <button
@@ -334,11 +334,11 @@ export function TvSettingsAuthPanel() {
                 onClick={() => void onToggleAuth(false)}
                 className="outline-none disabled:opacity-40"
               >
-                <ZenedeGlass variant="heroSecondary" className="inline-block">
+                <ZendeGlass variant="heroSecondary" className="inline-block">
                   <span className="flex px-5 py-2.5 text-[14px] font-semibold text-white">
                     Allow access without login
                   </span>
-                </ZenedeGlass>
+                </ZendeGlass>
               </button>
             )}
           </div>
@@ -380,11 +380,11 @@ export function TvSettingsAuthPanel() {
                 onClick={() => void onCreateUser()}
                 className="outline-none"
               >
-                <ZenedeGlass variant="ctaPill">
+                <ZendeGlass variant="ctaPill">
                   <span className="flex px-4 py-2 text-[13px] font-semibold text-zinc-950">
                     Add user
                   </span>
-                </ZenedeGlass>
+                </ZendeGlass>
               </button>
             </div>
           </div>

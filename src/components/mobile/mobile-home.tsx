@@ -15,7 +15,7 @@ import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { useChannelHealthLookup } from "@/features/health/use-channel-health";
-import { ZenedeLogoWave } from "@/components/loading/zenede-logo-wave";
+import { ZendeLogoWave } from "@/components/loading/zende-logo-wave";
 import { useCatalogMeta } from "@/features/iptv/catalog-context";
 import { useContinueWatchingItems } from "@/features/iptv/use-continue-watching";
 import { useHomeCatalogShelves } from "@/features/iptv/use-home-catalog-shelves";
@@ -200,7 +200,7 @@ export function MobileHome() {
   const hero = useMemo(() => {
     if (!featured) {
       return {
-        eyebrow: "Zenede",
+        eyebrow: "Zende",
         title: "Live TV",
         subtitle: "Your recently watched channels surface here after setup.",
         backdropUrl: null as string | null,
@@ -246,7 +246,7 @@ export function MobileHome() {
   if (!catalogLoaded) {
     return (
       <div className="zen-page-bg flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-white/45">
-        <ZenedeLogoWave size="md" />
+        <ZendeLogoWave size="md" />
         <p className="sr-only">Loading</p>
       </div>
     );

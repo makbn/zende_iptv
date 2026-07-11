@@ -11,5 +11,5 @@ export function GET(request: Request) {
   log.debug("Health check requested", { requestId });
 
   /** Minimal payload — do not echo request IDs or internals (usable behind shared proxies). */
-  return NextResponse.json({ ok: true, service: "zenede" }, { status: 200 });
+  return NextResponse.json({ ok: true, service: "zende" }, { status: 200 });
 }

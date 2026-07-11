@@ -12,8 +12,8 @@ export function buildShowPageHref(seriesId: string, channel?: Pick<M3uChannel, "
 
 export function showPageHrefFromChannel(channel: M3uChannel): string | null {
   const fromUrl = channel.url.trim();
-  if (fromUrl.startsWith("zenede://series/")) {
-    const id = decodeURIComponent(fromUrl.replace("zenede://series/", "")).trim();
+  if (fromUrl.startsWith("zende://series/")) {
+    const id = decodeURIComponent(fromUrl.replace("zende://series/", "")).trim();
     return id ? buildShowPageHref(id, channel) : null;
   }
   const tvg = channel.tvgId?.match(/^xtream-series:(.+)$/);

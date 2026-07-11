@@ -46,7 +46,7 @@ export function TvPlaybackPrefsCard() {
         <span className="font-mono text-[13px] text-white/55">
           https://cors-proxy…/http://…/playlist.m3u8
         </span>
-        ). Zenede fetches streams on the server, so that wrapper is usually unnecessary and can
+        ). Zende fetches streams on the server, so that wrapper is usually unnecessary and can
         be stripped to the direct URL. Turn this off only if your server must load the wrapper
         URL itself.
       </p>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { ZenedeLogoWave } from "@/components/loading/zenede-logo-wave";
+import { ZendeLogoWave } from "@/components/loading/zende-logo-wave";
 import { cn } from "@/lib/utils";
 
 /**
@@ -62,7 +62,7 @@ export function FullPageLoadOverlay() {
       aria-busy={visible}
     >
       <span className="sr-only">Loading</span>
-      <ZenedeLogoWave size="lg" />
+      <ZendeLogoWave size="lg" />
     </div>
   );
 }

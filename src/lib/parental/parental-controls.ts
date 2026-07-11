@@ -1,6 +1,6 @@
-const ENABLED_KEY = "zenede.parental.enabled.v1";
-const PATTERNS_KEY = "zenede.parental.patterns.v1";
-const PIN_KEY = "zenede.parental.pin.v1";
+const ENABLED_KEY = "zende.parental.enabled.v1";
+const PATTERNS_KEY = "zende.parental.patterns.v1";
+const PIN_KEY = "zende.parental.pin.v1";
 
 export type ParentalSettings = {
   enabled: boolean;

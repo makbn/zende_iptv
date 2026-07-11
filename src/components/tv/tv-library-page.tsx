@@ -51,8 +51,8 @@ import {
 
 const source = BUILTIN_PLAYLIST_SOURCES[0]!;
 
-const VIEW_STORAGE = "zenede.libraryView";
-const LIBRARY_STATE_STORAGE = "zenede.library.state.tv";
+const VIEW_STORAGE = "zende.libraryView";
+const LIBRARY_STATE_STORAGE = "zende.library.state.tv";
 const PAGE_STEP = 200;
 const DEFAULT_LANGUAGE_FILTER = "en";
 

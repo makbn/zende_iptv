@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, Play } from "lucide-react";
 
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import {
   BROWSE_BOTTOM_PAD_MOBILE,
   BROWSE_TOP_PAD,
@@ -178,7 +178,7 @@ export function SeriesDetailView({
                     onClick={() => void playEpisode(continueTarget.ep, continueTarget.index)}
                     className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] disabled:opacity-50"
                   >
-                    <ZenedeGlass variant="ctaPill">
+                    <ZendeGlass variant="ctaPill">
                       <span className="flex min-w-[10rem] flex-col items-start gap-0.5 px-6 py-3 text-left">
                         <span className="flex items-center gap-2 text-[15px] font-semibold text-zinc-950">
                           <Play className="h-4 w-4 fill-current" aria-hidden />
@@ -200,7 +200,7 @@ export function SeriesDetailView({
                           </span>
                         ) : null}
                       </span>
-                    </ZenedeGlass>
+                    </ZendeGlass>
                   </button>
                 ) : episodesBySeason.flat[0] ? (
                   <button
@@ -209,13 +209,13 @@ export function SeriesDetailView({
                     onClick={() => void playEpisode(episodesBySeason.flat[0]!, 0)}
                     className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] disabled:opacity-50"
                   >
-                    <ZenedeGlass variant="ctaPill">
+                    <ZendeGlass variant="ctaPill">
                       <span className="flex items-center gap-2 px-6 py-3 text-[15px] font-semibold text-zinc-950">
                         <Play className="h-4 w-4 fill-current" aria-hidden />
                         Play S{episodesBySeason.flat[0]!.season}E
                         {episodesBySeason.flat[0]!.episodeNum || "1"}
                       </span>
-                    </ZenedeGlass>
+                    </ZendeGlass>
                   </button>
                 ) : null}
               </div>

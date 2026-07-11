@@ -4,15 +4,15 @@ import { Suspense } from "react";
 import "./globals.css";
 import { AppProviders } from "@/components/providers/app-providers";
 import { FullPageLoadOverlay } from "@/components/loading/full-page-load-overlay";
-import { ZenedeLogoWave } from "@/components/loading/zenede-logo-wave";
+import { ZendeLogoWave } from "@/components/loading/zende-logo-wave";
 import { WatchBrowseOriginTracker } from "@/lib/navigation/watch-browse-origin";
 
 export const metadata: Metadata = {
-  title: "Zenede",
+  title: "Zende",
   description:
     "IPTV streaming with Apple TV–style UI, resilient playback, and APIs for companion apps.",
   icons: {
-    icon: [{ url: "/zenede-logo.svg", type: "image/svg+xml" }],
+    icon: [{ url: "/zende-logo.svg", type: "image/svg+xml" }],
   },
 };
 
@@ -29,7 +29,7 @@ export default function RootLayout({
           fallback={
             <div className="flex min-h-screen items-center justify-center bg-[var(--tv-page-bg)]">
               <span className="sr-only">Loading</span>
-              <ZenedeLogoWave size="lg" />
+              <ZendeLogoWave size="lg" />
             </div>
           }
         >

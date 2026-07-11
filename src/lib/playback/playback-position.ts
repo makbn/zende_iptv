@@ -2,7 +2,7 @@
 
 import { syncPlaybackPositionStub } from "@/lib/playback/sync-playback-position";
 
-const STORAGE_KEY = "zenede.playback.position.v1";
+const STORAGE_KEY = "zende.playback.position.v1";
 const MAX_ENTRIES = 400;
 const SAVE_INTERVAL_MS = 15_000;
 

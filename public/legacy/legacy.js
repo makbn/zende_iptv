@@ -6,8 +6,8 @@
 (function () {
   "use strict";
 
-  var Z_ACCESS = "zenede.accessToken";
-  var Z_REFRESH = "zenede.refreshToken";
+  var Z_ACCESS = "zende.accessToken";
+  var Z_REFRESH = "zende.refreshToken";
   var PRESET_ID = "iptv-org-world-index";
 
   var state = {
@@ -76,6 +76,57 @@
     }
   }
 
+  function xhrRequest(path, options) {
+    return new Promise(function (resolve, reject) {
+      var xhr = new XMLHttpRequest();
+      var method = (options && options.method) || "GET";
+      xhr.open(method, path, true);
+      var headers = (options && options.headers) || {};
+      for (var key in headers) {
+        if (Object.prototype.hasOwnProperty.call(headers, key)) {
+          xhr.setRequestHeader(key, headers[key]);
+        }
+      }
+      var access = getAccessToken();
+      if (access) xhr.setRequestHeader("Authorization", "Bearer " + access);
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4) return;
+        resolve({
+          ok: xhr.status >= 200 && xhr.status < 300,
+          status: xhr.status,
+          text: function () {
+            return Promise.resolve(xhr.responseText || "");
+          },
+        });
+      };
+      xhr.onerror = function () {
+        reject(new Error("Network error"));
+      };
+      xhr.send(options && options.body ? options.body : null);
+    });
+  }
+
+  function httpRequest(path, options) {
+    if (typeof fetch === "function") {
+      var headers = {};
+      if (options && options.headers) {
+        for (var key in options.headers) {
+          if (Object.prototype.hasOwnProperty.call(options.headers, key)) {
+            headers[key] = options.headers[key];
+          }
+        }
+      }
+      var access = getAccessToken();
+      if (access) headers.Authorization = "Bearer " + access;
+      return fetch(path, {
+        method: (options && options.method) || "GET",
+        headers: headers,
+        body: options && options.body ? options.body : undefined,
+      });
+    }
+    return xhrRequest(path, options);
+  }
+
   function apiFetch(path, options) {
     var headers = {};
     if (options && options.headers) {
@@ -88,7 +139,7 @@
     var access = getAccessToken();
     if (access) headers.Authorization = "Bearer " + access;
 
-    return fetch(path, {
+    return httpRequest(path, {
       method: (options && options.method) || "GET",
       headers: headers,
       body: options && options.body ? options.body : undefined,
@@ -96,7 +147,7 @@
       if (res.status !== 401) return res;
       var refresh = getRefreshToken();
       if (!refresh) return res;
-      return fetch("/api/auth/refresh", {
+      return httpRequest("/api/auth/refresh", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refreshToken: refresh }),
@@ -113,7 +164,7 @@
           }
           storeTokens(tokens.accessToken, tokens.refreshToken);
           headers.Authorization = "Bearer " + tokens.accessToken;
-          return fetch(path, {
+          return httpRequest(path, {
             method: (options && options.method) || "GET",
             headers: headers,
             body: options && options.body ? options.body : undefined,
@@ -217,6 +268,29 @@
     }
   }
 
+  function setVideoSource(video, playbackUrl, playbackMode) {
+    if (!video || !playbackUrl) return;
+    var isHls =
+      playbackMode === "hls" ||
+      /\.m3u8(\?|$)/i.test(playbackUrl) ||
+      /\/api\/stream\/proxy\//i.test(playbackUrl);
+
+    video.pause();
+    video.removeAttribute("src");
+    while (video.firstChild) video.removeChild(video.firstChild);
+
+    if (isHls && video.canPlayType && !video.canPlayType("application/vnd.apple.mpegurl")) {
+      // Some TV engines only accept HLS via a <source> child element.
+      var source = document.createElement("source");
+      source.src = playbackUrl;
+      source.type = "application/vnd.apple.mpegurl";
+      video.appendChild(source);
+    } else {
+      video.src = playbackUrl;
+    }
+    video.load();
+  }
+
   function playChannel(channel) {
     if (!channel || !channel.url) return;
     setStatus("Starting playback…");
@@ -259,10 +333,7 @@
         var title = byId("legacy-player-title");
         if (title) title.textContent = meta.title || channel.name || "Live";
         if (video) {
-          video.pause();
-          video.removeAttribute("src");
-          video.load();
-          video.src = meta.playbackUrl;
+          setVideoSource(video, meta.playbackUrl, meta.playbackMode);
           var playAttempt = video.play();
           if (playAttempt && playAttempt.catch) {
             playAttempt.catch(function () {});

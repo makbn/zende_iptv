@@ -1,7 +1,7 @@
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 
-const STORAGE_KEY = "zenede.favorites.v1";
+const STORAGE_KEY = "zende.favorites.v1";
 
 export type FavoriteChannel = {
   url: string;
@@ -223,7 +223,7 @@ export function notifyFavoritesUpdated(changedUrl?: string): void {
       listener.cb();
     }
   }
-  window.dispatchEvent(new Event("zenede-favorites-update"));
+  window.dispatchEvent(new Event("zende-favorites-update"));
 }
 
 export function subscribeFavorites(onChange: () => void): () => void {

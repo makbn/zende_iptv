@@ -1,6 +1,6 @@
 "use client";
 
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -103,14 +103,14 @@ export function TvHeroFeature({
               disabled={primaryDisabled}
               className="group rounded-full border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] focus-visible:ring-offset-4 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-45"
             >
-              <ZenedeGlass
+              <ZendeGlass
                 variant="heroPrimary"
                 className="inline-block transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform motion-safe:group-hover:scale-[1.03] motion-safe:group-active:scale-[0.97] group-disabled:group-hover:scale-100"
               >
                 <span className="flex min-h-[52px] min-w-[160px] items-center justify-center px-8 text-[17px] font-semibold text-[var(--zen-void)]">
                   {primaryLabel}
                 </span>
-              </ZenedeGlass>
+              </ZendeGlass>
             </button>
             {secondaryLabel && onSecondary ? (
               <button
@@ -119,14 +119,14 @@ export function TvHeroFeature({
                 disabled={secondaryDisabled}
                 className="group rounded-full border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] focus-visible:ring-offset-4 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-45"
               >
-                <ZenedeGlass
+                <ZendeGlass
                   variant="heroSecondary"
                   className="inline-block transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform motion-safe:group-hover:scale-[1.03] motion-safe:group-active:scale-[0.97]"
                 >
                   <span className="flex min-h-[52px] min-w-[160px] items-center justify-center px-8 text-[17px] font-semibold text-white">
                     {secondaryLabel}
                   </span>
-                </ZenedeGlass>
+                </ZendeGlass>
               </button>
             ) : null}
           </div>

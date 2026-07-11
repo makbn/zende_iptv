@@ -3,7 +3,7 @@
 import QRCode from "react-qr-code";
 import { useEffect, useRef, useState } from "react";
 
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import { setStoredTokens } from "@/lib/auth/zende-fetch";
 
 type Props = {
@@ -105,7 +105,7 @@ export function LoginQrPairing({ onComplete }: Props) {
   };
 
   return (
-    <ZenedeGlass
+    <ZendeGlass
       variant="panel"
       className="mt-8 rounded-[28px] border-white/[0.12] bg-white/[0.055] p-5 sm:p-6"
     >
@@ -157,6 +157,6 @@ export function LoginQrPairing({ onComplete }: Props) {
           ) : null}
         </div>
       </div>
-    </ZenedeGlass>
+    </ZendeGlass>
   );
 }

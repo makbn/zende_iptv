@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { cn } from "@/lib/utils";
 import {
@@ -116,7 +116,7 @@ export function TvRecordingRecentIssues({
             const source = item.scheduleId ? "Scheduled" : "Record now";
             return (
               <li key={item.id}>
-                <ZenedeGlass
+                <ZendeGlass
                   variant="panel"
                   className="flex h-full flex-col gap-4 rounded-[1.1rem] border border-red-500/15 bg-gradient-to-br from-red-950/[0.35] to-black/40 p-4 ring-1 ring-red-500/10"
                 >
@@ -179,7 +179,7 @@ export function TvRecordingRecentIssues({
                   >
                     Details
                   </button>
-                </ZenedeGlass>
+                </ZendeGlass>
               </li>
             );
           })}
@@ -203,7 +203,7 @@ export function TvRecordingRecentIssues({
             aria-labelledby="rec-issue-dialog-title"
             className="relative z-10 w-full max-w-lg motion-safe:animate-[glass-modal-pop_0.36s_cubic-bezier(0.16,1,0.3,1)_both]"
           >
-            <ZenedeGlass
+            <ZendeGlass
               variant="panel"
               className="max-h-[min(85vh,640px)] overflow-hidden border border-white/[0.12] shadow-[0_40px_120px_-48px_rgba(0,0,0,0.95)]"
             >
@@ -314,7 +314,7 @@ export function TvRecordingRecentIssues({
                   Clear
                 </button>
               </div>
-            </ZenedeGlass>
+            </ZendeGlass>
           </div>
         </div>
       ) : null}

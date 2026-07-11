@@ -1,7 +1,7 @@
 import type { XtreamCredentials, XtreamSeriesEpisode, XtreamVodInfo } from "@/lib/iptv/xtream-types";
 
 /** Sentinel URL for a series container row (not directly playable). */
-export const XTREAM_SERIES_URL_PREFIX = "zenede://series/";
+export const XTREAM_SERIES_URL_PREFIX = "zende://series/";
 
 export function buildXtreamSeriesContainerUrl(seriesId: string | number): string {
   return `${XTREAM_SERIES_URL_PREFIX}${encodeURIComponent(String(seriesId))}`;

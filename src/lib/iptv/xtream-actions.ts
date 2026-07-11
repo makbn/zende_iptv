@@ -163,7 +163,7 @@ function buildPlaceholderEpgListings(streamId: string, slotCount: number): unkno
       title: "No programme data",
       lang: "en",
       description:
-        "Zenede placeholder — use xmltv.php or extend server EPG for full listings.",
+        "Zende placeholder — use xmltv.php or extend server EPG for full listings.",
       start_timestamp: String(startSec),
       stop_timestamp: String(endSec),
       start: isoFmt(startDt),

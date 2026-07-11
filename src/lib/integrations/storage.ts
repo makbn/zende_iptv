@@ -1,6 +1,6 @@
 import type { IntegrationKind, StoredIntegration } from "@/lib/integrations/types";
 
-const STORAGE_KEY = "zenede.integrations.v1";
+const STORAGE_KEY = "zende.integrations.v1";
 
 const KINDS: ReadonlySet<string> = new Set<IntegrationKind>([
   "plex",

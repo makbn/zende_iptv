@@ -38,11 +38,11 @@ describe("hdhr discover", () => {
     const req = new Request("http://192.168.1.50:8077/discover.json", {
       headers: { host: "192.168.1.50:8077" },
     });
-    const d = buildHdhrDiscover(req, "Zenede IPTV");
+    const d = buildHdhrDiscover(req, "Zende IPTV");
     expect(d.LineupURL).toBe("http://192.168.1.50:8077/lineup.json");
     expect(d.TunerCount).toBeGreaterThan(0);
     expect(d.DeviceID).toMatch(/^[0-9A-F]{8}$/);
-    expect(d.FriendlyName).toBe("Zenede IPTV");
+    expect(d.FriendlyName).toBe("Zende IPTV");
   });
 
   it("builds stream urls from guide numbers", () => {

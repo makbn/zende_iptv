@@ -60,7 +60,7 @@ import {
   type ChannelZapMode,
   ZAP_MODE_LABELS,
 } from "@/lib/watch/watch-channel-ring";
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import type { PlayerError, PlayerSession } from "@/components/player/stream-player";
 
 const StreamPlayer = dynamic(
@@ -102,7 +102,7 @@ import {
 } from "@/features/remote/remote-control-context";
 
 const FREQUENT_RING = 15;
-const ZAP_MODE_STORAGE = "zenede.zapMode";
+const ZAP_MODE_STORAGE = "zende.zapMode";
 
 function readZapMode(): ChannelZapMode {
   if (typeof window === "undefined") return "frequent";
@@ -476,10 +476,10 @@ export function WatchView() {
 
   useEffect(() => {
     const bump = () => setCatalogMergeEpoch((n) => n + 1);
-    window.addEventListener("zenede-playlist-cache-updated", bump);
+    window.addEventListener("zende-playlist-cache-updated", bump);
     const unsubManual = subscribeManualChannels(bump);
     return () => {
-      window.removeEventListener("zenede-playlist-cache-updated", bump);
+      window.removeEventListener("zende-playlist-cache-updated", bump);
       unsubManual();
     };
   }, []);
@@ -1258,7 +1258,7 @@ export function WatchView() {
               buffering && !playerFatalError ? "opacity-100" : "opacity-0",
             )}
           >
-            <ZenedeGlass variant="panelCompact" className="pointer-events-none">
+            <ZendeGlass variant="panelCompact" className="pointer-events-none">
               <div className="flex items-center gap-3 px-5 py-3">
                 <Loader2
                   className="h-8 w-8 shrink-0 animate-spin text-white"
@@ -1273,12 +1273,12 @@ export function WatchView() {
                   </p>
                 </div>
               </div>
-            </ZenedeGlass>
+            </ZendeGlass>
           </div>
 
           {playerFatalError && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 px-4">
-              <ZenedeGlass variant="panelCompact" className="max-w-sm">
+              <ZendeGlass variant="panelCompact" className="max-w-sm">
                 <div className="px-5 py-4 text-left">
                   <p className="text-[14px] font-semibold text-red-400">
                     Playback failed
@@ -1314,13 +1314,13 @@ export function WatchView() {
                     </button>
                   </div>
                 </div>
-              </ZenedeGlass>
+              </ZendeGlass>
             </div>
           )}
 
           {infoOpen ? (
             <div className="absolute inset-0 z-[35] flex items-center justify-center bg-black/60 px-4">
-              <ZenedeGlass variant="panelCompact" className="max-w-md w-full">
+              <ZendeGlass variant="panelCompact" className="max-w-md w-full">
                 <div className="px-5 py-4 text-left">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -1384,7 +1384,7 @@ export function WatchView() {
                     <p className="mt-2 text-[13px] text-emerald-300/90">{recordingHint}</p>
                   ) : null}
                 </div>
-              </ZenedeGlass>
+              </ZendeGlass>
             </div>
           ) : null}
 

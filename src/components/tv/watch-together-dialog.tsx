@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Loader2, Play, X } from "lucide-react";
 
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import { cn } from "@/lib/utils";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { createWatchUrl } from "@/lib/navigation/watch-url";
@@ -114,7 +114,7 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
         className="relative z-10 flex w-full max-w-[580px] flex-col outline-none motion-safe:animate-[glass-modal-pop_0.42s_cubic-bezier(0.16,1,0.3,1)_both]"
         style={{ maxHeight: "calc(100dvh - 64px)" }}
       >
-        <ZenedeGlass
+        <ZendeGlass
           variant="panel"
           className="flex flex-col overflow-hidden shadow-[0_40px_120px_-48px_rgba(0,0,0,0.95)]"
         >
@@ -305,7 +305,7 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
                   : `Watch ${selected.length} channel${selected.length !== 1 ? "s" : ""}`}
             </button>
           </div>
-        </ZenedeGlass>
+        </ZendeGlass>
       </div>
     </div>
   );

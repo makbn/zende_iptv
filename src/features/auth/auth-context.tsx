@@ -16,7 +16,7 @@ import {
   setStoredTokens,
 } from "@/lib/auth/zende-fetch";
 import { Z_ACCESS, Z_REFRESH } from "@/lib/auth/token-storage-keys";
-import { ZenedeLogoWave } from "@/components/loading/zenede-logo-wave";
+import { ZendeLogoWave } from "@/components/loading/zende-logo-wave";
 
 export type AuthUser = {
   id: string;
@@ -257,7 +257,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (!ready) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[var(--tv-page-bg)] text-white/50">
-        <ZenedeLogoWave size="md" />
+        <ZendeLogoWave size="md" />
         <p className="sr-only">Loading</p>
       </div>
     );
@@ -266,7 +266,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (authEnabled && !user && !isLoginPath) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[var(--tv-page-bg)] text-white/50">
-        <ZenedeLogoWave size="sm" />
+        <ZendeLogoWave size="sm" />
         <p className="text-[15px]">Redirecting…</p>
       </div>
     );

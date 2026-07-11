@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import {
   CinematicActionRow,
   CinematicButton,
@@ -16,7 +16,7 @@ import {
 } from "@/components/layout/cinematic-v2";
 import { TvChannelTile } from "@/components/tv/tv-channel-tile";
 import { TvContinueEmpty } from "@/components/tv/tv-continue-empty";
-import { ZenedeLogoWave } from "@/components/loading/zenede-logo-wave";
+import { ZendeLogoWave } from "@/components/loading/zende-logo-wave";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { createClientLogger } from "@/core/logging/client";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
@@ -154,7 +154,7 @@ export function TvHome() {
   const hero = useMemo(() => {
     if (!featured) {
       return {
-        eyebrow: "Zenede",
+        eyebrow: "Zende",
         title: "Live TV",
         subtitle:
           "Your recently watched channels and favorites surface here after setup.",
@@ -234,7 +234,7 @@ export function TvHome() {
   if (!catalogLoaded) {
     return (
       <div className="zen-page-bg flex min-h-screen flex-col items-center justify-center gap-4 pt-20 text-white/45">
-        <ZenedeLogoWave size="md" />
+        <ZendeLogoWave size="md" />
         <p className="sr-only">Loading</p>
       </div>
     );
@@ -510,14 +510,14 @@ export function TvHome() {
                 onClick={onNavigateClick("/library")}
                 className="group inline-flex shrink-0 outline-none"
               >
-                <ZenedeGlass
+                <ZendeGlass
                   variant="ctaPill"
                   className="transition-transform duration-200 group-hover:scale-[1.03] group-active:scale-[0.98]"
                 >
                   <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
                     Open Library
                   </span>
-                </ZenedeGlass>
+                </ZendeGlass>
               </Link>
               <button
                 type="button"
@@ -525,11 +525,11 @@ export function TvHome() {
                 onClick={() => void refreshCatalog()}
                 className="group inline-flex shrink-0 border-0 bg-transparent p-0 outline-none disabled:opacity-40"
               >
-                <ZenedeGlass variant="heroSecondary" className="inline-block">
+                <ZendeGlass variant="heroSecondary" className="inline-block">
                   <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-white">
                     {busy ? "Updating…" : "Refresh catalog"}
                   </span>
-                </ZenedeGlass>
+                </ZendeGlass>
               </button>
             </div>
           </div>

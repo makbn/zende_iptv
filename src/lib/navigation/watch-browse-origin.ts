@@ -3,7 +3,7 @@
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 
-export const WATCH_BROWSE_ORIGIN_KEY = "zenede.watch.browseOrigin";
+export const WATCH_BROWSE_ORIGIN_KEY = "zende.watch.browseOrigin";
 
 /** Safe return target from /watch (never another watch URL). Defaults to home. */
 export function getWatchReturnHref(): string {

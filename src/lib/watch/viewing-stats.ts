@@ -3,7 +3,7 @@ import { resolveLibraryContentType } from "@/lib/channels/content-type";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import type { PlaybackSessionMeta } from "@/lib/playback/stream-session-meta";
 
-const STORAGE_KEY = "zenede.viewing.v1";
+const STORAGE_KEY = "zende.viewing.v1";
 
 export type ViewingEntry = {
   url: string;
@@ -217,16 +217,16 @@ export function subscribeViewingStats(onChange: () => void): () => void {
   if (typeof window === "undefined") return () => {};
   const sameTab = () => onChange();
   window.addEventListener("storage", sameTab);
-  window.addEventListener("zenede-viewing-update", sameTab);
+  window.addEventListener("zende-viewing-update", sameTab);
   return () => {
     window.removeEventListener("storage", sameTab);
-    window.removeEventListener("zenede-viewing-update", sameTab);
+    window.removeEventListener("zende-viewing-update", sameTab);
   };
 }
 
 export function notifyViewingStatsUpdated(): void {
   if (typeof window === "undefined") return;
-  window.dispatchEvent(new Event("zenede-viewing-update"));
+  window.dispatchEvent(new Event("zende-viewing-update"));
 }
 
 /** Drop one URL from local playback history (e.g. "Recently watched"). */

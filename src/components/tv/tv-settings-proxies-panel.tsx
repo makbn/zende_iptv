@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import { useAuth } from "@/features/auth/auth-context";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { cn } from "@/lib/utils";
@@ -884,12 +884,12 @@ function ProxyForm({
 
       <div className="mt-5 flex flex-wrap gap-3">
         <button type="button" onClick={handleSubmit} disabled={!valid || busy} className="outline-none disabled:opacity-40">
-          <ZenedeGlass variant="ctaPill">
+          <ZendeGlass variant="ctaPill">
             <span className="flex items-center gap-2 px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {initial ? "Save changes" : vpnType === "gluetun" ? "Add VPN" : "Add proxy"}
             </span>
-          </ZenedeGlass>
+          </ZendeGlass>
         </button>
         {(vpnType === "direct" || vpnType === "smartdns") && (
           <button
@@ -1176,7 +1176,7 @@ function ChannelAssignmentDialog({
         aria-labelledby={dialogId}
         className="relative z-10 flex w-full max-w-2xl flex-col max-h-[92vh] motion-safe:animate-[glass-modal-pop_0.38s_cubic-bezier(0.16,1,0.3,1)_both]"
       >
-        <ZenedeGlass variant="panel" className="flex flex-col overflow-hidden shadow-[0_40px_120px_-48px_rgba(0,0,0,0.95)]">
+        <ZendeGlass variant="panel" className="flex flex-col overflow-hidden shadow-[0_40px_120px_-48px_rgba(0,0,0,0.95)]">
 
           {/* Header */}
           <div className="shrink-0 flex items-start justify-between gap-4 border-b border-white/[0.07] px-6 py-5">
@@ -1325,7 +1325,7 @@ function ChannelAssignmentDialog({
               Done
             </button>
           </div>
-        </ZenedeGlass>
+        </ZendeGlass>
       </div>
     </div>
   );
@@ -1409,12 +1409,12 @@ export function TvSettingsProxiesPanel() {
             </p>
           </div>
           <button type="button" onClick={openCreate} className="shrink-0 outline-none">
-            <ZenedeGlass variant="ctaPill">
+            <ZendeGlass variant="ctaPill">
               <span className="flex items-center gap-2 px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
                 <Plus className="h-4 w-4" />
                 Add proxy
               </span>
-            </ZenedeGlass>
+            </ZendeGlass>
           </button>
         </div>
 
@@ -1531,7 +1531,7 @@ export function TvSettingsProxiesPanel() {
             <li>
               <span className="font-medium text-white/65">Gluetun container</span> — Docker launches an isolated{" "}
               <a href="https://github.com/qdm12/gluetun" target="_blank" rel="noopener noreferrer" className="text-white/60 hover:text-white/80 underline">Gluetun</a>{" "}
-              container per proxy. It connects to the VPN internally and exposes a local HTTP proxy that Zenede routes through.
+              container per proxy. It connects to the VPN internally and exposes a local HTTP proxy that Zende routes through.
               Supports NordVPN, ExpressVPN, ProtonVPN, custom OpenVPN, and WireGuard.
               Run multiple containers for different countries simultaneously.
             </li>

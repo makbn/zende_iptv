@@ -1,5 +1,5 @@
 /** Shared typography, spacing, and touch-target tokens for browse UI. */
-export const zenedeTokens = {
+export const zendeTokens = {
   colorVoid: "#05060A",
   colorMidnight: "#09111F",
   colorSignal: "#38D9FF",

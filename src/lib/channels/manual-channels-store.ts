@@ -138,16 +138,16 @@ export function removeManualChannelEntry(id: string): void {
 
 export function notifyManualChannelsUpdated(): void {
   if (typeof window === "undefined") return;
-  window.dispatchEvent(new Event("zenede-manual-channels-update"));
+  window.dispatchEvent(new Event("zende-manual-channels-update"));
 }
 
 export function subscribeManualChannels(onChange: () => void): () => void {
   if (typeof window === "undefined") return () => {};
   const run = () => onChange();
   window.addEventListener("storage", run);
-  window.addEventListener("zenede-manual-channels-update", run);
+  window.addEventListener("zende-manual-channels-update", run);
   return () => {
     window.removeEventListener("storage", run);
-    window.removeEventListener("zenede-manual-channels-update", run);
+    window.removeEventListener("zende-manual-channels-update", run);
   };
 }

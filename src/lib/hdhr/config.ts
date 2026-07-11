@@ -30,7 +30,7 @@ export function getHdhrTunerCount(): number {
 }
 
 export function getHdhrFriendlyName(): string {
-  return process.env.ZENDE_HDHR_FRIENDLY_NAME?.trim() || "Zenede IPTV";
+  return process.env.ZENDE_HDHR_FRIENDLY_NAME?.trim() || "Zende IPTV";
 }
 
 /** Optional cap — Plex struggles with huge lineups; unset = export all live channels. */

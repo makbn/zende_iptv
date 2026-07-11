@@ -16,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import {
   TvRecordingRecentIssues,
@@ -383,7 +383,7 @@ export function MobileRecordingsPage() {
           )}
         >
           <p className="zen-kicker text-[10px]">
-            Zenede
+            Zende
           </p>
           <h1 className="mt-1 text-[1.45rem] font-semibold leading-none tracking-[-0.055em] text-white sm:text-[1.55rem]">
             Recordings
@@ -415,7 +415,7 @@ export function MobileRecordingsPage() {
           </div>
         ) : null}
 
-        <ZenedeGlass
+        <ZendeGlass
           variant="panel"
           className="rounded-[30px] border-white/[0.1] bg-white/[0.05] p-4"
         >
@@ -557,7 +557,7 @@ export function MobileRecordingsPage() {
               </button>
             </div>
           )}
-        </ZenedeGlass>
+        </ZendeGlass>
 
         {overview?.active.length ? (
           <section aria-labelledby="mobile-active-recordings">

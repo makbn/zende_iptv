@@ -6,7 +6,7 @@ import { Pencil, Trash2, X } from "lucide-react";
 
 import { parseM3u } from "@/core/playlist/m3u-parse";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import { useAuth } from "@/features/auth/auth-context";
 import {
   canModifyManualChannelEntry,
@@ -549,11 +549,11 @@ export function TvManualChannelsSection() {
           onClick={() => onAddOne()}
           className="outline-none transition-transform active:scale-[0.99] motion-reduce:transform-none"
         >
-          <ZenedeGlass variant="ctaPill">
+          <ZendeGlass variant="ctaPill">
             <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
               Add channel
             </span>
-          </ZenedeGlass>
+          </ZendeGlass>
         </button>
       </div>
 
@@ -562,7 +562,7 @@ export function TvManualChannelsSection() {
           Import from playlist URL
         </h3>
         <p className="mt-1 text-[14px] leading-relaxed text-white/45">
-          Paste a remote M3U/M3U8 URL and Zenede imports channels server-side.
+          Paste a remote M3U/M3U8 URL and Zende imports channels server-side.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <input
@@ -577,11 +577,11 @@ export function TvManualChannelsSection() {
             onClick={() => void onImportPlaylistUrl()}
             className="outline-none transition-transform active:scale-[0.99] motion-reduce:transform-none"
           >
-            <ZenedeGlass variant="heroSecondary" className="inline-block">
+            <ZendeGlass variant="heroSecondary" className="inline-block">
               <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-white">
                 Import URL
               </span>
-            </ZenedeGlass>
+            </ZendeGlass>
           </button>
         </div>
 
@@ -589,7 +589,7 @@ export function TvManualChannelsSection() {
           Import from Xtream credentials
         </h3>
         <p className="mt-1 text-[14px] leading-relaxed text-white/45">
-          Enter server host, username, and password. Zenede builds the
+          Enter server host, username, and password. Zende builds the
           <code className="mx-1 text-white/70">get.php</code> URL automatically.
         </p>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
@@ -620,11 +620,11 @@ export function TvManualChannelsSection() {
           onClick={() => void onImportXtream()}
           className="mt-3 outline-none transition-transform active:scale-[0.99] motion-reduce:transform-none"
         >
-          <ZenedeGlass variant="heroSecondary" className="inline-block">
+          <ZendeGlass variant="heroSecondary" className="inline-block">
             <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-white">
               Import Xtream playlist
             </span>
-          </ZenedeGlass>
+          </ZendeGlass>
         </button>
 
         <h3 className="mt-8 text-[15px] font-semibold text-white/90">
@@ -649,11 +649,11 @@ export function TvManualChannelsSection() {
           onClick={() => onImportM3u()}
           className="mt-3 outline-none transition-transform active:scale-[0.99] motion-reduce:transform-none"
         >
-          <ZenedeGlass variant="heroSecondary" className="inline-block">
+          <ZendeGlass variant="heroSecondary" className="inline-block">
             <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-white">
               Import pasted channels
             </span>
-          </ZenedeGlass>
+          </ZendeGlass>
         </button>
       </div>
 
@@ -954,11 +954,11 @@ export function TvManualChannelsSection() {
                 onClick={onSaveEdit}
                 className="outline-none transition-transform active:scale-[0.99] motion-reduce:transform-none"
               >
-                <ZenedeGlass variant="ctaPill">
+                <ZendeGlass variant="ctaPill">
                   <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
                     Save changes
                   </span>
-                </ZenedeGlass>
+                </ZendeGlass>
               </button>
             </div>
           </div>

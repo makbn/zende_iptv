@@ -17,7 +17,7 @@ function registryHeaders(): HeadersInit {
   if (typeof localStorage !== "undefined" && localStorage.getItem(Z_ACCESS)) {
     return h;
   }
-  const secret = sessionStorage.getItem("zenede.cronSecret");
+  const secret = sessionStorage.getItem("zende.cronSecret");
   if (secret) h.Authorization = `Bearer ${secret}`;
   return h;
 }

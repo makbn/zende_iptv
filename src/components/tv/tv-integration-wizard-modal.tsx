@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState } from "react";
 
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import type { IntegrationKind, StoredIntegration } from "@/lib/integrations/types";
 import { cn } from "@/lib/utils";
 
@@ -145,7 +145,7 @@ export function TvIntegrationWizardModal({
         aria-labelledby={titleId}
       >
         <div className="motion-safe:animate-[glass-modal-pop_0.42s_cubic-bezier(0.16,1,0.3,1)_both]">
-          <ZenedeGlass
+          <ZendeGlass
             variant="panel"
             className="flex max-h-[min(92vh,880px)] flex-col overflow-hidden shadow-[0_40px_120px_-48px_rgba(0,0,0,0.95)]"
           >
@@ -157,7 +157,7 @@ export function TvIntegrationWizardModal({
                 {isEdit ? "Edit integration" : "New integration"}
               </p>
               <p className="mt-1 text-[15px] text-white/55">
-                Step {step} of {STEPS} — save a reference for how Zenede fits next to your
+                Step {step} of {STEPS} — save a reference for how Zende fits next to your
                 media stack.
               </p>
               <div
@@ -178,7 +178,7 @@ export function TvIntegrationWizardModal({
               {step === 1 ? (
                 <div className="space-y-3">
                   <p className="text-[14px] leading-relaxed text-white/45">
-                    Choose what you are wiring alongside Zenede. You can add several entries
+                    Choose what you are wiring alongside Zende. You can add several entries
                     (for example one Plex household and one Jellyfin test server).
                   </p>
                   <div className="grid gap-2 sm:grid-cols-2">
@@ -307,7 +307,7 @@ export function TvIntegrationWizardModal({
                     </p>
                   ) : null}
                   <p className="border-t border-white/[0.08] pt-3 text-[13px] text-white/45">
-                    Saved only in this browser (local storage). Zenede does not call these
+                    Saved only in this browser (local storage). Zende does not call these
                     URLs automatically yet — this record keeps your plan in one place.
                   </p>
                 </div>
@@ -330,24 +330,24 @@ export function TvIntegrationWizardModal({
                     onClick={() => setStep((s) => Math.min(STEPS, s + 1))}
                     className="outline-none disabled:opacity-40"
                   >
-                    <ZenedeGlass variant="ctaPill">
+                    <ZendeGlass variant="ctaPill">
                       <span className="flex px-5 py-2.5 text-[14px] font-semibold text-zinc-950">
                         Continue
                       </span>
-                    </ZenedeGlass>
+                    </ZendeGlass>
                   </button>
                 ) : (
                   <button type="button" onClick={() => submit()} className="outline-none">
-                    <ZenedeGlass variant="ctaPill">
+                    <ZendeGlass variant="ctaPill">
                       <span className="flex px-5 py-2.5 text-[14px] font-semibold text-zinc-950">
                         Save integration
                       </span>
-                    </ZenedeGlass>
+                    </ZendeGlass>
                   </button>
                 )}
               </div>
             </div>
-          </ZenedeGlass>
+          </ZendeGlass>
         </div>
       </div>
     </div>

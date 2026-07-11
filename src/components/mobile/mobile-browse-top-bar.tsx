@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 import { GlassSearchModal } from "@/components/glass/glass-search-modal";
-import { ZenedeGlass } from "@/components/glass/zenede-glass";
+import { ZendeGlass } from "@/components/glass/zende-glass";
 import { WatchTogetherDialog } from "@/components/tv/watch-together-dialog";
 import { useAuth } from "@/features/auth/auth-context";
 import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
@@ -220,7 +220,7 @@ export function MobileBrowseTopBar() {
             : "-translate-y-[calc(100%+1rem)] opacity-0",
         )}
       >
-        <ZenedeGlass
+        <ZendeGlass
           variant="panelCompact"
           className="pointer-events-auto rounded-[26px] border-white/[0.12] bg-black/54 shadow-[0_20px_64px_-26px_rgba(0,0,0,0.9)] transition-[box-shadow,transform,border-color] duration-300 ease-out hover:border-white/[0.16]"
         >
@@ -228,12 +228,12 @@ export function MobileBrowseTopBar() {
             <Link
               href="/"
               onClick={onNavigateClick("/")}
-              aria-label="Zenede home"
+              aria-label="Zende home"
               className="zen-focus-ring flex min-w-0 items-center gap-2 rounded-full outline-none"
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- local brand SVG */}
               <img
-                src="/zenede-logo.svg"
+                src="/zende-logo.svg"
                 alt=""
                 width={225}
                 height={82}
@@ -241,7 +241,7 @@ export function MobileBrowseTopBar() {
                 decoding="async"
               />
               <span className="truncate text-[18px] font-semibold tracking-[-0.04em] text-white">
-                Zenede
+                Zende
               </span>
             </Link>
 
@@ -265,14 +265,14 @@ export function MobileBrowseTopBar() {
               <MobileUserMenu />
             </div>
           </div>
-        </ZenedeGlass>
+        </ZendeGlass>
       </header>
 
       <nav
         aria-label="Primary mobile"
         className="fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden"
       >
-        <ZenedeGlass
+        <ZendeGlass
           variant="panelCompact"
           className="rounded-[30px] border-white/[0.12] bg-black/62 shadow-[0_-20px_64px_-28px_rgba(0,0,0,0.95)]"
         >
@@ -298,7 +298,7 @@ export function MobileBrowseTopBar() {
               );
             })}
           </div>
-        </ZenedeGlass>
+        </ZendeGlass>
       </nav>
     </>
   );

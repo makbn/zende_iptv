@@ -3,6 +3,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # Cache npm downloads between builds; requires BuildKit (default in Docker Desktop).
+      args:
+        BUILDKIT_INLINE_CACHE: "1"
     container_name: zende
     ports:
       # Default: all interfaces. Set DOCKER_PUBLISH in .env for a specific host IP, e.g. 192.168.1.50:8077:8077
@@ -21,7 +24,7 @@ services:
       # HDHomeRun DVR emulation for Plex / Jellyfin Live TV (Threadfin-style).
       # Plex → Settings → Live TV & DVR → DVR → add HDHomeRun → enter http://<host>:8077
       ZENDE_HDHR_TUNER_COUNT: "${ZENDE_HDHR_TUNER_COUNT:-4}"
-      # ZENDE_HDHR_FRIENDLY_NAME: "Zenede IPTV"
+      # ZENDE_HDHR_FRIENDLY_NAME: "Zende IPTV"
       # ZENDE_HDHR_DEVICE_ID: "A1B2C3D4"  # 8 hex chars; auto-derived if unset
       # ZENDE_HDHR_MAX_CHANNELS: "5000"   # optional cap — Plex may choke on huge lineups
       # ZENDE_HDHR_ENABLED: "0"           # set to disable HDHR endpoints
@@ -59,7 +62,7 @@ services:
       - zende-data:/data
 
       # ── Docker socket (required for VPN proxy containers) ──────────────────
-      # Allows Zenede to start/stop Gluetun sibling containers via the host
+      # Allows Zende to start/stop Gluetun sibling containers via the host
       # Docker daemon. Remove this line if you do not use the VPN proxy feature.
       - /var/run/docker.sock:/var/run/docker.sock
 

@@ -71,6 +71,6 @@ export function buildXmltvDocument(channels: XmltvChannelRef[]): string {
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE tv SYSTEM "xmltv.dtd">
-<tv generator-info-name="Zenede" generator-info-url="https://github.com/">
+<tv generator-info-name="Zende" generator-info-url="https://github.com/">
 ${channelsXml}${programmesXml}</tv>`;
 }

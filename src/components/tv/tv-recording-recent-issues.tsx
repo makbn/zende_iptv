@@ -4,13 +4,15 @@ import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 
 import { ZendeGlass } from "@/components/glass/zende-glass";
+import { ZendeSpinner } from "@/components/loading/zende-spinner";
+import { Button } from "@/components/ui/button";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
+import { secureImageUrl } from "@/lib/media/secure-image-url";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
   Calendar,
   ExternalLink,
-  Loader2,
   Radio,
   Trash2,
   X,
@@ -124,7 +126,7 @@ export function TvRecordingRecentIssues({
                     <span className="relative size-12 shrink-0 overflow-hidden rounded-xl bg-white/[0.06] ring-1 ring-white/[0.08]">
                       {item.channelLogo ? (
                         <Image
-                          src={item.channelLogo}
+                          src={secureImageUrl(item.channelLogo, undefined, "logo")!}
                           alt=""
                           fill
                           className="object-cover"
@@ -293,26 +295,27 @@ export function TvRecordingRecentIssues({
               </div>
 
               <div className="flex flex-wrap items-center justify-end gap-3 border-t border-white/[0.08] bg-black/20 px-5 py-4">
-                <button
+                <Button
                   type="button"
                   onClick={() => setDetail(null)}
-                  className="inline-flex h-10 items-center justify-center rounded-xl border border-white/[0.12] bg-white/[0.06] px-5 text-[14px] font-medium text-white/75 outline-none transition-colors hover:bg-white/[0.1] hover:text-white"
+                  size="sm"
                 >
                   Close
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   disabled={clearing}
                   onClick={() => void handleClear()}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-red-400/30 bg-red-500/20 px-5 text-[14px] font-semibold text-red-100 outline-none transition-colors hover:bg-red-500/30 disabled:opacity-45"
+                  variant="danger"
+                  size="sm"
                 >
                   {clearing ? (
-                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                    <ZendeSpinner size="tiny" label="Processing recording action" />
                   ) : (
                     <Trash2 className="size-4" aria-hidden />
                   )}
                   Clear
-                </button>
+                </Button>
               </div>
             </ZendeGlass>
           </div>

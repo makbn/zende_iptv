@@ -49,7 +49,7 @@ export function ChannelLogo({
   aspect = "video",
 }: ChannelLogoProps) {
   const [failed, setFailed] = useState(false);
-  const resolvedLogo = secureImageUrl(logoUrl);
+  const resolvedLogo = secureImageUrl(logoUrl, undefined, "logo");
   const showLogo = Boolean(resolvedLogo) && !failed;
   const fillMode = aspect === "fill";
 

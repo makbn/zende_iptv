@@ -1,24 +1,52 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, X } from "lucide-react";
+import { CalendarClock, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 
 import { StreamPlayer } from "@/components/player/stream-player";
+import { ZendeSpinner } from "@/components/loading/zende-spinner";
+import { Button } from "@/components/ui/button";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { createWatchUrl } from "@/lib/navigation/watch-url";
+import { zendeFetch } from "@/lib/auth/zende-fetch";
 
 type Props = {
   channel: M3uChannel | null;
   onClose: () => void;
+  presentation?: "dialog" | "embedded";
 };
 
-export function LivePreviewDialog({ channel, onClose }: Props) {
+type EpgSlot = {
+  title: string;
+  startMs: number;
+  stopMs: number;
+};
+
+type ChannelEpg = {
+  current: EpgSlot | null;
+  next: EpgSlot | null;
+};
+
+function formatClock(ms: number): string {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(ms));
+}
+
+function formatSlotTime(slot: EpgSlot): string {
+  return `${formatClock(slot.startMs)}–${formatClock(slot.stopMs)}`;
+}
+
+export function LivePreviewDialog({ channel, onClose, presentation = "dialog" }: Props) {
   const router = useRouter();
   const [src, setSrc] = useState<string | null>(null);
   const [watchHref, setWatchHref] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [epg, setEpg] = useState<ChannelEpg | null>(null);
+  const [epgLoading, setEpgLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -60,6 +88,39 @@ export function LivePreviewDialog({ channel, onClose }: Props) {
   }, [channel]);
 
   useEffect(() => {
+    const tvgId = channel?.tvgId?.trim();
+    const controller = new AbortController();
+    queueMicrotask(() => {
+      setEpg(null);
+      setEpgLoading(Boolean(tvgId));
+    });
+    if (!tvgId) return () => controller.abort();
+
+    void (async () => {
+      try {
+        const response = await zendeFetch("/api/epg/programs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: [tvgId] }),
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const payload = (await response.json()) as {
+          programs?: Record<string, ChannelEpg>;
+        };
+        if (!controller.signal.aborted) {
+          setEpg(payload.programs?.[tvgId] ?? null);
+        }
+      } catch {
+        // Preview remains usable when guide lookup fails.
+      } finally {
+        if (!controller.signal.aborted) setEpgLoading(false);
+      }
+    })();
+    return () => controller.abort();
+  }, [channel]);
+
+  useEffect(() => {
     if (!channel) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -69,15 +130,64 @@ export function LivePreviewDialog({ channel, onClose }: Props) {
   }, [channel, onClose]);
 
   useEffect(() => {
-    if (!channel || typeof document === "undefined") return;
+    if (!channel || presentation === "embedded" || typeof document === "undefined") return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [channel]);
+  }, [channel, presentation]);
 
   if (!channel || !mounted) return null;
+
+  if (presentation === "embedded") {
+    return (
+      <div className="overflow-hidden rounded-[24px] border border-white/[0.1] bg-black/70">
+        <div className="relative aspect-video w-full bg-black">
+          {src ? (
+            <StreamPlayer
+              src={src}
+              controls
+              className="h-full w-full"
+              onError={(playerError) => {
+                if (!playerError.fatal) return;
+                setSrc(null);
+                setError("This provider rejected the live preview. The full EPG remains available.");
+              }}
+            />
+          ) : error ? (
+            <div className="flex h-full items-center justify-center px-6 text-center text-[13px] text-amber-200/90">
+              {error}
+            </div>
+          ) : (
+            <div className="flex h-full items-center justify-center gap-3 text-white/55">
+              <ZendeSpinner size="small" label="Loading live preview" />
+              <span className="text-[13px]">Loading live preview independently…</span>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center justify-between gap-3 border-t border-white/[0.08] px-4 py-3">
+          <div className="min-w-0">
+            <p className="truncate text-[12px] font-semibold text-white/82">{channel.name}</p>
+            <p className="mt-0.5 text-[10px] text-white/36">
+              {error ? "Preview unavailable — guide unaffected" : "Shared Library preview player"}
+            </p>
+          </div>
+          <Button
+            type="button"
+            disabled={!watchHref}
+            onClick={() => {
+              if (watchHref) router.push(watchHref);
+            }}
+            size="sm"
+            className="shrink-0"
+          >
+            Full player
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return createPortal(
     <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/78 p-4 backdrop-blur-xl">
@@ -87,7 +197,7 @@ export function LivePreviewDialog({ channel, onClose }: Props) {
         aria-label="Close preview"
         onClick={onClose}
       />
-      <div className="relative z-10 w-full max-w-[980px] overflow-hidden rounded-[28px] border border-white/15 bg-black shadow-[0_34px_120px_-44px_rgba(0,0,0,0.96)] ring-1 ring-white/[0.06]">
+      <div className="relative z-10 max-h-[92vh] w-full max-w-[980px] overflow-y-auto rounded-[28px] border border-white/15 bg-black shadow-[0_34px_120px_-44px_rgba(0,0,0,0.96)] ring-1 ring-white/[0.06]">
         <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
           <div className="min-w-0">
             <p className="truncate text-[16px] font-semibold tracking-[-0.02em] text-white">
@@ -108,27 +218,74 @@ export function LivePreviewDialog({ channel, onClose }: Props) {
         </div>
         <div className="relative aspect-video w-full bg-black">
           {src ? (
-            <StreamPlayer src={src} controls className="h-full w-full" />
+            <StreamPlayer
+              src={src}
+              controls
+              className="h-full w-full"
+              onError={(playerError) => {
+                if (!playerError.fatal) return;
+                setSrc(null);
+                setError("This provider rejected the live preview. You can still inspect its programme guide.");
+              }}
+            />
           ) : error ? (
             <div className="flex h-full items-center justify-center px-6 text-center text-[14px] text-amber-200/95">
               {error}
             </div>
           ) : (
             <div className="flex h-full items-center justify-center gap-3 text-white/60">
-              <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+              <ZendeSpinner size="small" label="Loading programme guide" />
               <span className="text-[14px]">Starting live preview…</span>
             </div>
           )}
         </div>
+        <div className="border-t border-white/10 bg-white/[0.025] px-4 py-3">
+          <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/42">
+            <CalendarClock className="size-3.5 text-[var(--zen-signal)]/80" aria-hidden />
+            Programme guide
+          </div>
+          {epgLoading ? (
+            <div className="grid grid-cols-2 gap-2" aria-label="Loading programme guide">
+              <div className="h-[54px] animate-pulse rounded-xl bg-white/[0.06]" />
+              <div className="h-[54px] animate-pulse rounded-xl bg-white/[0.04]" />
+            </div>
+          ) : epg?.current || epg?.next ? (
+            <div className="grid grid-cols-2 gap-2">
+              {(["current", "next"] as const).map((kind) => {
+                const slot = epg?.[kind] ?? null;
+                return (
+                  <div
+                    key={kind}
+                    className="min-w-0 rounded-xl border border-white/[0.08] bg-black/30 px-3 py-2"
+                  >
+                    <p className="text-[9px] font-semibold uppercase tracking-[0.13em] text-white/35">
+                      {kind === "current" ? "Now" : "Next"}
+                    </p>
+                    <p className="mt-0.5 truncate text-[12px] font-semibold text-white/88">
+                      {slot?.title ?? "—"}
+                    </p>
+                    <p className="mt-0.5 text-[10px] tabular-nums text-white/38">
+                      {slot ? formatSlotTime(slot) : "No listing"}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="rounded-xl border border-white/[0.07] bg-black/25 px-3 py-2 text-[12px] text-white/42">
+              {channel.tvgId?.trim() ? "No current programme data." : "This channel has no EPG ID."}
+            </p>
+          )}
+        </div>
         <div className="flex items-center justify-end gap-2 border-t border-white/10 px-4 py-3">
-          <button
+          <Button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-white/15 bg-white/[0.05] px-4 py-2 text-[13px] font-semibold text-white/82 hover:bg-white/[0.1]"
+            size="sm"
           >
             Close
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             disabled={!watchHref}
             onClick={() => {
@@ -136,10 +293,11 @@ export function LivePreviewDialog({ channel, onClose }: Props) {
               onClose();
               router.push(watchHref);
             }}
-            className="rounded-full bg-[var(--zen-frost)] px-4 py-2 text-[13px] font-semibold text-[var(--zen-void)] disabled:cursor-not-allowed disabled:opacity-45"
+            variant="success"
+            size="sm"
           >
             Open full player
-          </button>
+          </Button>
         </div>
       </div>
     </div>,

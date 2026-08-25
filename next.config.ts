@@ -13,6 +13,19 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "@base-ui/react"],
   },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: "img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self';",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

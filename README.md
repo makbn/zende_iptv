@@ -1,6 +1,6 @@
 # Zende
 
-**Zende** is a self-hosted **IPTV hub**: a TV- and phone-friendly web UI with a **server-side stream relay**, **per-channel VPN / proxy routing**, **DVR recordings** (ffmpeg), **VOD subtitles**, **phone→TV remote control**, **channel health**, **EPG**, **HDHomeRun-style DVR endpoints** for Plex/Jellyfin, and an **Xtream-compatible portal** for apps like TiviMate.
+**Zende** is a self-hosted **IPTV hub**: a TV- and phone-friendly web UI with a **server-side stream relay**, **per-channel VPN / proxy routing**, **DVR recordings** (ffmpeg), **VOD subtitles**, **phone→TV remote control**, **channel health**, **EPG**, **Threadfin** for Plex/Jellyfin Live TV, and an **Xtream-compatible portal** for apps like TiviMate.
 
 The browser does not pull raw provider URLs for playback—sessions go through **`/api/stream/proxy/...`**, where the server applies your proxy, cookies, and HLS rewrites. Zende does not host or transcode third-party streams; it orchestrates access to URLs you supply.
 
@@ -19,7 +19,7 @@ The browser does not pull raw provider URLs for playback—sessions go through *
 | **QR login** | On the TV login screen, scan a **QR code** with your phone to approve sign-in (or enter credentials on mobile). |
 | **VPN / proxy per channel** | **Settings → VPN Proxies**: direct proxies or **Gluetun** (NordVPN, ExpressVPN, ProtonVPN, custom OpenVPN/WireGuard). Assign channels by URL hash so only those streams use that exit. |
 | **IPTV apps** | **Settings → Integrations**: portal credentials for **Xtream-style** clients — `player_api.php`, `get.php`, `xmltv.php`, `/live/...` on the same host. |
-| **HDHomeRun DVR** | Emulates HDHomeRun discovery / lineup / tune endpoints so **Plex** or **Jellyfin** can use Zende as a Live TV / DVR source (`discover.json`, `lineup.json`, `/hdhr/stream/...`). |
+| **Plex / Jellyfin DVR** | Docker Compose runs **[Threadfin](https://github.com/Threadfin/Threadfin)** alongside Zende. Zende auto-feeds Live + Movies + Shows as an M3U; Plex adds Threadfin as an **HDHomeRun** on port **34400**. Setup details are in **Settings → Integrations**. |
 | **Recordings** | Start or schedule captures from the UI; **ffmpeg** records through the **same relay** as playback (VPN/cookies apply). Metadata in SQLite; MP4s on disk — in Docker, **`ZENDE_RECORDINGS_DIR=/data/recordings`** on the **`zende-data`** volume. |
 | **Subtitles (VOD)** | Search and load external subtitles via **Wyzie** (+ optional **TMDB** title match) in **Settings → Integrations**. Search results and loaded VTT tracks are **cached ~7 days** on disk (`ZENDE_SUBTITLES_DIR`, default `/data/subtitles` in Docker). |
 | **Channel health** | Registry sync, probes, aggregates (tiers), optional **cron**-style jobs (`CRON_SECRET`). |
@@ -55,6 +55,11 @@ For production, set a strong **`AUTH_JWT_SECRET`** in `.env`. Behind a reverse p
 | `ZENDE_EPG_GUIDE_URLS` | Optional comma-separated XMLTV guide URLs. |
 | `PUBLIC_APP_URL` | Force public origin for rewritten stream URLs when proxy headers are missing. |
 | `DOCKER_PUBLISH` | Bind a specific host IP/port (e.g. `192.168.1.50:8077:8077`). |
+| `ZENDE_THREADFIN_PUBLIC_HOST` | LAN hostname/IP Plex should use for Threadfin (default: request host). |
+| `ZENDE_THREADFIN_PUBLIC_BASE_URL` | Optional full public proxy base, including a path (for example `https://example.com/thf`). |
+| `ZENDE_THREADFIN_PUBLIC_PORT` | Threadfin published port (default `34400`). |
+| `ZENDE_THREADFIN_MAX_CHANNELS` | Plex-safe Threadfin lineup cap (default and maximum `480`). |
+| `THREADFIN_PUBLISH` | Host publish for Threadfin (default `34400:34400`). |
 
 Full reference: [Advanced setup](docs/ADVANCED.md).
 
@@ -85,7 +90,7 @@ npm run test:recording   # recording-focused checks
 
 ## Summary
 
-Zende is a **self-hosted IPTV control plane**: relayed playback and recordings through your server, optional per-channel VPN exits, phone remote + QR login, VOD subtitles, HDHomeRun for Plex/Jellyfin, and Xtream-compatible portals—without redistributing stream content.
+Zende is a **self-hosted IPTV control plane**: relayed playback and recordings through your server, optional per-channel VPN exits, phone remote + QR login, VOD subtitles, Threadfin for Plex/Jellyfin, and Xtream-compatible portals—without redistributing stream content.
 
 ## Disclaimer
 

@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { BROWSE_TOP_PAD } from "@/components/layout/browse-page-shell";
+import { ZendeSpinner } from "@/components/loading/zende-spinner";
 
 export function BrowsePageSkeleton({ className }: { className?: string }) {
   return (
@@ -14,6 +15,10 @@ export function BrowsePageSkeleton({ className }: { className?: string }) {
       aria-label="Loading page"
     >
       <div className="mx-auto max-w-6xl space-y-8 pt-6">
+        <div className="flex items-center gap-3 text-sm font-medium text-white/55">
+          <ZendeSpinner size="small" label="Loading page" />
+          Loading page…
+        </div>
         <div className="h-10 w-48 animate-pulse rounded-2xl bg-white/[0.09]" />
         <div className="flex gap-3 overflow-hidden">
           {Array.from({ length: 5 }).map((_, i) => (

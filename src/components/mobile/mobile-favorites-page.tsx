@@ -15,6 +15,7 @@ import { Heart, Radio, Search, X } from "lucide-react";
 import { MobileChannelCard } from "@/components/mobile/mobile-channel-card";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import { ZendeGlass } from "@/components/glass/zende-glass";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   listFavorites,
   subscribeFavorites,
@@ -270,16 +271,16 @@ export function MobileFavoritesPage() {
                 </p>
               </div>
               {activeFilters ? (
-                <button
+                <Button
                   type="button"
                   onClick={() => {
                     setQuery("");
                     setGroupFilter(null);
                   }}
-                  className="min-h-9 rounded-xl border border-white/[0.1] bg-white/[0.06] px-3.5 text-[12px] font-semibold text-white/72 transition-colors duration-200 hover:bg-white/[0.1] hover:text-white"
+                  size="xs"
                 >
                   Reset
-                </button>
+                </Button>
               ) : null}
             </div>
 
@@ -311,13 +312,14 @@ export function MobileFavoritesPage() {
             ) : null}
 
             {hasMore ? (
-              <button
+              <Button
                 type="button"
                 onClick={() => setVisibleCount((count) => count + PAGE_STEP)}
-                className="mt-4 flex min-h-[48px] w-full items-center justify-center rounded-full bg-[var(--zen-frost)] text-[14px] font-semibold text-[var(--zen-void)] outline-none transition-[transform,box-shadow] duration-200 hover:shadow-lg hover:shadow-black/20 active:scale-[0.99] motion-reduce:transform-none"
+                size="lg"
+                className="mt-4 w-full"
               >
                 Load more
-              </button>
+              </Button>
             ) : null}
           </section>
         </>
@@ -334,7 +336,7 @@ export function MobileFavoritesPage() {
             <Link
               href="/library"
               onClick={onNavigateClick("/library")}
-              className="mt-5 flex min-h-[52px] items-center justify-center rounded-full bg-[var(--zen-frost)] text-[15px] font-semibold text-[var(--zen-void)] outline-none transition-[transform,box-shadow] duration-200 ease-out hover:shadow-lg hover:shadow-black/20 active:scale-[0.99] motion-reduce:transform-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+              className={buttonVariants({ variant: "normal", size: "lg", className: "mt-5 w-full" })}
             >
               Open Library
             </Link>

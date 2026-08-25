@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { ZendeGlass } from "@/components/glass/zende-glass";
+import { ZendeSpinner } from "@/components/loading/zende-spinner";
 import { useAuth } from "@/features/auth/auth-context";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { cn } from "@/lib/utils";
@@ -203,7 +204,7 @@ export function TvSettingsSubtitlesPanel() {
         <div className="rounded-xl border border-white/[0.08] bg-black/25 px-4 py-3">
           <dt className="text-white/45">TMDB title search</dt>
           <dd className="mt-1 text-white/75">
-            {busy && !state ? "Loading…" : state?.tmdbConfigured ? "Enabled" : "Not configured"}
+            {busy && !state ? <span className="inline-flex items-center gap-2"><ZendeSpinner size="tiny" label="Loading TMDB status" /> Loading…</span> : state?.tmdbConfigured ? "Enabled" : "Not configured"}
           </dd>
           <dd className="mt-1 font-mono text-[12px] text-white/45">
             {state?.tmdbApiKeyPreview ?? "No key"}
@@ -212,7 +213,7 @@ export function TvSettingsSubtitlesPanel() {
         <div className="rounded-xl border border-white/[0.08] bg-black/25 px-4 py-3">
           <dt className="text-white/45">Wyzie subtitles</dt>
           <dd className="mt-1 text-white/75">
-            {busy && !state ? "Loading…" : state?.configured ? "Enabled" : "Not configured"}
+            {busy && !state ? <span className="inline-flex items-center gap-2"><ZendeSpinner size="tiny" label="Loading subtitle status" /> Loading…</span> : state?.configured ? "Enabled" : "Not configured"}
           </dd>
           <dd className="mt-1 font-mono text-[12px] text-white/45">
             {state?.wyzieApiKeyPreview ?? "No key"}
@@ -268,19 +269,21 @@ export function TvSettingsSubtitlesPanel() {
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
+              data-button-variant="success"
               disabled={busy}
               onClick={() => void onSave()}
               className="outline-none disabled:opacity-40"
             >
               <ZendeGlass variant="ctaPill">
                 <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
-                  {busy ? "Saving…" : "Save subtitle settings"}
+                  {busy ? <><ZendeSpinner size="tiny" label="Saving subtitle settings" /> Saving…</> : "Save subtitle settings"}
                 </span>
               </ZendeGlass>
             </button>
             {state?.tmdbConfigured && state.tmdbApiKeySource === "database" ? (
               <button
                 type="button"
+                data-button-variant="danger"
                 disabled={busy}
                 onClick={() => void onClearTmdb()}
                 className="rounded-full border border-red-400/25 bg-red-500/10 px-4 py-2.5 text-[14px] font-semibold text-red-200/95 outline-none hover:bg-red-500/15 disabled:opacity-40"
@@ -291,6 +294,7 @@ export function TvSettingsSubtitlesPanel() {
             {state?.configured && state.wyzieApiKeySource === "database" ? (
               <button
                 type="button"
+                data-button-variant="danger"
                 disabled={busy}
                 onClick={() => void onClearWyzie()}
                 className="rounded-full border border-red-400/25 bg-red-500/10 px-4 py-2.5 text-[14px] font-semibold text-red-200/95 outline-none hover:bg-red-500/15 disabled:opacity-40"

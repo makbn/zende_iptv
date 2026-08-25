@@ -315,3 +315,52 @@ export async function pruneExpiredSubtitleCache(): Promise<void> {
     /* dir missing */
   }
 }
+
+
+export async function getSubtitleCacheStats() {
+  pruneMemory();
+  ensureDirsSync();
+  let diskEntries = 0;
+  let bytes = 0;
+  for (const directory of [TRACKS_DIR, SEARCHES_DIR]) {
+    try {
+      const names = await fsPromises.readdir(directory);
+      for (const name of names) {
+        if (!name.endsWith(".json")) continue;
+        try {
+          const stat = await fsPromises.stat(path.join(directory, name));
+          diskEntries += 1;
+          bytes += stat.size;
+        } catch {
+          /* entry disappeared during inspection */
+        }
+      }
+    } catch {
+      /* directory missing */
+    }
+  }
+  try {
+    bytes += (await fsPromises.stat(SOURCE_INDEX)).size;
+  } catch {
+    /* source index missing */
+  }
+  return {
+    entries: diskEntries,
+    memoryEntries: memoryTracks.size + memorySearches.size,
+    bytes,
+    ttlMs: SUBTITLE_CACHE_TTL_MS,
+  };
+}
+
+export async function clearSubtitleCache(): Promise<void> {
+  memoryTracks.clear();
+  memorySearches.clear();
+  sourceIndex = null;
+  await Promise.all([
+    fsPromises.rm(TRACKS_DIR, { recursive: true, force: true }),
+    fsPromises.rm(SEARCHES_DIR, { recursive: true, force: true }),
+    fsPromises.rm(SOURCE_INDEX, { force: true }),
+  ]);
+  ensuredDirs = false;
+  ensureDirsSync();
+}

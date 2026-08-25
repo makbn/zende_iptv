@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { ZendeGlass } from "@/components/glass/zende-glass";
+import { ZendeSpinner } from "@/components/loading/zende-spinner";
 import { useAuth } from "@/features/auth/auth-context";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { cn } from "@/lib/utils";
@@ -12,8 +13,29 @@ type RowUser = {
   id: string;
   username: string;
   role: "ADMIN" | "USER";
+  isDisabled: boolean;
   isBootstrapAdmin: boolean;
+  createdAt: string;
+  lastLoginAt: string | null;
+  lastActivityAt: string | null;
+  lastLoginLocation: string | null;
+  lastLoginDevice: string | null;
+  _count: { favorites: number; viewingHistory: number };
 };
+
+type UserActivity = RowUser & {
+  lastLoginIp: string | null;
+  viewingHistory: Array<{
+    name: string;
+    groupTitle: string | null;
+    lastOpenedAt: string;
+    openCount: number;
+  }>;
+};
+
+function formatActivityDate(value: string | null) {
+  return value ? new Date(value).toLocaleString() : "Never";
+}
 
 export function TvSettingsAuthPanel() {
   const {
@@ -41,6 +63,12 @@ export function TvSettingsAuthPanel() {
   const [editName, setEditName] = useState("");
   const [editPass, setEditPass] = useState("");
   const [editRole, setEditRole] = useState<"ADMIN" | "USER">("USER");
+  const [currentPass, setCurrentPass] = useState("");
+  const [newPass, setNewPass] = useState("");
+  const [newPass2, setNewPass2] = useState("");
+  const [activityId, setActivityId] = useState<string | null>(null);
+  const [activity, setActivity] = useState<UserActivity | null>(null);
+  const [activityBusy, setActivityBusy] = useState(false);
 
   const loadUsers = useCallback(async () => {
     if (user?.role !== "ADMIN") return;
@@ -187,6 +215,82 @@ export function TvSettingsAuthPanel() {
 
   const isAdmin = user?.role === "ADMIN";
 
+  const changeOwnPassword = useCallback(async () => {
+    if (newPass !== newPass2) {
+      setHint("New passwords do not match.");
+      return;
+    }
+    setBusy(true);
+    const res = await zendeFetch("/api/auth/password", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword: currentPass, newPassword: newPass }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) {
+      setHint(typeof data?.error === "string" ? data.error : "Password update failed.");
+      return;
+    }
+    setCurrentPass("");
+    setNewPass("");
+    setNewPass2("");
+    setHint("Password changed. Sign in again with your new password.");
+    await logout();
+  }, [currentPass, newPass, newPass2, logout]);
+
+  const toggleDisabled = useCallback(async (target: RowUser) => {
+    const res = await zendeFetch(`/api/admin/users/${target.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isDisabled: !target.isDisabled }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setHint(typeof data?.error === "string" ? data.error : "Account update failed.");
+      return;
+    }
+    await loadUsers();
+    setHint(target.isDisabled ? "Customer enabled." : "Customer disabled.");
+  }, [loadUsers]);
+
+  const loadActivity = useCallback(async (id: string) => {
+    if (activityId === id) {
+      setActivityId(null);
+      setActivity(null);
+      return;
+    }
+    setActivityBusy(true);
+    setActivityId(id);
+    const res = await zendeFetch(`/api/admin/users/${id}/activity`);
+    const data = await res.json().catch(() => ({}));
+    setActivityBusy(false);
+    if (!res.ok || !data.user) {
+      setHint(typeof data?.error === "string" ? data.error : "Could not load activity.");
+      setActivityId(null);
+      return;
+    }
+    setActivity(data.user as UserActivity);
+  }, [activityId]);
+
+  const clearUserData = useCallback(async (id: string, kind: "favorites" | "history") => {
+    const label = kind === "favorites" ? "favorites" : "viewing history";
+    if (!confirm(`Clear this customer's ${label}?`)) return;
+    const res = await zendeFetch(`/api/admin/users/${id}/personal-data`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setHint(typeof data?.error === "string" ? data.error : "Cleanup failed.");
+      return;
+    }
+    setHint(`${kind === "favorites" ? "Favorites" : "Viewing history"} cleared.`);
+    await loadUsers();
+    if (activityId === id) await loadActivity(id);
+  }, [activityId, loadActivity, loadUsers]);
+
   return (
     <section
       className={cn(
@@ -274,6 +378,7 @@ export function TvSettingsAuthPanel() {
           </label>
           <button
             type="submit"
+            data-button-variant="success"
             disabled={busy}
             className="outline-none disabled:opacity-50"
           >
@@ -303,6 +408,27 @@ export function TvSettingsAuthPanel() {
         </div>
       ) : null}
 
+      {user ? (
+        <form
+          className="mt-6 grid gap-3 rounded-xl border border-white/[0.08] bg-black/20 p-5 sm:grid-cols-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void changeOwnPassword();
+          }}
+        >
+          <div className="sm:col-span-3">
+            <p className="text-[15px] font-medium text-white/90">Change my password</p>
+            <p className="mt-1 text-[13px] text-white/45">You will be signed out after the password changes.</p>
+          </div>
+          <input type="password" autoComplete="current-password" placeholder="Current password" value={currentPass} onChange={(event) => setCurrentPass(event.target.value)} className="h-11 rounded-xl border border-white/[0.12] bg-black/35 px-3 text-[14px] text-white" />
+          <input type="password" autoComplete="new-password" placeholder="New password" value={newPass} onChange={(event) => setNewPass(event.target.value)} className="h-11 rounded-xl border border-white/[0.12] bg-black/35 px-3 text-[14px] text-white" />
+          <div className="flex gap-2">
+            <input type="password" autoComplete="new-password" placeholder="Confirm new password" value={newPass2} onChange={(event) => setNewPass2(event.target.value)} className="h-11 min-w-0 flex-1 rounded-xl border border-white/[0.12] bg-black/35 px-3 text-[14px] text-white" />
+            <button type="submit" data-button-variant="success" disabled={busy} className="rounded-xl bg-white/15 px-4 text-[13px] font-semibold text-white disabled:opacity-40">Change</button>
+          </div>
+        </form>
+      ) : null}
+
       {isAdmin && user && userCount > 0 ? (
         <div className="mt-8 border-t border-white/[0.08] pt-8">
           <p className="text-[15px] font-medium text-white/90">
@@ -317,6 +443,7 @@ export function TvSettingsAuthPanel() {
             {!authEnabled ? (
               <button
                 type="button"
+                data-button-variant="success"
                 disabled={busy}
                 onClick={() => void onToggleAuth(true)}
                 className="outline-none disabled:opacity-40"
@@ -330,6 +457,7 @@ export function TvSettingsAuthPanel() {
             ) : (
               <button
                 type="button"
+                data-button-variant="danger"
                 disabled={busy}
                 onClick={() => void onToggleAuth(false)}
                 className="outline-none disabled:opacity-40"
@@ -371,11 +499,12 @@ export function TvSettingsAuthPanel() {
                 }
                 className="h-11 flex-1 rounded-xl border border-white/[0.12] bg-black/35 px-3 text-[14px] text-white outline-none"
               >
-                <option value="USER">User</option>
+                <option value="USER">Customer</option>
                 <option value="ADMIN">Admin</option>
               </select>
               <button
                 type="button"
+                data-button-variant="success"
                 disabled={busy}
                 onClick={() => void onCreateUser()}
                 className="outline-none"
@@ -423,12 +552,13 @@ export function TvSettingsAuthPanel() {
                       }
                       className="h-10 rounded-lg border border-white/[0.12] bg-black/40 px-2 text-[13px] text-white"
                     >
-                      <option value="USER">User</option>
+                      <option value="USER">Customer</option>
                       <option value="ADMIN">Admin</option>
                     </select>
                     <div className="flex gap-2">
                       <button
                         type="button"
+                        data-button-variant="success"
                         onClick={() => void saveEdit()}
                         className="rounded-lg bg-white/15 px-3 py-2 text-[13px] text-white"
                       >
@@ -448,11 +578,18 @@ export function TvSettingsAuthPanel() {
                     <div>
                       <p className="font-medium text-white">{u.username}</p>
                       <p className="text-[12px] text-white/38">
-                        {u.role}
+                        {u.role === "USER" ? "CUSTOMER" : "ADMIN"}
+                        {u.isDisabled ? " · disabled" : ""}
                         {u.isBootstrapAdmin ? " · primary administrator" : ""}
                       </p>
+                      <p className="mt-1 text-[11px] text-white/32">
+                        Last activity: {formatActivityDate(u.lastActivityAt)} · {u._count.favorites} favorites · {u._count.viewingHistory} watched
+                      </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => void loadActivity(u.id)} className="rounded-lg px-3 py-1.5 text-[13px] text-sky-200/85 hover:bg-white/10">
+                        {activityId === u.id ? "Hide activity" : "Activity"}
+                      </button>
                       <button
                         type="button"
                         onClick={() => startEdit(u)}
@@ -460,9 +597,15 @@ export function TvSettingsAuthPanel() {
                       >
                         Edit
                       </button>
+                      {!u.isBootstrapAdmin && u.id !== user.id ? (
+                        <button type="button" data-button-variant={u.isDisabled ? "success" : "danger"} onClick={() => void toggleDisabled(u)} className={cn("rounded-lg px-3 py-1.5 text-[13px] hover:bg-white/10", u.isDisabled ? "text-emerald-300" : "text-amber-300")}>
+                          {u.isDisabled ? "Enable" : "Disable"}
+                        </button>
+                      ) : null}
                       {!u.isBootstrapAdmin ? (
                         <button
                           type="button"
+                          data-button-variant="danger"
                           onClick={() => void onDeleteUser(u.id)}
                           className="rounded-lg px-3 py-1.5 text-[13px] text-red-300/95 hover:bg-white/10"
                         >
@@ -472,6 +615,37 @@ export function TvSettingsAuthPanel() {
                     </div>
                   </div>
                 )}
+                {activityId === u.id ? (
+                  <div className="mt-4 border-t border-white/[0.08] pt-4">
+                    {activityBusy || activity?.id !== u.id ? (
+                      <p className="flex items-center gap-2 text-[13px] text-white/45"><ZendeSpinner size="tiny" label="Loading account activity" /> Loading account activity…</p>
+                    ) : (
+                      <>
+                        <div className="grid gap-2 text-[12px] text-white/55 sm:grid-cols-2">
+                          <p>Last login: <span className="text-white/80">{formatActivityDate(activity.lastLoginAt)}</span></p>
+                          <p>Last activity: <span className="text-white/80">{formatActivityDate(activity.lastActivityAt)}</span></p>
+                          <p>Location: <span className="text-white/80">{activity.lastLoginLocation || activity.lastLoginIp || "Unavailable"}</span></p>
+                          <p className="truncate" title={activity.lastLoginDevice ?? undefined}>Device: <span className="text-white/80">{activity.lastLoginDevice || "Unavailable"}</span></p>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button type="button" data-button-variant="danger" onClick={() => void clearUserData(u.id, "favorites")} className="rounded-lg border border-red-300/20 px-3 py-1.5 text-[12px] text-red-200">Clear favorites</button>
+                          <button type="button" data-button-variant="danger" onClick={() => void clearUserData(u.id, "history")} className="rounded-lg border border-red-300/20 px-3 py-1.5 text-[12px] text-red-200">Clear recently watched</button>
+                        </div>
+                        <h4 className="mt-5 text-[13px] font-semibold text-white/85">Last 50 watched channels and media</h4>
+                        {activity.viewingHistory.length ? (
+                          <ol className="mt-2 max-h-72 space-y-1 overflow-y-auto pr-1">
+                            {activity.viewingHistory.map((entry, index) => (
+                              <li key={`${entry.name}-${entry.lastOpenedAt}-${index}`} className="flex items-center justify-between gap-3 rounded-lg bg-white/[0.04] px-3 py-2 text-[12px]">
+                                <span className="min-w-0 truncate text-white/75">{entry.name}{entry.groupTitle ? ` · ${entry.groupTitle}` : ""}</span>
+                                <span className="shrink-0 text-white/35">{formatActivityDate(entry.lastOpenedAt)} · {entry.openCount}×</span>
+                              </li>
+                            ))}
+                          </ol>
+                        ) : <p className="mt-2 text-[12px] text-white/35">No viewing history.</p>}
+                      </>
+                    )}
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>

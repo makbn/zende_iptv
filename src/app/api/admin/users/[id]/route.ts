@@ -16,6 +16,7 @@ const patchSchema = z.object({
   username: usernameSchema.optional(),
   password: passwordSchema.optional(),
   role: z.enum(["ADMIN", "USER"]).optional(),
+  isDisabled: z.boolean().optional(),
 });
 
 export async function PATCH(
@@ -48,6 +49,7 @@ export async function PATCH(
     username?: string;
     passwordHash?: string;
     role?: "ADMIN" | "USER";
+    isDisabled?: boolean;
   } = {};
 
   if (parsed.data.username !== undefined) {
@@ -57,7 +59,28 @@ export async function PATCH(
     data.passwordHash = await hashPassword(parsed.data.password);
   }
   if (parsed.data.role !== undefined) {
+    if (target.isBootstrapAdmin && parsed.data.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "The primary administrator must remain an administrator." },
+        { status: 400 },
+      );
+    }
     data.role = parsed.data.role;
+  }
+  if (parsed.data.isDisabled !== undefined) {
+    if (target.isBootstrapAdmin && parsed.data.isDisabled) {
+      return NextResponse.json(
+        { error: "The primary administrator cannot be disabled." },
+        { status: 400 },
+      );
+    }
+    if (target.id === admin.user.id && parsed.data.isDisabled) {
+      return NextResponse.json(
+        { error: "You cannot disable your current account." },
+        { status: 400 },
+      );
+    }
+    data.isDisabled = parsed.data.isDisabled;
   }
 
   if (Object.keys(data).length === 0) {
@@ -72,11 +95,12 @@ export async function PATCH(
         id: true,
         username: true,
         role: true,
+        isDisabled: true,
         isBootstrapAdmin: true,
       },
     });
 
-    if (parsed.data.password !== undefined) {
+    if (parsed.data.password !== undefined || parsed.data.isDisabled === true) {
       await revokeAllRefreshTokensForUser(id);
     }
 

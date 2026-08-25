@@ -1,9 +1,8 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
-
 import type { BuiltinPlaylistSource } from "@/config/builtin-playlist-sources";
 import { ZendeGlass } from "@/components/glass/zende-glass";
+import { ZendeSpinner } from "@/components/loading/zende-spinner";
 import { TvContentRow } from "@/components/tv/tv-content-row";
 
 type Props = {
@@ -74,7 +73,7 @@ export function TvCatalogSetupStrip({
                 <span className="inline-flex h-11 min-w-[132px] items-center justify-center gap-2 px-7 text-[15px] font-semibold text-white">
                   {busy ? (
                     <>
-                      <Loader2 className="size-4 animate-spin" aria-hidden />
+                      <ZendeSpinner size="tiny" label="Updating catalog" />
                       Updating…
                     </>
                   ) : registered ? (

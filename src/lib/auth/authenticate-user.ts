@@ -21,6 +21,10 @@ export async function authenticateUser(
     return { status: 401, error: "Invalid credentials." };
   }
 
+  if (user.isDisabled) {
+    return { status: 403, error: "This account has been disabled." };
+  }
+
   const ok = await verifyPassword(password, user.passwordHash);
   if (!ok) {
     return { status: 401, error: "Invalid credentials." };

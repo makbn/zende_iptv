@@ -3,13 +3,18 @@ import dns from "node:dns/promises";
 
 import { getProxy } from "@/lib/proxies/proxy-store";
 import { buildProxyAgent } from "@/lib/proxies/proxy-agent";
+import { forbidCustomerSystemMutation, gateApiRequest } from "@/lib/auth/gate-api";
 
 export const runtime = "nodejs";
 
 export async function POST(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
+  const gate = await gateApiRequest(request);
+  const forbidden = forbidCustomerSystemMutation(gate);
+  if (forbidden) return forbidden;
+
   const { id } = await context.params;
   const row = await getProxy(id);
   if (!row) return NextResponse.json({ error: "Not found." }, { status: 404 });

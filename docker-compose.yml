@@ -21,13 +21,29 @@ services:
       LOG_PRETTY: "${LOG_PRETTY:-1}"
       NODE_ENV: production
       PORT: "${PORT:-8077}"
-      # HDHomeRun DVR emulation for Plex / Jellyfin Live TV (Threadfin-style).
-      # Plex → Settings → Live TV & DVR → DVR → add HDHomeRun → enter http://<host>:8077
+      # Built-in HDHomeRun emulator — off by default; Plex uses Threadfin (:34400) instead.
+      ZENDE_HDHR_ENABLED: "${ZENDE_HDHR_ENABLED:-0}"
       ZENDE_HDHR_TUNER_COUNT: "${ZENDE_HDHR_TUNER_COUNT:-4}"
       # ZENDE_HDHR_FRIENDLY_NAME: "Zende IPTV"
       # ZENDE_HDHR_DEVICE_ID: "A1B2C3D4"  # 8 hex chars; auto-derived if unset
       # ZENDE_HDHR_MAX_CHANNELS: "5000"   # optional cap — Plex may choke on huge lineups
-      # ZENDE_HDHR_ENABLED: "0"           # set to disable HDHR endpoints
+
+      # ── Threadfin (Plex / Jellyfin Live TV DVR) ─────────────────────────────
+      # Sidecar pulls Zende's full Live+Movies+Series M3U and exposes HDHomeRun on :34400.
+      # Plex → Settings → Live TV & DVR → Set Up Plex DVR → HDHomeRun → host:34400
+      ZENDE_THREADFIN_URL: "${ZENDE_THREADFIN_URL:-http://threadfin:34400}"
+      ZENDE_THREADFIN_PUBLIC_HOST: "${ZENDE_THREADFIN_PUBLIC_HOST:-}"
+      ZENDE_THREADFIN_PUBLIC_BASE_URL: "${ZENDE_THREADFIN_PUBLIC_BASE_URL:-}"
+      ZENDE_THREADFIN_PUBLIC_PORT: "${ZENDE_THREADFIN_PUBLIC_PORT:-34400}"
+      # Threadfin hard-codes Plex's lineup ceiling at 480 channels.
+      ZENDE_THREADFIN_MAX_CHANNELS: "${ZENDE_THREADFIN_MAX_CHANNELS:-480}"
+      ZENDE_THREADFIN_SYNC: "${ZENDE_THREADFIN_SYNC:-1}"
+      ZENDE_THREADFIN_TUNER_COUNT: "${ZENDE_THREADFIN_TUNER_COUNT:-4}"
+      # Internal origin Threadfin uses to fetch playlist/EPG (Docker DNS).
+      ZENDE_THREADFIN_SOURCE_ORIGIN: "${ZENDE_THREADFIN_SOURCE_ORIGIN:-http://zende:8077}"
+      # Shared conf volume path inside this container (seed settings.json).
+      ZENDE_THREADFIN_CONF_DIR: "/threadfin-conf"
+
       # Optional: force public origin for HLS rewrite if your proxy omits Host / X-Forwarded-* / Forwarded.
       # Normally the same host as get.php is taken from each request automatically.
       PUBLIC_APP_URL: "${PUBLIC_APP_URL:-}"
@@ -61,6 +77,9 @@ services:
       # Persists SQLite across container rebuilds.
       - zende-data:/data
 
+      # Threadfin conf (Zende seeds M3U/XMLTV sources + API settings).
+      - threadfin-conf:/threadfin-conf
+
       # ── Docker socket (required for VPN proxy containers) ──────────────────
       # Allows Zende to start/stop Gluetun sibling containers via the host
       # Docker daemon. Remove this line if you do not use the VPN proxy feature.
@@ -80,6 +99,29 @@ services:
       retries: 5
       start_period: 45s
 
+  # M3U → HDHomeRun proxy for Plex / Jellyfin / Emby Live TV.
+  # https://github.com/Threadfin/Threadfin
+  threadfin:
+    image: fyb3roptik/threadfin:latest
+    container_name: threadfin
+    ports:
+      - "${THREADFIN_PUBLISH:-34400:34400}"
+    environment:
+      - PUID=1001
+      - PGID=1001
+      - TZ=${TZ:-UTC}
+    volumes:
+      - threadfin-conf:/home/threadfin/conf
+      - threadfin-tmp:/tmp/threadfin
+    depends_on:
+      zende:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   zende-data:
     name: zende-data
+  threadfin-conf:
+    name: threadfin-conf
+  threadfin-tmp:
+    name: threadfin-tmp

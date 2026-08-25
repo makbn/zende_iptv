@@ -4,7 +4,6 @@ import {
   AlertCircle,
   Box,
   CheckCircle,
-  Loader2,
   Pencil,
   Play,
   Plus,
@@ -17,6 +16,7 @@ import {
   UserCheck,
   X,
 } from "lucide-react";
+import { ZendeSpinner } from "@/components/loading/zende-spinner";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ZendeGlass } from "@/components/glass/zende-glass";
@@ -158,7 +158,7 @@ const GLUETUN_PROVIDERS: Record<VpnProvider, GluetunProviderMeta> = {
 function GluetunStatusBadge({ status }: { status: GluetunStatus }) {
   const map: Record<GluetunStatus, { label: string; className: string; icon: React.ReactNode }> = {
     stopped: { label: "Stopped", className: "bg-white/[0.06] text-white/40", icon: <Square className="h-3 w-3" /> },
-    starting: { label: "Starting…", className: "bg-amber-500/15 text-amber-300/90", icon: <Loader2 className="h-3 w-3 animate-spin" /> },
+    starting: { label: "Starting…", className: "bg-amber-500/15 text-amber-300/90", icon: <ZendeSpinner size="tiny" label="Starting proxy" /> },
     running: { label: "Running", className: "bg-emerald-500/15 text-emerald-300/90", icon: <CheckCircle className="h-3 w-3" /> },
     error: { label: "Error", className: "bg-red-500/15 text-red-300/90", icon: <AlertCircle className="h-3 w-3" /> },
   };
@@ -886,7 +886,7 @@ function ProxyForm({
         <button type="button" onClick={handleSubmit} disabled={!valid || busy} className="outline-none disabled:opacity-40">
           <ZendeGlass variant="ctaPill">
             <span className="flex items-center gap-2 px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {busy ? <ZendeSpinner size="tiny" label="Saving proxy" /> : null}
               {initial ? "Save changes" : vpnType === "gluetun" ? "Add VPN" : "Add proxy"}
             </span>
           </ZendeGlass>
@@ -898,7 +898,7 @@ function ProxyForm({
             disabled={vpnType === "direct" ? (!directValid || testing) : (!smartDnsValid || testing)}
             className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.12] bg-white/[0.05] px-4 py-2.5 text-[14px] font-medium text-white/75 outline-none hover:bg-white/[0.08] disabled:opacity-40"
           >
-            {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Shield className="h-3.5 w-3.5" />}
+            {testing ? <ZendeSpinner size="tiny" label="Testing proxy" /> : <Shield className="h-3.5 w-3.5" />}
             {vpnType === "smartdns" ? "Test DNS" : "Test connection"}
           </button>
         )}
@@ -1021,7 +1021,7 @@ function GluetunControlPanel({ proxy, onStatusChange }: { proxy: ProxyItem; onSt
           disabled={busy}
           className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/25 bg-emerald-500/10 px-3 py-1.5 text-[13px] font-medium text-emerald-300/90 outline-none hover:bg-emerald-500/15 disabled:opacity-50"
         >
-          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+          {busy ? <ZendeSpinner size="tiny" label="Starting proxy" /> : <Play className="h-3.5 w-3.5" />}
           Launch
         </button>
       )}
@@ -1032,7 +1032,7 @@ function GluetunControlPanel({ proxy, onStatusChange }: { proxy: ProxyItem; onSt
           disabled={busy}
           className="inline-flex items-center gap-1.5 rounded-lg border border-red-400/25 bg-red-500/10 px-3 py-1.5 text-[13px] font-medium text-red-300/80 outline-none hover:bg-red-500/15 disabled:opacity-50"
         >
-          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Power className="h-3.5 w-3.5" />}
+          {busy ? <ZendeSpinner size="tiny" label="Stopping proxy" /> : <Power className="h-3.5 w-3.5" />}
           Stop
         </button>
       )}
@@ -1221,7 +1221,7 @@ function ChannelAssignmentDialog({
                   )}
                   {searchBusy && (
                     <div className="flex items-center justify-center gap-2 pt-8 text-[13px] text-white/40">
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <ZendeSpinner size="tiny" label="Searching channels" />
                       Searching…
                     </div>
                   )}
@@ -1277,7 +1277,7 @@ function ChannelAssignmentDialog({
                 <div className="min-h-[120px]">
                   {assignedBusy ? (
                     <div className="flex items-center justify-center gap-2 pt-8 text-[13px] text-white/40">
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <ZendeSpinner size="tiny" label="Loading assigned channels" />
                       Loading…
                     </div>
                   ) : assigned.length === 0 ? (
@@ -1419,7 +1419,7 @@ export function TvSettingsProxiesPanel() {
         </div>
 
         {loading ? (
-          <p className="mt-8 text-[14px] text-white/40">Loading…</p>
+          <div className="mt-8 flex items-center gap-2 text-[14px] text-white/40"><ZendeSpinner size="small" label="Loading proxies" /> Loading proxies…</div>
         ) : proxies.length === 0 && !formOpen ? (
           <p className="mt-8 rounded-xl border border-dashed border-white/[0.12] bg-black/20 px-5 py-8 text-center text-[14px] text-white/40">
             No proxies yet — add one above to start routing channels.
@@ -1485,7 +1485,7 @@ export function TvSettingsProxiesPanel() {
                       disabled={editLoading === proxy.id}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.12] bg-white/[0.06] px-3 py-2 text-[13px] font-medium text-white/75 outline-none hover:bg-white/[0.1] disabled:opacity-50"
                     >
-                      {editLoading === proxy.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pencil className="h-3.5 w-3.5" />}
+                      {editLoading === proxy.id ? <ZendeSpinner size="tiny" label="Loading proxy editor" /> : <Pencil className="h-3.5 w-3.5" />}
                       Edit
                     </button>
                   )}

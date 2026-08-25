@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronLeft, Play } from "lucide-react";
+import { ChevronLeft, Download, Play } from "lucide-react";
 
 import { ZendeGlass } from "@/components/glass/zende-glass";
 import {
@@ -10,12 +10,15 @@ import {
   BROWSE_TOP_PAD,
 } from "@/components/layout/browse-page-shell";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
+import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
 import { useSeriesInfo } from "@/features/iptv/use-series-info";
 import { buildEpisodeWatchChannel, formatEpisodeCode } from "@/lib/playback/play-episode";
 import {
   getPlaybackPosition,
   playbackProgressRatio,
 } from "@/lib/playback/playback-position";
+import { createDownloadUrl } from "@/lib/navigation/watch-url";
+import { secureImageUrl } from "@/lib/media/secure-image-url";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
 import {
   listTopFrequentChannels,
@@ -50,6 +53,7 @@ export function SeriesDetailView({
   const history = useViewingHistory();
   const [seasonTab, setSeasonTab] = useState<string | null>(null);
   const [playBusy, setPlayBusy] = useState(false);
+  const [downloadBusyUrl, setDownloadBusyUrl] = useState<string | null>(null);
   const [playError, setPlayError] = useState<string | null>(null);
   const displayPlayError = playError ?? watchNavError;
 
@@ -100,6 +104,36 @@ export function SeriesDetailView({
     [clearNavError, cover, groupTitle, openChannel, seriesId, title],
   );
 
+  const downloadEpisode = useCallback(
+    async (episode: (typeof episodesBySeason.flat)[0], episodeIndex: number) => {
+      setDownloadBusyUrl(episode.playUrl);
+      setPlayError(null);
+      clearNavError();
+      try {
+        const channel = buildEpisodeWatchChannel({
+          seriesId,
+          seriesTitle: title,
+          cover: cover || undefined,
+          groupTitle,
+          episode,
+          episodeIndex,
+        });
+        const href = await createDownloadUrl(channel);
+        const a = document.createElement("a");
+        a.href = href;
+        a.rel = "noopener";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } catch (err) {
+        setPlayError(err instanceof Error ? err.message : "Could not start download.");
+      } finally {
+        setDownloadBusyUrl(null);
+      }
+    },
+    [clearNavError, cover, groupTitle, seriesId, title],
+  );
+
   const continueProgress = continueTarget
     ? playbackProgressRatio(
         getPlaybackPosition(continueTarget.ep.playUrl),
@@ -124,7 +158,7 @@ export function SeriesDetailView({
             {/* so compression artifacts are less distracting at hero scale. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={heroArt}
+              src={secureImageUrl(heroArt)}
               alt=""
               className="h-full w-full scale-[1.18] object-cover opacity-45 grayscale saturate-0 [image-rendering:pixelated]"
             />
@@ -146,7 +180,7 @@ export function SeriesDetailView({
             <div className="mx-auto w-40 shrink-0 overflow-hidden rounded-[26px] border border-white/12 bg-black/48 shadow-[0_28px_90px_-38px_rgba(0,0,0,0.95)] sm:mx-0 sm:w-52">
               {cover ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={cover} alt="" className="aspect-[2/3] w-full object-cover" />
+                <img src={secureImageUrl(cover, undefined, "poster")} alt="" className="aspect-[2/3] w-full object-cover" />
               ) : (
                 <div className="flex aspect-[2/3] items-center justify-center bg-white/5 text-[13px] text-white/35">
                   No art
@@ -236,7 +270,7 @@ export function SeriesDetailView({
         ) : null}
 
         {loading ? (
-          <p className="py-12 text-center text-[15px] text-white/45">Loading seasons…</p>
+          <ZendeLoadingState className="py-12" size="large" label="Loading seasons…" />
         ) : error ? (
           <p className="py-12 text-center text-[15px] text-red-300">{error}</p>
         ) : episodesBySeason.seasons.length === 0 ? (
@@ -262,32 +296,51 @@ export function SeriesDetailView({
             </div>
 
             <ul className="flex flex-col gap-2">
-              {(episodesBySeason.map.get(activeSeason ?? "") ?? []).map((ep) => (
-                <li key={ep.playUrl}>
-                  <button
-                    type="button"
-                    disabled={playBusy}
-                    onClick={() => void playEpisode(ep, ep.index)}
-                    className="group flex w-full items-center gap-4 rounded-[22px] border border-white/[0.1] bg-white/[0.05] px-4 py-3 text-left outline-none transition-colors hover:bg-white/[0.08] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] disabled:opacity-50"
-                  >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/12 text-[13px] font-semibold text-white/82 group-hover:bg-white/16">
-                      {ep.episodeNum || "·"}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[14px] font-semibold text-white">
-                        {formatEpisodeCode(ep.season, ep.episodeNum)}
-                        {ep.title ? ` · ${ep.title}` : ""}
-                      </span>
-                      {ep.durationSeconds ? (
-                        <span className="mt-0.5 block text-[12px] text-white/40">
-                          {Math.round(ep.durationSeconds / 60)} min
+              {(episodesBySeason.map.get(activeSeason ?? "") ?? []).map((ep) => {
+                const downloading = downloadBusyUrl === ep.playUrl;
+                return (
+                  <li key={ep.playUrl}>
+                    <div className="flex items-center gap-2 rounded-[22px] border border-white/[0.1] bg-white/[0.05] pr-2 transition-colors hover:bg-white/[0.08]">
+                      <button
+                        type="button"
+                        disabled={playBusy || Boolean(downloadBusyUrl)}
+                        onClick={() => void playEpisode(ep, ep.index)}
+                        className="group flex min-w-0 flex-1 items-center gap-4 px-4 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] disabled:opacity-50"
+                      >
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/12 text-[13px] font-semibold text-white/82 group-hover:bg-white/16">
+                          {ep.episodeNum || "·"}
                         </span>
-                      ) : null}
-                    </span>
-                    <Play className="h-4 w-4 shrink-0 text-white/35 group-hover:text-white/70" />
-                  </button>
-                </li>
-              ))}
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[14px] font-semibold text-white">
+                            {formatEpisodeCode(ep.season, ep.episodeNum)}
+                            {ep.title ? ` · ${ep.title}` : ""}
+                          </span>
+                          {ep.durationSeconds ? (
+                            <span className="mt-0.5 block text-[12px] text-white/40">
+                              {Math.round(ep.durationSeconds / 60)} min
+                            </span>
+                          ) : null}
+                        </span>
+                        <Play className="h-4 w-4 shrink-0 text-white/35 group-hover:text-white/70" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={playBusy || Boolean(downloadBusyUrl)}
+                        aria-label={`Download ${formatEpisodeCode(ep.season, ep.episodeNum)}`}
+                        title="Download"
+                        onClick={() => void downloadEpisode(ep, ep.index)}
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white/40 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] disabled:opacity-50"
+                      >
+                        {downloading ? (
+                          <ZendeSpinner size="tiny" label="Preparing download" />
+                        ) : (
+                          <Download className="h-4 w-4" aria-hidden />
+                        )}
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </>
         )}

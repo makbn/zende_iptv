@@ -77,6 +77,27 @@ By default Compose maps the container port to **all** interfaces (`0.0.0.0`). To
 | `LOG_LEVEL` | No | `info` | Server log verbosity. |
 | `GLUETUN_HOST_WORKDIR` | No | `./gluetun-work` (relative to project dir) | **Host** path where Gluetun OpenVPN/WireGuard config dirs are stored. Must be an absolute host path when running inside Docker — set it in `.env`, e.g. `GLUETUN_HOST_WORKDIR=/your/host/path/gluetun-work`. See [VPN Proxies](#vpn-proxies). |
 | `GLUETUN_CONTAINER_WORKDIR` | No | `/gluetun-work` | Path inside the Zende container where the same directory is mounted. Do not change unless you edit `docker-compose.yml`. |
+| `ZENDE_THREADFIN_URL` | No | `http://threadfin:34400` | Internal Threadfin base URL for sync/API. |
+| `ZENDE_THREADFIN_SOURCE_ORIGIN` | No | `http://zende:8077` | Origin Threadfin uses to fetch Zende M3U/EPG. |
+| `ZENDE_THREADFIN_PUBLIC_HOST` | No | — | Hostname/IP for Plex (defaults to request host in Settings UI). |
+| `ZENDE_THREADFIN_PUBLIC_BASE_URL` | No | — | Full public Threadfin proxy base, including an optional path such as `https://example.com/thf`. Takes precedence over host and port. |
+| `ZENDE_THREADFIN_PUBLIC_PORT` | No | `34400` | Public Threadfin port shown in Settings. |
+| `ZENDE_THREADFIN_MAX_CHANNELS` | No | `480` | Plex-safe cap for the mixed Live+Movies lineup (maximum `480`). |
+| `ZENDE_THREADFIN_SYNC` | No | `1` | Set `0` to disable auto Threadfin provisioning. |
+| `ZENDE_HDHR_ENABLED` | No | `0` in Compose | Built-in HDHomeRun emulator (legacy). Prefer Threadfin. |
+| `THREADFIN_PUBLISH` | No | `34400:34400` | Host publish mapping for the Threadfin container. |
+
+### Plex via Threadfin
+
+Compose starts a **`threadfin`** sidecar ([Threadfin](https://github.com/Threadfin/Threadfin)). On boot, Zende:
+
+1. Creates a dedicated portal user `threadfin` (password derived from `AUTH_JWT_SECRET`).
+2. Seeds Threadfin’s `settings.json` with M3U/XMLTV URLs pointing at Zende.
+3. Calls Threadfin’s API to refresh playlists.
+
+In the UI: **Settings → Integrations → Plex DVR (Threadfin)** shows the HDHomeRun address (`host:34400`), portal credentials, and Plex setup steps.
+
+Plex: **Settings → Live TV & DVR → Set Up Plex DVR → HDHomeRun** → enter `YOUR_LAN_IP:34400` (requires Plex Pass).
 
 Do not commit secrets; inject them via the host environment or your orchestrator.
 

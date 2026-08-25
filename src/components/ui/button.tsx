@@ -4,28 +4,22 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-full border border-transparent bg-clip-padding text-sm font-semibold whitespace-nowrap transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] outline-none select-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--tv-page-bg)] active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "zende-action-button group/button inline-flex shrink-0 items-center justify-center rounded-xl border bg-clip-padding text-sm font-semibold whitespace-nowrap shadow-[0_12px_34px_-24px_rgba(0,0,0,0.9)] transition-[transform,background-color,border-color,box-shadow,color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] outline-none select-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--tv-page-bg)] active:translate-y-px disabled:pointer-events-none disabled:opacity-45 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default:
-          "bg-[var(--zen-frost)] text-[var(--zen-void)] shadow-[0_16px_42px_-20px_rgba(56,217,255,0.5)] [a]:hover:bg-white/90 hover:bg-white/90",
-        outline:
-          "border-white/15 bg-white/[0.055] text-white hover:border-white/25 hover:bg-white/[0.1] aria-expanded:bg-white/[0.1]",
-        secondary:
-          "border-white/10 bg-white/[0.09] text-white hover:bg-white/[0.14] aria-expanded:bg-white/[0.14]",
-        ghost:
-          "text-white/76 hover:bg-white/[0.08] hover:text-white aria-expanded:bg-white/[0.08] aria-expanded:text-white",
-        destructive:
-          "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
-        link: "text-[var(--zen-signal)] underline-offset-4 hover:underline",
+        normal:
+          "border-white/[0.14] bg-white/[0.075] text-white hover:border-white/[0.22] hover:bg-white/[0.12]",
+        success:
+          "border-emerald-300/30 bg-emerald-400/16 text-emerald-50 hover:border-emerald-200/45 hover:bg-emerald-400/24 focus-visible:ring-emerald-300",
+        danger:
+          "border-red-300/30 bg-red-500/14 text-red-50 hover:border-red-200/45 hover:bg-red-500/22 focus-visible:ring-red-300",
       },
       size: {
-        default:
-          "h-10 gap-2 px-4 has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3",
-        xs: "h-7 gap-1 rounded-full px-2.5 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-9 gap-1.5 rounded-full px-3 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-2.5 has-data-[icon=inline-start]:pl-2.5 [&_svg:not([class*='size-'])]:size-3.5",
-        lg: "h-12 gap-2 px-5 text-[15px] has-data-[icon=inline-end]:pr-4 has-data-[icon=inline-start]:pl-4",
+        default: "min-h-11 gap-2 px-4",
+        xs: "min-h-8 gap-1 rounded-lg px-2.5 text-xs [&_svg:not([class*='size-'])]:size-3",
+        sm: "min-h-10 gap-1.5 px-3 text-[0.8rem] [&_svg:not([class*='size-'])]:size-3.5",
+        lg: "min-h-12 gap-2 px-5 text-[15px]",
         icon: "size-10",
         "icon-xs":
           "size-7 rounded-full in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3",
@@ -35,7 +29,7 @@ const buttonVariants = cva(
       },
     },
     defaultVariants: {
-      variant: "default",
+      variant: "normal",
       size: "default",
     },
   }
@@ -43,13 +37,16 @@ const buttonVariants = cva(
 
 function Button({
   className,
-  variant = "default",
+  variant = "normal",
   size = "default",
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
   return (
     <ButtonPrimitive
       data-slot="button"
+      data-ui-button="true"
+      data-button-variant={variant}
+      data-button-size={size}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />

@@ -22,9 +22,10 @@ export function getStreamHlsConfig(): Partial<HlsConfig> {
     // Prefer AAC-LC when manifest omits or mislabels audio codec.
     defaultAudioCodec: "mp4a.40.2",
 
-    // Softer live edge: stay slightly behind the manifest edge so fewer requests hit expired segments (upstream 404).
-    liveSyncDurationCount: 6,
-    liveMaxLatencyDurationCount: 120,
+    // Stay three segments behind the edge. Some Xtream providers expose only six
+    // segments, so using six here starts at the oldest item in the entire window.
+    liveSyncDurationCount: 3,
+    liveMaxLatencyDurationCount: 10,
 
     // Larger forward buffer reduces “always buffering” on uneven segment delivery.
     maxBufferLength: 60,

@@ -4,27 +4,35 @@ import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { gateApiRequest } from "@/lib/auth/gate-api";
 import { lookupChannelsByUrls } from "@/lib/library/catalog";
 import { prisma } from "@/lib/db/prisma";
+import {
+  filterParentalChannels,
+  isChannelParentalBlocked,
+  resolveParentalAccess,
+} from "@/lib/parental/parental-control-store";
+import { invalidateThreadfinCatalogCache } from "@/lib/threadfin/catalog";
+import { scheduleThreadfinSync } from "@/lib/threadfin/sync";
 
 export const runtime = "nodejs";
 
 /** Sentinel userId used when auth is disabled (single-user / home mode). */
 const GUEST_USER_ID = "__guest__";
 
-async function resolveUserId(request: Request): Promise<string | Response> {
+async function resolveUserContext(request: Request) {
   const gate = await gateApiRequest(request);
   if ("response" in gate) return gate.response;
-  if (gate.authEnabled) return gate.user.id;
-  return GUEST_USER_ID;
+  return { userId: gate.authEnabled ? gate.user.id : GUEST_USER_ID, gate };
 }
 
 export async function GET(request: Request) {
-  const userId = await resolveUserId(request);
-  if (userId instanceof Response) return userId;
+  const context = await resolveUserContext(request);
+  if (context instanceof Response) return context;
+  const { userId, gate } = context;
+  const parental = await resolveParentalAccess(request, gate);
 
   const { searchParams } = new URL(request.url);
   const enrich = searchParams.get("enrich") === "1";
 
-  const rows = await prisma.userFavorite.findMany({
+  let rows = await prisma.userFavorite.findMany({
     where: { userId },
     orderBy: { addedAt: "desc" },
     select: {
@@ -36,6 +44,7 @@ export async function GET(request: Request) {
       addedAt: true,
     },
   });
+  rows = filterParentalChannels(rows, parental.blockedPatterns);
 
   if (!enrich) {
     return NextResponse.json(rows);
@@ -74,8 +83,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const userId = await resolveUserId(request);
-  if (userId instanceof Response) return userId;
+  const context = await resolveUserContext(request);
+  if (context instanceof Response) return context;
+  const { userId, gate } = context;
 
   let body: {
     url?: string;
@@ -92,6 +102,15 @@ export async function POST(request: Request) {
 
   if (!body.url || typeof body.url !== "string") {
     return NextResponse.json({ error: "url required" }, { status: 400 });
+  }
+  const parental = await resolveParentalAccess(request, gate);
+  if (
+    isChannelParentalBlocked(
+      { name: body.name ?? "", groupTitle: body.groupTitle },
+      parental.blockedPatterns,
+    )
+  ) {
+    return NextResponse.json({ error: "Channel is locked by parental controls." }, { status: 403 });
   }
 
   await prisma.userFavorite.upsert({
@@ -114,16 +133,22 @@ export async function POST(request: Request) {
     },
   });
 
+  invalidateThreadfinCatalogCache();
+  scheduleThreadfinSync();
+
   return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(request: Request) {
-  const userId = await resolveUserId(request);
-  if (userId instanceof Response) return userId;
+  const context = await resolveUserContext(request);
+  if (context instanceof Response) return context;
+  const { userId } = context;
 
   const { searchParams } = new URL(request.url);
   if (searchParams.get("all") === "1") {
     await prisma.userFavorite.deleteMany({ where: { userId } });
+    invalidateThreadfinCatalogCache();
+    scheduleThreadfinSync();
     return NextResponse.json({ ok: true });
   }
 
@@ -131,6 +156,8 @@ export async function DELETE(request: Request) {
   if (!url) return NextResponse.json({ error: "url required" }, { status: 400 });
 
   await prisma.userFavorite.deleteMany({ where: { userId, url } });
+  invalidateThreadfinCatalogCache();
+  scheduleThreadfinSync();
 
   return NextResponse.json({ ok: true });
 }

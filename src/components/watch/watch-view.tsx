@@ -6,7 +6,6 @@ import Link from "next/link";
 import {
   FastForward,
   Gauge,
-  Loader2,
   Maximize2,
   Minimize2,
   Circle,
@@ -21,6 +20,8 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
+import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
@@ -1167,8 +1168,11 @@ export function WatchView() {
   ) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-black px-8 text-center text-white">
-        <Loader2 className="h-10 w-10 animate-spin text-white/80" aria-hidden />
-        <p className="text-[15px] text-white/55">Preparing playback…</p>
+        <ZendeLoadingState
+          size="large"
+          label="Preparing playback…"
+          description="Opening the secure stream session"
+        />
       </div>
     );
   }
@@ -1179,7 +1183,7 @@ export function WatchView() {
         <p className="text-[17px] text-white/70">{sessionMetaError}</p>
         <Link
           href="/library"
-          className="rounded-full bg-[var(--zen-frost)] px-6 py-2.5 text-[15px] font-semibold text-[var(--zen-void)]"
+          className={buttonVariants({ variant: "normal", size: "lg" })}
         >
           Back to Library
         </Link>
@@ -1193,7 +1197,7 @@ export function WatchView() {
         <p className="text-[17px] text-white/70">No stream was selected.</p>
         <Link
           href="/"
-          className="rounded-full bg-[var(--zen-frost)] px-6 py-2.5 text-[15px] font-semibold text-[var(--zen-void)]"
+          className={buttonVariants({ variant: "normal", size: "lg" })}
         >
           Back to Home
         </Link>
@@ -1260,10 +1264,7 @@ export function WatchView() {
           >
             <ZendeGlass variant="panelCompact" className="pointer-events-none">
               <div className="flex items-center gap-3 px-5 py-3">
-                <Loader2
-                  className="h-8 w-8 shrink-0 animate-spin text-white"
-                  aria-hidden
-                />
+                <ZendeSpinner size="large" label="Buffering stream" />
                 <div className="text-left">
                   <p className="text-[14px] font-semibold text-white">
                     Buffering
@@ -1295,23 +1296,23 @@ export function WatchView() {
                     </p>
                   </details>
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <button
+                    <Button
                       type="button"
                       onClick={() => {
                         setPlayerFatalError(null);
                         setPlayerRetryEpoch((n) => n + 1);
                       }}
-                      className="rounded-full bg-[var(--zen-frost)] px-4 py-2 text-[14px] font-semibold text-[var(--zen-void)] outline-none hover:shadow-md focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                      size="sm"
                     >
                       Retry
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
                       onClick={() => router.replace(getWatchReturnHref())}
-                      className="rounded-full border border-white/12 bg-white/6 px-4 py-2 text-[14px] font-semibold text-white outline-none hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                      size="sm"
                     >
                       Go back
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </ZendeGlass>
@@ -1377,7 +1378,7 @@ export function WatchView() {
                       className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-rose-500/90 px-4 py-3 text-[15px] font-semibold text-white outline-none hover:bg-rose-500 disabled:opacity-50"
                     >
                       <Circle className="size-4 fill-current" aria-hidden />
-                      {recordingBusy ? "Starting…" : "Record 2 hours"}
+                      {recordingBusy ? <><ZendeSpinner size="tiny" label="Starting recording" /> Starting…</> : "Record 2 hours"}
                     </button>
                   ) : null}
                   {recordingHint ? (

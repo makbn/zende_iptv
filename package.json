@@ -8,6 +8,7 @@
     "css:extract": "npx @tailwindcss/cli -i ./src/app/globals.source.css -o ./src/styles/utilities.generated.css && node scripts/postprocess-utilities.mjs",
     "build": "next build --webpack",
     "start": "node scripts/run-next.mjs start",
+    "analyze:xtream": "node scripts/analyze-xtream-provider.mjs",
     "lint": "eslint",
     "test": "vitest run",
     "test:recording": "node scripts/run-recording-tests.mjs"

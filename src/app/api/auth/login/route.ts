@@ -6,6 +6,8 @@ import {
   userAuthJson,
 } from "@/lib/auth/authenticate-user";
 import { issueSessionTokens } from "@/lib/auth/issue-session";
+import { loginActivityFromRequest } from "@/lib/auth/request-activity";
+import { prisma } from "@/lib/db/prisma";
 import { usernameSchema, passwordSchema } from "@/lib/validation/auth-schemas";
 
 export const runtime = "nodejs";
@@ -37,6 +39,11 @@ export async function POST(request: Request) {
     id: auth.user.id,
     username: auth.user.username,
     role: auth.user.role,
+  });
+
+  await prisma.user.update({
+    where: { id: auth.user.id },
+    data: loginActivityFromRequest(request),
   });
 
   return NextResponse.json({

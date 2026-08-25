@@ -11,6 +11,7 @@ import {
   stripTvgFeedSuffix,
 } from "@/lib/epg/iptv-org-channel-map";
 import { collectProgrammesForXmltvIds } from "@/lib/epg/iptvx-noarch-stream";
+import { loadXtreamProviderEpg } from "@/lib/epg/xtream-provider-epg";
 import {
   expandChannelIdVariants,
   parseXmltvProgrammes,
@@ -40,9 +41,14 @@ export async function loadEpgMergeForIds(
 ): Promise<EpgMergeForIds> {
   const programmes: XmltvProgramme[] = [];
 
-  const urls = listEpgGuideUrls().filter((u) => assertAllowedEpgUrl(u));
+  const provider = await loadXtreamProviderEpg(ids, log);
+  programmes.push(...provider.programmes);
+  const fallbackIds = ids.filter((id) => !provider.matchedIds.has(id));
 
-  for (const url of urls) {
+  const urls = listEpgGuideUrls().filter((u) => assertAllowedEpgUrl(u));
+  const publicUrls = fallbackIds.length > 0 ? urls : [];
+
+  for (const url of publicUrls) {
     try {
       const res = await fetch(url, {
         headers: {
@@ -76,7 +82,7 @@ export async function loadEpgMergeForIds(
   }
 
   const siteIdsForIptvx = new Set<string>();
-  for (const id of ids) {
+  for (const id of fallbackIds) {
     const sid = resolveXmltvSiteId(id, lookup);
     if (sid) siteIdsForIptvx.add(sid);
     const stripped = stripTvgFeedSuffix(id.trim());
@@ -97,7 +103,7 @@ export async function loadEpgMergeForIds(
     }
   }
 
-  const safeSourceRefs = urls.map((u) => {
+  const safeSourceRefs = publicUrls.map((u) => {
     try {
       return new URL(u).hostname;
     } catch {
@@ -108,6 +114,7 @@ export async function loadEpgMergeForIds(
   return {
     programmes,
     sources: [
+      ...(provider.programmes.length > 0 ? ["xtream-provider"] : []),
       ...safeSourceRefs,
       ...(siteIdsForIptvx.size > 0 ? ["iptvx-consolidated"] : []),
     ],

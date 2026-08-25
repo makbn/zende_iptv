@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { withApiLogging } from "@/core/logging/api-log";
 import { createServerLogger } from "@/core/logging/server";
-import { gateApiRequest } from "@/lib/auth/gate-api";
+import { forbidCustomerSystemMutation, gateApiRequest } from "@/lib/auth/gate-api";
 import {
   canModifyManualChannelEntry,
   effectiveOwnerForNewManualEntry,
@@ -141,6 +141,8 @@ export async function POST(request: Request) {
   return withApiLogging("api.channels.manual", request, async (routeLog) => {
     const gate = await gateApiRequest(request);
     if ("response" in gate) return gate.response;
+    const forbidden = forbidCustomerSystemMutation(gate);
+    if (forbidden) return forbidden;
     const g: ManualChannelsGate = gate.authEnabled
       ? { authEnabled: true, user: gate.user }
       : { authEnabled: false };
@@ -168,6 +170,8 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   const gate = await gateApiRequest(request);
   if ("response" in gate) return gate.response;
+  const forbidden = forbidCustomerSystemMutation(gate);
+  if (forbidden) return forbidden;
   const g: ManualChannelsGate = gate.authEnabled
     ? { authEnabled: true, user: gate.user }
     : { authEnabled: false };
@@ -198,6 +202,8 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   const gate = await gateApiRequest(request);
   if ("response" in gate) return gate.response;
+  const forbidden = forbidCustomerSystemMutation(gate);
+  if (forbidden) return forbidden;
   const g: ManualChannelsGate = gate.authEnabled
     ? { authEnabled: true, user: gate.user }
     : { authEnabled: false };
@@ -250,6 +256,8 @@ export async function DELETE(request: Request) {
 export async function PUT(request: Request) {
   const gate = await gateApiRequest(request);
   if ("response" in gate) return gate.response;
+  const forbidden = forbidCustomerSystemMutation(gate);
+  if (forbidden) return forbidden;
 
   const g: ManualChannelsGate = gate.authEnabled
     ? { authEnabled: true, user: gate.user }

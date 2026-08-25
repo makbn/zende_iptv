@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-import { ZendeGlass } from "@/components/glass/zende-glass";
 import {
   CinematicActionRow,
   CinematicButton,
@@ -16,7 +15,7 @@ import {
 } from "@/components/layout/cinematic-v2";
 import { TvChannelTile } from "@/components/tv/tv-channel-tile";
 import { TvContinueEmpty } from "@/components/tv/tv-continue-empty";
-import { ZendeLogoWave } from "@/components/loading/zende-logo-wave";
+import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { createClientLogger } from "@/core/logging/client";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
@@ -26,6 +25,7 @@ import { useContinueWatchingItems } from "@/features/iptv/use-continue-watching"
 import { useHomeCatalogShelves } from "@/features/iptv/use-home-catalog-shelves";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
 import { addFavorite } from "@/lib/favorites/favorites-store";
@@ -234,8 +234,7 @@ export function TvHome() {
   if (!catalogLoaded) {
     return (
       <div className="zen-page-bg flex min-h-screen flex-col items-center justify-center gap-4 pt-20 text-white/45">
-        <ZendeLogoWave size="md" />
-        <p className="sr-only">Loading</p>
+        <ZendeLoadingState size="full" label="Loading home" />
       </div>
     );
   }
@@ -247,14 +246,13 @@ export function TvHome() {
         <p className="max-w-md text-[22px] font-semibold tracking-[-0.04em] text-white">
           Could not reach the catalog server.
         </p>
-        <button
+        <Button
           type="button"
           disabled={busy}
           onClick={() => void refreshCatalog()}
-          className="rounded-full bg-[var(--zen-frost)] px-5 py-2.5 text-[15px] font-semibold text-[var(--zen-void)] disabled:opacity-45"
         >
-          {busy ? "Retrying…" : "Retry"}
-        </button>
+          {busy ? <><ZendeSpinner size="tiny" label="Retrying" /> Retrying…</> : "Retry"}
+        </Button>
       </div>
     );
   }
@@ -294,7 +292,7 @@ export function TvHome() {
               </CinematicButton>
               <CinematicButton
                 type="button"
-                variant="secondary"
+                variant="normal"
                 onClick={handleSecondary}
                 disabled={busy}
               >
@@ -508,29 +506,17 @@ export function TvHome() {
               <Link
                 href="/library"
                 onClick={onNavigateClick("/library")}
-                className="group inline-flex shrink-0 outline-none"
+                className={buttonVariants({ variant: "normal" })}
               >
-                <ZendeGlass
-                  variant="ctaPill"
-                  className="transition-transform duration-200 group-hover:scale-[1.03] group-active:scale-[0.98]"
-                >
-                  <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
-                    Open Library
-                  </span>
-                </ZendeGlass>
+                Open Library
               </Link>
-              <button
+              <Button
                 type="button"
                 disabled={busy}
                 onClick={() => void refreshCatalog()}
-                className="group inline-flex shrink-0 border-0 bg-transparent p-0 outline-none disabled:opacity-40"
               >
-                <ZendeGlass variant="heroSecondary" className="inline-block">
-                  <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-white">
-                    {busy ? "Updating…" : "Refresh catalog"}
-                  </span>
-                </ZendeGlass>
-              </button>
+                {busy ? <><ZendeSpinner size="tiny" label="Updating catalog" /> Updating…</> : "Refresh catalog"}
+              </Button>
             </div>
           </div>
         </CinematicSection>

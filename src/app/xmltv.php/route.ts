@@ -3,13 +3,17 @@ import { getAggregatedXtreamCatalog } from "@/lib/iptv/aggregated-channels";
 import {
   buildXmltvDocument,
   collectXmltvChannels,
+  createXmltvImageProxyTransform,
 } from "@/lib/iptv/xmltv-guide";
+import { getRequestOrigin } from "@/lib/http/request-origin";
+import { fetchXtreamXmltv } from "@/lib/iptv/xtream-client";
+import { loadXtreamPortalCredentials } from "@/lib/iptv/xtream-portal-store";
 
 export const runtime = "nodejs";
 
 /**
- * XMLTV with placeholder programmes — many IPTV apps hide the guide entirely when no `<programme>`
- * rows exist; channels-only feeds look “empty”.
+ * Relays the imported Xtream provider's real XMLTV without exposing its
+ * credentials. Falls back to a placeholder grid when no provider is saved.
  */
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
@@ -25,13 +29,30 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   void cred;
+  const origin = getRequestOrigin(request);
+
+  const providerCredentials = await loadXtreamPortalCredentials();
+  if (providerCredentials) {
+    const upstream = await fetchXtreamXmltv(providerCredentials);
+    if (upstream?.body) {
+      return new Response(upstream.body.pipeThrough(createXmltvImageProxyTransform(origin)), {
+        status: 200,
+        headers: {
+          "Content-Type": upstream.headers.get("content-type") || "application/xml;charset=utf-8",
+          "Cache-Control": "private, max-age=300",
+          "X-Accel-Buffering": "no",
+          "X-Zende-Epg-Source": "xtream-provider",
+        },
+      });
+    }
+  }
 
   const { streams } = await getAggregatedXtreamCatalog();
   const channels = collectXmltvChannels(
     streams,
     (row) => row.channel.tvgId?.trim() || String(row.streamId),
   );
-  const body = buildXmltvDocument(channels);
+  const body = buildXmltvDocument(channels, origin);
 
   return new Response(body, {
     status: 200,

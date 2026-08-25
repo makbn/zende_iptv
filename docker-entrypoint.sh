@@ -32,9 +32,11 @@ if [ "$(id -u)" -eq 0 ]; then
   # Config files for custom OpenVPN/WireGuard are written here inside the
   # container; GLUETUN_HOST_WORKDIR maps the same path on the host so that
   # bind mounts passed to sibling Gluetun containers resolve correctly.
-  if [ -n "$GLUETUN_CONTAINER_WORKDIR" ]; then
-    mkdir -p "$GLUETUN_CONTAINER_WORKDIR"
-    chown -R nextjs:nodejs "$GLUETUN_CONTAINER_WORKDIR" 2>/dev/null || true
+  # Threadfin shared conf — Zende (uid 1001) must be able to seed settings.json.
+  if [ -d /threadfin-conf ]; then
+    mkdir -p /threadfin-conf
+    chown -R nextjs:nodejs /threadfin-conf 2>/dev/null || true
+    chmod -R u+rwX,g+rwX /threadfin-conf 2>/dev/null || true
   fi
 fi
 

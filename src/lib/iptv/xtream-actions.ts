@@ -10,11 +10,17 @@ import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { resolveLibraryContentType } from "@/lib/channels/content-type";
 import { prisma } from "@/lib/db/prisma";
+import { secureImageUrl } from "@/lib/media/secure-image-url";
+import {
+  filterParentalChannels,
+  loadParentalPolicy,
+} from "@/lib/parental/parental-control-store";
 
 /** Xtream-compatible live stream JSON (subset of fields commonly used by IPTV players). */
 export function xtreamLiveStreamJson(
   row: AggregatedStreamRow,
   num: number,
+  imageOrigin?: string,
 ): Record<string, string | number> {
   const { channel, streamId, categoryId } = row;
   return {
@@ -22,7 +28,7 @@ export function xtreamLiveStreamJson(
     name: channel.name,
     stream_type: "live",
     stream_id: streamId,
-    stream_icon: channel.tvgLogo ?? "",
+    stream_icon: secureImageUrl(channel.tvgLogo, imageOrigin, "logo") ?? "",
     epg_channel_id: channel.tvgId ?? "",
     added: "0",
     category_id: categoryId,
@@ -69,14 +75,14 @@ export function xtreamAuthenticatedPayload(
   };
 }
 
-async function filteredLiveStreams(categoryId?: string): Promise<unknown[]> {
+async function filteredLiveStreams(categoryId?: string, imageOrigin?: string): Promise<unknown[]> {
   const { streams } = await getAggregatedXtreamCatalog();
   const filtered =
     categoryId !== undefined && categoryId !== null && `${categoryId}`.trim() !== ""
       ? streams.filter((r) => r.categoryId === `${categoryId}`.trim())
       : streams;
 
-  return filtered.map((row, idx) => xtreamLiveStreamJson(row, idx + 1));
+  return filtered.map((row, idx) => xtreamLiveStreamJson(row, idx + 1, imageOrigin));
 }
 
 async function loadMovieChannels(): Promise<M3uChannel[]> {
@@ -98,20 +104,25 @@ async function loadMovieChannels(): Promise<M3uChannel[]> {
       /* skip */
     }
   }
-  return out;
+  const policy = await loadParentalPolicy();
+  return filterParentalChannels(
+    out,
+    policy.enabled ? policy.hiddenPatterns : [],
+  );
 }
 
 function xtreamVodStreamJson(
   channel: M3uChannel,
   streamId: number,
   categoryId: string,
+  imageOrigin?: string,
 ): Record<string, string | number> {
   return {
     num: streamId,
     name: channel.name,
     stream_type: "movie",
     stream_id: streamId,
-    stream_icon: channel.tvgLogo ?? "",
+    stream_icon: secureImageUrl(channel.tvgLogo, imageOrigin, "poster") ?? "",
     rating: "",
     rating_5based: 0,
     added: "0",
@@ -122,7 +133,7 @@ function xtreamVodStreamJson(
   };
 }
 
-async function filteredVodStreams(categoryId?: string): Promise<unknown[]> {
+async function filteredVodStreams(categoryId?: string, imageOrigin?: string): Promise<unknown[]> {
   const movies = await loadMovieChannels();
   const groupNames = new Set<string>();
   for (const ch of movies) {
@@ -142,7 +153,7 @@ async function filteredVodStreams(categoryId?: string): Promise<unknown[]> {
 
   return filtered.map((ch, idx) => {
     const g = (ch.groupTitle ?? "").trim() || "Movies";
-    return xtreamVodStreamJson(ch, idx + 1, groupToCatId.get(g) ?? "1");
+    return xtreamVodStreamJson(ch, idx + 1, groupToCatId.get(g) ?? "1", imageOrigin);
   });
 }
 
@@ -182,6 +193,7 @@ export async function handleXtreamAction(
   portalPasswordEcho: string,
 ): Promise<Response> {
   const url = new URL(request.url);
+  const origin = getRequestOrigin(request);
   const action = (url.searchParams.get("action") ?? "").trim().toLowerCase();
 
   if (!action) {
@@ -195,7 +207,7 @@ export async function handleXtreamAction(
 
   if (action === "get_live_streams") {
     const cat = url.searchParams.get("category_id");
-    const data = await filteredLiveStreams(cat ?? undefined);
+    const data = await filteredLiveStreams(cat ?? undefined, origin);
     return Response.json(data);
   }
 
@@ -275,7 +287,7 @@ export async function handleXtreamAction(
 
   if (action === "get_vod_streams") {
     const cat = url.searchParams.get("category_id");
-    const data = await filteredVodStreams(cat ?? undefined);
+    const data = await filteredVodStreams(cat ?? undefined, origin);
     return Response.json(data);
   }
 

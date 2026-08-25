@@ -12,11 +12,15 @@ import {
 } from "react";
 
 import {
-  clearStoredTokens,
   setStoredTokens,
 } from "@/lib/auth/zende-fetch";
+import { clearLocalDeviceData } from "@/lib/auth/clear-local-device-data";
 import { Z_ACCESS, Z_REFRESH } from "@/lib/auth/token-storage-keys";
+import { isProtectedApiReady } from "@/lib/auth/api-readiness";
 import { ZendeLogoWave } from "@/components/loading/zende-logo-wave";
+import { clearFavoritesOnThisDevice } from "@/lib/favorites/favorites-store";
+import { clearViewingHistoryOnThisDevice } from "@/lib/watch/viewing-stats";
+import { setPersonalDataScope } from "@/lib/auth/personal-data-scope";
 
 export type AuthUser = {
   id: string;
@@ -27,6 +31,7 @@ export type AuthUser = {
 
 type AuthContextValue = {
   ready: boolean;
+  protectedApiReady: boolean;
   authEnabled: boolean;
   user: AuthUser | null;
   userCount: number;
@@ -123,8 +128,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      setPersonalDataScope(
+        authEnabledFromStatus ? data.user?.id ?? "anonymous" : "guest",
+      );
       setUser(data.user);
     } catch {
+      setPersonalDataScope("anonymous");
       setUser(null);
     } finally {
       setReady(true);
@@ -132,7 +141,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    queueMicrotask(() => void refresh());
+  }, [refresh]);
+
+  useEffect(() => {
+    const refreshSession = () => void refresh();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refreshSession();
+    };
+    const interval = window.setInterval(refreshSession, 60_000);
+    window.addEventListener("focus", refreshSession);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshSession);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [refresh]);
 
   const login = useCallback(async (username: string, password: string) => {
@@ -148,6 +172,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       );
     }
     if (data.accessToken && data.refreshToken) {
+      clearFavoritesOnThisDevice();
+      clearViewingHistoryOnThisDevice();
       setStoredTokens(data.accessToken, data.refreshToken);
     }
     await refresh();
@@ -157,17 +183,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const headers: HeadersInit = { "Content-Type": "application/json" };
     const access = localStorage.getItem(Z_ACCESS);
     if (access) headers.Authorization = `Bearer ${access}`;
-    await fetch("/api/auth/logout", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        refreshToken: localStorage.getItem(Z_REFRESH) ?? undefined,
-      }),
-    }).catch(() => {});
-    clearStoredTokens();
-    setUser(null);
-    await refresh();
-  }, [refresh]);
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          refreshToken: localStorage.getItem(Z_REFRESH) ?? undefined,
+        }),
+      });
+    } catch {
+      // Local logout must finish even when the network is unavailable.
+    } finally {
+      await clearLocalDeviceData();
+      setPersonalDataScope("anonymous");
+      setUser(null);
+      window.location.replace(authEnabled ? "/login" : "/");
+    }
+  }, [authEnabled]);
 
   const bootstrap = useCallback(
     async (username: string, password: string) => {
@@ -193,17 +225,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({
-      ready,
-      authEnabled,
-      user,
-      userCount,
-      canBootstrap,
-      refresh,
-      login,
-      logout,
-      bootstrap,
-    }),
+    () => {
+      const protectedApiReady = isProtectedApiReady({
+        ready,
+        authEnabled,
+        hasUser: Boolean(user),
+      });
+      return {
+        ready,
+        protectedApiReady,
+        authEnabled,
+        user,
+        userCount,
+        canBootstrap,
+        refresh,
+        login,
+        logout,
+        bootstrap,
+      };
+    },
     [
       ready,
       authEnabled,

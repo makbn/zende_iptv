@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 type Props = {
   message: string;
@@ -34,13 +35,12 @@ export function InlineErrorRegion({
         <p className="min-w-0 flex-1 leading-snug">{message}</p>
         <div className="flex shrink-0 items-center gap-2">
           {onRetry ? (
-            <button
+            <Button
               type="button"
               onClick={onRetry}
-              className="min-h-11 rounded-full bg-white/16 px-4 text-[14px] font-semibold text-white outline-none transition-colors hover:bg-white/25 focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
             >
               {retryLabel}
-            </button>
+            </Button>
           ) : null}
           {onDismiss ? (
             <button

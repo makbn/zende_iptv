@@ -3,7 +3,10 @@ import "server-only";
 import { createHash, randomBytes } from "crypto";
 
 import { createServerLogger } from "@/core/logging/server";
-import { normalizeXtreamLivePlaybackUrl } from "@/lib/stream/playback-url";
+import {
+  isXtreamLiveStreamUrl,
+  normalizeXtreamLivePlaybackUrl,
+} from "@/lib/stream/playback-url";
 import { redactStreamUrlForLog } from "@/lib/stream/redact-stream-url";
 import {
   parsePlaybackSessionMeta,
@@ -35,6 +38,17 @@ const log = createServerLogger("lib.stream.session-store");
 type CachedSessionEntry = { record: StreamSessionRecord; fetchedAt: number };
 const sessionReadCache = new Map<string, CachedSessionEntry>();
 const sessionLastTouchWrite = new Map<string, number>();
+
+// SQLite permits only one writer. HLS bootstraps can otherwise start alias,
+// cookie, and TTL updates for several sessions at the same instant, causing
+// Prisma P1008/P2028 timeouts even though every individual update is tiny.
+let streamSessionWriteQueue: Promise<void> = Promise.resolve();
+
+function enqueueStreamSessionWrite(operation: () => Promise<void>): Promise<void> {
+  const queued = streamSessionWriteQueue.catch(() => {}).then(operation);
+  streamSessionWriteQueue = queued.catch(() => {});
+  return queued;
+}
 
 /** Evict a session from the read cache (call after updating aliases or cookies). */
 export function evictSessionCache(id: string): void {
@@ -171,23 +185,37 @@ export async function persistCookieJar(
   sessionId: string,
   jar: CookieJar,
 ): Promise<void> {
-  await prisma.$transaction(async (tx) => {
-    const row = await tx.streamProxySession.findUnique({
+  const cached = sessionReadCache.get(sessionId);
+  if (cached) {
+    cached.record.cookieJar = jar;
+    cached.fetchedAt = Date.now();
+  }
+
+  await enqueueStreamSessionWrite(async () => {
+    if (cached) {
+      await prisma.streamProxySession.update({
+        where: { id: sessionId },
+        data: { cookieJarJson: JSON.stringify(jar) },
+      });
+      return;
+    }
+
+    const row = await prisma.streamProxySession.findUnique({
       where: { id: sessionId },
       select: { cookieJarJson: true },
     });
-    const existing = parseCookieJarJson(row?.cookieJarJson ?? "{}");
+    if (!row) return;
+    const existing = parseCookieJarJson(row.cookieJarJson ?? "{}");
     for (const [origin, bag] of Object.entries(jar)) {
       if (!bag || typeof bag !== "object") continue;
       if (!existing[origin]) existing[origin] = {};
       Object.assign(existing[origin], bag);
     }
-    await tx.streamProxySession.update({
+    await prisma.streamProxySession.update({
       where: { id: sessionId },
       data: { cookieJarJson: JSON.stringify(existing) },
     });
   });
-  evictSessionCache(sessionId);
 }
 
 const WARMUP_UA =
@@ -204,6 +232,7 @@ async function warmupCookies(url: string, proxyAgent?: ProxyAgent): Promise<Cook
   try {
     const opts: RequestInit & { dispatcher?: ProxyAgent } = {
       redirect: "follow",
+      signal: AbortSignal.timeout(6_000),
       headers: {
         "User-Agent": WARMUP_UA,
         Accept: "*/*",
@@ -291,8 +320,11 @@ export async function createStreamSession(input: {
     proxyAgent = buildProxyAgent(input.proxyConfig);
   }
 
-  // Build initial cookie jar: warm-up fetch first, then overlay any caller-supplied cookies.
-  const jar = await warmupCookies(upstreamRootUrl, proxyAgent);
+  // Xtream live URLs authenticate in the path. Fetching one here only duplicates
+  // the manifest request and can assign a different CDN shard than playback uses.
+  // The real proxy bootstrap already captures cookies across every redirect hop.
+  const skipWarmup = isXtreamLiveStreamUrl(upstreamRootUrl);
+  const jar = skipWarmup ? {} : await warmupCookies(upstreamRootUrl, proxyAgent);
 
   if (input.cookies && Object.keys(input.cookies).length > 0) {
     let origin: string;
@@ -305,21 +337,44 @@ export async function createStreamSession(input: {
     Object.assign(jar[origin], input.cookies);
   }
 
-  await prisma.streamProxySession.create({
-    data: {
-      id,
-      upstreamRootUrl: upstreamRootUrl,
+  const meta = input.meta ?? {};
+  await enqueueStreamSessionWrite(async () => {
+    await prisma.streamProxySession.create({
+      data: {
+        id,
+        upstreamRootUrl: upstreamRootUrl,
+        title: input.title,
+        logo: input.logo ?? null,
+        groupTitle: input.group ?? null,
+        metaJson: serializePlaybackSessionMeta(meta),
+        urlAliasesJson: "{}",
+        aliasReferersJson: "{}",
+        cookieJarJson: JSON.stringify(jar),
+        proxyConfigJson: input.proxyConfig ? JSON.stringify(input.proxyConfig) : null,
+        expiresAt,
+      },
+    });
+  });
+  const createdAt = Date.now();
+  sessionReadCache.set(id, {
+    fetchedAt: createdAt,
+    record: {
+      upstreamRootUrl,
       title: input.title,
-      logo: input.logo ?? null,
-      groupTitle: input.group ?? null,
-      metaJson: serializePlaybackSessionMeta(input.meta ?? {}),
-      urlAliasesJson: "{}",
-      aliasReferersJson: "{}",
-      cookieJarJson: JSON.stringify(jar),
-      proxyConfigJson: input.proxyConfig ? JSON.stringify(input.proxyConfig) : null,
-      expiresAt,
+      logo: input.logo,
+      group: input.group,
+      meta,
+      urlAliases: new Map(),
+      aliasReferers: new Map(),
+      cookieJar: jar,
+      lastRefererUrl: null,
+      lastAccessAt: createdAt,
+      proxyConfig: input.proxyConfig ?? null,
     },
   });
+  // The row was just created with a six-hour expiry; its first media request
+  // must not immediately enqueue a redundant TTL write.
+  sessionLastTouchWrite.set(id, createdAt);
   log.info("Created stream proxy session row", {
     sessionId: id,
     upstreamHost: (() => {
@@ -332,6 +387,7 @@ export async function createStreamSession(input: {
     hasProxy: Boolean(input.proxyConfig),
     aliasCount: 0,
     cookieOrigins: Object.keys(jar).length,
+    skippedWarmup: skipWarmup,
     elapsedMs: Date.now() - started,
   });
   return id;
@@ -360,8 +416,12 @@ export async function touchSession(
     const lastWrite = sessionLastTouchWrite.get(id) ?? 0;
     if (now - lastWrite > SESSION_TOUCH_WRITE_INTERVAL_MS) {
       sessionLastTouchWrite.set(id, now);
-      prisma.streamProxySession
-        .update({ where: { id }, data: { expiresAt: new Date(now + SESSION_IDLE_MS) } })
+      enqueueStreamSessionWrite(async () => {
+        await prisma.streamProxySession.update({
+          where: { id },
+          data: { expiresAt: new Date(now + SESSION_IDLE_MS) },
+        });
+      })
         .catch((err) => {
           log.warn("Failed to persist session TTL extension (cached path)", {
             sessionId: id,
@@ -380,7 +440,9 @@ export async function touchSession(
   }
 
   if (row.expiresAt.getTime() < now) {
-    prisma.streamProxySession.delete({ where: { id } }).catch((err) => {
+    enqueueStreamSessionWrite(async () => {
+      await prisma.streamProxySession.delete({ where: { id } });
+    }).catch((err) => {
       log.warn("Failed to delete expired session row", {
         sessionId: id,
         message: err instanceof Error ? err.message : String(err),
@@ -410,8 +472,12 @@ export async function touchSession(
   const lastWrite = sessionLastTouchWrite.get(id) ?? 0;
   if (now - lastWrite > SESSION_TOUCH_WRITE_INTERVAL_MS) {
     sessionLastTouchWrite.set(id, now);
-    prisma.streamProxySession
-      .update({ where: { id }, data: { expiresAt: new Date(now + SESSION_IDLE_MS) } })
+    enqueueStreamSessionWrite(async () => {
+      await prisma.streamProxySession.update({
+        where: { id },
+        data: { expiresAt: new Date(now + SESSION_IDLE_MS) },
+      });
+    })
       .catch((err) => {
         log.warn("Failed to persist session TTL extension (db path)", {
           sessionId: id,
@@ -430,11 +496,59 @@ export async function persistUrlAliases(
   referers: Map<string, string>,
   opts?: { playlistRefererUrl?: string },
 ): Promise<void> {
+  const cachedEntry = sessionReadCache.get(sessionId);
+  const cached = cachedEntry?.record;
+  if (cachedEntry && cached) {
+    const aliasesAlreadyKnown = Array.from(aliases).every(
+      ([key, value]) => cached.urlAliases.get(key) === value,
+    );
+    const referersAlreadyKnown = Array.from(referers).every(
+      ([key, value]) => cached.aliasReferers.get(key) === value,
+    );
+    const playlistRefererAlreadyKnown =
+      opts?.playlistRefererUrl === undefined ||
+      cached.lastRefererUrl === opts.playlistRefererUrl;
+    if (
+      aliasesAlreadyKnown &&
+      referersAlreadyKnown &&
+      playlistRefererAlreadyKnown
+    ) {
+      return;
+    }
+
+    for (const [key, value] of aliases) cached.urlAliases.set(key, value);
+    for (const [key, value] of referers) cached.aliasReferers.set(key, value);
+    if (opts?.playlistRefererUrl !== undefined) {
+      cached.lastRefererUrl = opts.playlistRefererUrl;
+    }
+    cachedEntry.fetchedAt = Date.now();
+  }
+
   const started = Date.now();
-  await prisma.$transaction(async (tx) => {
-    const row = await tx.streamProxySession.findUnique({
+  let changed = false;
+  await enqueueStreamSessionWrite(async () => {
+    if (cached) {
+      changed = true;
+      await prisma.streamProxySession.update({
+        where: { id: sessionId },
+        data: {
+          urlAliasesJson: JSON.stringify(Object.fromEntries(cached.urlAliases)),
+          aliasReferersJson: JSON.stringify(Object.fromEntries(cached.aliasReferers)),
+          ...(opts?.playlistRefererUrl !== undefined
+            ? { lastRefererUrl: cached.lastRefererUrl }
+            : {}),
+        },
+      });
+      return;
+    }
+
+    const row = await prisma.streamProxySession.findUnique({
       where: { id: sessionId },
-      select: { urlAliasesJson: true, aliasReferersJson: true },
+      select: {
+        urlAliasesJson: true,
+        aliasReferersJson: true,
+        lastRefererUrl: true,
+      },
     });
     if (!row) {
       return;
@@ -442,12 +556,21 @@ export async function persistUrlAliases(
     const merged = parseAliasesJson(row.urlAliasesJson ?? "{}");
     const mergedReferers = parseReferersJson(row?.aliasReferersJson ?? "{}");
     for (const [k, v] of aliases) {
+      if (merged.get(k) !== v) changed = true;
       merged.set(k, v);
     }
     for (const [k, v] of referers) {
+      if (mergedReferers.get(k) !== v) changed = true;
       mergedReferers.set(k, v);
     }
-    await tx.streamProxySession.update({
+    if (
+      opts?.playlistRefererUrl !== undefined &&
+      row.lastRefererUrl !== opts.playlistRefererUrl
+    ) {
+      changed = true;
+    }
+    if (!changed) return;
+    await prisma.streamProxySession.update({
       where: { id: sessionId },
       data: {
         urlAliasesJson: JSON.stringify(Object.fromEntries(merged)),
@@ -458,7 +581,7 @@ export async function persistUrlAliases(
       },
     });
   });
-  evictSessionCache(sessionId);
+  if (!changed) return;
   log.info("Persisted stream alias map", {
     sessionId,
     aliasCount: aliases.size,

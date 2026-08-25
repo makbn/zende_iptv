@@ -1,6 +1,7 @@
 import { verifyIptvPortalLogin } from "@/lib/iptv/iptv-credential-auth";
 import { getAggregatedXtreamCatalog } from "@/lib/iptv/aggregated-channels";
 import { getRequestOrigin } from "@/lib/http/request-origin";
+import { secureImageUrl } from "@/lib/media/secure-image-url";
 
 export const runtime = "nodejs";
 
@@ -44,7 +45,7 @@ export async function GET(request: Request): Promise<Response> {
     const attrs = [
       `tvg-name="${escapeAttr(displayName)}"`,
       ch.tvgId?.trim() ? `tvg-id="${escapeAttr(ch.tvgId.trim())}"` : "",
-      ch.tvgLogo?.trim() ? `tvg-logo="${escapeAttr(ch.tvgLogo.trim())}"` : "",
+      ch.tvgLogo?.trim() ? `tvg-logo="${escapeAttr(secureImageUrl(ch.tvgLogo.trim(), origin, "logo") ?? ch.tvgLogo.trim())}"` : "",
       ch.groupTitle?.trim() ? `group-title="${escapeAttr(ch.groupTitle.trim())}"` : "",
     ].filter(Boolean);
 

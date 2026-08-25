@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { fetch as undiciFetch, type ProxyAgent } from "undici";
+import {
+  Agent,
+  fetch as undiciFetch,
+  type Dispatcher,
+} from "undici";
 
 import { createServerLogger } from "@/core/logging/server";
 import { getRequestOrigin } from "@/lib/http/request-origin";
@@ -14,6 +18,7 @@ import {
   resolveAlias,
   touchSession,
   type CookieJar,
+  type StreamSessionRecord,
 } from "@/lib/stream/stream-session-store";
 import {
   looksLikeHlsPlaylist,
@@ -25,6 +30,25 @@ import {
   shouldStreamProxyPassthrough,
 } from "@/lib/stream/playback-url";
 import { redactStreamUrlForLog } from "@/lib/stream/redact-stream-url";
+import {
+  acquireSharedStreamResponse,
+  readSharedCacheBody,
+  sharedStreamCacheKey,
+  type SharedStreamCacheLease,
+  type SharedStreamResponse,
+} from "@/lib/stream/shared-response-cache";
+import {
+  acquireSharedManifest,
+  sharedManifestCacheKey,
+  type SharedManifestLease,
+  type SharedManifestValue,
+} from "@/lib/stream/shared-manifest-cache";
+import {
+  acquireSharedRootRefresh,
+  forgetSharedRootPin,
+  getSharedRootPin,
+  rememberSharedRootPin,
+} from "@/lib/stream/shared-root-pin-cache";
 
 export const runtime = "nodejs";
 
@@ -102,9 +126,29 @@ const BOOTSTRAP_MAX_ATTEMPTS = 3;
 const RECORDING_FETCH_TIMEOUT_MS = 95_000;
 const RECORDING_FETCH_TIMEOUT_PROXY_MS = 130_000;
 const RECORDING_UPSTREAM_MAX_ATTEMPTS = 3;
+/** Progressive VOD/episode file downloads can run for a long time. */
+const DOWNLOAD_FETCH_TIMEOUT_MS = 6 * 60 * 60 * 1000;
 
 /** Maximum number of 3xx hops before giving up. */
 const MAX_REDIRECT_HOPS = 10;
+
+/**
+ * Provider redirectors occasionally assign a CDN hostname that accepts no TCP
+ * connections. Undici's default connect timeout is 10 seconds, which compounds
+ * badly with player and relay retries. A shared dispatcher also keeps working
+ * CDN connections warm between manifest and segment requests.
+ */
+const DIRECT_UPSTREAM_DISPATCHER = new Agent({
+  connectTimeout: 4_000,
+  connections: 64,
+  pipelining: 1,
+  keepAliveTimeout: 30_000,
+  keepAliveMaxTimeout: 120_000,
+});
+
+/** A pinned media-playlist CDN should answer quickly; otherwise return to the provider router. */
+const PINNED_ROOT_TIMEOUT_MS = 6_000;
+const PINNED_ROOT_TIMEOUT_PROXY_MS = 15_000;
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -118,7 +162,7 @@ function proxyMode(
 }
 
 function resourceKindFromUrl(url: string): "segment" | "playlist" | "key" | "other" {
-  if (/\.ts(\?|$)/i.test(url)) return "segment";
+  if (/\.(?:ts|m4s|aac|ac3)(\?|$)/i.test(url)) return "segment";
   if (/\.m3u8(\?|$)/i.test(url)) return "playlist";
   if (/\.key(\?|$)/i.test(url)) return "key";
   return "other";
@@ -184,6 +228,99 @@ function forwardPassthroughHeaders(upstream: Response): Headers {
   return h;
 }
 
+function headersRecord(headers: Headers): Record<string, string> {
+  return Object.fromEntries(headers.entries());
+}
+
+type CacheDiagnosticState = "HIT" | "MISS" | "COALESCED" | "STALE" | "BYPASS";
+
+function setCacheDiagnostics(
+  headers: Headers,
+  state: CacheDiagnosticState,
+  cacheId: string,
+): Headers {
+  headers.set("X-Zende-Cache-Status", state);
+  headers.set("X-Zende-Cache-Id", cacheId);
+  return headers;
+}
+
+function sharedCacheResponse(
+  cached: SharedStreamResponse,
+  state: "HIT" | "COALESCED",
+  cacheId: string,
+): NextResponse {
+  const headers = new Headers(cached.headers);
+  headers.set("Content-Length", String(cached.body.byteLength));
+  headers.set("Cache-Control", "private, no-store");
+  headers.set("X-Zende-Stream-Cache", state);
+  setCacheDiagnostics(headers, state, cacheId);
+  const body = cached.body.buffer.slice(
+    cached.body.byteOffset,
+    cached.body.byteOffset + cached.body.byteLength,
+  ) as ArrayBuffer;
+  return new NextResponse(body, { status: cached.status, headers });
+}
+
+async function sharedManifestResponse(input: {
+  manifest: SharedManifestValue;
+  state: "HIT" | "COALESCED" | "MISS" | "STALE";
+  origin: string;
+  sessionId: string;
+  session: StreamSessionRecord;
+  cacheId: string;
+}): Promise<NextResponse> {
+  const { manifest, state, origin, sessionId, session, cacheId } = input;
+  rememberSharedRootPin(session.upstreamRootUrl, manifest.effectiveUrl);
+
+  // Persist only the aliases present in this snapshot. persistUrlAliases merges
+  // them with the session row, so cached media remains addressable without
+  // repeatedly writing the session's entire historical alias map.
+  const aliasSink = new Map<string, string>();
+  const refererSink = new Map<string, string>();
+  const rewritten = rewriteM3u8Playlist({
+    body: manifest.body,
+    playlistFetchUrl: manifest.effectiveUrl,
+    origin,
+    sessionId,
+    aliasSink,
+    refererSink,
+  });
+  await persistUrlAliases(sessionId, aliasSink, refererSink, {
+    playlistRefererUrl: manifest.effectiveUrl,
+  });
+  const headers = setCacheDiagnostics(
+    new Headers({
+      "Content-Type": "application/vnd.apple.mpegurl",
+      "Cache-Control": "private, no-store",
+      "X-Zende-Manifest-Cache": state,
+    }),
+    state,
+    cacheId,
+  );
+  return new NextResponse(rewritten, {
+    status: 200,
+    headers,
+  });
+}
+
+function attachmentFilename(title: string, url: string): string {
+  let ext = "mp4";
+  try {
+    const path = new URL(url).pathname;
+    const m = /\.([a-z0-9]{2,5})$/i.exec(path);
+    if (m?.[1]) ext = m[1].toLowerCase();
+  } catch {
+    /* keep default */
+  }
+  const safe =
+    title
+      .replace(/[^\w\s.-]+/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 120) || "episode";
+  return `${safe}.${ext}`;
+}
+
 /** True when buffer looks like an MPEG-TS segment (sync byte). */
 function looksLikeTsPacket(buf: ArrayBuffer): boolean {
   const u8 = new Uint8Array(buf);
@@ -229,7 +366,7 @@ async function fetchFollowingRedirects(
   baseHeaders: Headers,
   jar: CookieJar,
   signal: AbortSignal,
-  proxyAgent?: ProxyAgent,
+  proxyAgent?: Dispatcher,
 ): Promise<FetchResult> {
   let currentUrl = startUrl;
   let jarUpdated = false;
@@ -239,12 +376,12 @@ async function fetchFollowingRedirects(
     const cookieHdr = cookieHeaderForFetchUrl(currentUrl, jar);
     if (cookieHdr) headers.set("Cookie", cookieHdr);
 
-    const fetchOpts: RequestInit & { dispatcher?: ProxyAgent } = {
+    const fetchOpts: RequestInit & { dispatcher?: Dispatcher } = {
       redirect: "manual",
       headers,
       signal,
+      dispatcher: proxyAgent ?? DIRECT_UPSTREAM_DISPATCHER,
     };
-    if (proxyAgent) fetchOpts.dispatcher = proxyAgent;
 
     const res = await undiciFetch(currentUrl, fetchOpts as Parameters<typeof undiciFetch>[1]) as unknown as Response;
 
@@ -276,7 +413,7 @@ async function fetchUpstreamWithRecordingRetries(
   baseHeaders: Headers,
   cookieJar: CookieJar,
   timeoutMs: number,
-  proxyAgent: ProxyAgent | undefined,
+  proxyAgent: Dispatcher | undefined,
   attemptLogger?: FetchAttemptLogger,
 ): Promise<FetchResult> {
   let lastErr: unknown;
@@ -320,7 +457,7 @@ async function fetchUpstreamWithRetries(
   baseHeaders: Headers,
   cookieJar: CookieJar,
   timeoutMs: number,
-  proxyAgent: ProxyAgent | undefined,
+  proxyAgent: Dispatcher | undefined,
   attempts: number,
   attemptLogger?: FetchAttemptLogger,
 ): Promise<FetchResult> {
@@ -376,16 +513,25 @@ export async function GET(
     });
     return NextResponse.json(
       { error: "Unknown or expired session." },
-      { status: 404 },
+      {
+        status: 404,
+        headers: setCacheDiagnostics(new Headers(), "BYPASS", "unresolved"),
+      },
     );
   }
 
+  let cacheLease: Extract<SharedStreamCacheLease, { kind: "leader" }> | undefined;
+  let manifestLease: Extract<SharedManifestLease, { kind: "leader" }> | undefined;
+  let responseCacheId = "unresolved";
   try {
   const urlObj = new URL(request.url);
   const uParam = urlObj.searchParams.get("u");
   const hParam = urlObj.searchParams.get("h");
+  const asDownload = urlObj.searchParams.get("download") === "1";
+  const isRootBootstrap = !hParam && !uParam;
 
   let fetchUrl: string;
+  let rootFallbackUrl: string | undefined;
   if (hParam) {
     const resolved = resolveAlias(session, hParam);
     if (!resolved) {
@@ -394,20 +540,61 @@ export async function GET(
         hash: hParam,
         aliasCount: session.urlAliases.size,
       });
-      return NextResponse.json({ error: "Bad alias." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Bad alias." },
+        {
+          status: 400,
+          headers: setCacheDiagnostics(new Headers(), "BYPASS", "unresolved"),
+        },
+      );
     }
     fetchUrl = resolved;
   } else if (uParam) {
     try {
       fetchUrl = decodeURIComponent(uParam);
     } catch {
-      return NextResponse.json({ error: "Bad URL encoding." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Bad URL encoding." },
+        {
+          status: 400,
+          headers: setCacheDiagnostics(new Headers(), "BYPASS", "unresolved"),
+        },
+      );
     }
     if (!/^https?:\/\//i.test(fetchUrl)) {
-      return NextResponse.json({ error: "Invalid target URL." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid target URL." },
+        {
+          status: 400,
+          headers: setCacheDiagnostics(new Headers(), "BYPASS", "unresolved"),
+        },
+      );
     }
   } else {
-    fetchUrl = session.upstreamRootUrl;
+    // Never prefer a session-local redirect token here. This provider rotates
+    // tokens globally per account/channel, so an older session token can freeze
+    // every other viewer. The process-wide pin is the single source of truth.
+    const pinnedRootUrl = getSharedRootPin(session.upstreamRootUrl);
+    if (
+      pinnedRootUrl &&
+      pinnedRootUrl !== session.upstreamRootUrl &&
+      /^https?:\/\//i.test(pinnedRootUrl)
+    ) {
+      fetchUrl = pinnedRootUrl;
+      rootFallbackUrl = session.upstreamRootUrl;
+    } else {
+      fetchUrl = session.upstreamRootUrl;
+    }
+  }
+
+  if (asDownload && !isProgressiveMediaUrl(fetchUrl)) {
+    return NextResponse.json(
+      { error: "Only progressive episode/movie files can be downloaded." },
+      {
+        status: 400,
+        headers: setCacheDiagnostics(new Headers(), "BYPASS", "unresolved"),
+      },
+    );
   }
 
   if (!hParam && !uParam) {
@@ -420,6 +607,7 @@ export async function GET(
           return "(bad-url)";
         }
       })(),
+      pinnedCdn: Boolean(rootFallbackUrl),
       ua: request.headers.get("user-agent")?.slice(0, 140),
     });
   }
@@ -434,10 +622,11 @@ export async function GET(
 
   const refererFromHash =
     (hParam ? session.aliasReferers.get(hParam)?.trim() : undefined) || undefined;
-  const refererForProxiedFetch =
-    refererFromHash ||
-    session.lastRefererUrl?.trim() ||
-    session.upstreamRootUrl;
+  const refererForProxiedFetch = isRootBootstrap
+    ? session.upstreamRootUrl
+    : refererFromHash ||
+      session.lastRefererUrl?.trim() ||
+      session.upstreamRootUrl;
 
   const mode = proxyMode(hParam, uParam);
   log.debug("Proxy upstream fetch", {
@@ -455,35 +644,139 @@ export async function GET(
   });
 
   const recordingRelay = session.title === DVR_RECORDING_SESSION_TITLE;
-  const isRootBootstrap = !hParam && !uParam;
-  const fetchTimeoutMs = recordingRelay
-    ? proxyAgent
-      ? RECORDING_FETCH_TIMEOUT_PROXY_MS
-      : RECORDING_FETCH_TIMEOUT_MS
-    : isRootBootstrap
+  const fetchTimeoutMs = asDownload
+    ? DOWNLOAD_FETCH_TIMEOUT_MS
+    : recordingRelay
       ? proxyAgent
-        ? BOOTSTRAP_FETCH_TIMEOUT_PROXY_MS
-        : BOOTSTRAP_FETCH_TIMEOUT_MS
-    : proxyAgent
-      ? FETCH_TIMEOUT_PROXY_MS
-      : FETCH_TIMEOUT_MS;
+        ? RECORDING_FETCH_TIMEOUT_PROXY_MS
+        : RECORDING_FETCH_TIMEOUT_MS
+      : isRootBootstrap
+        ? proxyAgent
+          ? BOOTSTRAP_FETCH_TIMEOUT_PROXY_MS
+          : BOOTSTRAP_FETCH_TIMEOUT_MS
+        : proxyAgent
+          ? FETCH_TIMEOUT_PROXY_MS
+          : FETCH_TIMEOUT_MS;
+
+  const baseHeaders = buildBaseHeaders(request, refererForProxiedFetch);
+  const resourceKind = resourceKindFromUrl(fetchUrl);
+  const origin = getRequestOrigin(request);
+  responseCacheId = isRootBootstrap
+    ? sharedManifestCacheKey(session.upstreamRootUrl)
+    : sharedStreamCacheKey({
+        channelUrl: session.upstreamRootUrl,
+        url: fetchUrl,
+        resourceKind:
+          resourceKind === "segment" || resourceKind === "key"
+            ? resourceKind
+            : "other",
+        range: request.headers.get("range"),
+      });
+
+  if (isRootBootstrap && !asDownload) {
+    const manifestKey = responseCacheId;
+    let alreadyWaited = false;
+    while (true) {
+      const lease = acquireSharedManifest(manifestKey);
+      if (lease.kind === "hit") {
+        log.info("Shared manifest cache hit", {
+          sessionId,
+          upstreamRoot: safeUrl(session.upstreamRootUrl),
+          cacheId: manifestKey,
+        });
+        return sharedManifestResponse({
+          manifest: lease.value,
+          state: "HIT",
+          origin,
+          sessionId,
+          session,
+          cacheId: manifestKey,
+        });
+      }
+      if (lease.kind === "leader") {
+        manifestLease = lease;
+        break;
+      }
+      const joined = await lease.value;
+      if (joined) {
+        log.info("Shared manifest request coalesced", {
+          sessionId,
+          upstreamRoot: safeUrl(session.upstreamRootUrl),
+          cacheId: manifestKey,
+        });
+        return sharedManifestResponse({
+          manifest: joined,
+          state: "COALESCED",
+          origin,
+          sessionId,
+          session,
+          cacheId: manifestKey,
+        });
+      }
+      if (alreadyWaited) break;
+      alreadyWaited = true;
+    }
+  }
+
+  const cacheEligible =
+    !asDownload &&
+    !request.headers.get("range") &&
+    !isProgressiveMediaUrl(fetchUrl) &&
+    (resourceKind === "segment" || resourceKind === "key");
+  if (cacheEligible) {
+    const cacheKey = responseCacheId;
+    let alreadyWaited = false;
+    while (true) {
+      const lease = acquireSharedStreamResponse(cacheKey);
+      if (lease.kind === "hit") {
+        log.info("Shared stream cache hit", {
+          sessionId,
+          resourceKind,
+          requestUrl: safeUrl(fetchUrl),
+          byteLength: lease.value.body.byteLength,
+          cacheId: cacheKey,
+        });
+        return sharedCacheResponse(lease.value, "HIT", cacheKey);
+      }
+      if (lease.kind === "leader") {
+        cacheLease = lease;
+        break;
+      }
+      const joined = await lease.value;
+      if (joined) {
+        log.info("Shared stream request coalesced", {
+          sessionId,
+          resourceKind,
+          requestUrl: safeUrl(fetchUrl),
+          byteLength: joined.body.byteLength,
+          cacheId: cacheKey,
+        });
+        return sharedCacheResponse(joined, "COALESCED", cacheKey);
+      }
+      if (alreadyWaited) break;
+      alreadyWaited = true;
+    }
+  }
 
   // Circuit breaker: replay the cached status instantly instead of re-fetching.
   // Skip for DVR ffmpeg relay — a single client would otherwise get stuck on 502
   // while upstream recovers.
-  if (!recordingRelay) {
+  if (!recordingRelay && !isRootBootstrap) {
     const cachedStatus = breakerStatus(sessionId, fetchUrl);
     if (cachedStatus !== null) {
+      cacheLease?.fail();
       log.debug("Circuit breaker: replaying cached status", {
         sessionId,
         fetchUrl: safeUrl(fetchUrl),
         status: cachedStatus,
       });
-      return new NextResponse(null, { status: cachedStatus });
+      return new NextResponse(null, {
+        status: cachedStatus,
+        headers: setCacheDiagnostics(new Headers(), "BYPASS", responseCacheId),
+      });
     }
   }
-
-  const baseHeaders = buildBaseHeaders(request, refererForProxiedFetch);
+  let activeAttemptTimeoutMs = fetchTimeoutMs;
   const attemptLogger: FetchAttemptLogger = {
     onAttemptStart: (attempt, maxAttempts) => {
       log.info("Upstream fetch attempt started", {
@@ -492,7 +785,7 @@ export async function GET(
         resourceKind: resourceKindFromUrl(fetchUrl),
         attempt,
         maxAttempts,
-        timeoutMs: fetchTimeoutMs,
+        timeoutMs: activeAttemptTimeoutMs,
         recordingRelay,
         isRootBootstrap,
         usingProxy: Boolean(proxyAgent),
@@ -543,21 +836,134 @@ export async function GET(
   let upstream: Response;
   let effectiveUrl: string;
   try {
-    const shouldRetry = !recordingRelay;
     const retryAttempts = isRootBootstrap
       ? BOOTSTRAP_MAX_ATTEMPTS
       : UPSTREAM_MAX_ATTEMPTS;
-    const result = recordingRelay
-      ? await fetchUpstreamWithRecordingRetries(
+    let result: FetchResult | undefined;
+
+    // Once a provider redirect has produced a working media-playlist URL, reuse
+    // that CDN directly for playlist refreshes. This avoids being randomly sent
+    // to a dead shard on every HLS reload. If the pinned URL expires or fails,
+    // immediately return to the canonical provider URL and establish a new pin.
+    if (rootFallbackUrl && !recordingRelay) {
+      let pinnedFailure: unknown;
+      try {
+        activeAttemptTimeoutMs = proxyAgent
+          ? PINNED_ROOT_TIMEOUT_PROXY_MS
+          : PINNED_ROOT_TIMEOUT_MS;
+        const pinnedResult = await fetchUpstreamWithRetries(
           fetchUrl,
           baseHeaders,
           cookieJar,
-          fetchTimeoutMs,
+          proxyAgent ? PINNED_ROOT_TIMEOUT_PROXY_MS : PINNED_ROOT_TIMEOUT_MS,
           proxyAgent,
+          1,
           attemptLogger,
-        )
-      : shouldRetry
-        ? await fetchUpstreamWithRetries(
+        );
+        if (pinnedResult.response.ok) {
+          result = pinnedResult;
+        } else {
+          pinnedFailure = new Error(`Pinned CDN returned ${pinnedResult.response.status}`);
+          pinnedResult.response.body?.cancel().catch(() => {});
+        }
+      } catch (err) {
+        pinnedFailure = err;
+      }
+
+      if (!result) {
+        forgetSharedRootPin(session.upstreamRootUrl, fetchUrl);
+        log.warn("Pinned playlist CDN unavailable; retrying provider origin", {
+          sessionId,
+          pinnedUrl: safeUrl(fetchUrl),
+          originUrl: safeUrl(rootFallbackUrl),
+          reason:
+            pinnedFailure instanceof Error
+              ? `${pinnedFailure.name}: ${pinnedFailure.message}`
+              : String(pinnedFailure),
+        });
+        fetchUrl = rootFallbackUrl;
+        activeAttemptTimeoutMs = fetchTimeoutMs;
+      }
+    }
+
+    if (!result && isRootBootstrap && fetchUrl === session.upstreamRootUrl) {
+      // The provider's canonical URL issues a rotating CDN token. Only one
+      // request may refresh it; followers wait, then fetch the winning token.
+      // This prevents a second browser from invalidating the first browser.
+      for (let coordinationAttempt = 0; coordinationAttempt < 2 && !result; coordinationAttempt++) {
+        const refresh = acquireSharedRootRefresh(session.upstreamRootUrl);
+        if (refresh.kind === "wait") {
+          const sharedPin = await refresh.value;
+          if (sharedPin) {
+            fetchUrl = sharedPin;
+            activeAttemptTimeoutMs = proxyAgent
+              ? PINNED_ROOT_TIMEOUT_PROXY_MS
+              : PINNED_ROOT_TIMEOUT_MS;
+            const joinedResult = await fetchUpstreamWithRetries(
+              fetchUrl,
+              baseHeaders,
+              cookieJar,
+              activeAttemptTimeoutMs,
+              proxyAgent,
+              1,
+              attemptLogger,
+            );
+            if (joinedResult.response.ok) {
+              result = joinedResult;
+              break;
+            }
+            joinedResult.response.body?.cancel().catch(() => {});
+            forgetSharedRootPin(session.upstreamRootUrl, sharedPin);
+          }
+          fetchUrl = session.upstreamRootUrl;
+          activeAttemptTimeoutMs = fetchTimeoutMs;
+          continue;
+        }
+
+        try {
+          activeAttemptTimeoutMs = fetchTimeoutMs;
+          const refreshed = recordingRelay
+            ? await fetchUpstreamWithRecordingRetries(
+                session.upstreamRootUrl,
+                baseHeaders,
+                cookieJar,
+                fetchTimeoutMs,
+                proxyAgent,
+                attemptLogger,
+              )
+            : await fetchUpstreamWithRetries(
+                session.upstreamRootUrl,
+                baseHeaders,
+                cookieJar,
+                fetchTimeoutMs,
+                proxyAgent,
+                retryAttempts,
+                attemptLogger,
+              );
+          if (refreshed.response.ok) {
+            refresh.complete(refreshed.effectiveUrl);
+          } else {
+            refresh.complete(null);
+          }
+          result = refreshed;
+        } catch (error) {
+          refresh.complete(null);
+          throw error;
+        }
+      }
+    }
+
+    if (!result) {
+      result = recordingRelay
+        ? await fetchUpstreamWithRecordingRetries(
+            fetchUrl,
+            baseHeaders,
+            cookieJar,
+            fetchTimeoutMs,
+            proxyAgent,
+            attemptLogger,
+          )
+        : await fetchUpstreamWithRetries(
             fetchUrl,
             baseHeaders,
             cookieJar,
@@ -565,14 +971,8 @@ export async function GET(
             proxyAgent,
             retryAttempts,
             attemptLogger,
-          )
-        : await fetchFollowingRedirects(
-            fetchUrl,
-            baseHeaders,
-            cookieJar,
-            AbortSignal.timeout(fetchTimeoutMs),
-            proxyAgent,
           );
+    }
     upstream = result.response;
     effectiveUrl = result.effectiveUrl;
     if (result.jarUpdated) {
@@ -580,6 +980,8 @@ export async function GET(
       persistCookieJar(sessionId, cookieJar).catch(() => {});
     }
   } catch (err) {
+    cacheLease?.fail();
+    const staleManifest = manifestLease?.fail();
     const isTimeout =
       err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
     const cause = err instanceof Error && (err as Error & { cause?: unknown }).cause;
@@ -596,18 +998,37 @@ export async function GET(
       timedOut: isTimeout,
       recordingRelay,
     });
-    if (!recordingRelay) {
+    if (staleManifest) {
+      log.warn("Serving stale shared manifest after upstream fetch failure", {
+        sessionId,
+        upstreamRoot: safeUrl(session.upstreamRootUrl),
+      });
+      return sharedManifestResponse({
+        manifest: staleManifest,
+        state: "STALE",
+        origin,
+        sessionId,
+        session,
+        cacheId: responseCacheId,
+      });
+    }
+    if (!recordingRelay && !isRootBootstrap) {
       // Trip the breaker with 502 (network failure). Mark transient so the
       // player can retry after 8 s once the VPN reconnects.
       breakerTrip(sessionId, fetchUrl, 502, /* transient */ true);
     }
     return NextResponse.json(
       { error: isTimeout ? "Upstream timed out." : "Upstream fetch failed." },
-      { status: 502 },
+      {
+        status: 502,
+        headers: setCacheDiagnostics(new Headers(), "BYPASS", responseCacheId),
+      },
     );
   }
 
   if (!upstream.ok) {
+    cacheLease?.fail();
+    const staleManifest = manifestLease?.fail();
     log.warn("Upstream status not OK", {
       status: upstream.status,
       statusText: upstream.statusText,
@@ -627,17 +1048,48 @@ export async function GET(
       upstream: pickUpstreamDiagHeaders(upstream),
       recordingRelay,
     });
+    upstream.body?.cancel().catch(() => {});
+    if (staleManifest) {
+      log.warn("Serving stale shared manifest after upstream status", {
+        sessionId,
+        upstreamStatus: upstream.status,
+        upstreamRoot: safeUrl(session.upstreamRootUrl),
+      });
+      return sharedManifestResponse({
+        manifest: staleManifest,
+        state: "STALE",
+        origin,
+        sessionId,
+        session,
+        cacheId: responseCacheId,
+      });
+    }
     // 403 = auth/IP block — persistent. Trip the breaker with the real status so
     // hls.js sees 403 and falls back to another variant instead of retrying at speed.
     // 5xx = upstream hard error — same treatment.
-    if (!recordingRelay && (upstream.status === 403 || upstream.status >= 500)) {
+    if (
+      !recordingRelay &&
+      !isRootBootstrap &&
+      (upstream.status === 403 || upstream.status >= 500)
+    ) {
       breakerTrip(sessionId, fetchUrl, upstream.status);
     }
     // Always forward the real upstream status with an empty body.
     // hls.js understands 403 (auth), 404 (gone), 5xx (error) — never send JSON
     // because the player expects binary or playlist data, not an error envelope.
-    upstream.body?.cancel().catch(() => {});
-    return new NextResponse(null, { status: upstream.status });
+    // A provider root 403 is a transient live-relay failure, not authorization
+    // for this already-approved viewer. Do not expose it as a fatal HLS auth
+    // response; hls.js can retry a 503 while the shared channel relay recovers.
+    const downstreamStatus = isRootBootstrap && upstream.status === 403 ? 503 : upstream.status;
+    const errorHeaders = setCacheDiagnostics(
+      new Headers(isRootBootstrap ? { "Retry-After": "3" } : undefined),
+      "BYPASS",
+      responseCacheId,
+    );
+    return new NextResponse(null, {
+      status: downstreamStatus,
+      headers: errorHeaders,
+    });
   }
 
   // Live `.ts` / VOD files — stream body through (arrayBuffer() hangs or OOMs).
@@ -652,6 +1104,7 @@ export async function GET(
       contentType: ct,
     })
   ) {
+    manifestLease?.fail();
     log.info("stream proxy passthrough", {
       sessionId,
       fetchUrl: safeUrl(fetchUrl),
@@ -665,23 +1118,72 @@ export async function GET(
       if (isOpenEndedLiveMpegTsUrl(fetchUrl)) h.set("content-type", "video/mp2t");
       else if (isProgressiveMediaUrl(fetchUrl)) h.set("content-type", "video/mp4");
     }
+    if (asDownload) {
+      const filename = attachmentFilename(session.title, fetchUrl);
+      h.set("Content-Disposition", `attachment; filename="${filename}"`);
+      h.set("Cache-Control", "private, no-store");
+    }
+    if (cacheLease) {
+      const [clientBody, cacheBody] = upstream.body.tee();
+      h.set("X-Zende-Stream-Cache", "MISS");
+      setCacheDiagnostics(h, "MISS", responseCacheId);
+      void readSharedCacheBody(cacheBody)
+        .then((body) => {
+          cacheLease?.commit({
+            status: upstream.status,
+            headers: headersRecord(h),
+            body,
+          });
+        })
+        .catch(() => cacheLease?.fail());
+      return new NextResponse(clientBody, { status: upstream.status, headers: h });
+    }
+    setCacheDiagnostics(h, "BYPASS", responseCacheId);
     return new NextResponse(upstream.body, { status: upstream.status, headers: h });
   }
 
-  const origin = getRequestOrigin(request);
   const buf = await upstream.arrayBuffer();
 
   if (looksLikeTsPacket(buf)) {
+    manifestLease?.fail();
     const h = forwardUpstreamHeaders(upstream);
     h.set("content-length", String(buf.byteLength));
+    if (cacheLease) {
+      h.set("X-Zende-Stream-Cache", "MISS");
+      setCacheDiagnostics(h, "MISS", responseCacheId);
+      cacheLease.commit({
+        status: upstream.status,
+        headers: headersRecord(h),
+        body: new Uint8Array(buf),
+      });
+    } else {
+      setCacheDiagnostics(h, "BYPASS", responseCacheId);
+    }
     return new NextResponse(buf, { status: upstream.status, headers: h });
   }
 
   const text = new TextDecoder("utf-8", { fatal: false }).decode(buf);
 
   if (looksLikeHlsPlaylist(text, ct, effectiveUrl)) {
-    const aliasSink = new Map(session.urlAliases);
-    const refererSink = new Map(session.aliasReferers);
+    cacheLease?.fail();
+    const manifest: SharedManifestValue = {
+      body: text,
+      effectiveUrl,
+      contentType: ct,
+    };
+    if (isRootBootstrap && manifestLease) {
+      const snapshot = manifestLease.commit(manifest);
+      return sharedManifestResponse({
+        manifest: snapshot,
+        state: "MISS",
+        origin,
+        sessionId,
+        session,
+        cacheId: responseCacheId,
+      });
+    }
+    const aliasSink = new Map<string, string>();
+    const refererSink = new Map<string, string>();
     const rewritten = rewriteM3u8Playlist({
       body: text,
       playlistFetchUrl: effectiveUrl,
@@ -693,16 +1195,22 @@ export async function GET(
     await persistUrlAliases(sessionId, aliasSink, refererSink, {
       playlistRefererUrl: effectiveUrl,
     });
-    return new NextResponse(rewritten, {
-      status: 200,
-      headers: {
+    const playlistHeaders = setCacheDiagnostics(
+      new Headers({
         "Content-Type": "application/vnd.apple.mpegurl",
         "Cache-Control": "no-store",
-      },
+      }),
+      "BYPASS",
+      responseCacheId,
+    );
+    return new NextResponse(rewritten, {
+      status: 200,
+      headers: playlistHeaders,
     });
   }
 
   const respHeaders = forwardUpstreamHeaders(upstream);
+  manifestLease?.fail();
 
   if (buf.byteLength <= 32) {
     // AES-128 keys are exactly 16 bytes — log hex so we can verify the CDN returned the real key.
@@ -732,18 +1240,44 @@ export async function GET(
   }
 
   respHeaders.set("content-length", String(buf.byteLength));
+  if (cacheLease) {
+    respHeaders.set("X-Zende-Stream-Cache", "MISS");
+    setCacheDiagnostics(respHeaders, "MISS", responseCacheId);
+    cacheLease.commit({
+      status: upstream.status,
+      headers: headersRecord(respHeaders),
+      body: new Uint8Array(buf),
+    });
+  } else {
+    setCacheDiagnostics(respHeaders, "BYPASS", responseCacheId);
+  }
   return new NextResponse(buf, {
     status: upstream.status,
     headers: respHeaders,
   });
   } catch (err) {
+    cacheLease?.fail();
+    const staleManifest = manifestLease?.fail();
+    if (staleManifest) {
+      return sharedManifestResponse({
+        manifest: staleManifest,
+        state: "STALE",
+        origin: getRequestOrigin(request),
+        sessionId,
+        session,
+        cacheId: responseCacheId,
+      });
+    }
     log.error("stream proxy unexpected error", {
       sessionId,
       message: err instanceof Error ? err.message : String(err),
     });
     return NextResponse.json(
       { error: "Stream proxy failed." },
-      { status: 502 },
+      {
+        status: 502,
+        headers: setCacheDiagnostics(new Headers(), "BYPASS", responseCacheId),
+      },
     );
   }
 }

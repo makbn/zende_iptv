@@ -6,6 +6,7 @@ import type {
   XtreamCategory,
   XtreamCategoryType,
   XtreamCredentials,
+  XtreamEpgListing,
   XtreamLiveStream,
   XtreamSeriesInfo,
   XtreamSeriesItem,
@@ -147,6 +148,61 @@ export async function fetchXtreamSeriesInfo(
   seriesId: string | number,
 ): Promise<XtreamSeriesInfo | null> {
   return xtreamRequest<XtreamSeriesInfo>(creds, "get_series_info", { series_id: seriesId });
+}
+
+/** Provider-native programme rows. Many Xtream servers Base64-encode title/description. */
+export async function fetchXtreamShortEpg(
+  creds: XtreamCredentials,
+  streamId: string | number,
+  limit = 12,
+): Promise<XtreamEpgListing[] | null> {
+  const payload = await xtreamRequest<unknown>(creds, "get_short_epg", {
+    stream_id: streamId,
+    limit: Math.max(1, Math.min(48, Math.trunc(limit))),
+  });
+  if (Array.isArray(payload)) return payload as XtreamEpgListing[];
+  if (
+    payload &&
+    typeof payload === "object" &&
+    Array.isArray((payload as { epg_listings?: unknown }).epg_listings)
+  ) {
+    return (payload as { epg_listings: XtreamEpgListing[] }).epg_listings;
+  }
+  return payload === null ? null : [];
+}
+
+/** Stream the provider XMLTV without exposing its credentials to the caller. */
+export async function fetchXtreamXmltv(
+  creds: XtreamCredentials,
+): Promise<Response | null> {
+  const raw = creds.serverUrl.trim();
+  const withProto =
+    raw.startsWith("http://") || raw.startsWith("https://") ? raw : `http://${raw}`;
+  const server = new URL(withProto);
+  const url = new URL("/xmltv.php", `${server.protocol}//${server.host}`);
+  url.searchParams.set("username", creds.username.trim());
+  url.searchParams.set("password", creds.password.trim());
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        Accept: "application/xml, text/xml, */*",
+        "User-Agent": "Zende/0.1 (xtream xmltv relay)",
+      },
+      cache: "no-store",
+      signal: AbortSignal.timeout(120_000),
+    });
+    if (!response.ok || !response.body) {
+      log.warn("xtream xmltv upstream non-OK", { status: response.status });
+      return null;
+    }
+    return response;
+  } catch (err) {
+    log.warn("xtream xmltv upstream failed", {
+      message: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
 }
 
 export function xtreamCredentialsFromHostFields(input: {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createServerLogger } from "@/core/logging/server";
+import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { gateApiRequest } from "@/lib/auth/gate-api";
 import { PUBLIC_INTERNAL_ERROR } from "@/lib/http/public-error";
 import { hashStreamUrl } from "@/lib/health/url-hash";
@@ -16,6 +17,11 @@ import {
 } from "@/lib/playback/resolve-duration";
 import type { PlaybackSessionMeta } from "@/lib/playback/stream-session-meta";
 import { createStreamSession } from "@/lib/stream/stream-session-store";
+import { lookupChannelsByUrls } from "@/lib/library/catalog";
+import {
+  isChannelParentalBlocked,
+  resolveParentalAccess,
+} from "@/lib/parental/parental-control-store";
 
 export const runtime = "nodejs";
 const log = createServerLogger("api.stream.session");
@@ -77,11 +83,50 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
+  const parental = await resolveParentalAccess(request, gate);
+  if (
+    isChannelParentalBlocked(
+      {
+        name: parsed.data.title ?? "",
+        groupTitle: parsed.data.group,
+      },
+      parental.blockedPatterns,
+    )
+  ) {
+    return NextResponse.json(
+      { error: "Channel is locked by parental controls." },
+      { status: 403 },
+    );
+  }
+
   const rawUrl = parsed.data.url.trim();
   const unwrapPublicCorsProxyUrls =
     parsed.data.unwrapPublicCorsProxyUrls !== false;
   const resolvedUrl = applyPublicCorsProxyUnwrap(rawUrl, unwrapPublicCorsProxyUrls);
   const normalizedUrl = normalizeXtreamLivePlaybackUrl(resolvedUrl);
+  if (parental.blockedPatterns.length > 0) {
+    const presetId = BUILTIN_PLAYLIST_SOURCES[0]?.presetId;
+    if (presetId) {
+      const catalogMatches = await lookupChannelsByUrls(presetId, [
+        rawUrl,
+        resolvedUrl,
+        normalizedUrl,
+      ]);
+      const catalogChannel =
+        catalogMatches.get(rawUrl) ??
+        catalogMatches.get(resolvedUrl) ??
+        catalogMatches.get(normalizedUrl);
+      if (
+        catalogChannel &&
+        isChannelParentalBlocked(catalogChannel, parental.blockedPatterns)
+      ) {
+        return NextResponse.json(
+          { error: "Channel is locked by parental controls." },
+          { status: 403 },
+        );
+      }
+    }
+  }
   if (normalizedUrl !== resolvedUrl) {
     log.info("Rewrote live .ts URL to .m3u8 for browser playback", {
       from: redactStreamUrlForLog(resolvedUrl),

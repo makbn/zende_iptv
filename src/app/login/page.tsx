@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useState } from "react";
 
 import { LoginQrPairing } from "@/components/auth/login-qr-pairing";
-import { ZendeGlass } from "@/components/glass/zende-glass";
+import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { useAuth } from "@/features/auth/auth-context";
 import { cn } from "@/lib/utils";
 
@@ -107,21 +108,18 @@ function LoginForm() {
       ) : null}
 
       <div className="mt-8 grid gap-3 sm:flex sm:flex-wrap">
-        <button
+        <Button
           type="submit"
           form="zende-login"
           disabled={busy}
-          className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] disabled:opacity-50"
+          variant="success"
+          size="lg"
         >
-          <ZendeGlass variant="ctaPill" className="w-full sm:w-auto">
-            <span className="flex min-h-[52px] items-center justify-center px-6 py-2.5 text-[15px] font-semibold text-[var(--zen-void)] sm:min-h-0">
-              {busy ? "Signing in…" : "Continue"}
-            </span>
-          </ZendeGlass>
-        </button>
+          {busy ? <><ZendeSpinner size="tiny" label="Signing in" /> Signing in…</> : "Continue"}
+        </Button>
         <Link
           href="/"
-          className="flex min-h-[48px] items-center justify-center rounded-full px-4 py-2 text-[15px] font-semibold text-white/58 underline-offset-4 hover:text-white/88 hover:underline sm:min-h-0 sm:justify-start"
+          className={buttonVariants({ variant: "normal", size: "lg" })}
         >
           Cancel
         </Link>
@@ -135,7 +133,7 @@ export default function LoginPage() {
     <div className="zen-page-bg flex min-h-screen flex-col px-4 py-[max(2rem,env(safe-area-inset-top))] text-foreground sm:px-6 sm:py-16">
       <Suspense
         fallback={
-          <div className="mx-auto text-[15px] text-white/50">Loading…</div>
+          <ZendeLoadingState className="mx-auto" size="large" label="Loading sign in…" />
         }
       >
         <LoginForm />

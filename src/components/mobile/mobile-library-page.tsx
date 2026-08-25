@@ -12,11 +12,12 @@ import {
 import {
   LayoutGrid,
   List,
-  Loader2,
   Search,
   SlidersHorizontal,
   X,
 } from "lucide-react";
+import { ZendeSpinner } from "@/components/loading/zende-spinner";
+import { Button } from "@/components/ui/button";
 
 import { MobileChannelCard } from "@/components/mobile/mobile-channel-card";
 import { VirtualChannelList } from "@/components/library/virtual-channel-list";
@@ -37,7 +38,6 @@ const source = BUILTIN_PLAYLIST_SOURCES[0]!;
 const PAGE_STEP = 60;
 const VIEW_STORAGE = "zende.mobileLibraryView";
 const LIBRARY_STATE_STORAGE = "zende.library.state.mobile";
-const DEFAULT_LANGUAGE_FILTER = "en";
 
 type FacetOption = { key: string; label: string; count: number };
 
@@ -54,14 +54,13 @@ function truncateFacet(value: string, max = 24): string {
 
 function orderedLanguageOptions(options: FacetOption[]): FacetOption[] {
   const byKey = new Map(options.map((option) => [option.key, option]));
-  const en = byKey.get("en") ?? { key: "en", label: "English (EN)", count: 0 };
-  const priority = ["fa", "pr", "ir"];
+  const priority = ["en", "multi", "ar", "fa"];
   const prioritized = priority
     .map((key) => byKey.get(key))
     .filter((option): option is FacetOption => Boolean(option));
-  const used = new Set(["en", ...priority]);
+  const used = new Set(priority);
   const rest = options.filter((option) => !used.has(option.key));
-  return [en, ...prioritized, ...rest];
+  return [...prioritized, ...rest];
 }
 
 export function MobileLibraryPage() {
@@ -75,28 +74,27 @@ export function MobileLibraryPage() {
     isSearchPending,
   } = useLibrarySearch(searchInputRef);
 
-  const [groupFilter, setGroupFilter] = useState<string | null>(() => {
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     try {
       const raw = sessionStorage.getItem(LIBRARY_STATE_STORAGE);
       if (!raw) return null;
-      const parsed = JSON.parse(raw) as { groupFilter?: string | null };
-      return typeof parsed.groupFilter === "string" ? parsed.groupFilter : null;
+      const parsed = JSON.parse(raw) as { categoryFilter?: string | null };
+      return typeof parsed.categoryFilter === "string" ? parsed.categoryFilter : null;
     } catch {
       return null;
     }
   });
   const [languageFilter, setLanguageFilter] = useState<string | null>(() => {
-    if (typeof window === "undefined") return DEFAULT_LANGUAGE_FILTER;
+    if (typeof window === "undefined") return null;
     try {
       const raw = sessionStorage.getItem(LIBRARY_STATE_STORAGE);
-      if (!raw) return DEFAULT_LANGUAGE_FILTER;
+      if (!raw) return null;
       const parsed = JSON.parse(raw) as { languageFilter?: string | null };
       if (typeof parsed.languageFilter === "string") return parsed.languageFilter;
-      if (parsed.languageFilter === null) return null;
-      return DEFAULT_LANGUAGE_FILTER;
+      return null;
     } catch {
-      return DEFAULT_LANGUAGE_FILTER;
+      return null;
     }
   });
   const [countryFilter, setCountryFilter] = useState<string | null>(() => {
@@ -157,7 +155,7 @@ export function MobileLibraryPage() {
       sessionStorage.setItem(
         LIBRARY_STATE_STORAGE,
         JSON.stringify({
-          groupFilter,
+          categoryFilter,
           languageFilter,
           countryFilter,
           yearFilter,
@@ -168,13 +166,14 @@ export function MobileLibraryPage() {
     } catch {
       /* ignore */
     }
-  }, [groupFilter, languageFilter, countryFilter, yearFilter, offset, view]);
+  }, [categoryFilter, languageFilter, countryFilter, yearFilter, offset, view]);
 
   const { channels, total, facets, loading, refreshing, error: catalogError, hasMore } = useLibraryCatalog({
     presetId: source.presetId,
     contentTab,
     query: appliedQuery,
-    groupFilter,
+    groupFilter: null,
+    categoryFilter,
     languageFilter,
     countryFilter,
     yearFilter,
@@ -183,10 +182,7 @@ export function MobileLibraryPage() {
   });
   const resultsBusy = loading || refreshing || isSearchPending;
 
-  const groupOptions = useMemo(
-    () => facets.groups.map((g) => [g.name, g.count] as const),
-    [facets.groups],
-  );
+  const categoryOptions = facets.categories;
   const languageOptions = useMemo(
     () => orderedLanguageOptions(facets.languages),
     [facets.languages],
@@ -196,8 +192,8 @@ export function MobileLibraryPage() {
 
   useEffect(() => {
     startTransition(() => {
-      setGroupFilter(null);
-      setLanguageFilter(DEFAULT_LANGUAGE_FILTER);
+      setCategoryFilter(null);
+      setLanguageFilter(null);
       setCountryFilter(null);
       setYearFilter(null);
       setOffset(0);
@@ -206,13 +202,16 @@ export function MobileLibraryPage() {
 
   useEffect(() => {
     startTransition(() => setOffset(0));
-  }, [appliedQuery, groupFilter, languageFilter, countryFilter, yearFilter]);
+  }, [appliedQuery, categoryFilter, languageFilter, countryFilter, yearFilter]);
 
   const visible = channels;
   const filteredCount = total;
   const activeFilters = Boolean(
-    appliedQuery.trim() || groupFilter || languageFilter || countryFilter || yearFilter,
+    appliedQuery.trim() || categoryFilter || languageFilter || countryFilter || yearFilter,
   );
+  const categoryLabel = categoryFilter
+    ? categoryOptions.find((option) => option.key === categoryFilter)?.label ?? categoryFilter
+    : null;
   const languageLabel = languageFilter
     ? languageOptions.find((option) => option.key === languageFilter)?.label ?? languageFilter
     : null;
@@ -224,7 +223,7 @@ export function MobileLibraryPage() {
     : null;
   const activeFilterCount = [
     appliedQuery.trim(),
-    groupFilter,
+    categoryFilter,
     languageFilter,
     countryFilter,
     yearFilter,
@@ -261,7 +260,7 @@ export function MobileLibraryPage() {
             <div className="rounded-[20px] border border-white/[0.1] bg-black/35 px-3 py-2 text-right ring-1 ring-white/[0.04]">
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Showing</p>
               <p className="mt-0.5 text-[20px] font-semibold tracking-[-0.055em] text-white">
-                {resultsBusy ? <Loader2 className="inline size-4 animate-spin" aria-hidden /> : total.toLocaleString()}
+                {resultsBusy ? <ZendeSpinner size="tiny" label="Updating results" /> : total.toLocaleString()}
               </p>
             </div>
           </div>
@@ -324,15 +323,15 @@ export function MobileLibraryPage() {
           </div>
           <div className="relative mt-3 grid gap-2">
             <select
-              value={groupFilter ?? ""}
-              onChange={(event) => setGroupFilter(event.target.value || null)}
+              value={categoryFilter ?? ""}
+              onChange={(event) => setCategoryFilter(event.target.value || null)}
               className="h-12 w-full rounded-[20px] border border-white/[0.11] bg-black/45 px-3 text-[14px] font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
               aria-label="Category"
             >
               <option value="">All categories</option>
-              {groupOptions.map(([group, count]) => (
-                <option key={group} value={group}>
-                  {group} ({count.toLocaleString()})
+              {categoryOptions.map(({ key, label, count }) => (
+                <option key={key} value={key}>
+                  {label} ({count.toLocaleString()})
                 </option>
               ))}
             </select>
@@ -343,13 +342,8 @@ export function MobileLibraryPage() {
                 className="h-12 w-full rounded-[20px] border border-white/[0.11] bg-black/45 px-3 text-[14px] font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
                 aria-label="Language"
               >
-                {languageOptions.slice(0, 1).map((language) => (
-                  <option key={language.key} value={language.key}>
-                    {language.label} ({language.count.toLocaleString()})
-                  </option>
-                ))}
                 <option value="">All languages</option>
-                {languageOptions.slice(1).map((language) => (
+                {languageOptions.map((language) => (
                   <option key={language.key} value={language.key}>
                     {language.label} ({language.count.toLocaleString()})
                   </option>
@@ -427,9 +421,9 @@ export function MobileLibraryPage() {
                   “{truncateFacet(appliedQuery.trim())}”
                 </span>
               ) : null}
-              {groupFilter ? (
+              {categoryLabel ? (
                 <span className="shrink-0 rounded-full bg-white/[0.08] px-3 py-1.5 text-[12px] font-semibold text-white/78">
-                  {truncateFacet(groupFilter)}
+                  {truncateFacet(categoryLabel)}
                 </span>
               ) : null}
               {languageLabel ? (
@@ -447,19 +441,20 @@ export function MobileLibraryPage() {
                   {yearLabel}
                 </span>
               ) : null}
-              <button
+              <Button
                 type="button"
                 onClick={() => {
                   clearSearch();
-                  setGroupFilter(null);
+                  setCategoryFilter(null);
                   setLanguageFilter(null);
                   setCountryFilter(null);
                   setYearFilter(null);
                 }}
-                className="shrink-0 rounded-full border border-white/[0.12] bg-black/24 px-3 py-1.5 text-[12px] font-semibold text-white/62 outline-none active:bg-white/10 focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                size="xs"
+                className="shrink-0"
               >
                 Clear
-              </button>
+              </Button>
             </div>
           ) : null}
         </ZendeGlass>
@@ -484,19 +479,19 @@ export function MobileLibraryPage() {
             </p>
           </div>
           {activeFilters ? (
-            <button
+            <Button
               type="button"
               onClick={() => {
                 clearSearch();
-                setGroupFilter(null);
+                setCategoryFilter(null);
                 setLanguageFilter(null);
                 setCountryFilter(null);
                 setYearFilter(null);
               }}
-              className="min-h-10 rounded-2xl border border-white/[0.1] bg-white/[0.06] px-4 text-[13px] font-semibold text-white/72 outline-none transition-[background-color,box-shadow,transform] duration-200 ease-out hover:bg-white/[0.1] active:scale-[0.99] motion-reduce:transform-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+              size="sm"
             >
               Reset
-            </button>
+            </Button>
           ) : null}
         </div>
 
@@ -558,13 +553,14 @@ export function MobileLibraryPage() {
         ) : null}
 
         {hasMore ? (
-          <button
+          <Button
             type="button"
             onClick={() => setOffset((count) => count + PAGE_STEP)}
-            className="mt-5 flex min-h-[52px] w-full items-center justify-center rounded-full bg-[var(--zen-frost)] text-[15px] font-semibold text-[var(--zen-void)] outline-none transition-[transform,box-shadow] duration-200 ease-out hover:shadow-lg hover:shadow-black/20 active:scale-[0.99] motion-reduce:transform-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+            size="lg"
+            className="mt-5 w-full"
           >
             Load more
-          </button>
+          </Button>
         ) : null}
       </section>
       </LibraryResultsShell>

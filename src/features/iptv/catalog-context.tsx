@@ -30,6 +30,7 @@ import {
 import { syncChannelRegistry } from "@/features/health/registry-sync";
 import { subscribeCatalogCleared } from "@/lib/channels/catalog-events";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
+import { canMutateSystem } from "@/lib/auth/user-permissions";
 
 const log = createClientLogger("features.iptv.catalogContext");
 
@@ -62,7 +63,9 @@ export function CatalogProvider({
   source: BuiltinPlaylistSource;
   children: ReactNode;
 }) {
-  const { ready: authReady } = useAuth();
+  const { ready: authReady, protectedApiReady, authEnabled, user } = useAuth();
+  const canManageCatalog =
+    authReady && canMutateSystem(authEnabled, user?.role);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [baseChannels, setBaseChannels] = useState<M3uChannel[]>([]);
@@ -92,8 +95,9 @@ export function CatalogProvider({
   );
 
   useEffect(() => {
+    if (!protectedApiReady) return;
     void hydrateManualChannelsFromApiOnce();
-  }, []);
+  }, [protectedApiReady]);
 
   const channels = useMemo(() => {
     const manual =
@@ -146,18 +150,26 @@ export function CatalogProvider({
     return promise;
   }, [baseChannels, channelsHydrated, hydrateFullCatalog]);
 
-  /** Meta only on auth ready — no automatic full JSON download. */
+  /** Meta only after protected API access is available — no automatic full JSON download. */
   useEffect(() => {
-    if (!authReady) return;
+    if (!protectedApiReady) return;
     let cancelled = false;
     void (async () => {
-      let meta = await loadMeta();
-      if (cancelled) return;
-      if (meta.channelCount === 0) {
-        await new Promise((r) => setTimeout(r, 400));
+      setMetaFailed(false);
+      setCatalogLoaded(false);
+
+      let meta = await fetchPlaylistCatalogMetaFromApi(source.presetId);
+      for (const delayMs of [300, 800]) {
+        if (cancelled || (meta.ok && meta.channelCount > 0)) break;
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
         if (cancelled) return;
-        meta = await loadMeta();
+        meta = await fetchPlaylistCatalogMetaFromApi(source.presetId);
       }
+      if (cancelled) return;
+
+      setMetaFailed(!meta.ok);
+      if (meta.ok) setServerChannelCount(meta.channelCount);
+      setCatalogLoaded(true);
       if (!meta.ok) {
         setChannelsHydrated(true);
         return;
@@ -176,16 +188,22 @@ export function CatalogProvider({
     return () => {
       cancelled = true;
     };
-  }, [authReady, loadMeta]);
+  }, [protectedApiReady, source.presetId]);
 
   useEffect(() => {
-    if (channels.length === 0 || registrySynced.current) return;
+    if (
+      !canManageCatalog ||
+      channels.length === 0 ||
+      registrySynced.current
+    ) {
+      return;
+    }
     registrySynced.current = true;
     const timer = setTimeout(() => {
       void syncChannelRegistry(channels, source.presetId).catch(() => {});
     }, 3000);
     return () => clearTimeout(timer);
-  }, [channels, source.presetId]);
+  }, [canManageCatalog, channels, source.presetId]);
 
   const reloadFromCache = useCallback(async () => {
     const meta = await loadMeta();
@@ -203,7 +221,9 @@ export function CatalogProvider({
     setBusy(true);
     setError(null);
     try {
-      await refreshPlaylistCatalogOnServer(source.presetId);
+      if (canManageCatalog) {
+        await refreshPlaylistCatalogOnServer(source.presetId);
+      }
       fullHydratePromise.current = null;
       registrySynced.current = false;
       const meta = await loadMeta();
@@ -219,9 +239,12 @@ export function CatalogProvider({
         getManualChannelCount() <= 500
           ? listManualChannelEntries().map((e) => e.channel)
           : [];
-      void syncChannelRegistry(mergeBuiltinAndManual(parsed, manual), source.presetId).catch(
-        () => {},
-      );
+      if (canManageCatalog) {
+        void syncChannelRegistry(
+          mergeBuiltinAndManual(parsed, manual),
+          source.presetId,
+        ).catch(() => {});
+      }
 
       log.info("Catalog persisted (server)", {
         presetId: source.presetId,
@@ -239,7 +262,7 @@ export function CatalogProvider({
       setCatalogLoaded(true);
       setChannelsHydrated(true);
     }
-  }, [source.presetId, loadMeta, hydrateFullCatalog]);
+  }, [canManageCatalog, source.presetId, loadMeta, hydrateFullCatalog]);
 
   const registered = (serverChannelCount ?? 0) > 0 || baseChannels.length > 0;
   const manualChannelCount = useMemo(() => getManualChannelCount(), [manualEpoch]);

@@ -3,6 +3,7 @@ import { z } from "zod";
 import dns from "node:dns/promises";
 
 import { buildProxyAgent } from "@/lib/proxies/proxy-agent";
+import { forbidCustomerSystemMutation, gateApiRequest } from "@/lib/auth/gate-api";
 
 export const runtime = "nodejs";
 
@@ -23,8 +24,12 @@ const smartDnsSchema = z.object({
 
 const schema = z.union([directSchema, smartDnsSchema]);
 
-/** Test an unsaved proxy or Smart DNS config (no auth required). */
+/** Test an unsaved proxy or Smart DNS config (administrator-only when auth is enabled). */
 export async function POST(request: Request) {
+  const gate = await gateApiRequest(request);
+  const forbidden = forbidCustomerSystemMutation(gate);
+  if (forbidden) return forbidden;
+
   let json: unknown;
   try {
     json = await request.json();

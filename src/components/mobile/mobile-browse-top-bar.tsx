@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import {
   Clapperboard,
+  Gamepad2,
   Heart,
   Home,
   LayoutGrid,
@@ -20,6 +21,7 @@ import { GlassSearchModal } from "@/components/glass/glass-search-modal";
 import { ZendeGlass } from "@/components/glass/zende-glass";
 import { WatchTogetherDialog } from "@/components/tv/watch-together-dialog";
 import { useAuth } from "@/features/auth/auth-context";
+import { useRemoteControl } from "@/features/remote/remote-control-context";
 import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
 import { cn } from "@/lib/utils";
 
@@ -147,6 +149,7 @@ type MobileNavItem = {
 export function MobileBrowseTopBar() {
   const pathname = usePathname();
   const { onNavigateClick } = useRemoteNavigation();
+  const remote = useRemoteControl();
   const [searchOpen, setSearchOpen] = useState(false);
   const [boardOpen, setBoardOpen] = useState(false);
   const [headerVisible, setHeaderVisible] = useState(true);
@@ -276,7 +279,7 @@ export function MobileBrowseTopBar() {
           variant="panelCompact"
           className="rounded-[30px] border-white/[0.12] bg-black/62 shadow-[0_-20px_64px_-28px_rgba(0,0,0,0.95)]"
         >
-          <div className="grid grid-cols-5 gap-1.5 p-1.5">
+          <div className="grid grid-cols-6 gap-1 p-1.5">
             {navItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -297,6 +300,25 @@ export function MobileBrowseTopBar() {
                 </Link>
               );
             })}
+            <button
+              type="button"
+              onClick={() => void remote?.requestRemoteControlToggle()}
+              aria-pressed={remote?.remoteControlActive ?? false}
+              aria-label={
+                remote?.remoteControlActive
+                  ? "Disable TV remote control"
+                  : "Enable TV remote control"
+              }
+              className={cn(
+                "zen-focus-ring flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-[23px] px-1 text-[11px] font-semibold outline-none transition-[color,background-color,transform]",
+                remote?.remoteControlActive
+                  ? "bg-[var(--zen-signal)]/18 text-[var(--zen-signal)] shadow-inner shadow-white/[0.05]"
+                  : "text-white/48 active:bg-white/[0.08] active:text-white/85",
+              )}
+            >
+              <Gamepad2 className="size-5" aria-hidden />
+              <span>{remote?.remoteControlActive ? "Remote on" : "Remote"}</span>
+            </button>
           </div>
         </ZendeGlass>
       </nav>

@@ -7,6 +7,7 @@ import { ensureAuthConfigRow } from "@/lib/auth/auth-config";
 import { verifyAccessToken } from "@/lib/auth/jwt";
 import { prisma } from "@/lib/db/prisma";
 import type { UserRole } from "@prisma/client";
+import { canMutateSystem } from "@/lib/auth/user-permissions";
 
 const log = createServerLogger("lib.auth.gate");
 
@@ -54,14 +55,24 @@ export async function gateApiRequest(request: Request): Promise<
 
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { id: true, username: true, role: true },
+    select: { id: true, username: true, role: true, isDisabled: true, lastActivityAt: true },
   });
-  if (!user || user.username !== payload.username) {
+  if (!user || user.username !== payload.username || user.isDisabled) {
     log.warn("api unauthorized: user mismatch", { path, userId: payload.userId });
     return {
       authEnabled: true,
       response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
     };
+  }
+
+  if (
+    !user.lastActivityAt ||
+    Date.now() - user.lastActivityAt.getTime() > 5 * 60 * 1000
+  ) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastActivityAt: new Date() },
+    });
   }
 
   return {
@@ -96,13 +107,27 @@ export async function requireAdmin(request: Request): Promise<
   }
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { id: true, username: true, role: true },
+    select: { id: true, username: true, role: true, isDisabled: true },
   });
-  if (!user || user.username !== payload.username || user.role !== "ADMIN") {
+  if (!user || user.isDisabled || user.username !== payload.username || user.role !== "ADMIN") {
     return {
       ok: false,
       response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
     };
   }
   return { ok: true, user };
+}
+
+/** Preserve legacy open-access mode, but never let a signed-in customer mutate system state. */
+export function forbidCustomerSystemMutation(
+  gate: Awaited<ReturnType<typeof gateApiRequest>>,
+): Response | null {
+  if ("response" in gate) return gate.response;
+  if (!canMutateSystem(gate.authEnabled, gate.authEnabled ? gate.user.role : undefined)) {
+    return NextResponse.json(
+      { error: "Administrator permission required." },
+      { status: 403 },
+    );
+  }
+  return null;
 }

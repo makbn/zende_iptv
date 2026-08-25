@@ -6,7 +6,7 @@ import {
 } from "@/config/builtin-playlist-sources";
 import { createServerLogger } from "@/core/logging/server";
 import { parseM3u } from "@/core/playlist/m3u-parse";
-import { gateApiRequest } from "@/lib/auth/gate-api";
+import { forbidCustomerSystemMutation, gateApiRequest } from "@/lib/auth/gate-api";
 import { invalidateXtreamCatalogCache } from "@/lib/iptv/aggregated-channels";
 import { invalidateLibraryCatalogCache, warmLibraryCatalogIndex } from "@/lib/library/catalog";
 import { prisma } from "@/lib/db/prisma";
@@ -25,6 +25,8 @@ export async function POST(
 ) {
   const gate = await gateApiRequest(request);
   if ("response" in gate) return gate.response;
+  const forbidden = forbidCustomerSystemMutation(gate);
+  if (forbidden) return forbidden;
 
   const { presetId } = await context.params;
   if (!isBuiltinPresetId(presetId)) {

@@ -14,6 +14,16 @@ model AuthConfig {
   updatedAt DateTime @updatedAt
 }
 
+/// Global parental-control policy shared by every account and client.
+model ParentalControlSettings {
+  id           Int      @id @default(1)
+  enabled      Boolean  @default(false)
+  patternsJson String   @default("[]")
+  /// bcrypt hash of the optional PIN used to unlock restricted channels.
+  pinHash      String?
+  updatedAt    DateTime @updatedAt
+}
+
 enum UserRole {
   ADMIN
   USER
@@ -24,8 +34,14 @@ model User {
   username         String         @unique
   passwordHash     String
   role             UserRole       @default(USER)
+  isDisabled       Boolean        @default(false)
   /// The original administrator created at bootstrap — cannot be deleted; password/username can be reset via API or server script.
   isBootstrapAdmin Boolean        @default(false)
+  lastLoginAt      DateTime?
+  lastActivityAt   DateTime?
+  lastLoginIp      String?
+  lastLoginLocation String?
+  lastLoginDevice  String?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   refreshTokens    RefreshToken[]
@@ -225,6 +241,18 @@ model XtreamPortalConfig {
   username  String
   password  String
   updatedAt DateTime @updatedAt
+}
+
+/// Threadfin sidecar sync status (Plex/Jellyfin HDHomeRun via Threadfin).
+model ThreadfinSyncState {
+  id             Int       @id @default(1)
+  portalUsername String    @default("threadfin")
+  lastSyncAt     DateTime?
+  lastSyncOk     Boolean   @default(false)
+  lastSyncError  String?
+  /// JSON: { live, movie, episode, total, capped }
+  lastCountsJson String    @default("{}")
+  updatedAt      DateTime  @updatedAt
 }
 
 /// Wyzie Subs + TMDB keys for VOD subtitle search (Settings → Integrations).

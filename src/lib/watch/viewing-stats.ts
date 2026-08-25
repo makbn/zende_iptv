@@ -1,9 +1,11 @@
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { resolveLibraryContentType } from "@/lib/channels/content-type";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
+import { personalDataStorageKey } from "@/lib/auth/personal-data-scope";
 import type { PlaybackSessionMeta } from "@/lib/playback/stream-session-meta";
 
-const STORAGE_KEY = "zende.viewing.v1";
+const STORAGE_KEY = "zende.viewing.v2";
+const storageKey = () => personalDataStorageKey(STORAGE_KEY);
 
 export type ViewingEntry = {
   url: string;
@@ -25,7 +27,7 @@ const MAX_ENTRIES = 200;
 function readStore(): Store {
   if (typeof window === "undefined") return { entries: [] };
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey());
     if (!raw) return { entries: [] };
     const parsed = JSON.parse(raw) as Store;
     if (!Array.isArray(parsed?.entries)) return { entries: [] };
@@ -37,7 +39,7 @@ function readStore(): Store {
 
 function writeStore(store: Store) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+    localStorage.setItem(storageKey(), JSON.stringify(store));
   } catch {
     /* ignore quota */
   }
@@ -241,11 +243,16 @@ export function removeViewingEntry(url: string): void {
 
 /** Clear recently watched and play-count history on this device and server. */
 export async function clearViewingHistory(): Promise<void> {
-  writeStore({ entries: [] });
-  notifyViewingStatsUpdated();
+  clearViewingHistoryOnThisDevice();
   await zendeFetch("/api/user/history?all=1", { method: "DELETE" }).catch(
     () => {/* best-effort */},
   );
+}
+
+/** Remove cached viewing data without mutating another account on the server. */
+export function clearViewingHistoryOnThisDevice(): void {
+  writeStore({ entries: [] });
+  notifyViewingStatsUpdated();
 }
 
 /** Persist latest watch position for Continue Watching resume cards. */

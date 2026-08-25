@@ -131,7 +131,7 @@ export function TvChannelTile({
             className="pointer-events-none absolute inset-y-4 left-3 w-1 rounded-full bg-[var(--zen-signal)]/0 transition-colors duration-300 group-hover:bg-[var(--zen-signal)]/70"
             aria-hidden
           />
-          <div className="absolute left-2 top-2 z-10">
+          <div className="absolute left-2 top-2 z-10 bg-gradient-to-t from-black/67 to-transparent">
             {contentType === "live" ? <ChannelHealthBadge score={healthScore} /> : null}
           </div>
           <div className="absolute inset-x-0 bottom-0 p-3.5 pt-8">

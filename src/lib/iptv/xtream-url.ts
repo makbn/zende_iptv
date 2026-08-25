@@ -74,12 +74,14 @@ export function buildXtreamMovieUrlFromVodInfo(
  */
 export function buildXtreamEpisodeUrl(
   creds: XtreamCredentials,
-  episode: Pick<XtreamSeriesEpisode, "id" | "container_extension">,
+  episode: Pick<XtreamSeriesEpisode, "id"> & {
+    container_extension?: string;
+  },
 ): string {
   const server = normalizeServerUrl(creds.serverUrl);
   const user = encodePathSegment(creds.username);
   const pass = encodePathSegment(creds.password);
-  const ext = episode.container_extension.trim() || "mp4";
+  const ext = (episode.container_extension ?? "").trim() || "mp4";
   return `${server}/series/${user}/${pass}/${encodeURIComponent(String(episode.id))}.${encodeURIComponent(ext)}`;
 }
 
@@ -102,6 +104,10 @@ export function parseXtreamVodIdFromStreamUrl(url: string): string | null {
 
 export function parseXtreamEpisodeIdFromStreamUrl(url: string): string | null {
   return parseXtreamIdFromBucketUrl(url, "series");
+}
+
+export function parseXtreamLiveIdFromStreamUrl(url: string): string | null {
+  return parseXtreamIdFromBucketUrl(url, "live");
 }
 
 /** Extract Xtream portal credentials embedded in `/live|movie|series/` URLs. */

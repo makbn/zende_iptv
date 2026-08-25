@@ -1,14 +1,41 @@
 import { NextResponse } from "next/server";
 
 import { createServerLogger } from "@/core/logging/server";
+import { isThreadfinSyncEnabled } from "@/lib/threadfin/config";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+const log = createServerLogger("api.health");
+
+let threadfinBootstrapStarted = false;
+
+function kickThreadfinBootstrap(): void {
+  if (threadfinBootstrapStarted || !isThreadfinSyncEnabled()) return;
+  threadfinBootstrapStarted = true;
+  void import("@/lib/threadfin/sync")
+    .then(({ syncThreadfin }) => syncThreadfin())
+    .then((r) => {
+      log.info("threadfin bootstrap sync", {
+        ok: r.ok,
+        total: r.counts?.total,
+        error: r.error,
+      });
+      // Allow another attempt on next health check if Threadfin was not ready yet.
+      if (!r.ok) threadfinBootstrapStarted = false;
+    })
+    .catch((err) => {
+      threadfinBootstrapStarted = false;
+      log.warn("threadfin bootstrap sync failed", {
+        message: err instanceof Error ? err.message : String(err),
+      });
+    });
+}
 
 export function GET(request: Request) {
-  const log = createServerLogger("api.health");
   const requestId = request.headers.get("x-request-id") ?? undefined;
-
   log.debug("Health check requested", { requestId });
+  kickThreadfinBootstrap();
 
   /** Minimal payload — do not echo request IDs or internals (usable behind shared proxies). */
   return NextResponse.json({ ok: true, service: "zende" }, { status: 200 });

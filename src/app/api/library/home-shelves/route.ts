@@ -4,6 +4,7 @@ import { BUILTIN_PLAYLIST_SOURCES, isBuiltinPresetId } from "@/config/builtin-pl
 import { withApiLogging } from "@/core/logging/api-log";
 import { gateApiRequest } from "@/lib/auth/gate-api";
 import { queryHomeCatalogShelves } from "@/lib/library/catalog";
+import { resolveParentalAccess } from "@/lib/parental/parental-control-store";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,7 @@ export async function GET(request: Request) {
   return withApiLogging("api.library.homeShelves", request, async (log) => {
     const gate = await gateApiRequest(request);
     if ("response" in gate) return gate.response;
+    const parental = await resolveParentalAccess(request, gate);
 
     const url = new URL(request.url);
     const presetId = url.searchParams.get("presetId") ?? DEFAULT_PRESET_ID;
@@ -40,6 +42,7 @@ export async function GET(request: Request) {
       const shelves = await queryHomeCatalogShelves({
         presetId,
         language: language?.trim() ? language.trim().toLowerCase() : null,
+        hiddenPatterns: parental.blockedPatterns,
         discoverLimit,
         movieLimit,
         seriesLimit,
@@ -51,7 +54,12 @@ export async function GET(request: Request) {
         series: shelves.series.channels.length,
         elapsedMs: Date.now() - started,
       });
-      return NextResponse.json(shelves);
+      return NextResponse.json(shelves, {
+        headers: {
+          "Cache-Control": "private, no-store",
+          Vary: "Cookie, Authorization",
+        },
+      });
     } catch (err) {
       log.error("home shelves failed", {
         presetId,

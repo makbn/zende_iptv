@@ -4,6 +4,7 @@ import { Copy, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ZendeGlass } from "@/components/glass/zende-glass";
+import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
 import { TvSettingsSubtitlesPanel } from "@/components/tv/tv-settings-subtitles-panel";
 import { createClientLogger } from "@/core/logging/client";
 import { useAuth } from "@/features/auth/auth-context";
@@ -22,19 +23,39 @@ type CredentialRow = {
   ownerUsername?: string | null;
 };
 
-type HdhrInfo = {
+type ThreadfinInfo = {
   enabled: boolean;
-  deviceAddress: string | null;
-  friendlyName: string;
-  deviceId: string;
+  dvrAddress: string;
+  discoverUrl: string;
+  webUiUrl: string;
+  publicHost: string;
+  publicPort: number;
   tunerCount: number;
-  channelCount: number;
-  maxChannels: number | null;
-  endpoints: {
-    discover: string;
-    lineup: string;
-    epg: string;
-  } | null;
+  threadfinM3uUrl: string;
+  threadfinXmltvUrl: string;
+  sourcePlaylistUrl: string;
+  sourceEpgUrl: string;
+  portalUsername: string;
+  portalPassword: string;
+  lineupMode: "primary-admin-favorites";
+  lineupOwner: {
+    userId: string;
+    username: string;
+    isGuest: boolean;
+  };
+  counts: {
+    live: number;
+    movie: number;
+    episode: number;
+    total: number;
+    favoriteTotal: number;
+    skippedUnplayable: number;
+    capped: boolean;
+    maxChannels: number;
+  };
+  lastSyncAt: string | null;
+  lastSyncOk: boolean;
+  lastSyncError: string | null;
 };
 
 async function parseJsonSafely(res: Response): Promise<unknown> {
@@ -57,7 +78,8 @@ export function TvSettingsIntegrationsPanel() {
     portalUsername: string;
     portalPassword: string;
   } | null>(null);
-  const [hdhr, setHdhr] = useState<HdhrInfo | null>(null);
+  const [threadfin, setThreadfin] = useState<ThreadfinInfo | null>(null);
+  const [threadfinSyncBusy, setThreadfinSyncBusy] = useState(false);
 
   const portalBaseUrl = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -97,18 +119,44 @@ export function TvSettingsIntegrationsPanel() {
     void load();
   }, [load]);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const res = await zendeFetch("/api/hdhr/info");
-        if (!res.ok) return;
-        const data = (await parseJsonSafely(res)) as HdhrInfo;
-        if (typeof data?.enabled === "boolean") setHdhr(data);
-      } catch {
-        /* optional panel */
-      }
-    })();
+  const loadThreadfin = useCallback(async () => {
+    try {
+      const res = await zendeFetch("/api/threadfin/info");
+      if (!res.ok) return;
+      const data = (await parseJsonSafely(res)) as ThreadfinInfo;
+      if (typeof data?.enabled === "boolean") setThreadfin(data);
+    } catch {
+      /* optional panel */
+    }
   }, []);
+
+  useEffect(() => {
+    void loadThreadfin();
+  }, [loadThreadfin]);
+
+  const onThreadfinSync = useCallback(async () => {
+    setThreadfinSyncBusy(true);
+    setHint(null);
+    try {
+      const res = await zendeFetch("/api/threadfin/sync", { method: "POST" });
+      const data = (await parseJsonSafely(res)) as {
+        ok?: boolean;
+        error?: string;
+      };
+      if (!res.ok || !data.ok) {
+        setHint(
+          typeof data?.error === "string"
+            ? data.error
+            : "Threadfin sync failed.",
+        );
+      }
+      await loadThreadfin();
+    } catch {
+      setHint("Threadfin sync failed.");
+    } finally {
+      setThreadfinSyncBusy(false);
+    }
+  }, [loadThreadfin]);
 
   const onCreate = useCallback(async () => {
     setCreateBusy(true);
@@ -236,7 +284,7 @@ export function TvSettingsIntegrationsPanel() {
         </ul>
       </section>
 
-      {hdhr?.enabled && hdhr.deviceAddress ? (
+      {threadfin?.enabled ? (
         <section
           className={cn(
             "rounded-2xl border border-white/[0.1] bg-white/[0.04] p-6 ring-1 ring-white/[0.04]",
@@ -244,11 +292,10 @@ export function TvSettingsIntegrationsPanel() {
           aria-labelledby="plex-dvr-heading"
         >
           <h2 id="plex-dvr-heading" className="text-[18px] font-semibold text-white">
-            Plex DVR (HDHomeRun)
+            Plex DVR (Threadfin)
           </h2>
           <p className="mt-2 text-[15px] leading-relaxed text-white/50">
-            Zende emulates an{" "}
-            <span className="text-white/70">HDHomeRun tuner</span> (same model as{" "}
+            Zende runs{" "}
             <a
               href="https://github.com/Threadfin/Threadfin"
               className="text-emerald-300/90 underline decoration-emerald-400/30 underline-offset-2 hover:text-emerald-200"
@@ -256,74 +303,215 @@ export function TvSettingsIntegrationsPanel() {
               rel="noreferrer"
             >
               Threadfin
-            </a>
-            ) so Plex can use your live catalog as a DVR source. Movies and series stay in the
-            Zende library — Plex DVR is for live channels only.
+            </a>{" "}
+            as a sidecar and publishes only the primary administrator&apos;s playable favorites. Plex
+            connects to Threadfin as an HDHomeRun tuner; favorite live streams, movies, and direct
+            episodes appear as channels. Global parental controls are always enforced here.
           </p>
 
           <dl className="mt-5 grid gap-3 text-[14px] sm:grid-cols-2">
             <div className="rounded-xl border border-white/[0.08] bg-black/25 px-4 py-3">
               <dt className="text-white/45">Device address (Plex)</dt>
               <dd className="mt-1 break-all font-mono text-[13px] text-emerald-200/95">
-                {hdhr.deviceAddress}
+                {threadfin.dvrAddress}
+              </dd>
+            </div>
+            <div className="rounded-xl border border-white/[0.08] bg-black/25 px-4 py-3">
+              <dt className="text-white/45">Threadfin web UI</dt>
+              <dd className="mt-1 break-all font-mono text-[13px] text-white/75">
+                {threadfin.webUiUrl}
               </dd>
             </div>
             <div className="rounded-xl border border-white/[0.08] bg-black/25 px-4 py-3">
               <dt className="text-white/45">Tuners · channels</dt>
               <dd className="mt-1 text-white/75">
-                {hdhr.tunerCount} tuner{hdhr.tunerCount === 1 ? "" : "s"} ·{" "}
-                {hdhr.channelCount.toLocaleString()} live channel
-                {hdhr.channelCount === 1 ? "" : "s"}
-                {hdhr.maxChannels != null
-                  ? ` (capped at ${hdhr.maxChannels.toLocaleString()})`
+                {threadfin.tunerCount} tuner{threadfin.tunerCount === 1 ? "" : "s"} ·{" "}
+                {threadfin.counts.total.toLocaleString()} total (
+                {threadfin.counts.live.toLocaleString()} live ·{" "}
+                {threadfin.counts.movie.toLocaleString()} movies ·{" "}
+                {threadfin.counts.episode.toLocaleString()} episodes)
+                {threadfin.counts.capped
+                  ? ` · capped at ${threadfin.counts.maxChannels.toLocaleString()}`
                   : ""}
+              </dd>
+            </div>
+            <div className="rounded-xl border border-white/[0.08] bg-black/25 px-4 py-3">
+              <dt className="text-white/45">Plex favorites owner</dt>
+              <dd className="mt-1 text-white/75">
+                {threadfin.lineupOwner.username} · {threadfin.counts.favoriteTotal.toLocaleString()} saved
+                {threadfin.counts.skippedUnplayable > 0
+                  ? ` · ${threadfin.counts.skippedUnplayable.toLocaleString()} locked, duplicate, or unplayable`
+                  : ""}
+              </dd>
+            </div>
+            <div className="rounded-xl border border-white/[0.08] bg-black/25 px-4 py-3">
+              <dt className="text-white/45">Last sync</dt>
+              <dd className="mt-1 text-white/75">
+                {threadfin.lastSyncAt
+                  ? new Date(threadfin.lastSyncAt).toLocaleString()
+                  : "Not yet"}
+                {threadfin.lastSyncOk ? " · OK" : threadfin.lastSyncError ? " · error" : ""}
+              </dd>
+            </div>
+            <div className="rounded-xl border border-white/[0.08] bg-black/25 px-4 py-3 sm:col-span-2">
+              <dt className="text-white/45">Zende → Threadfin portal login</dt>
+              <dd className="mt-1 space-y-1 font-mono text-[13px]">
+                <div>
+                  <span className="text-white/40">user </span>
+                  <span className="text-emerald-200/95">{threadfin.portalUsername}</span>
+                </div>
+                <div>
+                  <span className="text-white/40">pass </span>
+                  <span className="text-amber-200/90">{threadfin.portalPassword}</span>
+                </div>
+              </dd>
+            </div>
+            <div className="rounded-xl border border-white/[0.08] bg-black/25 px-4 py-3 sm:col-span-2">
+              <dt className="text-white/45">Threadfin export URLs</dt>
+              <dd className="mt-1 space-y-1 break-all font-mono text-[12px] text-white/65">
+                <div>M3U: {threadfin.threadfinM3uUrl}</div>
+                <div>XMLTV: {threadfin.threadfinXmltvUrl}</div>
               </dd>
             </div>
           </dl>
 
-          <ol className="mt-5 list-decimal space-y-2 pl-5 text-[14px] text-white/45">
-            <li>
-              Plex → <span className="text-white/65">Settings → Live TV &amp; DVR → DVR</span> →
-              add tuner → <span className="text-white/65">HDHomeRun</span>.
-            </li>
-            <li>
-              Enter the device address above (host + port only, no path).
-            </li>
-            <li>
-              Optional EPG: add XMLTV guide URL{" "}
-              <span className="font-mono text-[12px] text-white/55">
-                {hdhr.endpoints?.epg ?? `${portalBaseUrl}/hdhr/epg.xml`}
-              </span>
-            </li>
-          </ol>
-
-          {hdhr.channelCount > 10_000 ? (
+          {threadfin.lastSyncError ? (
             <p className="mt-4 rounded-lg border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-[13px] text-amber-100/90">
-              Very large lineups can overwhelm Plex. Set{" "}
-              <span className="font-mono text-[12px]">ZENDE_HDHR_MAX_CHANNELS</span> in Docker env
-              to export a subset if setup hangs.
+              {threadfin.lastSyncError}
+            </p>
+          ) : null}
+
+          <div className="mt-5 rounded-xl border border-white/[0.08] bg-black/25 p-4">
+            <h3 className="text-[15px] font-semibold text-white/85">Setup — follow in order</h3>
+            <ol className="mt-3 list-decimal space-y-4 pl-5 text-[14px] leading-relaxed text-white/50 marker:font-semibold marker:text-emerald-300/80">
+              <li>
+                <span className="font-medium text-white/75">Start the two containers.</span>
+                <div className="mt-1 rounded-md bg-black/35 px-2.5 py-1.5 font-mono text-[12px] text-white/65">
+                  docker compose up -d --build zende threadfin
+                </div>
+              </li>
+              <li>
+                <span className="font-medium text-white/75">Publish the /thf path to Zende.</span>{" "}
+                If all of <span className="font-mono text-[12px]">example.com</span> already points
+                to Zende, no additional route is needed. Otherwise preserve the path and route{" "}
+                <span className="font-mono text-[12px] text-emerald-200/90">
+                  example.com/thf/* → 127.0.0.1:8077/thf/*
+                </span>
+                . Do not send /thf directly to port 34400; Zende removes the prefix and safely
+                proxies it to the Threadfin Docker service.
+              </li>
+              <li>
+                <span className="font-medium text-white/75">Set the public URL and recreate Zende.</span>
+                <div className="mt-1 rounded-md bg-black/35 px-2.5 py-1.5 font-mono text-[12px] text-white/65">
+                  ZENDE_THREADFIN_PUBLIC_BASE_URL={threadfin.dvrAddress}
+                </div>
+              </li>
+              <li>
+                <span className="font-medium text-white/75">Choose the Plex channels.</span> Sign in
+                as <span className="text-emerald-200/90">{threadfin.lineupOwner.username}</span> and
+                favorite every live stream or VOD you want in Plex. Other accounts&apos; favorites are
+                private and are not advertised to the household tuner.
+              </li>
+              <li>
+                <span className="font-medium text-white/75">Generate the lineup and guide.</span> Click{" "}
+                <span className="text-emerald-200/90">Generate XMLTV &amp; refresh Plex</span> below.
+                Wait for Last sync to say <span className="text-emerald-200/90">OK</span> and verify
+                the displayed channel count matches your playable favorites.
+              </li>
+              <li>
+                <span className="font-medium text-white/75">Check the public endpoint.</span> Open{" "}
+                <a
+                  href={threadfin.discoverUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="break-all font-mono text-[12px] text-emerald-300/90 underline decoration-emerald-400/30 underline-offset-2"
+                >
+                  {threadfin.discoverUrl}
+                </a>
+                . It must show JSON before Plex can connect.
+              </li>
+              <li>
+                <span className="font-medium text-white/75">Add it to Plex.</span> In Plex, open{" "}
+                <span className="text-white/65">Settings → Live TV &amp; DVR → Set Up Plex DVR</span>.
+                If Plex does not discover it, choose the manual address option and paste{" "}
+                <span className="break-all font-mono text-[12px] text-emerald-200/90">
+                  {threadfin.dvrAddress}
+                </span>
+                . Plex Live TV &amp; DVR requires Plex Pass.
+              </li>
+              <li>
+                <span className="font-medium text-white/75">Finish channels and guide.</span> Continue
+                the Plex scan and choose <span className="text-white/65">Use an XMLTV guide</span>.
+                Paste this generated guide URL:
+                <div className="mt-1 break-all rounded-md bg-black/35 px-2.5 py-1.5 font-mono text-[12px] text-white/65">
+                  {threadfin.threadfinXmltvUrl}
+                </div>
+              </li>
+              <li>
+                <span className="font-medium text-white/75">Test one channel.</span> If setup works but
+                playback fails, test the same favorite in Zende, then generate the guide again. Live
+                channels use Zende&apos;s MPEG-TS relay so Plex never calls the IPTV provider directly.
+              </li>
+            </ol>
+          </div>
+
+          <p className="mt-3 rounded-lg border border-sky-400/20 bg-sky-500/10 px-3 py-2 text-[13px] leading-relaxed text-sky-100/85">
+            If Plex rejects an HTTPS address containing <span className="font-mono">/thf</span>, use a
+            dedicated hostname such as <span className="font-mono">thf.example.com</span> and route its
+            root to Threadfin. Some Plex clients only accept a tuner host/IP and port.
+          </p>
+
+          {threadfin.counts.total > 480 ? (
+            <p className="mt-4 rounded-lg border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-[13px] text-amber-100/90">
+              Large lineups can overwhelm Plex. Lower{" "}
+              <span className="font-mono text-[12px]">ZENDE_THREADFIN_MAX_CHANNELS</span> if setup
+              hangs.
             </p>
           ) : null}
 
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => copy(hdhr.deviceAddress!)}
+              onClick={() => copy(threadfin.dvrAddress)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.1] bg-black/30 px-3 py-2 text-[13px] text-white/75 outline-none hover:bg-white/[0.06]"
             >
               <Copy className="h-3.5 w-3.5" aria-hidden />
               Copy device address
             </button>
-            {hdhr.endpoints?.epg ? (
-              <button
-                type="button"
-                onClick={() => copy(hdhr.endpoints!.epg)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.1] bg-black/30 px-3 py-2 text-[13px] text-white/75 outline-none hover:bg-white/[0.06]"
-              >
-                <Copy className="h-3.5 w-3.5" aria-hidden />
-                Copy EPG URL
-              </button>
-            ) : null}
+            <button
+              type="button"
+              onClick={() => copy(threadfin.webUiUrl)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.1] bg-black/30 px-3 py-2 text-[13px] text-white/75 outline-none hover:bg-white/[0.06]"
+            >
+              <Copy className="h-3.5 w-3.5" aria-hidden />
+              Copy Threadfin UI
+            </button>
+            <button
+              type="button"
+              onClick={() => copy(threadfin.threadfinXmltvUrl)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.1] bg-black/30 px-3 py-2 text-[13px] text-white/75 outline-none hover:bg-white/[0.06]"
+            >
+              <Copy className="h-3.5 w-3.5" aria-hidden />
+              Copy XMLTV
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                copy(`${threadfin.portalUsername}\t${threadfin.portalPassword}`)
+              }
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.1] bg-black/30 px-3 py-2 text-[13px] text-white/75 outline-none hover:bg-white/[0.06]"
+            >
+              <Copy className="h-3.5 w-3.5" aria-hidden />
+              Copy portal login
+            </button>
+            <button
+              type="button"
+              disabled={threadfinSyncBusy || (authEnabled && !user)}
+              onClick={() => void onThreadfinSync()}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/25 bg-emerald-500/15 px-3 py-2 text-[13px] font-medium text-emerald-100 outline-none hover:bg-emerald-500/20 disabled:opacity-40"
+            >
+              {threadfinSyncBusy ? <><ZendeSpinner size="tiny" label="Generating Plex guide" /> Generating guide…</> : "Generate XMLTV & refresh Plex"}
+            </button>
           </div>
         </section>
       ) : null}
@@ -386,14 +574,14 @@ export function TvSettingsIntegrationsPanel() {
           >
             <ZendeGlass variant="ctaPill">
               <span className="flex items-center gap-2 px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
-                {createBusy ? "Creating…" : "New portal key"}
+                {createBusy ? <><ZendeSpinner size="tiny" label="Creating portal key" /> Creating…</> : "New portal key"}
               </span>
             </ZendeGlass>
           </button>
         </div>
 
         {busy ? (
-          <p className="mt-6 text-[14px] text-white/40">Loading…</p>
+          <ZendeLoadingState className="mt-6 items-start" size="small" label="Loading portal keys…" />
         ) : rows.length === 0 ? (
           <p className="mt-6 rounded-xl border border-dashed border-white/[0.12] bg-black/20 px-5 py-8 text-center text-[14px] text-white/40">
             No portal keys yet. Create one — the password appears once; store it where TiviMate or

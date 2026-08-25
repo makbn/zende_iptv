@@ -2,27 +2,33 @@ import { NextResponse } from "next/server";
 
 import { gateApiRequest } from "@/lib/auth/gate-api";
 import { prisma } from "@/lib/db/prisma";
+import {
+  filterParentalChannels,
+  isChannelParentalBlocked,
+  resolveParentalAccess,
+} from "@/lib/parental/parental-control-store";
 
 export const runtime = "nodejs";
 
 const GUEST_USER_ID = "__guest__";
 const MAX_HISTORY = 200;
 
-async function resolveUserId(request: Request): Promise<string | Response> {
+async function resolveUserContext(request: Request) {
   const gate = await gateApiRequest(request);
   if ("response" in gate) return gate.response;
-  if (gate.authEnabled) return gate.user.id;
-  return GUEST_USER_ID;
+  return { userId: gate.authEnabled ? gate.user.id : GUEST_USER_ID, gate };
 }
 
 export async function GET(request: Request) {
-  const userId = await resolveUserId(request);
-  if (userId instanceof Response) return userId;
+  const context = await resolveUserContext(request);
+  if (context instanceof Response) return context;
+  const { userId, gate } = context;
+  const parental = await resolveParentalAccess(request, gate);
 
   const { searchParams } = new URL(request.url);
   const sort = searchParams.get("sort") ?? "recent";
 
-  const rows = await prisma.userViewingHistory.findMany({
+  let rows = await prisma.userViewingHistory.findMany({
     where: { userId },
     orderBy:
       sort === "count"
@@ -40,13 +46,15 @@ export async function GET(request: Request) {
       openCount: true,
     },
   });
+  rows = filterParentalChannels(rows, parental.blockedPatterns);
 
   return NextResponse.json(rows);
 }
 
 export async function POST(request: Request) {
-  const userId = await resolveUserId(request);
-  if (userId instanceof Response) return userId;
+  const context = await resolveUserContext(request);
+  if (context instanceof Response) return context;
+  const { userId, gate } = context;
 
   let body: {
     url?: string;
@@ -64,6 +72,15 @@ export async function POST(request: Request) {
 
   if (!body.url || typeof body.url !== "string") {
     return NextResponse.json({ error: "url required" }, { status: 400 });
+  }
+  const parental = await resolveParentalAccess(request, gate);
+  if (
+    isChannelParentalBlocked(
+      { name: body.name ?? "", groupTitle: body.groupTitle },
+      parental.blockedPatterns,
+    )
+  ) {
+    return NextResponse.json({ error: "Channel is locked by parental controls." }, { status: 403 });
   }
 
   await prisma.userViewingHistory.upsert({
@@ -113,8 +130,9 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const userId = await resolveUserId(request);
-  if (userId instanceof Response) return userId;
+  const context = await resolveUserContext(request);
+  if (context instanceof Response) return context;
+  const { userId } = context;
 
   const { searchParams } = new URL(request.url);
   if (searchParams.get("all") === "1") {

@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Loader2, Search, Subtitles, X } from "lucide-react";
+import { Search, Subtitles, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
+import { Button } from "@/components/ui/button";
 
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import {
@@ -15,6 +17,7 @@ import {
 import type { SubtitleSearchResult } from "@/lib/subtitles/types";
 import type { TmdbMediaMatch } from "@/lib/tmdb/types";
 import type { PlaybackSessionMeta } from "@/lib/playback/stream-session-meta";
+import { secureImageUrl } from "@/lib/media/secure-image-url";
 import { cn } from "@/lib/utils";
 
 const LANGUAGE_OPTIONS = [
@@ -336,39 +339,37 @@ export function SubtitleSearchPanel({
               </select>
             </label>
             <div className="flex items-end justify-end gap-2">
-              <button
+              <Button
                 type="button"
                 onClick={onClose}
-                className="inline-flex h-11 items-center justify-center rounded-2xl border border-white/[0.14] bg-white/[0.05] px-4 text-[14px] font-semibold text-white/80 hover:bg-white/[0.09]"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={() => void searchTitles()}
                 disabled={loading}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-white/[0.14] bg-white/[0.09] px-4 text-[14px] font-semibold text-white disabled:opacity-45"
               >
                 {loading ? (
-                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                  <ZendeSpinner size="tiny" label="Finding title" />
                 ) : (
                   <Search className="size-4" aria-hidden />
                 )}
                 Find title
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={() => void searchSubtitles(null)}
                 disabled={loading || wyzieEnabled === false}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[var(--zen-frost)] px-4 text-[14px] font-semibold text-[var(--zen-void)] disabled:opacity-45"
+                variant="success"
               >
                 {loading ? (
-                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                  <ZendeSpinner size="tiny" label="Searching subtitles" />
                 ) : (
                   <Search className="size-4" aria-hidden />
                 )}
                 Search subtitles
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -414,10 +415,7 @@ export function SubtitleSearchPanel({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
           {loading && mediaMatches.length === 0 && results.length === 0 ? (
-            <div className="flex items-center justify-center gap-2 py-16 text-[14px] text-white/50">
-              <Loader2 className="size-5 animate-spin" aria-hidden />
-              Searching…
-            </div>
+            <ZendeLoadingState className="py-16" size="small" label="Searching subtitles…" />
           ) : results.length === 0 ? (
             <p className="py-16 text-center text-[14px] text-white/45">
               No subtitles found. Try another language or release filter.
@@ -444,7 +442,7 @@ export function SubtitleSearchPanel({
                           <div className="flex h-16 w-11 shrink-0 overflow-hidden rounded-lg bg-white/8">
                             {match.posterUrl ? (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img src={match.posterUrl} alt="" className="h-full w-full object-cover" />
+                              <img src={secureImageUrl(match.posterUrl, undefined, "poster")} alt="" className="h-full w-full object-cover" />
                             ) : null}
                           </div>
                           <div className="min-w-0 flex-1">
@@ -505,7 +503,7 @@ export function SubtitleSearchPanel({
                             </p>
                           </div>
                           {busy ? (
-                            <Loader2 className="mt-1 size-4 shrink-0 animate-spin text-white/70" />
+                            <ZendeSpinner className="mt-1" size="tiny" label="Loading subtitle" />
                           ) : null}
                         </div>
                       </button>

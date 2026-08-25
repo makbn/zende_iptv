@@ -11,7 +11,9 @@ import { TvPlaybackPrefsCard } from "@/components/tv/tv-playback-prefs-card";
 import { TvSettingsAuthPanel } from "@/components/tv/tv-settings-auth-panel";
 import { TvSettingsIntegrationsPanel } from "@/components/tv/tv-settings-integrations-panel";
 import { TvSettingsProxiesPanel } from "@/components/tv/tv-settings-proxies-panel";
-import { ZendeGlass } from "@/components/glass/zende-glass";
+import { TvSettingsCachePanel } from "@/components/tv/tv-settings-cache-panel";
+import { Button } from "@/components/ui/button";
+import { ZendeSpinner } from "@/components/loading/zende-spinner";
 import {
   CinematicCommandPanel,
   CinematicHero,
@@ -20,6 +22,7 @@ import {
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { createClientLogger } from "@/core/logging/client";
 import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
+import { useAuth } from "@/features/auth/auth-context";
 import { TV_BROWSE_TOP_PAD_CLASS } from "@/components/tv/tv-top-bar";
 import { Z_ACCESS } from "@/lib/auth/token-storage-keys";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
@@ -36,6 +39,8 @@ const source = BUILTIN_PLAYLIST_SOURCES[0]!;
 type SettingsTab = "catalog" | "authentication" | "integrations" | "proxies" | "server";
 
 export function TvSettingsPage() {
+  const { user, userCount } = useAuth();
+  const canManageSystem = user?.role === "ADMIN" || userCount === 0;
   const { onNavigateClick } = useRemoteNavigation();
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<SettingsTab>("catalog");
@@ -60,9 +65,11 @@ export function TvSettingsPage() {
   const [savedHint, setSavedHint] = useState<string | null>(null);
   const [runStatus, setRunStatus] = useState<string | null>(null);
   const [runBusy, setRunBusy] = useState(false);
+  const activeTab: SettingsTab = canManageSystem ? tab : "authentication";
 
   useEffect(() => {
     const requested = searchParams.get("tab");
+    if (!canManageSystem) return;
     if (
       requested === "catalog" ||
       requested === "authentication" ||
@@ -70,9 +77,9 @@ export function TvSettingsPage() {
       requested === "proxies" ||
       requested === "server"
     ) {
-      setTab(requested);
+      queueMicrotask(() => setTab(requested));
     }
-  }, [searchParams]);
+  }, [searchParams, canManageSystem]);
 
   const saveSecret = useCallback(() => {
     try {
@@ -141,7 +148,7 @@ export function TvSettingsPage() {
   }, [secret]);
 
   return (
-    <div className="zen-page-bg min-h-screen text-foreground">
+    <div className="settings-ui zen-page-bg min-h-screen overflow-x-clip text-foreground">
       <main className={cn("pb-24", TV_BROWSE_TOP_PAD_CLASS)}>
         <CinematicHero
           className="pt-8"
@@ -184,25 +191,25 @@ export function TvSettingsPage() {
             aria-label="Settings sections"
           >
             {(
-              [
+              (canManageSystem ? [
                 ["catalog", "Catalog"],
                 ["authentication", "Authentication"],
                 ["integrations", "Integrations"],
                 ["proxies", "VPN Proxies"],
                 ["server", "Server & reliability"],
-              ] as const
+              ] : [["authentication", "My account"]]) as readonly (readonly [SettingsTab, string])[]
             ).map(([id, label]) => (
               <button
                 key={id}
                 type="button"
                 role="tab"
-                aria-selected={tab === id}
+                aria-selected={activeTab === id}
                 onClick={() => setTab(id)}
                 className={cn(
                   "-mb-px rounded-t-[18px] px-4 py-2.5 text-[15px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
                   "transition-[color,background-color,border-color,transform] duration-200 ease-out",
                   "motion-safe:hover:-translate-y-px",
-                  tab === id
+                  activeTab === id
                     ? "border border-b-0 border-white/[0.14] bg-white/[0.08] text-white"
                     : "border border-transparent text-white/45 hover:text-white/75",
                 )}
@@ -213,7 +220,7 @@ export function TvSettingsPage() {
           </div>
         </div>
 
-        {tab === "catalog" ? (
+        {canManageSystem && activeTab === "catalog" ? (
           <>
             <div className="mx-auto mt-8 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
               <TvCatalogSetupStrip
@@ -241,26 +248,28 @@ export function TvSettingsPage() {
           </>
         ) : null}
 
-        {tab === "authentication" ? (
+        {activeTab === "authentication" ? (
           <div className="mx-auto mt-8 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
             <TvSettingsAuthPanel />
+            {!canManageSystem ? <div className="mt-8"><TvPersonalLibraryCard /></div> : null}
           </div>
         ) : null}
 
-        {tab === "integrations" ? (
+        {canManageSystem && activeTab === "integrations" ? (
           <div className="mx-auto mt-8 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
             <TvSettingsIntegrationsPanel />
           </div>
         ) : null}
 
-        {tab === "proxies" ? (
+        {canManageSystem && activeTab === "proxies" ? (
           <div className="mx-auto mt-8 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
             <TvSettingsProxiesPanel />
           </div>
         ) : null}
 
-        {tab === "server" ? (
+        {canManageSystem && activeTab === "server" ? (
           <div className="mx-auto mt-8 max-w-[1920px] space-y-8 px-6 sm:px-10 lg:px-14 xl:px-20">
+          <TvSettingsCachePanel />
           <section
             className={cn(
               "zen-panel rounded-[28px] p-6",
@@ -297,17 +306,13 @@ export function TvSettingsPage() {
             </label>
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              <button
+              <Button
                 type="button"
+                variant="success"
                 onClick={() => saveSecret()}
-                className="outline-none"
               >
-                <ZendeGlass variant="ctaPill">
-                  <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
-                    Save key
-                  </span>
-                </ZendeGlass>
-              </button>
+                Save key
+              </Button>
               {savedHint ? (
                 <p className="text-[14px] text-emerald-400/95">{savedHint}</p>
               ) : null}
@@ -329,18 +334,13 @@ export function TvSettingsPage() {
               manually here.
             </p>
             <div className="mt-5 flex flex-wrap items-center gap-3">
-              <button
+              <Button
                 type="button"
                 disabled={runBusy}
                 onClick={() => void runHealthSweep()}
-                className="outline-none disabled:opacity-50"
               >
-                <ZendeGlass variant="ctaPill">
-                  <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
-                    {runBusy ? "Running…" : "Run full sweep"}
-                  </span>
-                </ZendeGlass>
-              </button>
+                {runBusy ? <><ZendeSpinner size="tiny" label="Running health sweep" /> Running…</> : "Run full sweep"}
+              </Button>
             </div>
             {runStatus ? (
               <p

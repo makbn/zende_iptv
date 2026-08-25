@@ -27,8 +27,14 @@ export async function GET(request: Request) {
       id: true,
       username: true,
       role: true,
+      isDisabled: true,
       isBootstrapAdmin: true,
       createdAt: true,
+      lastLoginAt: true,
+      lastActivityAt: true,
+      lastLoginLocation: true,
+      lastLoginDevice: true,
+      _count: { select: { favorites: true, viewingHistory: true } },
     },
   });
 
@@ -64,6 +70,7 @@ export async function POST(request: Request) {
         id: true,
         username: true,
         role: true,
+        isDisabled: true,
         isBootstrapAdmin: true,
       },
     });

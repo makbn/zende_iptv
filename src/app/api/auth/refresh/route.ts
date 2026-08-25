@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { signAccessToken } from "@/lib/auth/jwt";
-import { rotateRefreshToken } from "@/lib/auth/refresh-token-db";
+import {
+  revokeAllRefreshTokensForUser,
+  rotateRefreshToken,
+} from "@/lib/auth/refresh-token-db";
 import { prisma } from "@/lib/db/prisma";
 
 export const runtime = "nodejs";
@@ -31,9 +34,10 @@ export async function POST(request: Request) {
 
   const user = await prisma.user.findUnique({
     where: { id: rotated.userId },
-    select: { id: true, username: true, role: true },
+    select: { id: true, username: true, role: true, isDisabled: true },
   });
-  if (!user) {
+  if (!user || user.isDisabled) {
+    if (user?.isDisabled) await revokeAllRefreshTokensForUser(user.id);
     return NextResponse.json({ error: "Invalid refresh token." }, { status: 401 });
   }
 

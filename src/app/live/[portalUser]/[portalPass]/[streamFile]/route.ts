@@ -1,7 +1,9 @@
-import { createServerLogger } from "@/core/logging/server";
-import { hashStreamUrl } from "@/lib/health/url-hash";
+import { handlePortalMediaPlayback } from "@/lib/iptv/portal-media-playback";
 import { getAggregatedXtreamCatalog } from "@/lib/iptv/aggregated-channels";
 import { verifyIptvPortalLogin } from "@/lib/iptv/iptv-credential-auth";
+import { findThreadfinRow } from "@/lib/threadfin/catalog";
+import { createServerLogger } from "@/core/logging/server";
+import { hashStreamUrl } from "@/lib/health/url-hash";
 import {
   forgetLivePlaybackSession,
   peekLivePlaybackSession,
@@ -19,26 +21,9 @@ export const runtime = "nodejs";
 
 const log = createServerLogger("iptv.live");
 
-async function openPlaybackSession(args: {
-  upstreamHref: string;
-  title: string;
-  logo?: string;
-  group?: string;
-  proxyConfig: Awaited<ReturnType<typeof getProxyForChannel>>;
-}): Promise<string> {
-  return createStreamSession({
-    upstreamRootUrl: args.upstreamHref,
-    title: args.title,
-    logo: args.logo,
-    group: args.group,
-    proxyConfig: args.proxyConfig ?? undefined,
-  });
-}
-
 /**
  * Xtream-style live playback (`/live/<user>/<password>/<stream_id>.m3u8` or `.ts`).
- * Streams the same bytes as `/api/stream/proxy/[session]` without a redirect — many IPTV
- * players on iOS/Android do not follow 302 reliably for playlist URLs.
+ * Prefers Threadfin full-catalog stable ids; falls back to sequential get.php catalog.
  */
 export async function GET(
   request: Request,
@@ -48,6 +33,23 @@ export async function GET(
 ) {
   const { portalUser, portalPass, streamFile } = await context.params;
 
+  const m = /^(\d+)\.[a-z0-9]+$/i.exec(streamFile.trim());
+  if (m) {
+    const streamNum = Number.parseInt(m[1]!, 10);
+    if (Number.isFinite(streamNum) && streamNum >= 1) {
+      const tf = await findThreadfinRow("live", streamNum);
+      if (tf) {
+        return handlePortalMediaPlayback(request, {
+          portalUser,
+          portalPass,
+          streamFile,
+          kind: "live",
+        });
+      }
+    }
+  }
+
+  // Legacy sequential catalog (get.php / TiviMate)
   let username: string;
   let password: string;
   try {
@@ -60,14 +62,9 @@ export async function GET(
 
   const cred = await verifyIptvPortalLogin(username, password);
   if (!cred) {
-    log.warn("playback unauthorized", {
-      portalUser: username.slice(0, 48),
-      streamPath: streamFile.slice(0, 64),
-    });
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const m = /^(\d+)\.[a-z0-9]+$/i.exec(streamFile.trim());
   if (!m) {
     return Response.json({ error: "Invalid stream path." }, { status: 400 });
   }
@@ -105,18 +102,18 @@ export async function GET(
     return Response.json({ error: PUBLIC_INTERNAL_ERROR }, { status: 500 });
   }
 
-  const cacheKey = `${cred.id}:${streamNum}`;
+  const cacheKey = `${cred.id}:agg:${streamNum}`;
   let sessionId = peekLivePlaybackSession(cacheKey);
   let sessionFresh = false;
 
   if (!sessionId) {
     try {
-      sessionId = await openPlaybackSession({
-        upstreamHref: upstream.href,
+      sessionId = await createStreamSession({
+        upstreamRootUrl: upstream.href,
         title: row.channel.name,
         logo: row.channel.tvgLogo?.trim() || undefined,
         group: row.channel.groupTitle?.trim() || undefined,
-        proxyConfig,
+        proxyConfig: proxyConfig ?? undefined,
       });
       rememberLivePlaybackSession(cacheKey, sessionId);
       sessionFresh = true;
@@ -125,51 +122,28 @@ export async function GET(
     }
   }
 
-  log.info("playback start", {
+  log.info("playback start (aggregated)", {
     streamNum,
     channel: row.channel.name.slice(0, 80),
-    upstreamHost: upstream.hostname,
     sessionCached: !sessionFresh,
-    sessionPrefix: sessionId.slice(0, 12),
-    ua: request.headers.get("user-agent")?.slice(0, 120),
   });
 
   let response = await invokeStreamProxyGet(request, sessionId);
-
   if (response.status === 404 && !sessionFresh) {
-    log.warn("playback session expired — recreating", {
-      streamNum,
-      sessionPrefix: sessionId.slice(0, 12),
-    });
     forgetLivePlaybackSession(cacheKey);
     try {
-      sessionId = await openPlaybackSession({
-        upstreamHref: upstream.href,
+      sessionId = await createStreamSession({
+        upstreamRootUrl: upstream.href,
         title: row.channel.name,
         logo: row.channel.tvgLogo?.trim() || undefined,
         group: row.channel.groupTitle?.trim() || undefined,
-        proxyConfig,
+        proxyConfig: proxyConfig ?? undefined,
       });
       rememberLivePlaybackSession(cacheKey, sessionId);
       response = await invokeStreamProxyGet(request, sessionId);
     } catch {
       return Response.json({ error: PUBLIC_INTERNAL_ERROR }, { status: 500 });
     }
-  }
-
-  if (response.status >= 400) {
-    log.warn("playback proxy returned error status", {
-      streamNum,
-      status: response.status,
-      sessionPrefix: sessionId.slice(0, 12),
-      ct: response.headers.get("content-type"),
-    });
-  } else {
-    log.info("playback manifest ok", {
-      streamNum,
-      status: response.status,
-      ct: response.headers.get("content-type"),
-    });
   }
 
   return response;

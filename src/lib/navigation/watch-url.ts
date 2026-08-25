@@ -34,6 +34,28 @@ export async function createWatchUrl(
     cookies?: Record<string, string>;
   },
 ): Promise<string> {
+  const id = await createStreamSessionId(channel, opts);
+  return `/watch?id=${encodeURIComponent(id)}`;
+}
+
+/** Creates a stream session and returns a same-origin attachment URL for progressive VOD. */
+export async function createDownloadUrl(
+  channel: CreateWatchInput,
+  opts?: {
+    cookies?: Record<string, string>;
+  },
+): Promise<string> {
+  const id = await createStreamSessionId(channel, opts, "Could not start download.");
+  return `/api/stream/proxy/${encodeURIComponent(id)}?download=1`;
+}
+
+async function createStreamSessionId(
+  channel: CreateWatchInput,
+  opts?: {
+    cookies?: Record<string, string>;
+  },
+  failureMessage = "Could not start playback.",
+): Promise<string> {
   const res = await zendeFetch("/api/stream/session", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -53,11 +75,11 @@ export async function createWatchUrl(
   };
   if (!res.ok) {
     throw new Error(
-      typeof body.error === "string" ? body.error : "Could not start playback.",
+      typeof body.error === "string" ? body.error : failureMessage,
     );
   }
-  if (!body.id) throw new Error("Could not start playback.");
-  return `/watch?id=${encodeURIComponent(body.id)}`;
+  if (!body.id) throw new Error(failureMessage);
+  return body.id;
 }
 
 export async function fetchWatchSessionMeta(

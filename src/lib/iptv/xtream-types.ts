@@ -69,3 +69,15 @@ export type XtreamVodInfo = {
     name?: string;
   };
 };
+
+export type XtreamEpgListing = {
+  id?: string | number;
+  channel_id?: string | number;
+  title?: string;
+  description?: string;
+  start?: string;
+  end?: string;
+  stop?: string;
+  start_timestamp?: string | number;
+  stop_timestamp?: string | number;
+};

@@ -4,6 +4,7 @@ import QRCode from "react-qr-code";
 import { useEffect, useRef, useState } from "react";
 
 import { ZendeGlass } from "@/components/glass/zende-glass";
+import { ZendeSpinner } from "@/components/loading/zende-spinner";
 import { setStoredTokens } from "@/lib/auth/zende-fetch";
 
 type Props = {
@@ -123,7 +124,7 @@ export function LoginQrPairing({ onComplete }: Props) {
             <QRCode value={pairUrl} size={240} level="M" />
           ) : (
             <div className="flex h-[240px] w-[240px] items-center justify-center text-[13px] text-zinc-500">
-              {status === "loading" ? "Preparing…" : "Unavailable"}
+              {status === "loading" ? <ZendeSpinner size="large" label="Preparing QR sign in" /> : "Unavailable"}
             </div>
           )}
         </div>

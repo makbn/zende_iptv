@@ -14,6 +14,16 @@ export function normalizeXtreamLivePlaybackUrl(url: string): string {
   }
 }
 
+/** Xtream live endpoints authenticate in the path and do not need a separate cookie warm-up. */
+export function isXtreamLiveStreamUrl(url: string): boolean {
+  try {
+    const pathname = new URL(url.trim()).pathname;
+    return /^\/live\/[^/]+\/[^/]+\/[^/]+\.(?:m3u8|ts)$/i.test(pathname);
+  } catch {
+    return false;
+  }
+}
+
 /** Root bootstrap on `.ts` is an open-ended live feed — never buffer to arrayBuffer(). */
 export function isOpenEndedLiveMpegTsUrl(url: string): boolean {
   try {

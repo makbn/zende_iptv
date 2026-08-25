@@ -6,11 +6,13 @@ import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { useAuth } from "@/features/auth/auth-context";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { subscribeCatalogCleared } from "@/lib/channels/catalog-events";
+import { subscribeParentalAccessChanged } from "@/lib/parental/parental-events";
 
 export type LibraryContentTab = "all" | "live" | "movie" | "series";
 
 type LibraryFacets = {
   groups: Array<{ name: string; count: number }>;
+  categories: Array<{ key: string; label: string; count: number }>;
   languages: Array<{ key: string; label: string; count: number }>;
   countries: Array<{ key: string; label: string; count: number }>;
   years: Array<{ key: string; label: string; count: number }>;
@@ -51,13 +53,22 @@ async function fetchLibraryCatalogPage(
     return {
       channels: Array.isArray(body.channels) ? body.channels : [],
       total: typeof body.total === "number" ? body.total : 0,
-      facets:
-        body.facets ?? {
-          groups: [],
-          languages: [],
-          countries: [],
-          years: [],
-        },
+      facets: body.facets
+        ? {
+            ...body.facets,
+            groups: body.facets.groups ?? [],
+            categories: body.facets.categories ?? [],
+            languages: body.facets.languages ?? [],
+            countries: body.facets.countries ?? [],
+            years: body.facets.years ?? [],
+          }
+        : {
+            groups: [],
+            categories: [],
+            languages: [],
+            countries: [],
+            years: [],
+          },
       cachedAt: Date.now(),
     };
   })().finally(() => {
@@ -73,17 +84,19 @@ export function useLibraryCatalog(input: {
   contentTab: LibraryContentTab;
   query: string;
   groupFilter: string | null;
+  categoryFilter?: string | null;
   languageFilter: string | null;
   countryFilter?: string | null;
   yearFilter?: string | null;
   offset: number;
   pageSize: number;
 }) {
-  const { ready: authReady } = useAuth();
+  const { protectedApiReady } = useAuth();
   const [channels, setChannels] = useState<M3uChannel[]>([]);
   const [total, setTotal] = useState(0);
   const [facets, setFacets] = useState<LibraryFacets>({
     groups: [],
+    categories: [],
     languages: [],
     countries: [],
     years: [],
@@ -97,11 +110,12 @@ export function useLibraryCatalog(input: {
   const channelsRef = useRef<M3uChannel[]>([]);
   const facetsRef = useRef<LibraryFacets>({
     groups: [],
+    categories: [],
     languages: [],
     countries: [],
     years: [],
   });
-  const filterKey = `${input.presetId}|${input.contentTab}|${input.query}|${input.groupFilter}|${input.languageFilter}|${input.countryFilter ?? null}|${input.yearFilter ?? null}`;
+  const filterKey = `${input.presetId}|${input.contentTab}|${input.query}|${input.groupFilter}|${input.categoryFilter ?? null}|${input.languageFilter}|${input.countryFilter ?? null}|${input.yearFilter ?? null}`;
   const pageKey = `${filterKey}|${input.offset}|${input.pageSize}`;
   const lastFilterKey = useRef(filterKey);
 
@@ -123,8 +137,18 @@ export function useLibraryCatalog(input: {
     [],
   );
 
+  useEffect(
+    () =>
+      subscribeParentalAccessChanged(() => {
+        libraryResultCache.clear();
+        libraryInflight.clear();
+        setReloadNonce((n) => n + 1);
+      }),
+    [],
+  );
+
   useEffect(() => {
-    if (!authReady) return;
+    if (!protectedApiReady) return;
     const seq = ++requestSeq.current;
     const controller = new AbortController();
     const filtersChanged = lastFilterKey.current !== filterKey;
@@ -170,6 +194,7 @@ export function useLibraryCatalog(input: {
         const q = input.query.trim();
         if (q) params.set("q", q);
         if (input.groupFilter) params.set("group", input.groupFilter);
+        if (input.categoryFilter) params.set("category", input.categoryFilter);
         if (input.languageFilter) params.set("language", input.languageFilter);
         if (input.countryFilter) params.set("country", input.countryFilter);
         if (input.yearFilter) params.set("year", input.yearFilter);
@@ -209,7 +234,7 @@ export function useLibraryCatalog(input: {
         if (!isAppend) {
           setChannels([]);
           setTotal(0);
-          setFacets({ groups: [], languages: [], countries: [], years: [] });
+          setFacets({ groups: [], categories: [], languages: [], countries: [], years: [] });
         }
         setError(err instanceof Error ? err.message : "Failed to load library");
       } finally {
@@ -223,13 +248,14 @@ export function useLibraryCatalog(input: {
       controller.abort();
     };
   }, [
-    authReady,
+    protectedApiReady,
     filterKey,
     input.offset,
     input.pageSize,
     input.presetId,
     input.contentTab,
     input.groupFilter,
+    input.categoryFilter,
     input.languageFilter,
     input.countryFilter,
     input.yearFilter,

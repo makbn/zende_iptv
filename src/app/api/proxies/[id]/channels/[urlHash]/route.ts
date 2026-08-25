@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { gateApiRequest } from "@/lib/auth/gate-api";
+import { forbidCustomerSystemMutation, gateApiRequest } from "@/lib/auth/gate-api";
 import { PUBLIC_INTERNAL_ERROR } from "@/lib/http/public-error";
 import { removeChannelFromProxy } from "@/lib/proxies/proxy-store";
 
@@ -12,6 +12,8 @@ export async function DELETE(
 ) {
   const gate = await gateApiRequest(request);
   if ("response" in gate) return gate.response;
+  const forbidden = forbidCustomerSystemMutation(gate);
+  if (forbidden) return forbidden;
 
   const { urlHash } = await context.params;
   try {

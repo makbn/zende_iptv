@@ -1,7 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
-
+import { ZendeSpinner } from "@/components/loading/zende-spinner";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -30,7 +29,7 @@ export function LibraryResultsShell({
           aria-busy="true"
         >
           <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/82 px-5 py-3 shadow-xl">
-            <Loader2 className="h-5 w-5 animate-spin text-white" aria-hidden />
+            <ZendeSpinner size="small" label={label} />
             <span className="text-[14px] font-medium text-white/90">{label}</span>
           </div>
         </div>

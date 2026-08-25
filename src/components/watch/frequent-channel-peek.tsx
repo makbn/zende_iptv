@@ -12,6 +12,7 @@ import { ZendeGlass } from "@/components/glass/zende-glass";
 import { ChannelResolutionBadge } from "@/components/tv/channel-resolution-badge";
 import { useMatchMedia } from "@/lib/hooks/use-match-media";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
+import { secureImageUrl } from "@/lib/media/secure-image-url";
 import type { ViewingEntry } from "@/lib/watch/viewing-stats";
 import { cn } from "@/lib/utils";
 
@@ -102,7 +103,7 @@ function ChannelArt({
       {showLogo ? (
         // eslint-disable-next-line @next/next/no-img-element -- IPTV logos from arbitrary origins
         <img
-          src={logoUrl}
+          src={secureImageUrl(logoUrl, undefined, "logo")}
           alt=""
           className={cn(
             "relative z-[1] object-contain transition-transform duration-300 ease-out group-hover:scale-[1.04]",

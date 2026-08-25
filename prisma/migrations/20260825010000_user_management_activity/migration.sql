@@ -1,0 +1,6 @@
+ALTER TABLE "User" ADD COLUMN "isDisabled" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "User" ADD COLUMN "lastLoginAt" DATETIME;
+ALTER TABLE "User" ADD COLUMN "lastActivityAt" DATETIME;
+ALTER TABLE "User" ADD COLUMN "lastLoginIp" TEXT;
+ALTER TABLE "User" ADD COLUMN "lastLoginLocation" TEXT;
+ALTER TABLE "User" ADD COLUMN "lastLoginDevice" TEXT;

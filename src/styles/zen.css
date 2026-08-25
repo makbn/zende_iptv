@@ -291,6 +291,61 @@
   58% { transform: scaleY(1); opacity: 1; }
 }
 
+@keyframes zende-spinner-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.zende-spinner {
+  filter: drop-shadow(0 0 0.55rem color-mix(in srgb, currentColor 28%, transparent));
+}
+
+.zende-spinner[data-loading-size="tiny"] {
+  width: 0.875rem;
+  height: 0.875rem;
+  filter: none;
+}
+
+.zende-spinner[data-loading-size="small"] {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.zende-spinner[data-loading-size="large"] {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.zende-spinner[data-loading-size="full"] {
+  width: 4rem;
+  height: 4rem;
+}
+
+.zende-spinner-track {
+  opacity: 0.14;
+}
+
+.zende-spinner-arc {
+  transform-box: fill-box;
+  transform-origin: center;
+  stroke-dasharray: 78 120;
+  animation: zende-spinner-turn 0.82s linear infinite;
+}
+
+@media (min-width: 640px) {
+  .zende-spinner[data-loading-size="full"] {
+    width: 5rem;
+    height: 5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zende-spinner-arc {
+    animation-duration: 2.4s;
+  }
+}
+
 .motion-safe\:animate-fav-hero-in { animation: fav-hero-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .motion-safe\:animate-fav-page-tile { animation: fav-page-tile-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .motion-safe\:animate-fav-epg-strip { animation: fav-epg-strip-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
@@ -308,6 +363,92 @@
 .zende-wave-bar {
   transform-box: fill-box;
   transform-origin: bottom center;
+}
+
+/*
+ * Keep the full guide's critical overlay properties out of generated utility
+ * CSS. Arbitrary-value utilities can be removed by our post-processing step,
+ * which would make this dialog transparent and expose the page underneath.
+ */
+.guide-fullscreen-dialog {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  max-width: 100vw;
+  max-height: 100dvh;
+  z-index: 240;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  isolation: isolate;
+  color: #fff;
+  background-color: #05060a;
+  background-image:
+    radial-gradient(circle at 8% -8%, rgba(56, 217, 255, 0.1), transparent 34rem),
+    radial-gradient(circle at 94% 4%, rgba(130, 72, 255, 0.07), transparent 30rem),
+    linear-gradient(145deg, #05060a 0%, #070a12 58%, #09111f 100%);
+}
+
+.guide-fullscreen-dialog__header {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+}
+
+.guide-fullscreen-dialog__content {
+  width: 100%;
+  padding-bottom: max(2rem, env(safe-area-inset-bottom));
+}
+
+.zende-confirm-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding:
+    max(1rem, env(safe-area-inset-top))
+    max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom))
+    max(1rem, env(safe-area-inset-left));
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(8px);
+}
+
+.zende-confirm-panel {
+  width: min(28rem, calc(100vw - 2rem));
+  max-width: 100%;
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  overflow-y: auto;
+}
+
+@media (max-width: 639px) {
+  .guide-fullscreen-dialog__header {
+    padding-right: max(0.75rem, env(safe-area-inset-right));
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+  }
+
+  .guide-fullscreen-dialog__content {
+    display: block;
+    padding-right: max(0.75rem, env(safe-area-inset-right));
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+  }
+
+  .guide-fullscreen-dialog__content > section + section {
+    margin-top: 1.25rem;
+  }
+
+  .zende-confirm-panel {
+    width: min(24rem, calc(100vw - 2rem));
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {

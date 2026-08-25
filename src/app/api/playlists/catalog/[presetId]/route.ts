@@ -5,6 +5,10 @@ import { gateApiRequest } from "@/lib/auth/gate-api";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { getPlaylistCatalogMeta } from "@/lib/playlists/catalog-meta";
 import { prisma } from "@/lib/db/prisma";
+import {
+  filterParentalChannels,
+  resolveParentalAccess,
+} from "@/lib/parental/parental-control-store";
 
 export const runtime = "nodejs";
 
@@ -15,6 +19,7 @@ export async function GET(
 ) {
   const gate = await gateApiRequest(_request);
   if ("response" in gate) return gate.response;
+  const parental = await resolveParentalAccess(_request, gate);
 
   const { presetId } = await context.params;
   if (!isBuiltinPresetId(presetId)) {
@@ -48,10 +53,19 @@ export async function GET(
   } catch {
     channels = [];
   }
+  channels = filterParentalChannels(channels, parental.blockedPatterns);
 
-  return NextResponse.json({
-    channels,
-    updatedAt: row.updatedAt.getTime(),
-    channelCount: row.channelCount,
-  });
+  return NextResponse.json(
+    {
+      channels,
+      updatedAt: row.updatedAt.getTime(),
+      channelCount: channels.length,
+    },
+    {
+      headers: {
+        "Cache-Control": "private, no-store",
+        Vary: "Cookie, Authorization",
+      },
+    },
+  );
 }

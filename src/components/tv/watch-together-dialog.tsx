@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Loader2, Play, X } from "lucide-react";
+import { Check, Play, X } from "lucide-react";
 
 import { ZendeGlass } from "@/components/glass/zende-glass";
+import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { createWatchUrl } from "@/lib/navigation/watch-url";
+import { secureImageUrl } from "@/lib/media/secure-image-url";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import {
   useLibraryCatalog,
@@ -160,9 +163,7 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
           {/* Channel list */}
           <div className="flex-1 overflow-y-auto overscroll-contain">
             {loading || refreshing ? (
-              <div className="flex items-center justify-center py-14">
-                <Loader2 className="h-6 w-6 animate-spin text-white/30" />
-              </div>
+              <ZendeLoadingState className="py-14" size="small" label="Loading live channels…" />
             ) : channels.length === 0 ? (
               <p className="px-5 py-10 text-center text-[14px] text-white/35">
                 No channels match &quot;{q}&quot;
@@ -190,7 +191,7 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
                           {ch.tvgLogo ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                              src={ch.tvgLogo}
+                              src={secureImageUrl(ch.tvgLogo, undefined, "logo")}
                               alt=""
                               className="h-full w-full object-contain"
                               onError={(e) => {
@@ -281,20 +282,16 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
               </div>
             )}
 
-            <button
+            <Button
               type="button"
               disabled={selected.length === 0 || launching}
               onClick={() => void handleWatch()}
-              className={cn(
-                "flex w-full items-center justify-center gap-2 rounded-full px-6 py-3",
-                "text-[15px] font-semibold outline-none transition-colors",
-                "bg-white text-black hover:bg-white/90",
-                "focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black",
-                "disabled:cursor-not-allowed disabled:opacity-40",
-              )}
+              variant="success"
+              size="lg"
+              className="w-full"
             >
               {launching ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <ZendeSpinner size="tiny" label="Starting watch together" />
               ) : (
                 <Play className="h-4 w-4 fill-current" />
               )}
@@ -303,7 +300,7 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
                 : selected.length === 0
                   ? "Select channels to watch"
                   : `Watch ${selected.length} channel${selected.length !== 1 ? "s" : ""}`}
-            </button>
+            </Button>
           </div>
         </ZendeGlass>
       </div>

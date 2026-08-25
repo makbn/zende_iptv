@@ -1,7 +1,9 @@
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
+import { getPersonalDataScope, personalDataStorageKey } from "@/lib/auth/personal-data-scope";
 
-const STORAGE_KEY = "zende.favorites.v1";
+const STORAGE_KEY = "zende.favorites.v2";
+const storageKey = () => personalDataStorageKey(STORAGE_KEY);
 
 export type FavoriteChannel = {
   url: string;
@@ -19,21 +21,25 @@ type Store = {
 const MAX_FAVORITES = 500;
 
 let favoriteUrlSet: Set<string> | null = null;
+let favoriteUrlSetScope: string | null = null;
 
 function rebuildFavoriteUrlSet(store?: Store): Set<string> {
   favoriteUrlSet = new Set((store ?? readStore()).favorites.map((f) => f.url));
+  favoriteUrlSetScope = getPersonalDataScope();
   return favoriteUrlSet;
 }
 
 function getFavoriteUrlSet(): Set<string> {
-  if (!favoriteUrlSet) return rebuildFavoriteUrlSet();
+  if (!favoriteUrlSet || favoriteUrlSetScope !== getPersonalDataScope()) {
+    return rebuildFavoriteUrlSet();
+  }
   return favoriteUrlSet;
 }
 
 function readStore(): Store {
   if (typeof window === "undefined") return { favorites: [] };
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey());
     if (!raw) return { favorites: [] };
     const parsed = JSON.parse(raw) as Store;
     if (!Array.isArray(parsed?.favorites)) return { favorites: [] };
@@ -45,7 +51,7 @@ function readStore(): Store {
 
 function writeStore(store: Store) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+    localStorage.setItem(storageKey(), JSON.stringify(store));
     rebuildFavoriteUrlSet(store);
   } catch {
     /* quota */
@@ -107,10 +113,17 @@ export async function hydrateFavoritesFromServer(): Promise<void> {
 }
 
 /** Server-enriched favorite rows as playable channels (no full client catalog). */
-export async function fetchEnrichedFavoritesFromApi(): Promise<M3uChannel[]> {
+export async function fetchEnrichedFavoritesFromApi(options?: {
+  fallbackToLocal?: boolean;
+}): Promise<M3uChannel[]> {
+  const fallbackToLocal = options?.fallbackToLocal !== false;
   try {
     const res = await zendeFetch("/api/user/favorites?enrich=1");
-    if (!res.ok) return listFavorites().map((f) => enrichFavoriteWithCatalog(f, []));
+    if (!res.ok) {
+      return fallbackToLocal
+        ? listFavorites().map((f) => enrichFavoriteWithCatalog(f, []))
+        : [];
+    }
     const rows = (await res.json()) as Array<{
       channel?: M3uChannel;
       url: string;
@@ -134,7 +147,9 @@ export async function fetchEnrichedFavoritesFromApi(): Promise<M3uChannel[]> {
       );
     });
   } catch {
-    return listFavorites().map((f) => enrichFavoriteWithCatalog(f, []));
+    return fallbackToLocal
+      ? listFavorites().map((f) => enrichFavoriteWithCatalog(f, []))
+      : [];
   }
 }
 
@@ -194,11 +209,16 @@ export function removeFavorite(url: string): void {
 
 /** Clear every favorite on this device and on the server. */
 export async function clearAllFavorites(): Promise<void> {
-  writeStore({ favorites: [] });
-  notifyFavoritesUpdated();
+  clearFavoritesOnThisDevice();
   await zendeFetch("/api/user/favorites?all=1", { method: "DELETE" }).catch(
     () => {/* best-effort */},
   );
+}
+
+/** Remove cached favorites without mutating another account on the server. */
+export function clearFavoritesOnThisDevice(): void {
+  writeStore({ favorites: [] });
+  notifyFavoritesUpdated();
 }
 
 export function toggleFavorite(

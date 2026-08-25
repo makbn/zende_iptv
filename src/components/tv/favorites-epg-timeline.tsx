@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ZendeGlass } from "@/components/glass/zende-glass";
+import { ZendeSpinner } from "@/components/loading/zende-spinner";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
+import { secureImageUrl } from "@/lib/media/secure-image-url";
 import { cn } from "@/lib/utils";
 import {
   CalendarClock,
@@ -43,7 +45,7 @@ function formatWindow(slot: Slot): string {
 
 const CAROUSEL_CARD_W = "min(calc(100vw - 3rem), 292px)";
 
-const EPG_SESSION_KEY = "zende.fav-epg.v1";
+const EPG_SESSION_KEY = "zende.fav-epg.v2";
 
 type EpgSessionPayload = {
   idsKey: string;
@@ -277,7 +279,7 @@ export function FavoritesEpgTimeline({
                       <span className="tabular-nums text-white/55">
                         {rows.length}
                       </span>
-                      {" favorites have guide data — scroll sideways for now & next."}
+                      {" channels have guide data — scroll sideways for now & next."}
                     </>
                   ) : (
                     <>
@@ -308,10 +310,11 @@ export function FavoritesEpgTimeline({
                   "active:scale-[0.98]",
                 )}
               >
-                <RefreshCw
-                  className={cn("size-3.5 sm:size-4", loading && "animate-spin")}
-                  aria-hidden
-                />
+                {loading ? (
+                  <ZendeSpinner size="tiny" label="Refreshing programme guide" />
+                ) : (
+                  <RefreshCw className="size-3.5 sm:size-4" aria-hidden />
+                )}
                 Refresh
               </button>
             </div>
@@ -402,7 +405,7 @@ export function FavoritesEpgTimeline({
                                       {ch.tvgLogo ? (
                                         /* eslint-disable-next-line @next/next/no-img-element */
                                         <img
-                                          src={ch.tvgLogo}
+                                          src={secureImageUrl(ch.tvgLogo, undefined, "logo")}
                                           alt=""
                                           className="size-full object-contain p-1.5"
                                           loading="lazy"

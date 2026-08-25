@@ -15,5 +15,18 @@ css = css.replace(/@property [^{]+\{[^}]+\}\s*/g, "");
 css = css.replace(/@layer theme\s*\{[\s\S]*?\n\}\s*/m, "");
 css = css.replace(/@layer theme, base, components, utilities;\s*/g, "@layer base, components, utilities;\n");
 
+// Animation utilities reference theme variables. Preserve the small non-color subset
+// after removing Tailwind's oklch theme, otherwise animate-spin/pulse/ping are inert.
+css = css.replace(
+  "@layer base, components, utilities;\n",
+  `@layer base, components, utilities;
+:root {
+  --animate-spin: spin 1s linear infinite;
+  --animate-ping: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+  --animate-pulse: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+`,
+);
+
 fs.writeFileSync(output, css.trim() + "\n");
 console.log(`Wrote ${output} (${css.length} bytes)`);

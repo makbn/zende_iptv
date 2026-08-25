@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { gateApiRequest } from "@/lib/auth/gate-api";
+import { forbidCustomerSystemMutation, gateApiRequest } from "@/lib/auth/gate-api";
 import { prisma } from "@/lib/db/prisma";
 
 export const runtime = "nodejs";
@@ -36,6 +36,8 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> },
 ) {
   const gate = await gateApiRequest(request);
+  const forbidden = forbidCustomerSystemMutation(gate);
+  if (forbidden) return forbidden;
   const d = await deleteContext(gate);
   if (!d.ok) return d.response;
 

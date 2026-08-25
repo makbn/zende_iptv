@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useState } from "react";
 
 import { ZendeGlass } from "@/components/glass/zende-glass";
+import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/features/auth/auth-context";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { cn } from "@/lib/utils";
@@ -126,26 +128,25 @@ function PairLoginForm() {
             Approve this request to sign in the TV with the same account.
           </p>
           <div className="mt-6 grid gap-2 sm:grid-cols-2">
-            <button
+            <Button
               type="button"
               disabled={busy}
               onClick={() => void approveCurrentSession()}
-              className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] disabled:opacity-50"
+              variant="success"
+              size="lg"
+              className="w-full"
             >
-              <ZendeGlass variant="ctaPill" className="w-full">
-                <span className="flex min-h-[52px] items-center justify-center px-6 text-[15px] font-semibold text-[var(--zen-void)]">
-                  {busy ? "Approving…" : "Yes, sign in TV"}
-                </span>
-              </ZendeGlass>
-            </button>
-            <button
+              {busy ? <><ZendeSpinner size="tiny" label="Approving sign in" /> Approving…</> : "Yes, sign in TV"}
+            </Button>
+            <Button
               type="button"
               disabled={busy}
               onClick={() => void logout()}
-              className="min-h-[52px] rounded-full border border-white/[0.14] bg-white/[0.06] px-6 text-[15px] font-semibold text-white/84 outline-none hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] disabled:opacity-50"
+              size="lg"
+              className="w-full"
             >
               Use different account
-            </button>
+            </Button>
           </div>
           {error ? (
             <p className="mt-4 text-[14px] text-amber-300/95" role="alert">
@@ -204,17 +205,15 @@ function PairLoginForm() {
             )}
           />
         </label>
-        <button
+        <Button
           type="submit"
           disabled={busy}
-          className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] disabled:opacity-50"
+          variant="success"
+          size="lg"
+          className="w-full"
         >
-          <ZendeGlass variant="ctaPill" className="w-full">
-            <span className="flex min-h-[52px] items-center justify-center px-6 text-[15px] font-semibold text-[var(--zen-void)]">
-              {busy ? "Signing in…" : "Sign in on TV"}
-            </span>
-          </ZendeGlass>
-        </button>
+          {busy ? <><ZendeSpinner size="tiny" label="Signing in" /> Signing in…</> : "Sign in on TV"}
+        </Button>
       </form>
 
       {error ? (
@@ -231,7 +230,7 @@ export default function LoginPairPage() {
     <div className="zen-page-bg flex min-h-screen flex-col px-4 py-[max(2rem,env(safe-area-inset-top))] text-foreground sm:px-6 sm:py-16">
       <Suspense
         fallback={
-          <div className="mx-auto text-[15px] text-white/50">Loading…</div>
+          <ZendeLoadingState className="mx-auto" size="large" label="Loading sign in…" />
         }
       >
         <PairLoginForm />

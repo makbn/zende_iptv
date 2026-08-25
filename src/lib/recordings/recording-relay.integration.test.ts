@@ -1,6 +1,6 @@
 import http from "node:http";
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { GET as streamProxyGet } from "@/app/api/stream/proxy/[sessionId]/route";
 import { createStreamSession } from "@/lib/stream/stream-session-store";
@@ -8,6 +8,9 @@ import {
   ZENDE_INTERNAL_RELAY_HEADER,
   ZENDE_INTERNAL_RELAY_HEADER_VALUE,
 } from "@/lib/stream/internal-relay-request";
+import { resetSharedStreamCacheForTests } from "@/lib/stream/shared-response-cache";
+import { resetSharedRootPinsForTests } from "@/lib/stream/shared-root-pin-cache";
+import { resetSharedManifestCacheForTests } from "@/lib/stream/shared-manifest-cache";
 
 /** Minimal TS packet (188 bytes, sync 0x47). */
 function ts188(): Buffer {
@@ -20,6 +23,17 @@ describe("recording relay (stream proxy + loopback origin)", () => {
   let server: http.Server;
   let upstreamPort: number;
   let oldPublicUrl: string | undefined;
+  let redirectRootHits = 0;
+  let edgeAHits = 0;
+  let edgeBHits = 0;
+  let edgeAAvailable = true;
+  let segmentHits = 0;
+
+  beforeEach(() => {
+    resetSharedManifestCacheForTests();
+    resetSharedRootPinsForTests();
+    resetSharedStreamCacheForTests();
+  });
 
   beforeAll(async () => {
     oldPublicUrl = process.env.PUBLIC_APP_URL;
@@ -27,6 +41,31 @@ describe("recording relay (stream proxy + loopback origin)", () => {
 
     server = http.createServer((req, res) => {
       const u = req.url ?? "";
+      if (u.startsWith("/live/test/test/77.m3u8")) {
+        redirectRootHits++;
+        res.writeHead(302, {
+          Location: redirectRootHits === 1 ? "/edge-a/live.m3u8" : "/edge-b/live.m3u8",
+        });
+        res.end();
+        return;
+      }
+      if (u.startsWith("/edge-a/live.m3u8")) {
+        edgeAHits++;
+        if (!edgeAAvailable) {
+          res.writeHead(503);
+          res.end();
+          return;
+        }
+        res.writeHead(200, { "Content-Type": "application/vnd.apple.mpegurl" });
+        res.end(["#EXTM3U", "#EXTINF:1.0,", "/seg0.ts", ""].join("\n"));
+        return;
+      }
+      if (u.startsWith("/edge-b/live.m3u8")) {
+        edgeBHits++;
+        res.writeHead(200, { "Content-Type": "application/vnd.apple.mpegurl" });
+        res.end(["#EXTM3U", "#EXTINF:1.0,", "/seg0.ts", ""].join("\n"));
+        return;
+      }
       if (u.startsWith("/main.m3u8")) {
         res.writeHead(200, { "Content-Type": "application/vnd.apple.mpegurl" });
         res.end(
@@ -55,6 +94,7 @@ describe("recording relay (stream proxy + loopback origin)", () => {
         return;
       }
       if (u.startsWith("/seg0.ts")) {
+        segmentHits++;
         res.writeHead(200, { "Content-Type": "video/mp2t" });
         res.end(ts188());
         return;
@@ -169,5 +209,138 @@ describe("recording relay (stream proxy + loopback origin)", () => {
     const buf = new Uint8Array(await segRes.arrayBuffer());
     expect(buf.length).toBe(188);
     expect(buf[0]).toBe(0x47);
+  });
+
+  it("pins a redirected live playlist CDN and falls back to the provider origin", async () => {
+    redirectRootHits = 0;
+    edgeAHits = 0;
+    edgeBHits = 0;
+    edgeAAvailable = true;
+
+    const upstreamRoot = `http://127.0.0.1:${upstreamPort}/live/test/test/77.m3u8`;
+    const sessionId = await createStreamSession({
+      upstreamRootUrl: upstreamRoot,
+      title: "vitest-cdn-pin",
+    });
+    const requestUrl = `http://127.0.0.1:8077/api/stream/proxy/${sessionId}`;
+
+    const first = await streamProxyGet(new Request(requestUrl), {
+      params: Promise.resolve({ sessionId }),
+    });
+    expect(first.status).toBe(200);
+    await first.text();
+    expect(redirectRootHits).toBe(1);
+    expect(edgeAHits).toBe(1);
+
+    const second = await streamProxyGet(new Request(requestUrl), {
+      params: Promise.resolve({ sessionId }),
+    });
+    expect(second.status).toBe(200);
+    await second.text();
+    expect(redirectRootHits).toBe(1);
+    expect(edgeAHits).toBe(1);
+
+    edgeAAvailable = false;
+    resetSharedManifestCacheForTests();
+    const recovered = await streamProxyGet(new Request(requestUrl), {
+      params: Promise.resolve({ sessionId }),
+    });
+    expect(recovered.status).toBe(200);
+    await recovered.text();
+    expect(edgeAHits).toBe(2);
+    expect(redirectRootHits).toBe(2);
+    expect(edgeBHits).toBe(1);
+  });
+
+  it("coalesces the same segment across independent playback sessions", async () => {
+    redirectRootHits = 0;
+    edgeAHits = 0;
+    edgeBHits = 0;
+    edgeAAvailable = true;
+    segmentHits = 0;
+
+    const upstreamRoot = `http://127.0.0.1:${upstreamPort}/live/test/test/77.m3u8`;
+    const sessionA = await createStreamSession({ upstreamRootUrl: upstreamRoot, title: "tab-a" });
+    const rootA = await streamProxyGet(
+      new Request(`http://127.0.0.1:8077/api/stream/proxy/${sessionA}`),
+      { params: Promise.resolve({ sessionId: sessionA }) },
+    );
+    const rootAText = await rootA.text();
+
+    const sessionB = await createStreamSession({ upstreamRootUrl: upstreamRoot, title: "tab-b" });
+    const rootB = await streamProxyGet(
+      new Request(`http://127.0.0.1:8077/api/stream/proxy/${sessionB}`),
+      { params: Promise.resolve({ sessionId: sessionB }) },
+    );
+    const rootBText = await rootB.text();
+
+    expect(redirectRootHits).toBe(1);
+    const segmentUrlA = rootAText.split("\n").find((line) => line.includes("?h="));
+    const segmentUrlB = rootBText.split("\n").find((line) => line.includes("?h="));
+    expect(segmentUrlA).toBeTruthy();
+    expect(segmentUrlB).toBeTruthy();
+
+    const [segmentA, segmentB] = await Promise.all([
+      streamProxyGet(new Request(segmentUrlA!), {
+        params: Promise.resolve({ sessionId: sessionA }),
+      }),
+      streamProxyGet(new Request(segmentUrlB!), {
+        params: Promise.resolve({ sessionId: sessionB }),
+      }),
+    ]);
+    const [bytesA, bytesB] = await Promise.all([
+      segmentA.arrayBuffer(),
+      segmentB.arrayBuffer(),
+    ]);
+
+    expect(bytesA.byteLength).toBe(188);
+    expect(bytesB.byteLength).toBe(188);
+    expect(segmentHits).toBe(1);
+    expect([segmentA.headers.get("x-zende-cache-status"), segmentB.headers.get("x-zende-cache-status")].sort())
+      .toEqual(["COALESCED", "MISS"]);
+    expect(segmentA.headers.get("x-zende-cache-id")).toBeTruthy();
+    expect(segmentA.headers.get("x-zende-cache-id")).toBe(
+      segmentB.headers.get("x-zende-cache-id"),
+    );
+
+    const replayed = await streamProxyGet(new Request(segmentUrlB!), {
+      params: Promise.resolve({ sessionId: sessionB }),
+    });
+    expect(replayed.status).toBe(200);
+    expect(replayed.headers.get("x-zende-cache-status")).toBe("HIT");
+    expect(replayed.headers.get("x-zende-cache-id")).toBe(
+      segmentA.headers.get("x-zende-cache-id"),
+    );
+    expect((await replayed.arrayBuffer()).byteLength).toBe(188);
+    expect(segmentHits).toBe(1);
+  });
+
+  it("coalesces simultaneous rotating-token bootstraps across playback sessions", async () => {
+    redirectRootHits = 0;
+    edgeAHits = 0;
+    edgeAAvailable = true;
+
+    const upstreamRoot = `http://127.0.0.1:${upstreamPort}/live/test/test/77.m3u8`;
+    const [sessionA, sessionB] = await Promise.all([
+      createStreamSession({ upstreamRootUrl: upstreamRoot, title: "browser-a" }),
+      createStreamSession({ upstreamRootUrl: upstreamRoot, title: "browser-b" }),
+    ]);
+
+    const [rootA, rootB] = await Promise.all([
+      streamProxyGet(
+        new Request(`http://127.0.0.1:8077/api/stream/proxy/${sessionA}`),
+        { params: Promise.resolve({ sessionId: sessionA }) },
+      ),
+      streamProxyGet(
+        new Request(`http://127.0.0.1:8077/api/stream/proxy/${sessionB}`),
+        { params: Promise.resolve({ sessionId: sessionB }) },
+      ),
+    ]);
+
+    expect(rootA.status).toBe(200);
+    expect(rootB.status).toBe(200);
+    await Promise.all([rootA.text(), rootB.text()]);
+    expect(redirectRootHits).toBe(1);
+    expect(edgeAHits).toBe(1);
   });
 });

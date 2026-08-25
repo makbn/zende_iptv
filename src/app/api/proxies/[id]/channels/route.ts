@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { gateApiRequest } from "@/lib/auth/gate-api";
+import { forbidCustomerSystemMutation, gateApiRequest } from "@/lib/auth/gate-api";
 import { PUBLIC_INTERNAL_ERROR } from "@/lib/http/public-error";
 import {
   assignChannelsToProxy,
@@ -17,6 +17,8 @@ export async function GET(
 ) {
   const gate = await gateApiRequest(request);
   if ("response" in gate) return gate.response;
+  const forbidden = forbidCustomerSystemMutation(gate);
+  if (forbidden) return forbidden;
 
   const { id } = await context.params;
   if (!(await getProxy(id))) {
@@ -46,6 +48,8 @@ export async function POST(
 ) {
   const gate = await gateApiRequest(request);
   if ("response" in gate) return gate.response;
+  const forbidden = forbidCustomerSystemMutation(gate);
+  if (forbidden) return forbidden;
 
   const { id } = await context.params;
   if (!(await getProxy(id))) {

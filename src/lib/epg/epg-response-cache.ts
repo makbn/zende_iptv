@@ -16,6 +16,7 @@ const MAX_KEYS = 48;
 
 const cache = new Map<string, { merge: EpgMergeForIds; storedAt: number }>();
 const inflight = new Map<string, Promise<void>>();
+let generation = 0;
 
 function trimCache(): void {
   while (cache.size > MAX_KEYS) {
@@ -33,7 +34,7 @@ function trimCache(): void {
 }
 
 /** Bump when merge / lookup semantics change so stale in-memory entries are not reused. */
-const CACHE_KEY_VERSION = "epg-v3";
+const CACHE_KEY_VERSION = "epg-v4";
 
 export function stableEpgCacheKey(sortedIds: string[]): string {
   return `${CACHE_KEY_VERSION}\0${sortedIds.join("\0")}`;
@@ -63,9 +64,10 @@ export function scheduleEpgCacheRefresh(
   log: ILogger,
 ): void {
   if (inflight.has(key)) return;
+  const refreshGeneration = generation;
   const job = loadEpgMergeForIds(ids, log)
     .then((merge) => {
-      setEpgMergeCache(key, merge);
+      if (refreshGeneration === generation) setEpgMergeCache(key, merge);
     })
     .catch(() => {
       /* logged in load */
@@ -90,4 +92,28 @@ export async function warmEpgCacheForIds(
   const merge = await loadEpgMergeForIds(sorted, log);
   setEpgMergeCache(key, merge);
   return materializeProgramsFromMerge(merge, sorted, log);
+}
+
+export function getEpgResponseCacheStats() {
+  const now = Date.now();
+  for (const [key, value] of cache) {
+    if (now - value.merge.fetchedAt > STALE_MS) cache.delete(key);
+  }
+  let programmes = 0;
+  for (const value of cache.values()) {
+    programmes += value.merge.programmes.length;
+  }
+  return {
+    entries: cache.size,
+    programmes,
+    inFlight: inflight.size,
+    ttlMs: FRESH_MS,
+    staleMs: STALE_MS,
+  };
+}
+
+export function clearEpgResponseCache(): void {
+  generation += 1;
+  cache.clear();
+  inflight.clear();
 }

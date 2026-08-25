@@ -3,6 +3,12 @@ import "server-only";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { prisma } from "@/lib/db/prisma";
+import { invalidateThreadfinCatalogCache } from "@/lib/threadfin/catalog";
+import { scheduleThreadfinSync } from "@/lib/threadfin/sync";
+import {
+  filterParentalChannels,
+  loadParentalPolicy,
+} from "@/lib/parental/parental-control-store";
 
 const MANUAL_STORE_ID = 1;
 const CACHE_TTL_MS = 15_000;
@@ -28,8 +34,10 @@ type CacheSlot = { t: number; data: AggregatedXtreamCatalog };
 let cache: CacheSlot | null = null;
 
 /** Call after catalog or manual channel updates so IPTV clients see fresh lineups immediately. */
-export function invalidateXtreamCatalogCache(): void {
+export function invalidateXtreamCatalogCache(options?: { scheduleThreadfin?: boolean }): void {
   cache = null;
+  invalidateThreadfinCatalogCache();
+  if (options?.scheduleThreadfin !== false) scheduleThreadfinSync();
 }
 
 async function loadManualChannels(): Promise<M3uChannel[]> {
@@ -85,8 +93,12 @@ export async function getAggregatedXtreamCatalog(): Promise<AggregatedXtreamCata
   }
 
   const manual = await loadManualChannels();
-  const liveOnly = [...fromPresets, ...manual].filter(
-    (ch) => (ch.contentType ?? "live") === "live",
+  const policy = await loadParentalPolicy();
+  const liveOnly = filterParentalChannels(
+    [...fromPresets, ...manual].filter(
+      (ch) => (ch.contentType ?? "live") === "live",
+    ),
+    policy.enabled ? policy.hiddenPatterns : [],
   );
 
   const groupNames = new Set<string>();

@@ -3,8 +3,14 @@
 import { useEffect, useRef } from "react";
 
 import { useAuth } from "@/features/auth/auth-context";
-import { hydrateFavoritesFromServer } from "@/lib/favorites/favorites-store";
-import { hydrateHistoryFromServer } from "@/lib/watch/viewing-stats";
+import {
+  clearFavoritesOnThisDevice,
+  hydrateFavoritesFromServer,
+} from "@/lib/favorites/favorites-store";
+import {
+  clearViewingHistoryOnThisDevice,
+  hydrateHistoryFromServer,
+} from "@/lib/watch/viewing-stats";
 
 /**
  * Fetches favorites and viewing history from the server once auth is ready,
@@ -18,6 +24,10 @@ export function UserDataSync() {
   useEffect(() => {
     if (!ready) return;
     if (user === null) {
+      if (lastSyncKey.current !== null) {
+        clearFavoritesOnThisDevice();
+        clearViewingHistoryOnThisDevice();
+      }
       lastSyncKey.current = null;
       return;
     }
@@ -25,6 +35,8 @@ export function UserDataSync() {
     const key = authEnabled ? (user?.id ?? null) : "guest";
     if (key === null) return; // auth enabled but not logged in yet
     if (key === lastSyncKey.current) return;
+    clearFavoritesOnThisDevice();
+    clearViewingHistoryOnThisDevice();
     lastSyncKey.current = key;
     void Promise.all([
       hydrateFavoritesFromServer(),

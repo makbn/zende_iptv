@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 
 import { createServerLogger } from "@/core/logging/server";
 import { ensureAuthConfigRow } from "@/lib/auth/auth-config";
-import { gateApiRequest } from "@/lib/auth/gate-api";
+import { forbidCustomerSystemMutation, gateApiRequest } from "@/lib/auth/gate-api";
 import { prisma } from "@/lib/db/prisma";
 import { assertCronAuthorized } from "@/lib/health/cron-auth";
 import { syncBodySchema } from "@/lib/health/sync-schema";
@@ -22,6 +22,8 @@ export async function POST(request: Request) {
   if (cfg.enabled) {
     const g = await gateApiRequest(request);
     if ("response" in g) return g.response;
+    const forbidden = forbidCustomerSystemMutation(g);
+    if (forbidden) return forbidden;
   } else {
     const denied = assertCronAuthorized(request);
     if (denied) return denied;

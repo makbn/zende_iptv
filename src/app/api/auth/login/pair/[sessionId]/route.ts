@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth/authenticate-user";
 import { gateApiRequest } from "@/lib/auth/gate-api";
 import { issueSessionTokens } from "@/lib/auth/issue-session";
+import { loginActivityFromRequest } from "@/lib/auth/request-activity";
 import {
   completeLoginPairSession,
   getLoginPairSession,
@@ -89,6 +90,10 @@ export async function POST(request: Request, context: RouteContext) {
       username: authUser.username,
       role: authUser.role,
     });
+    await prisma.user.update({
+      where: { id: authUser.id },
+      data: loginActivityFromRequest(request),
+    });
     const user = userAuthJson(authUser);
     const ok = completeLoginPairSession(sessionId, {
       ...tokens,
@@ -114,6 +119,10 @@ export async function POST(request: Request, context: RouteContext) {
     id: auth.user.id,
     username: auth.user.username,
     role: auth.user.role,
+  });
+  await prisma.user.update({
+    where: { id: auth.user.id },
+    data: loginActivityFromRequest(request),
   });
 
   const user = userAuthJson(auth.user);

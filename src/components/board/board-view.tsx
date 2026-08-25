@@ -4,9 +4,12 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Loader2, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, Volume2, VolumeX } from "lucide-react";
 
+import { ZendeLoadingState } from "@/components/loading/zende-spinner";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { secureImageUrl } from "@/lib/media/secure-image-url";
 import {
   fetchWatchSessionMeta,
   type WatchSessionMeta,
@@ -118,10 +121,10 @@ export function BoardView() {
   if (loading) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center gap-4 bg-black text-white">
-        <Loader2 className="h-10 w-10 animate-spin text-white/50" />
-        <p className="text-[15px] text-white/45">
-          Preparing {ids.length} stream{ids.length !== 1 ? "s" : ""}…
-        </p>
+        <ZendeLoadingState
+          size="large"
+          label={`Preparing ${ids.length} stream${ids.length !== 1 ? "s" : ""}…`}
+        />
       </div>
     );
   }
@@ -134,7 +137,7 @@ export function BoardView() {
         </p>
         <Link
           href="/"
-          className="rounded-full bg-[var(--zen-frost)] px-6 py-2.5 text-[15px] font-semibold text-[var(--zen-void)] hover:bg-white/90"
+          className={buttonVariants({ variant: "normal", size: "lg" })}
         >
           Back to Home
         </Link>
@@ -278,7 +281,7 @@ export function BoardView() {
               {session.logo ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={session.logo}
+                  src={secureImageUrl(session.logo, undefined, "logo")}
                   alt=""
                   className="h-6 w-6 shrink-0 rounded object-contain"
                 />

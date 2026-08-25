@@ -1,4 +1,4 @@
-import { ZendeLogoWave } from "@/components/loading/zende-logo-wave";
+import { ZendeLoadingState } from "@/components/loading/zende-spinner";
 import { BROWSE_TOP_PAD } from "@/components/layout/browse-page-shell";
 import { cn } from "@/lib/utils";
 
@@ -13,10 +13,11 @@ export function BrowsePageFallback({ className }: { className?: string }) {
       role="status"
       aria-live="polite"
     >
-      <ZendeLogoWave className="h-14 w-14 text-[var(--zen-signal)]" />
-      <span className="sr-only">Loading</span>
-      <p className="zen-kicker mt-5">Tuning signal</p>
-      <p className="mt-2 text-[15px] text-white/48">Loading your channels...</p>
+      <ZendeLoadingState
+        size="full"
+        label="Tuning signal"
+        description="Loading your channels…"
+      />
     </div>
   );
 }

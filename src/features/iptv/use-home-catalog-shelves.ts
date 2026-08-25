@@ -69,7 +69,7 @@ export function useHomeCatalogShelves(input: {
   movieLimit?: number;
   seriesLimit?: number;
 }) {
-  const { ready: authReady } = useAuth();
+  const { protectedApiReady } = useAuth();
   const [data, setData] = useState<HomeCatalogShelves>({
     discover: { channels: [], total: 0 },
     movies: { channels: [], total: 0 },
@@ -95,7 +95,7 @@ export function useHomeCatalogShelves(input: {
   );
 
   useEffect(() => {
-    if (!authReady) return;
+    if (!protectedApiReady) return;
     const seq = ++requestSeq.current;
     setLoading(true);
     setError(null);
@@ -125,7 +125,7 @@ export function useHomeCatalogShelves(input: {
       }
     })();
   }, [
-    authReady,
+    protectedApiReady,
     input.presetId,
     language,
     discoverLimit,

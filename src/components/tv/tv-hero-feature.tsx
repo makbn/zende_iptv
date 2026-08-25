@@ -1,6 +1,7 @@
 "use client";
 
 import { ZendeGlass } from "@/components/glass/zende-glass";
+import { secureImageUrl } from "@/lib/media/secure-image-url";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -59,7 +60,7 @@ export function TvHeroFeature({
         <div className="pointer-events-none absolute inset-0 opacity-[0.24]">
           {/* eslint-disable-next-line @next/next/no-img-element -- arbitrary IPTV logo origins */}
           <img
-            src={backdropUrl}
+            src={secureImageUrl(backdropUrl)}
             alt=""
             className="absolute inset-0 size-full scale-110 object-cover object-center blur-[6px] saturate-125"
           />

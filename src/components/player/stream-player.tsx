@@ -275,6 +275,7 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
 
           const onManifestParsed = () => {
             resetMediaErrorStage();
+            networkRetries = 0;
             hlsRecreateAttempt = 0;
             bumpSession();
             void video.play().catch(() => {});
@@ -318,7 +319,10 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
             });
             hls.on(HlsCtor.Events.MANIFEST_PARSED, onManifestParsed);
             hls.on(HlsCtor.Events.LEVEL_SWITCHED, bumpSession);
-            hls.on(HlsCtor.Events.FRAG_BUFFERED, resetMediaErrorStage);
+            hls.on(HlsCtor.Events.FRAG_BUFFERED, () => {
+              resetMediaErrorStage();
+              networkRetries = 0;
+            });
             hls.on(HlsCtor.Events.AUDIO_TRACKS_UPDATED, bumpSession);
             hls.on(HlsCtor.Events.SUBTITLE_TRACKS_UPDATED, bumpSession);
             hls.on(HlsCtor.Events.ERROR, onHlsError);
@@ -411,7 +415,14 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
               networkRetries++;
               networkRetryTimer = setTimeout(() => {
                 networkRetryTimer = null;
-                if (!cancelled && hls) hls.startLoad();
+                if (!cancelled && hls) {
+                  // A fatal manifest/level error stops hls.js's loader. Merely
+                  // calling startLoad() leaves it on a black frame; reload the
+                  // same backend-only source so it requests the shared snapshot.
+                  hls.stopLoad();
+                  hls.loadSource(src);
+                  hls.startLoad();
+                }
               }, 3_000 * networkRetries);
               return;
             }

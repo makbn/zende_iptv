@@ -7,7 +7,6 @@ import {
   CalendarClock,
   CircleStop,
   Download,
-  Loader2,
   Play,
   Radio,
   Search,
@@ -17,6 +16,8 @@ import {
 } from "lucide-react";
 
 import { ZendeGlass } from "@/components/glass/zende-glass";
+import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import {
   TvRecordingRecentIssues,
@@ -29,6 +30,7 @@ import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
 import { useChannelSearch } from "@/features/iptv/use-channel-search";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
+import { secureImageUrl } from "@/lib/media/secure-image-url";
 import { RECORDING_ENCODER_GONE_CODE } from "@/lib/recordings/recording-api-codes";
 import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
 import { cn } from "@/lib/utils";
@@ -367,7 +369,7 @@ export function MobileRecordingsPage() {
   if (!catalogLoaded) {
     return (
       <div className="zen-page-bg flex min-h-screen items-center justify-center px-4 text-white/45">
-        <p className="text-[15px] font-medium">Loading…</p>
+        <ZendeLoadingState size="full" label="Loading recordings…" />
       </div>
     );
   }
@@ -409,10 +411,7 @@ export function MobileRecordingsPage() {
         ) : null}
 
         {!overview && !loadError ? (
-          <div className="flex items-center justify-center gap-2 py-10 text-[15px] text-white/45">
-            <Loader2 className="size-5 animate-spin" aria-hidden />
-            Loading library…
-          </div>
+          <ZendeLoadingState className="py-10" size="small" label="Loading recording library…" />
         ) : null}
 
         <ZendeGlass
@@ -451,7 +450,7 @@ export function MobileRecordingsPage() {
                     <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.07]">
                       {channel.tvgLogo ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={channel.tvgLogo} alt="" className="max-h-8 max-w-9 object-contain" loading="lazy" />
+                        <img src={secureImageUrl(channel.tvgLogo, undefined, "logo")} alt="" className="max-h-8 max-w-9 object-contain" loading="lazy" />
                       ) : (
                         <Video className="size-4 text-white/40" aria-hidden />
                       )}
@@ -525,14 +524,15 @@ export function MobileRecordingsPage() {
                   className="h-12 rounded-2xl border border-white/[0.1] bg-black/35 px-3 text-[16px] text-white outline-none"
                 />
               </label>
-              <button
+              <Button
                 type="button"
                 disabled={busy || !selected || (overview !== null && !overview.ffmpegAvailable)}
                 onClick={() => void submitSchedule()}
-                className="flex min-h-[52px] items-center justify-center rounded-full bg-[var(--zen-frost)] text-[15px] font-semibold text-[var(--zen-void)] disabled:opacity-45"
+                variant="success"
+                size="lg"
               >
-                {busy ? <Loader2 className="size-5 animate-spin" aria-hidden /> : "Add schedule"}
-              </button>
+                {busy ? <ZendeSpinner size="small" label="Adding schedule" /> : "Add schedule"}
+              </Button>
             </div>
           ) : (
             <div className="mt-4 grid gap-3">
@@ -547,14 +547,15 @@ export function MobileRecordingsPage() {
                   className="h-12 rounded-2xl border border-white/[0.1] bg-black/35 px-3 text-[16px] text-white outline-none"
                 />
               </label>
-              <button
+              <Button
                 type="button"
                 disabled={busy || !selected || (overview !== null && !overview.ffmpegAvailable)}
                 onClick={() => void submitNow()}
-                className="flex min-h-[52px] items-center justify-center rounded-2xl bg-rose-500 text-[15px] font-semibold text-white disabled:opacity-45"
+                variant="success"
+                size="lg"
               >
-                {busy ? <Loader2 className="size-5 animate-spin" aria-hidden /> : "Start recording"}
-              </button>
+                {busy ? <ZendeSpinner size="small" label="Starting recording" /> : "Start recording"}
+              </Button>
             </div>
           )}
         </ZendeGlass>
@@ -576,15 +577,16 @@ export function MobileRecordingsPage() {
                   <p className="mt-1 text-[13px] text-white/45">
                     Until {new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(recording.plannedEndsAt))}
                   </p>
-                  <button
+                  <Button
                     type="button"
                     disabled={busy}
                     onClick={() => void stopRecording(recording.id)}
-                    className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-white text-[14px] font-semibold text-zinc-950 disabled:opacity-45"
+                    variant="danger"
+                    className="mt-3 w-full"
                   >
                     <CircleStop className="size-4" aria-hidden />
                     Stop and save
-                  </button>
+                  </Button>
                 </div>
               ))}
             </div>
@@ -605,15 +607,16 @@ export function MobileRecordingsPage() {
                   <p className="mt-1 text-[13px] leading-relaxed text-white/45">
                     {formatRange(schedule.startsAt, schedule.endsAt)}
                   </p>
-                  <button
+                  <Button
                     type="button"
                     disabled={busy}
                     onClick={() => void cancelSchedule(schedule.id)}
-                    className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.12] bg-white/[0.06] text-[14px] font-semibold text-white/80 disabled:opacity-45"
+                    variant="danger"
+                    className="mt-3 w-full"
                   >
                     <Trash2 className="size-4" aria-hidden />
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               ))}
             </div>
@@ -647,7 +650,7 @@ export function MobileRecordingsPage() {
                           {item.channelLogo ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                              src={item.channelLogo}
+                              src={secureImageUrl(item.channelLogo, undefined, "logo")}
                               alt=""
                               className="size-full object-cover"
                               loading="lazy"
@@ -705,42 +708,34 @@ export function MobileRecordingsPage() {
                             onClick={onNavigateClick(
                               `/watch?recording=${encodeURIComponent(item.id)}`,
                             )}
-                            className={cn(
-                              "flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-emerald-400/30 bg-emerald-500/15 text-[14px] font-semibold text-emerald-100",
-                              "outline-none transition-colors hover:bg-emerald-500/25",
-                            )}
+                            className={buttonVariants({ variant: "success", className: "w-full" })}
                           >
                             <Play className="size-4" aria-hidden />
                             Play
                           </Link>
                         )}
-                        <button
+                        <Button
                           type="button"
                           disabled={busy || isFailed}
                           onClick={() => void downloadRecording(item)}
-                          className={cn(
-                            "flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.12] bg-white/[0.08] text-[14px] font-semibold text-white outline-none transition-colors",
-                            "hover:bg-white/[0.12] disabled:opacity-45",
-                          )}
+                          className="w-full"
                         >
                           <Download className="size-4" aria-hidden />
                           Download MP4
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
                           disabled={busy}
                           onClick={() => {
                             setLibraryDeleteError(null);
                             setLibraryDeleteTarget(item);
                           }}
-                          className={cn(
-                            "flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-red-400/25 bg-red-500/10 text-[14px] font-semibold text-red-100 outline-none transition-colors",
-                            "hover:bg-red-500/15 disabled:opacity-45",
-                          )}
+                          variant="danger"
+                          className="w-full"
                         >
                           <Trash2 className="size-4" aria-hidden />
                           Remove
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   );
@@ -805,30 +800,29 @@ export function MobileRecordingsPage() {
               <p className="mt-3 text-[14px] text-red-300">{libraryDeleteError}</p>
             ) : null}
             <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <button
+              <Button
                 type="button"
                 disabled={busy}
-                className="min-h-11 rounded-2xl border border-white/[0.12] bg-white/[0.06] text-[14px] font-medium text-white/75 disabled:opacity-45"
                 onClick={() => {
                   setLibraryDeleteTarget(null);
                   setLibraryDeleteError(null);
                 }}
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 disabled={busy}
                 onClick={() => void confirmDeleteLibraryRecording()}
-                className="flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-red-400/30 bg-red-500/20 text-[14px] font-semibold text-red-100 disabled:opacity-45"
+                variant="danger"
               >
                 {busy ? (
-                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                  <ZendeSpinner size="tiny" label="Removing recording" />
                 ) : (
                   <Trash2 className="size-4" aria-hidden />
                 )}
                 Remove from server
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -892,30 +886,29 @@ export function MobileRecordingsPage() {
               <p className="mt-2 text-[13px] text-red-300">{stuckStopError}</p>
             ) : null}
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <button
+              <Button
                 type="button"
                 disabled={busy}
-                className="min-h-11 rounded-2xl border border-white/[0.12] bg-white/[0.06] text-[14px] font-semibold text-white/80 disabled:opacity-45"
                 onClick={() => {
                   setStuckStopDialog(null);
                   setStuckStopError(null);
                 }}
               >
                 Close
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 disabled={busy}
                 onClick={() => void forceRemoveStuckRecording()}
-                className="flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-amber-400/35 bg-amber-500/25 text-[14px] font-semibold text-amber-50 disabled:opacity-45"
+                variant="danger"
               >
                 {busy ? (
-                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                  <ZendeSpinner size="tiny" label="Removing stuck recording" />
                 ) : (
                   <Trash2 className="size-4" aria-hidden />
                 )}
                 Force remove
-              </button>
+              </Button>
             </div>
           </div>
         </div>

@@ -1,23 +1,144 @@
 /* eslint-disable */
 /**
- * ES5-compatible client for Samsung Tizen 3.x / Chromium 47 TV browsers.
- * Uses only APIs available in ~2015 Chromium (fetch, Promise, JSON, localStorage).
+ * ES5-compatible client for old TV browsers (Tizen 3.x–6.0, webOS, etc.).
  */
 (function () {
   "use strict";
 
   var Z_ACCESS = "zende.accessToken";
   var Z_REFRESH = "zende.refreshToken";
+  var PREFER_MODERN_KEY = "zende.preferModern";
+  var PREFER_MODERN_COOKIE = "zende-prefer-modern=1; path=/; max-age=31536000";
   var PRESET_ID = "iptv-org-world-index";
+  var SERIES_PREFIX = "zende://series/";
+  var CATALOG_LIMIT = 200;
+  var SEARCH_LIMIT = 120;
 
   var state = {
     authEnabled: false,
     user: null,
+    tab: "home",
+    libraryFilter: "all",
+    searchQuery: "",
     shelves: null,
     focusIndex: 0,
     tiles: [],
     playing: null,
+    hls: null,
+    seriesContainer: null,
+    seriesTitle: "",
+    seriesId: "",
+    returnScreen: "home",
   };
+
+  function destroyHls() {
+    if (state.hls) {
+      try {
+        state.hls.destroy();
+      } catch (e) {}
+      state.hls = null;
+    }
+  }
+
+  function absoluteUrl(path) {
+    if (!path) return path;
+    if (/^https?:\/\//i.test(path)) return path;
+    var origin =
+      window.location.origin ||
+      window.location.protocol + "//" + window.location.host;
+    return origin + (path.charAt(0) === "/" ? path : "/" + path);
+  }
+
+  function backendImageUrl(url) {
+    var raw = String(url || "").replace(/^\s+|\s+$/g, "");
+    if (!raw) return "";
+    if (/^\/[^/]/.test(raw) || /^data:/i.test(raw) || /^blob:/i.test(raw)) return raw;
+    if (/^\/\//.test(raw)) raw = "https:" + raw;
+    if (!/^https?:\/\//i.test(raw)) return raw;
+    var bytes = new TextEncoder().encode("logo\0" + raw);
+    var binary = "";
+    for (var i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+    var encoded = btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+    return "/api/media/image/" + encoded;
+  }
+
+  function inferPlaybackMode(url, mode) {
+    if (mode === "hls" || mode === "mpegts" || mode === "progressive") return mode;
+    var lower = String(url || "").toLowerCase();
+    if (/\.m3u8(\?|#|$)/.test(lower)) return "hls";
+    if (/\/live\//.test(lower) && /\.ts(\?|#|$)/.test(lower)) return "mpegts";
+    if (/\.(mp4|mkv|webm|m4v|mov)(\?|#|$)/.test(lower)) return "progressive";
+    if (/\/api\/stream\/proxy\//.test(lower)) return "hls";
+    return "hls";
+  }
+
+  function canPlayNativeHls(video) {
+    return !!(
+      video &&
+      video.canPlayType &&
+      (video.canPlayType("application/vnd.apple.mpegurl") ||
+        video.canPlayType("application/x-mpegurl"))
+    );
+  }
+
+  function hlsJsSupported() {
+    return !!(window.Hls && window.Hls.isSupported && window.Hls.isSupported());
+  }
+
+  function attachHlsJs(video, url) {
+    destroyHls();
+    var HlsCtor = window.Hls;
+    state.hls = new HlsCtor({
+      enableWorker: typeof Worker !== "undefined",
+      lowLatencyMode: false,
+      liveSyncDurationCount: 3,
+      liveMaxLatencyDurationCount: 10,
+      maxBufferLength: 60,
+      maxMaxBufferLength: 120,
+      capLevelToPlayerSize: true,
+      startLevel: -1,
+    });
+    state.hls.on(HlsCtor.Events.ERROR, function (_event, data) {
+      if (!data || !data.fatal) return;
+      var detail = data.details || data.type || "unknown";
+      setStatus("Playback error: " + detail);
+    });
+    state.hls.on(HlsCtor.Events.MANIFEST_PARSED, function () {
+      var playAttempt = video.play();
+      if (playAttempt && playAttempt.catch) playAttempt.catch(function () {});
+    });
+    state.hls.loadSource(url);
+    state.hls.attachMedia(video);
+  }
+
+  function setVideoSource(video, playbackUrl, playbackMode) {
+    if (!video || !playbackUrl) return;
+
+    var url = absoluteUrl(playbackUrl);
+    var mode = inferPlaybackMode(url, playbackMode);
+    var useHlsJs = mode === "hls" && hlsJsSupported();
+    var useNativeHls = mode === "hls" && !useHlsJs && canPlayNativeHls(video);
+
+    destroyHls();
+    video.pause();
+    video.removeAttribute("src");
+    while (video.firstChild) video.removeChild(video.firstChild);
+
+    if (useHlsJs) {
+      attachHlsJs(video, url);
+      return;
+    }
+
+    if (useNativeHls) {
+      video.src = url;
+      video.load();
+      return;
+    }
+
+    // MPEG-TS live, MP4, or last-resort direct URL.
+    video.src = url;
+    video.load();
+  }
 
   function byId(id) {
     return document.getElementById(id);
@@ -35,6 +156,31 @@
     }
     var target = byId("legacy-screen-" + name);
     if (target) target.className += " is-active";
+  }
+
+  function showPanel(id, visible) {
+    var el = byId(id);
+    if (!el) return;
+    if (visible) el.className = el.className.replace(" is-hidden", "");
+    else if (el.className.indexOf("is-hidden") === -1) el.className += " is-hidden";
+  }
+
+  function setActiveButtons(selector, attr, value) {
+    var buttons = document.querySelectorAll(selector);
+    for (var i = 0; i < buttons.length; i++) {
+      var btn = buttons[i];
+      var match = btn.getAttribute(attr) === value;
+      if (match) btn.className = btn.className.replace(" is-active", "") + " is-active";
+      else btn.className = btn.className.replace(" is-active", "");
+    }
+  }
+
+  function openModernApp() {
+    try {
+      localStorage.setItem(PREFER_MODERN_KEY, "1");
+      document.cookie = PREFER_MODERN_COOKIE;
+    } catch (e) {}
+    window.location.href = "/?modern=1";
   }
 
   function getAccessToken() {
@@ -182,9 +328,122 @@
       .replace(/"/g, "&quot;");
   }
 
+  function channelMeta(channel) {
+    if (channel.groupTitle) return escapeHtml(channel.groupTitle);
+    if (channel.contentType === "movie") return "Movie";
+    if (channel.contentType === "series") return "Show";
+    return "Live";
+  }
+
+  function isSeriesContainer(channel) {
+    if (!channel || !channel.url) return false;
+    var url = String(channel.url).trim();
+    if (url.indexOf(SERIES_PREFIX) === 0) return true;
+    if (channel.contentType === "series" && !/^https?:\/\//i.test(url)) return true;
+    return false;
+  }
+
+  function setSeriesStatus(message) {
+    var el = byId("legacy-series-status");
+    if (el) el.textContent = message || "";
+  }
+
+  function episodeTileHtml(ep, index) {
+    var code = "S" + (ep.season || "?") + "E" + (ep.episodeNum || "?");
+    return (
+      '<button type="button" class="legacy-episode-tile legacy-tile" data-index="' +
+      index +
+      '" tabindex="0">' +
+      '<span class="legacy-episode-code">' +
+      escapeHtml(code) +
+      '</span> <span class="legacy-episode-name">' +
+      escapeHtml(ep.title || "Episode") +
+      "</span></button>"
+    );
+  }
+
+  function openSeries(channel) {
+    if (!channel) return;
+    state.seriesContainer = channel;
+    state.returnScreen = "home";
+    setSeriesStatus("");
+    var titleEl = byId("legacy-series-title");
+    if (titleEl) titleEl.textContent = channel.name || "Show";
+    var list = byId("legacy-series-episodes");
+    if (list) list.innerHTML = '<div class="legacy-loading">Loading episodes…</div>';
+    showScreen("series");
+
+    return apiFetch(
+      "/api/xtream/series-info?url=" + encodeURIComponent(String(channel.url).trim()),
+    )
+      .then(function (res) {
+        return res.text().then(function (text) {
+          var body = parseJson(text) || {};
+          if (!res.ok) throw new Error(body.error || "Could not load episodes.");
+          if (body.info && body.info.name && titleEl) titleEl.textContent = body.info.name;
+          state.seriesTitle = titleEl ? titleEl.textContent : channel.name || "Show";
+          state.seriesId = body.seriesId || "";
+          var episodes = body.episodes || [];
+          state.tiles = [];
+          for (var i = 0; i < episodes.length; i++) {
+            var ep = episodes[i];
+            state.tiles.push({
+              url: ep.playUrl,
+              name:
+                state.seriesTitle +
+                " · S" +
+                (ep.season || "?") +
+                "E" +
+                (ep.episodeNum || "?") +
+                " · " +
+                (ep.title || "Episode"),
+              contentType: "episode",
+              groupTitle: channel.groupTitle,
+              tvgLogo: channel.tvgLogo,
+            });
+          }
+          if (!episodes.length) {
+            if (list) list.innerHTML = '<div class="legacy-loading">No episodes found.</div>';
+            return;
+          }
+          var html = '<div class="legacy-grid"><div class="legacy-row">';
+          for (var j = 0; j < episodes.length; j++) {
+            html += episodeTileHtml(episodes[j], j);
+          }
+          html += "</div></div>";
+          if (list) list.innerHTML = html;
+          bindTileEvents();
+          focusTile(0);
+        });
+      })
+      .catch(function (err) {
+        if (list) list.innerHTML = "";
+        setSeriesStatus(err && err.message ? err.message : "Could not load episodes.");
+      });
+  }
+
+  function closeSeries() {
+    state.seriesContainer = null;
+    state.seriesTitle = "";
+    state.seriesId = "";
+    setSeriesStatus("");
+    showScreen("home");
+    focusTile(state.focusIndex);
+  }
+
+  function selectTile(index) {
+    var channel = state.tiles[index];
+    if (!channel) return;
+    if (isSeriesContainer(channel)) {
+      openSeries(channel);
+      return;
+    }
+    playChannel(channel);
+  }
+
   function channelTileHtml(channel, index) {
-    var logo = channel.tvgLogo ? "background-image:url('" + escapeHtml(channel.tvgLogo) + "')" : "";
-    var group = channel.groupTitle ? escapeHtml(channel.groupTitle) : "Live";
+    var logoUrl = backendImageUrl(channel.tvgLogo).replace(/'/g, "%27");
+    var logo = logoUrl ? "background-image:url('" + escapeHtml(logoUrl) + "')" : "";
     return (
       '<button type="button" class="legacy-tile" data-index="' +
       index +
@@ -197,10 +456,64 @@
       escapeHtml(channel.name || "Channel") +
       "</span>" +
       '<span class="legacy-tile-meta">' +
-      group +
+      channelMeta(channel) +
       "</span>" +
       "</div></button>"
     );
+  }
+
+  function bindTileEvents() {
+    var tiles = document.querySelectorAll(".legacy-tile");
+    for (var i = 0; i < tiles.length; i++) {
+      (function (tile) {
+        tile.addEventListener("click", function () {
+          var idx = Number(tile.getAttribute("data-index"));
+          selectTile(idx);
+        });
+        tile.addEventListener("focus", function () {
+          var idx = Number(tile.getAttribute("data-index"));
+          focusTile(idx);
+        });
+      })(tiles[i]);
+    }
+  }
+
+  function focusTile(index) {
+    if (!state.tiles.length) return;
+    if (index < 0) index = 0;
+    if (index >= state.tiles.length) index = state.tiles.length - 1;
+    state.focusIndex = index;
+
+    var tiles = document.querySelectorAll(".legacy-tile");
+    for (var i = 0; i < tiles.length; i++) {
+      if (Number(tiles[i].getAttribute("data-index")) === index) {
+        tiles[i].className = tiles[i].className.replace(" is-focused", "") + " is-focused";
+        tiles[i].focus();
+      } else {
+        tiles[i].className = tiles[i].className.replace(" is-focused", "");
+      }
+    }
+  }
+
+  function renderFlatChannels(channels, emptyMessage) {
+    var container = byId("legacy-shelves");
+    if (!container) return;
+
+    state.tiles = channels || [];
+    if (!state.tiles.length) {
+      container.innerHTML =
+        '<div class="legacy-loading">' + escapeHtml(emptyMessage || "Nothing found.") + "</div>";
+      return;
+    }
+
+    var html = '<div class="legacy-grid"><div class="legacy-row">';
+    for (var i = 0; i < state.tiles.length; i++) {
+      html += channelTileHtml(state.tiles[i], i);
+    }
+    html += "</div></div>";
+    container.innerHTML = html;
+    bindTileEvents();
+    focusTile(0);
   }
 
   function renderShelves(shelves) {
@@ -208,7 +521,7 @@
     if (!container) return;
 
     var sections = [
-      { key: "discover", title: "Discover" },
+      { key: "discover", title: "Live TV" },
       { key: "movies", title: "Movies" },
       { key: "series", title: "Shows" },
     ];
@@ -235,64 +548,12 @@
     focusTile(0);
   }
 
-  function focusTile(index) {
-    if (!state.tiles.length) return;
-    if (index < 0) index = 0;
-    if (index >= state.tiles.length) index = state.tiles.length - 1;
-    state.focusIndex = index;
-
-    var tiles = document.querySelectorAll(".legacy-tile");
-    for (var i = 0; i < tiles.length; i++) {
-      if (Number(tiles[i].getAttribute("data-index")) === index) {
-        tiles[i].className = tiles[i].className.replace(" is-focused", "") + " is-focused";
-        tiles[i].focus();
-      } else {
-        tiles[i].className = tiles[i].className.replace(" is-focused", "");
-      }
-    }
-  }
-
-  function bindTileEvents() {
-    var tiles = document.querySelectorAll(".legacy-tile");
-    for (var i = 0; i < tiles.length; i++) {
-      (function (tile) {
-        tile.addEventListener("click", function () {
-          var idx = Number(tile.getAttribute("data-index"));
-          playChannel(state.tiles[idx]);
-        });
-        tile.addEventListener("focus", function () {
-          var idx = Number(tile.getAttribute("data-index"));
-          focusTile(idx);
-        });
-      })(tiles[i]);
-    }
-  }
-
-  function setVideoSource(video, playbackUrl, playbackMode) {
-    if (!video || !playbackUrl) return;
-    var isHls =
-      playbackMode === "hls" ||
-      /\.m3u8(\?|$)/i.test(playbackUrl) ||
-      /\/api\/stream\/proxy\//i.test(playbackUrl);
-
-    video.pause();
-    video.removeAttribute("src");
-    while (video.firstChild) video.removeChild(video.firstChild);
-
-    if (isHls && video.canPlayType && !video.canPlayType("application/vnd.apple.mpegurl")) {
-      // Some TV engines only accept HLS via a <source> child element.
-      var source = document.createElement("source");
-      source.src = playbackUrl;
-      source.type = "application/vnd.apple.mpegurl";
-      video.appendChild(source);
-    } else {
-      video.src = playbackUrl;
-    }
-    video.load();
-  }
-
   function playChannel(channel) {
     if (!channel || !channel.url) return;
+    if (isSeriesContainer(channel)) {
+      openSeries(channel);
+      return;
+    }
     setStatus("Starting playback…");
     apiFetch("/api/stream/session", {
       method: "POST",
@@ -308,9 +569,7 @@
       .then(function (res) {
         return res.text().then(function (text) {
           var body = parseJson(text) || {};
-          if (!res.ok) {
-            throw new Error(body.error || "Could not start playback.");
-          }
+          if (!res.ok) throw new Error(body.error || "Could not start playback.");
           if (!body.id) throw new Error("Could not start playback.");
           return body.id;
         });
@@ -319,9 +578,7 @@
         return apiFetch("/api/stream/session/" + encodeURIComponent(sessionId)).then(function (res) {
           return res.text().then(function (text) {
             var meta = parseJson(text) || {};
-            if (!res.ok) {
-              throw new Error(meta.error || "Playback session expired.");
-            }
+            if (!res.ok) throw new Error(meta.error || "Playback session expired.");
             return meta;
           });
         });
@@ -334,9 +591,9 @@
         if (title) title.textContent = meta.title || channel.name || "Live";
         if (video) {
           setVideoSource(video, meta.playbackUrl, meta.playbackMode);
-          var playAttempt = video.play();
-          if (playAttempt && playAttempt.catch) {
-            playAttempt.catch(function () {});
+          if (!state.hls) {
+            var playAttempt = video.play();
+            if (playAttempt && playAttempt.catch) playAttempt.catch(function () {});
           }
         }
         showScreen("player");
@@ -347,41 +604,184 @@
   }
 
   function stopPlayback() {
+    destroyHls();
     var video = byId("legacy-video");
     if (video) {
       video.pause();
       video.removeAttribute("src");
+      while (video.firstChild) video.removeChild(video.firstChild);
       video.load();
     }
     state.playing = null;
+    if (state.seriesContainer) {
+      showScreen("series");
+      focusTile(state.focusIndex);
+      return;
+    }
     showScreen("home");
     focusTile(state.focusIndex);
   }
 
-  function loadHome() {
-    showScreen("home");
+  function showLoading(message) {
+    var container = byId("legacy-shelves");
+    if (container) {
+      container.innerHTML =
+        '<div class="legacy-loading">' + escapeHtml(message || "Loading…") + "</div>";
+    }
     setStatus("");
-    byId("legacy-shelves").innerHTML = '<div class="legacy-loading">Loading channels…</div>';
+  }
+
+  function updateBrowseChrome() {
+    setActiveButtons(".legacy-nav-btn", "data-tab", state.tab);
+    showPanel("legacy-search-bar", state.tab === "search");
+    showPanel("legacy-library-filters", state.tab === "library");
+    setActiveButtons(".legacy-filter-btn", "data-filter", state.libraryFilter);
+  }
+
+  function loadHome() {
+    state.tab = "home";
+    updateBrowseChrome();
+    showScreen("home");
+    showLoading("Loading home…");
 
     return apiFetch(
       "/api/library/home-shelves?presetId=" +
         encodeURIComponent(PRESET_ID) +
-        "&discoverLimit=36&movieLimit=18&seriesLimit=18&language=en",
+        "&discoverLimit=48&movieLimit=36&seriesLimit=36&language=en",
     )
       .then(function (res) {
         return res.text().then(function (text) {
           var body = parseJson(text) || {};
-          if (!res.ok) {
-            throw new Error(body.error || "Could not load channels.");
-          }
+          if (!res.ok) throw new Error(body.error || "Could not load home.");
           state.shelves = body;
           renderShelves(body);
         });
       })
       .catch(function (err) {
         byId("legacy-shelves").innerHTML = "";
-        setStatus(err && err.message ? err.message : "Could not load channels.");
+        setStatus(err && err.message ? err.message : "Could not load home.");
       });
+  }
+
+  function loadLibrary() {
+    state.tab = "library";
+    updateBrowseChrome();
+    showScreen("home");
+    showLoading("Loading library…");
+
+    var contentType = state.libraryFilter === "all" ? "all" : state.libraryFilter;
+    return apiFetch(
+      "/api/library/catalog?presetId=" +
+        encodeURIComponent(PRESET_ID) +
+        "&contentType=" +
+        encodeURIComponent(contentType) +
+        "&limit=" +
+        String(CATALOG_LIMIT) +
+        "&language=en",
+    )
+      .then(function (res) {
+        return res.text().then(function (text) {
+          var body = parseJson(text) || {};
+          if (!res.ok) throw new Error(body.error || "Could not load library.");
+          renderFlatChannels(body.channels || [], "No items in this library section.");
+        });
+      })
+      .catch(function (err) {
+        byId("legacy-shelves").innerHTML = "";
+        setStatus(err && err.message ? err.message : "Could not load library.");
+      });
+  }
+
+  function loadFavorites() {
+    state.tab = "favorites";
+    updateBrowseChrome();
+    showScreen("home");
+    showLoading("Loading favorites…");
+
+    return apiFetch("/api/user/favorites?enrich=1")
+      .then(function (res) {
+        return res.text().then(function (text) {
+          var rows = parseJson(text) || [];
+          if (!res.ok) {
+            var errBody = rows;
+            throw new Error((errBody && errBody.error) || "Could not load favorites.");
+          }
+          var channels = [];
+          for (var i = 0; i < rows.length; i++) {
+            var row = rows[i];
+            if (row.channel && row.channel.url) channels.push(row.channel);
+            else if (row.url) {
+              channels.push({
+                url: row.url,
+                name: row.name || "Channel",
+                tvgLogo: row.tvgLogo,
+                groupTitle: row.groupTitle,
+              });
+            }
+          }
+          renderFlatChannels(channels, "No favorites yet. Add some in the full app.");
+        });
+      })
+      .catch(function (err) {
+        byId("legacy-shelves").innerHTML = "";
+        setStatus(err && err.message ? err.message : "Could not load favorites.");
+      });
+  }
+
+  function runSearch(query) {
+    state.tab = "search";
+    state.searchQuery = query || "";
+    updateBrowseChrome();
+    showScreen("home");
+
+    var input = byId("legacy-search-input");
+    if (input) input.value = state.searchQuery;
+
+    if (!state.searchQuery.replace(/\s/g, "")) {
+      renderFlatChannels([], "Type a title and press Search.");
+      return Promise.resolve();
+    }
+
+    showLoading("Searching…");
+
+    return apiFetch(
+      "/api/library/catalog?presetId=" +
+        encodeURIComponent(PRESET_ID) +
+        "&contentType=all&q=" +
+        encodeURIComponent(state.searchQuery) +
+        "&limit=" +
+        String(SEARCH_LIMIT) +
+        "&language=en",
+    )
+      .then(function (res) {
+        return res.text().then(function (text) {
+          var body = parseJson(text) || {};
+          if (!res.ok) throw new Error(body.error || "Search failed.");
+          var total = body.total != null ? body.total : (body.channels || []).length;
+          var emptyMsg = total ? "" : "No results for \"" + state.searchQuery + "\".";
+          renderFlatChannels(body.channels || [], emptyMsg || "No results.");
+        });
+      })
+      .catch(function (err) {
+        byId("legacy-shelves").innerHTML = "";
+        setStatus(err && err.message ? err.message : "Search failed.");
+      });
+  }
+
+  function switchTab(tab) {
+    if (tab === "home") return loadHome();
+    if (tab === "library") return loadLibrary();
+    if (tab === "favorites") return loadFavorites();
+    if (tab === "search") {
+      state.tab = "search";
+      updateBrowseChrome();
+      showScreen("home");
+      renderFlatChannels([], "Type a title and press Search.");
+      var input = byId("legacy-search-input");
+      if (input) input.focus();
+      return Promise.resolve();
+    }
+    return loadHome();
   }
 
   function checkAuth() {
@@ -393,9 +793,7 @@
       .then(function (text) {
         var status = parseJson(text) || {};
         state.authEnabled = Boolean(status.authEnabled);
-        if (!state.authEnabled) {
-          return loadHome();
-        }
+        if (!state.authEnabled) return loadHome();
         return apiFetch("/api/auth/me")
           .then(function (res) {
             return res.text();
@@ -425,9 +823,7 @@
       .then(function (res) {
         return res.text().then(function (text) {
           var body = parseJson(text) || {};
-          if (!res.ok) {
-            throw new Error(body.error || "Login failed.");
-          }
+          if (!res.ok) throw new Error(body.error || "Login failed.");
           if (body.accessToken && body.refreshToken) {
             storeTokens(body.accessToken, body.refreshToken);
           }
@@ -453,6 +849,23 @@
       return;
     }
 
+    if (active.id === "legacy-screen-series" && state.tiles.length) {
+      if (key === 37) {
+        event.preventDefault();
+        focusTile(state.focusIndex - 1);
+      } else if (key === 39) {
+        event.preventDefault();
+        focusTile(state.focusIndex + 1);
+      } else if (key === 13) {
+        event.preventDefault();
+        selectTile(state.focusIndex);
+      } else if (key === 8 || key === 27 || key === 461 || key === 10009) {
+        event.preventDefault();
+        closeSeries();
+      }
+      return;
+    }
+
     if (active.id !== "legacy-screen-home" || !state.tiles.length) return;
 
     if (key === 37) {
@@ -462,8 +875,10 @@
       event.preventDefault();
       focusTile(state.focusIndex + 1);
     } else if (key === 13) {
+      var tag = event.target && event.target.tagName ? event.target.tagName.toLowerCase() : "";
+      if (tag === "input") return;
       event.preventDefault();
-      playChannel(state.tiles[state.focusIndex]);
+      selectTile(state.focusIndex);
     }
   }
 
@@ -472,16 +887,60 @@
     if (loginForm) {
       loginForm.addEventListener("submit", function (event) {
         event.preventDefault();
-        var username = byId("legacy-username").value;
-        var password = byId("legacy-password").value;
-        login(username, password);
+        login(byId("legacy-username").value, byId("legacy-password").value);
       });
     }
 
+    var modernLogin = byId("legacy-modern-login");
+    if (modernLogin) modernLogin.addEventListener("click", openModernApp);
+
+    var modernBtn = byId("legacy-modern-btn");
+    if (modernBtn) modernBtn.addEventListener("click", openModernApp);
+
     var backBtn = byId("legacy-back");
-    if (backBtn) {
-      backBtn.addEventListener("click", function () {
-        stopPlayback();
+    if (backBtn) backBtn.addEventListener("click", stopPlayback);
+
+    var seriesBackBtn = byId("legacy-series-back");
+    if (seriesBackBtn) seriesBackBtn.addEventListener("click", closeSeries);
+
+    var nav = byId("legacy-nav");
+    if (nav) {
+      nav.addEventListener("click", function (event) {
+        var target = event.target || event.srcElement;
+        if (!target || !target.getAttribute) return;
+        var tab = target.getAttribute("data-tab");
+        if (tab) switchTab(tab);
+      });
+    }
+
+    var filters = byId("legacy-library-filters");
+    if (filters) {
+      filters.addEventListener("click", function (event) {
+        var target = event.target || event.srcElement;
+        if (!target || !target.getAttribute) return;
+        var filter = target.getAttribute("data-filter");
+        if (!filter) return;
+        state.libraryFilter = filter;
+        loadLibrary();
+      });
+    }
+
+    var searchGo = byId("legacy-search-go");
+    if (searchGo) {
+      searchGo.addEventListener("click", function () {
+        var input = byId("legacy-search-input");
+        runSearch(input ? input.value : "");
+      });
+    }
+
+    var searchInput = byId("legacy-search-input");
+    if (searchInput) {
+      searchInput.addEventListener("keydown", function (event) {
+        var key = event.keyCode || event.which;
+        if (key === 13) {
+          event.preventDefault();
+          runSearch(searchInput.value);
+        }
       });
     }
 

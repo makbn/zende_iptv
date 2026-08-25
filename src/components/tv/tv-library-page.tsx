@@ -40,13 +40,14 @@ import {
   ChevronRight,
   LayoutGrid,
   List,
-  Loader2,
   Play,
   Search,
   SlidersHorizontal,
   Sparkles,
   X,
 } from "lucide-react";
+import { ZendeSpinner } from "@/components/loading/zende-spinner";
+import { Button } from "@/components/ui/button";
 
 
 const source = BUILTIN_PLAYLIST_SOURCES[0]!;
@@ -54,7 +55,6 @@ const source = BUILTIN_PLAYLIST_SOURCES[0]!;
 const VIEW_STORAGE = "zende.libraryView";
 const LIBRARY_STATE_STORAGE = "zende.library.state.tv";
 const PAGE_STEP = 200;
-const DEFAULT_LANGUAGE_FILTER = "en";
 
 type FacetOption = { key: string; label: string; count: number };
 
@@ -71,14 +71,13 @@ function truncateFacet(value: string, max = 34): string {
 
 function orderedLanguageOptions(options: FacetOption[]): FacetOption[] {
   const byKey = new Map(options.map((option) => [option.key, option]));
-  const en = byKey.get("en") ?? { key: "en", label: "English (EN)", count: 0 };
-  const priority = ["fa", "pr", "ir"];
+  const priority = ["en", "multi", "ar", "fa"];
   const prioritized = priority
     .map((key) => byKey.get(key))
     .filter((option): option is FacetOption => Boolean(option));
-  const used = new Set(["en", ...priority]);
+  const used = new Set(priority);
   const rest = options.filter((option) => !used.has(option.key));
-  return [en, ...prioritized, ...rest];
+  return [...prioritized, ...rest];
 }
 
 export function TvLibraryPage() {
@@ -93,29 +92,28 @@ export function TvLibraryPage() {
     isSearchPending,
   } = useLibrarySearch(searchInputRef);
 
-  const [groupFilter, setGroupFilter] = useState<string | null>(() => {
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     try {
       const raw = sessionStorage.getItem(LIBRARY_STATE_STORAGE);
       if (!raw) return null;
-      const parsed = JSON.parse(raw) as { groupFilter?: string | null };
-      return typeof parsed.groupFilter === "string" ? parsed.groupFilter : null;
+      const parsed = JSON.parse(raw) as { categoryFilter?: string | null };
+      return typeof parsed.categoryFilter === "string" ? parsed.categoryFilter : null;
     } catch {
       return null;
     }
   });
   /** Lowercase language key from playlist `tvg-language` / `language` when present */
   const [languageFilter, setLanguageFilter] = useState<string | null>(() => {
-    if (typeof window === "undefined") return DEFAULT_LANGUAGE_FILTER;
+    if (typeof window === "undefined") return null;
     try {
       const raw = sessionStorage.getItem(LIBRARY_STATE_STORAGE);
-      if (!raw) return DEFAULT_LANGUAGE_FILTER;
+      if (!raw) return null;
       const parsed = JSON.parse(raw) as { languageFilter?: string | null };
       if (typeof parsed.languageFilter === "string") return parsed.languageFilter;
-      if (parsed.languageFilter === null) return null;
-      return DEFAULT_LANGUAGE_FILTER;
+      return null;
     } catch {
-      return DEFAULT_LANGUAGE_FILTER;
+      return null;
     }
   });
   const [countryFilter, setCountryFilter] = useState<string | null>(() => {
@@ -175,7 +173,7 @@ export function TvLibraryPage() {
       sessionStorage.setItem(
         LIBRARY_STATE_STORAGE,
         JSON.stringify({
-          groupFilter,
+          categoryFilter,
           languageFilter,
           countryFilter,
           yearFilter,
@@ -186,13 +184,14 @@ export function TvLibraryPage() {
     } catch {
       /* ignore */
     }
-  }, [groupFilter, languageFilter, countryFilter, yearFilter, offset, view]);
+  }, [categoryFilter, languageFilter, countryFilter, yearFilter, offset, view]);
 
   const { channels, total, facets, loading, refreshing, error: catalogError, hasMore } = useLibraryCatalog({
     presetId: source.presetId,
     contentTab,
     query: appliedQuery,
-    groupFilter,
+    groupFilter: null,
+    categoryFilter,
     languageFilter,
     countryFilter,
     yearFilter,
@@ -201,10 +200,7 @@ export function TvLibraryPage() {
   });
   const resultsBusy = loading || refreshing || isSearchPending;
 
-  const groupOptions = useMemo(
-    () => facets.groups.map((g) => [g.name, g.count] as const),
-    [facets.groups],
-  );
+  const categoryOptions = facets.categories;
 
   const languageOptions = useMemo(
     () => orderedLanguageOptions(facets.languages),
@@ -215,8 +211,8 @@ export function TvLibraryPage() {
 
   useEffect(() => {
     startTransition(() => {
-      setGroupFilter(null);
-      setLanguageFilter(DEFAULT_LANGUAGE_FILTER);
+      setCategoryFilter(null);
+      setLanguageFilter(null);
       setCountryFilter(null);
       setYearFilter(null);
       setOffset(0);
@@ -225,17 +221,20 @@ export function TvLibraryPage() {
 
   useEffect(() => {
     startTransition(() => setOffset(0));
-  }, [appliedQuery, groupFilter, languageFilter, countryFilter, yearFilter]);
+  }, [appliedQuery, categoryFilter, languageFilter, countryFilter, yearFilter]);
 
   const visible = channels;
   const filteredCount = total;
   const catalogTotal = total;
   const activeFilters = Boolean(
-    appliedQuery.trim() || groupFilter || languageFilter || countryFilter || yearFilter,
+    appliedQuery.trim() || categoryFilter || languageFilter || countryFilter || yearFilter,
   );
   const spotlightChannel = visible[0] ?? null;
   const spotlightLabel = spotlightChannel
     ? parseChannelLabel(spotlightChannel.name ?? "Untitled").displayName
+    : null;
+  const categoryLabel = categoryFilter
+    ? categoryOptions.find((option) => option.key === categoryFilter)?.label ?? categoryFilter
     : null;
   const languageLabel = languageFilter
     ? languageOptions.find((option) => option.key === languageFilter)?.label ?? languageFilter
@@ -248,7 +247,7 @@ export function TvLibraryPage() {
     : null;
   const activeFilterCount = [
     appliedQuery.trim(),
-    groupFilter,
+    categoryFilter,
     languageFilter,
     countryFilter,
     yearFilter,
@@ -329,7 +328,7 @@ export function TvLibraryPage() {
                 </p>
                 <p className="mt-0.5 text-[17px] font-semibold tracking-[-0.045em] text-white">
                   {resultsBusy ? (
-                    <Loader2 className="inline size-4 animate-spin" aria-hidden />
+                    <ZendeSpinner size="tiny" label="Updating results" />
                   ) : (
                     filteredCount.toLocaleString()
                   )}
@@ -434,14 +433,14 @@ export function TvLibraryPage() {
                 <label className="min-w-0">
                   <span className="sr-only">Category</span>
                   <select
-                    value={groupFilter ?? ""}
-                    onChange={(event) => setGroupFilter(event.target.value || null)}
+                    value={categoryFilter ?? ""}
+                    onChange={(event) => setCategoryFilter(event.target.value || null)}
                     className="h-12 w-full rounded-[20px] border border-white/[0.11] bg-black/42 px-3 text-[14px] font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
                   >
                     <option value="">All categories</option>
-                    {groupOptions.map(([name, count]) => (
-                      <option key={name} value={name}>
-                        {name} ({count.toLocaleString()})
+                    {categoryOptions.map(({ key, label, count }) => (
+                      <option key={key} value={key}>
+                        {label} ({count.toLocaleString()})
                       </option>
                     ))}
                   </select>
@@ -453,13 +452,8 @@ export function TvLibraryPage() {
                     onChange={(event) => setLanguageFilter(event.target.value || null)}
                     className="h-12 w-full rounded-[20px] border border-white/[0.11] bg-black/42 px-3 text-[14px] font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
                   >
-                    {languageOptions.slice(0, 1).map(({ key, label, count }) => (
-                      <option key={key} value={key}>
-                        {label} ({count.toLocaleString()})
-                      </option>
-                    ))}
                     <option value="">All languages</option>
-                    {languageOptions.slice(1).map(({ key, label, count }) => (
+                    {languageOptions.map(({ key, label, count }) => (
                       <option key={key} value={key}>
                         {label} ({count.toLocaleString()})
                       </option>
@@ -539,9 +533,9 @@ export function TvLibraryPage() {
                       “{truncateFacet(appliedQuery.trim(), 48)}”
                     </span>
                   ) : null}
-                  {groupFilter ? (
+                  {categoryLabel ? (
                     <span className="rounded-full bg-white/[0.08] px-3 py-1.5 text-[13px] font-semibold text-white/82">
-                      {truncateFacet(groupFilter)}
+                      {truncateFacet(categoryLabel)}
                     </span>
                   ) : null}
                   {languageLabel ? (
@@ -559,19 +553,19 @@ export function TvLibraryPage() {
                       {yearLabel}
                     </span>
                   ) : null}
-                  <button
+                  <Button
                     type="button"
                     onClick={() => {
                       clearSearch();
-                      setGroupFilter(null);
+                      setCategoryFilter(null);
                       setLanguageFilter(null);
                       setCountryFilter(null);
                       setYearFilter(null);
                     }}
-                    className="rounded-full border border-white/[0.12] bg-black/28 px-3 py-1.5 text-[13px] font-semibold text-white/68 outline-none hover:bg-white/[0.08] hover:text-white focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                    size="xs"
                   >
                     Clear
-                  </button>
+                  </Button>
                 </div>
               ) : null}
             </div>
@@ -650,17 +644,18 @@ export function TvLibraryPage() {
                 Try a shorter search, pick another category or language, or clear
                 filters.
               </p>
-              <button
+              <Button
                 type="button"
                 onClick={() => {
                   clearSearch();
-                  setGroupFilter(null);
+                  setCategoryFilter(null);
                   setLanguageFilter(null);
                 }}
-                className="mt-6 rounded-full bg-[var(--zen-frost)] px-6 py-2.5 text-[15px] font-semibold text-[var(--zen-void)] outline-none transition-transform hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                size="lg"
+                className="mt-6"
               >
                 Reset filters
-              </button>
+              </Button>
             </div>
           ) : view === "posters" ? (
             <div className="flex flex-col gap-6">
@@ -686,16 +681,16 @@ export function TvLibraryPage() {
               </div>
               {hasMore ? (
                 <div className="flex justify-center pb-4">
-                  <button
+                  <Button
                     type="button"
                     onClick={() =>
                       setOffset((n) => n + PAGE_STEP)
                     }
-                    className="rounded-full border border-white/[0.14] bg-white/[0.06] px-8 py-3 text-[15px] font-semibold text-white outline-none transition-colors hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                    size="lg"
                   >
                     Load more ({(filteredCount - visible.length).toLocaleString()}{" "}
                     left)
-                  </button>
+                  </Button>
                 </div>
               ) : filteredCount > PAGE_STEP ? (
                 <p className="pb-4 text-center text-[13px] text-white/35">
@@ -788,13 +783,13 @@ export function TvLibraryPage() {
               />
               {hasMore ? (
                 <div className="flex justify-center pt-4">
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setOffset((n) => n + PAGE_STEP)}
-                    className="rounded-full border border-white/[0.14] bg-white/[0.06] px-8 py-3 text-[15px] font-semibold text-white outline-none transition-colors hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                    size="lg"
                   >
                     Load more ({(filteredCount - visible.length).toLocaleString()} left)
-                  </button>
+                  </Button>
                 </div>
               ) : null}
             </div>

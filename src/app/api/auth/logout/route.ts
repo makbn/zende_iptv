@@ -6,6 +6,7 @@ import {
   revokeAllRefreshTokensForUser,
   revokeRefreshToken,
 } from "@/lib/auth/refresh-token-db";
+import { clearParentalUnlockCookie } from "@/lib/parental/parental-control-store";
 
 export const runtime = "nodejs";
 
@@ -36,5 +37,17 @@ export async function POST(request: Request) {
     await revokeRefreshToken(parsed.data.refreshToken);
   }
 
-  return NextResponse.json({ ok: true });
+  const response = NextResponse.json({ ok: true });
+  clearParentalUnlockCookie(response);
+  response.cookies.set("zende-prefer-modern", "", {
+    path: "/",
+    maxAge: 0,
+    sameSite: "lax",
+  });
+  for (const pair of (request.headers.get("cookie") ?? "").split(";")) {
+    const name = pair.split("=")[0]?.trim();
+    if (!name || !/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(name)) continue;
+    response.cookies.set(name, "", { path: "/", maxAge: 0, sameSite: "lax" });
+  }
+  return response;
 }

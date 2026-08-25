@@ -27,6 +27,7 @@ import {
   TV_BROWSE_TOP_PAD_CLASS,
 } from "@/components/tv/tv-top-bar";
 import { ZendeGlass } from "@/components/glass/zende-glass";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   CinematicCommandPanel,
   CinematicHero,
@@ -40,7 +41,8 @@ import { useChannelHealthLookup } from "@/features/health/use-channel-health";
 import { useEnrichedFavorites } from "@/features/iptv/use-enriched-favorites";
 import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
-import { contentTypeFromStreamUrl, resolveLibraryContentType } from "@/lib/channels/content-type";
+import { resolveLibraryContentType } from "@/lib/channels/content-type";
+import { secureImageUrl } from "@/lib/media/secure-image-url";
 import { cn } from "@/lib/utils";
 import {
   ArrowRight,
@@ -206,7 +208,7 @@ export function TvFavoritesPage() {
               <Link
                 href="/guide"
                 onClick={onNavigateClick("/guide")}
-                className="mt-5 inline-flex min-h-12 items-center justify-center rounded-full bg-[var(--zen-frost)] px-5 text-[15px] font-semibold text-[var(--zen-void)] outline-none transition-transform focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] motion-safe:hover:scale-[1.02]"
+                className={buttonVariants({ variant: "normal", size: "lg", className: "mt-5" })}
               >
                 Open TV guide
               </Link>
@@ -433,10 +435,7 @@ export function TvFavoritesPage() {
                 <Link
                   href="/library"
                   onClick={onNavigateClick("/library")}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-full bg-[var(--zen-frost)] px-7 py-3 text-[15px] font-semibold text-[var(--zen-void)]",
-                    "outline-none transition-[transform,box-shadow] hover:scale-[1.02] hover:shadow-lg focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
-                  )}
+                  className={buttonVariants({ variant: "normal", size: "lg" })}
                 >
                   Open Library
                   <ArrowRight className="size-4" aria-hidden />
@@ -460,16 +459,17 @@ export function TvFavoritesPage() {
               <p className="mt-2 max-w-sm text-[15px] leading-relaxed text-white/45">
                 Try another word, switch category, or clear filters.
               </p>
-              <button
+              <Button
                 type="button"
                 onClick={() => {
                   setQuery("");
                   setGroupFilter(null);
                 }}
-                className="mt-6 rounded-full bg-[var(--zen-frost)] px-6 py-2.5 text-[15px] font-semibold text-[var(--zen-void)] outline-none transition-transform hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                size="lg"
+                className="mt-6"
               >
                 Reset filters
-              </button>
+              </Button>
             </div>
           ) : view === "posters" ? (
             <div className="flex flex-col gap-8 lg:gap-10">
@@ -510,18 +510,18 @@ export function TvFavoritesPage() {
               </div>
               {hasMore ? (
                 <div className="flex justify-center pb-4">
-                  <button
+                  <Button
                     type="button"
                     onClick={() =>
                       setVisibleCount((n) => n + PAGE_STEP)
                     }
-                    className="rounded-full border border-white/[0.14] bg-white/[0.06] px-8 py-3 text-[15px] font-semibold text-white outline-none transition-colors hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                    size="lg"
                   >
                     Load more ({(
                       filtered.length - visible.length
                     ).toLocaleString()}{" "}
                     left)
-                  </button>
+                  </Button>
                 </div>
               ) : filtered.length > PAGE_STEP ? (
                 <p className="pb-4 text-center text-[13px] text-white/35">
@@ -584,7 +584,7 @@ export function TvFavoritesPage() {
                               <>
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
-                                  src={ch.tvgLogo}
+                                  src={secureImageUrl(ch.tvgLogo, undefined, "logo")}
                                   alt=""
                                   className="size-full object-contain p-1.5"
                                   loading="lazy"
@@ -633,15 +633,15 @@ export function TvFavoritesPage() {
               </ul>
               {hasMore ? (
                 <div className="flex justify-center pt-4">
-                  <button
+                  <Button
                     type="button"
                     onClick={() =>
                       setVisibleCount((n) => n + PAGE_STEP)
                     }
-                    className="rounded-full border border-white/[0.14] bg-white/[0.06] px-8 py-3 text-[15px] font-semibold text-white outline-none transition-colors hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                    size="lg"
                   >
                     Load more
-                  </button>
+                  </Button>
                 </div>
               ) : null}
             </div>

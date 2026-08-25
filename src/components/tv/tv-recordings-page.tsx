@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState, startTransition } from "react";
 
 import { ZendeGlass } from "@/components/glass/zende-glass";
+import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   CinematicCommandPanel,
   CinematicHero,
@@ -26,6 +28,7 @@ import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
 import { useChannelSearch } from "@/features/iptv/use-channel-search";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
+import { secureImageUrl } from "@/lib/media/secure-image-url";
 import { RECORDING_ENCODER_GONE_CODE } from "@/lib/recordings/recording-api-codes";
 import { cn } from "@/lib/utils";
 import {
@@ -33,7 +36,6 @@ import {
   CalendarClock,
   CircleStop,
   Download,
-  Loader2,
   Pencil,
   Play,
   Plus,
@@ -469,7 +471,7 @@ export function TvRecordingsPage() {
   if (!catalogLoaded) {
     return (
       <div className="zen-page-bg flex min-h-screen items-center justify-center pt-20 text-white/45">
-        <p className="text-[15px] font-medium">Loading…</p>
+        <ZendeLoadingState size="full" label="Loading recordings…" />
       </div>
     );
   }
@@ -662,7 +664,7 @@ export function TvRecordingsPage() {
                                   <span className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-white/[0.06] ring-1 ring-white/[0.08]">
                                     {ch.tvgLogo ? (
                                       <Image
-                                        src={ch.tvgLogo}
+                                        src={secureImageUrl(ch.tvgLogo, undefined, "logo")!}
                                         alt=""
                                         fill
                                         className="object-cover"
@@ -731,7 +733,7 @@ export function TvRecordingsPage() {
                             <span className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-white/[0.06] ring-1 ring-white/[0.08]">
                               {selected.tvgLogo ? (
                                 <Image
-                                  src={selected.tvgLogo}
+                                  src={secureImageUrl(selected.tvgLogo, undefined, "logo")!}
                                   alt=""
                                   fill
                                   className="object-cover"
@@ -827,25 +829,21 @@ export function TvRecordingsPage() {
                                 />
                               )}
                             </fieldset>
-                            <button
+                            <Button
                               type="button"
                               disabled={
                                 busy ||
                                 (overview !== null && !overview.ffmpegAvailable)
                               }
                               onClick={() => void submitSchedule()}
-                              className={cn(
-                                "inline-flex h-11 items-center justify-center rounded-xl px-5 text-[15px] font-semibold outline-none transition-colors",
-                                "bg-white text-black hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-45",
-                                "focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black",
-                              )}
+                              variant="success"
                             >
                               {busy ? (
-                                <Loader2 className="size-5 animate-spin" aria-hidden />
+                                <ZendeSpinner size="small" label="Adding schedule" />
                               ) : (
                                 "Add to schedule"
                               )}
-                            </button>
+                            </Button>
                           </div>
                         ) : null}
 
@@ -869,25 +867,21 @@ export function TvRecordingsPage() {
                                 )}
                               />
                             </div>
-                            <button
+                            <Button
                               type="button"
                               disabled={
                                 busy ||
                                 (overview !== null && !overview.ffmpegAvailable)
                               }
                               onClick={() => void submitNow()}
-                              className={cn(
-                                "inline-flex h-11 items-center justify-center rounded-xl px-5 text-[15px] font-semibold outline-none transition-colors",
-                                "bg-rose-500 text-white hover:bg-rose-500/90 disabled:cursor-not-allowed disabled:opacity-45",
-                                "focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2 focus-visible:ring-offset-black",
-                              )}
+                              variant="success"
                             >
                               {busy ? (
-                                <Loader2 className="size-5 animate-spin" aria-hidden />
+                                <ZendeSpinner size="small" label="Starting recording" />
                               ) : (
                                 "Start recording now"
                               )}
-                            </button>
+                            </Button>
                           </div>
                         ) : null}
                       </ZendeGlass>
@@ -895,13 +889,12 @@ export function TvRecordingsPage() {
                   </div>
 
                   <div className="shrink-0 border-t border-white/[0.08] bg-black/20 px-5 py-3 sm:px-6">
-                    <button
+                    <Button
                       type="button"
                       onClick={() => setStartRecordingDialogOpen(false)}
-                      className="rounded-xl border border-white/[0.12] bg-white/[0.06] px-5 py-2.5 text-[14px] font-medium text-white/75 outline-none hover:bg-white/[0.1] hover:text-white"
                     >
                       Close
-                    </button>
+                    </Button>
                   </div>
                 </ZendeGlass>
               </div>
@@ -968,18 +961,17 @@ export function TvRecordingsPage() {
                               }).format(new Date(r.plannedEndsAt))}
                             </p>
                           </div>
-                          <button
+                          <Button
                             type="button"
                             disabled={busy}
                             onClick={() => void stopRecording(r.id)}
-                            className={cn(
-                              "inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-white/[0.12] bg-black/40 px-3 py-2 text-[13px] font-semibold text-white outline-none",
-                              "hover:bg-black/55 disabled:opacity-45",
-                            )}
+                            variant="danger"
+                            size="sm"
+                            className="shrink-0"
                           >
                             <CircleStop className="size-4" aria-hidden />
                             Stop &amp; save
-                          </button>
+                          </Button>
                         </div>
                       </ZendeGlass>
                     </li>
@@ -1071,22 +1063,23 @@ export function TvRecordingsPage() {
                             )}
                           </div>
                           <div className="flex flex-wrap gap-2 md:col-span-2">
-                            <button
+                            <Button
                               type="button"
                               disabled={busy}
                               onClick={() => void saveEdit()}
-                              className="rounded-lg bg-white px-4 py-2 text-[14px] font-semibold text-black hover:bg-white/90 disabled:opacity-45"
+                              variant="success"
+                              size="sm"
                             >
                               Save changes
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                               type="button"
                               disabled={busy}
                               onClick={() => setEditingId(null)}
-                              className="rounded-lg border border-white/[0.12] px-4 py-2 text-[14px] font-medium text-white/80 hover:bg-white/[0.06] disabled:opacity-45"
+                              size="sm"
                             >
                               Discard
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       ) : (
@@ -1108,28 +1101,25 @@ export function TvRecordingsPage() {
                             </div>
                           </div>
                           <div className="flex shrink-0 flex-wrap gap-2">
-                            <button
+                            <Button
                               type="button"
                               disabled={busy}
                               onClick={() => beginEdit(s)}
-                              className={cn(
-                                "inline-flex items-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.05] px-3 py-2 text-[13px] font-semibold text-white/90 outline-none hover:bg-white/[0.09] disabled:opacity-45",
-                              )}
+                              size="sm"
                             >
                               <Pencil className="size-3.5" aria-hidden />
                               Edit
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                               type="button"
                               disabled={busy}
                               onClick={() => void cancelSchedule(s.id)}
-                              className={cn(
-                                "inline-flex items-center gap-1.5 rounded-lg border border-red-400/25 bg-red-500/10 px-3 py-2 text-[13px] font-semibold text-red-100 outline-none hover:bg-red-500/15 disabled:opacity-45",
-                              )}
+                              variant="danger"
+                              size="sm"
                             >
                               <Trash2 className="size-3.5" aria-hidden />
                               Cancel
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       )}
@@ -1148,10 +1138,7 @@ export function TvRecordingsPage() {
               Finished recordings
             </h2>
             {!overview ? (
-              <p className="mt-4 flex items-center gap-2 text-[15px] text-white/45">
-                <Loader2 className="size-4 animate-spin" aria-hidden />
-                Loading library…
-              </p>
+              <ZendeLoadingState className="mt-4 items-start text-left" size="small" label="Loading recording library…" />
             ) : overview.library.length === 0 ? (
               <p className="mt-4 text-[15px] text-white/45">
                 Finished recordings and failed captures appear here. Failed rows
@@ -1174,7 +1161,7 @@ export function TvRecordingsPage() {
                         <span className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-white/[0.06] ring-1 ring-white/[0.08]">
                           {item.channelLogo ? (
                             <Image
-                              src={item.channelLogo}
+                              src={secureImageUrl(item.channelLogo, undefined, "logo")!}
                               alt=""
                               fill
                               className="object-cover"
@@ -1235,42 +1222,34 @@ export function TvRecordingsPage() {
                         ) : (
                           <Link
                             href={`/watch?recording=${encodeURIComponent(item.id)}`}
-                            className={cn(
-                              "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-[14px] font-semibold outline-none",
-                              "border border-emerald-400/30 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25",
-                            )}
+                            className={buttonVariants({ variant: "success", size: "sm" })}
                           >
                             <Play className="size-4" aria-hidden />
                             Play
                           </Link>
                         )}
-                        <button
+                        <Button
                           type="button"
                           disabled={busy || isFailed}
                           onClick={() => void downloadRecording(item)}
-                          className={cn(
-                            "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-[14px] font-semibold outline-none",
-                            "border border-white/[0.12] bg-white/[0.08] text-white hover:bg-white/[0.12] disabled:opacity-45",
-                          )}
+                          size="sm"
                         >
                           <Download className="size-4" aria-hidden />
                           Download MP4
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
                           disabled={busy}
                           onClick={() => {
                             setLibraryDeleteError(null);
                             setLibraryDeleteTarget(item);
                           }}
-                          className={cn(
-                            "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-[14px] font-semibold outline-none",
-                            "border border-red-400/25 bg-red-500/10 text-red-100 hover:bg-red-500/15 disabled:opacity-45",
-                          )}
+                          variant="danger"
+                          size="sm"
                         >
                           <Trash2 className="size-4" aria-hidden />
                           Remove
-                        </button>
+                        </Button>
                       </div>
                     </ZendeGlass>
                   </li>
@@ -1346,30 +1325,29 @@ export function TvRecordingsPage() {
                 <p className="mt-3 text-[14px] text-red-300">{libraryDeleteError}</p>
               ) : null}
               <div className="mt-6 flex flex-wrap justify-end gap-3">
-                <button
+                <Button
                   type="button"
                   disabled={busy}
-                  className="rounded-xl border border-white/[0.12] bg-white/[0.06] px-5 py-2.5 text-[14px] font-medium text-white/75 hover:bg-white/[0.1] disabled:opacity-45"
                   onClick={() => {
                     setLibraryDeleteTarget(null);
                     setLibraryDeleteError(null);
                   }}
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   disabled={busy}
                   onClick={() => void confirmDeleteLibraryRecording()}
-                  className="inline-flex items-center gap-2 rounded-xl border border-red-400/30 bg-red-500/20 px-5 py-2.5 text-[14px] font-semibold text-red-100 hover:bg-red-500/30 disabled:opacity-45"
+                  variant="danger"
                 >
                   {busy ? (
-                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                    <ZendeSpinner size="tiny" label="Removing recording" />
                   ) : (
                     <Trash2 className="size-4" aria-hidden />
                   )}
                   Remove from server
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -1435,30 +1413,29 @@ export function TvRecordingsPage() {
                 <p className="mt-3 text-[14px] text-red-300">{stuckStopError}</p>
               ) : null}
               <div className="mt-6 flex flex-wrap justify-end gap-3">
-                <button
+                <Button
                   type="button"
                   disabled={busy}
-                  className="rounded-xl border border-white/[0.12] bg-white/[0.06] px-5 py-2.5 text-[14px] font-medium text-white/75 hover:bg-white/[0.1] disabled:opacity-45"
                   onClick={() => {
                     setStuckStopDialog(null);
                     setStuckStopError(null);
                   }}
                 >
                   Close
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   disabled={busy}
                   onClick={() => void forceRemoveStuckRecording()}
-                  className="inline-flex items-center gap-2 rounded-xl border border-amber-400/35 bg-amber-500/20 px-5 py-2.5 text-[14px] font-semibold text-amber-100 hover:bg-amber-500/30 disabled:opacity-45"
+                  variant="danger"
                 >
                   {busy ? (
-                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                    <ZendeSpinner size="tiny" label="Removing stuck recording" />
                   ) : (
                     <Trash2 className="size-4" aria-hidden />
                   )}
                   Force remove from list
-                </button>
+                </Button>
               </div>
             </div>
           </div>

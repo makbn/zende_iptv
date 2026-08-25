@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { parseM3u, type M3uChannel } from "@/core/playlist/m3u-parse";
 import { withApiLogging } from "@/core/logging/api-log";
-import { gateApiRequest } from "@/lib/auth/gate-api";
+import { forbidCustomerSystemMutation, gateApiRequest } from "@/lib/auth/gate-api";
 import type { ManualChannelsGate } from "@/lib/channels/manual-channels-policy";
 import { persistManualChannelsBatch } from "@/lib/channels/persist-manual-channels";
 import {
@@ -260,6 +260,8 @@ export async function POST(request: Request) {
   return withApiLogging("api.playlists.import", request, async (log) => {
     const gate = await gateApiRequest(request);
     if ("response" in gate) return gate.response;
+    const forbidden = forbidCustomerSystemMutation(gate);
+    if (forbidden) return forbidden;
 
     let payload: unknown;
     try {

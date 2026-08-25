@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
+import { createPortal } from "react-dom";
 
 import { ZendeGlass } from "@/components/glass/zende-glass";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { ZendeSpinner } from "@/components/loading/zende-spinner";
 
 type Props = {
   open: boolean;
@@ -29,6 +31,8 @@ export function ConfirmDialog({
   onCancel,
 }: Props) {
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
 
   useEffect(() => {
     if (!open) return;
@@ -37,66 +41,66 @@ export function ConfirmDialog({
     };
     window.addEventListener("keydown", onKey);
     cancelRef.current?.focus();
-    return () => window.removeEventListener("keydown", onKey);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+    };
   }, [open, onCancel]);
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[400] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+      className="zende-confirm-layer"
       role="presentation"
       onClick={onCancel}
     >
       <div
         role="alertdialog"
         aria-modal="true"
-        aria-labelledby="confirm-dialog-title"
-        aria-describedby="confirm-dialog-desc"
-        className="w-full max-w-md"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+        className="zende-confirm-panel"
         onClick={(e) => e.stopPropagation()}
       >
         <ZendeGlass variant="panelCompact" className="rounded-2xl border-white/10">
           <div className="px-5 py-5">
             <h2
-              id="confirm-dialog-title"
+              id={titleId}
               className="text-[18px] font-semibold text-white"
             >
               {title}
             </h2>
             <p
-              id="confirm-dialog-desc"
+              id={descriptionId}
               className="mt-2 text-[15px] leading-relaxed text-white/55"
             >
               {description}
             </p>
             <div className="mt-5 flex flex-wrap justify-end gap-2">
-              <button
+              <Button
                 ref={cancelRef}
                 type="button"
                 disabled={busy}
                 onClick={onCancel}
-                className="min-h-11 rounded-xl border border-white/12 bg-white/6 px-4 text-[14px] font-semibold text-white outline-none hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white disabled:opacity-45"
               >
                 {cancelLabel}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant={destructive ? "danger" : "success"}
                 disabled={busy}
                 onClick={onConfirm}
-                className={cn(
-                  "min-h-11 rounded-xl px-4 text-[14px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-45",
-                  destructive
-                    ? "bg-red-500/90 text-white hover:bg-red-500"
-                    : "bg-white text-zinc-950 hover:shadow-md",
-                )}
               >
-                {busy ? "Working…" : confirmLabel}
-              </button>
+                {busy ? <><ZendeSpinner size="tiny" label="Working" /> Working…</> : confirmLabel}
+              </Button>
             </div>
           </div>
         </ZendeGlass>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

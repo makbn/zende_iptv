@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { ZendeGlass } from "@/components/glass/zende-glass";
+import { Button } from "@/components/ui/button";
 import { clearAllFavorites } from "@/lib/favorites/favorites-store";
 import { clearViewingHistory } from "@/lib/watch/viewing-stats";
 import { cn } from "@/lib/utils";
@@ -11,15 +11,20 @@ import { cn } from "@/lib/utils";
 export function TvPersonalLibraryCard() {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmKind, setConfirmKind] = useState<"favorites" | "history" | null>(null);
 
-  const resetPersonalData = useCallback(async () => {
+  const resetPersonalData = useCallback(async (kind: "favorites" | "history") => {
     setBusy(true);
     setStatus(null);
     try {
-      await Promise.all([clearViewingHistory(), clearAllFavorites()]);
-      setStatus("Recently watched and favorites cleared.");
-      setConfirmOpen(false);
+      if (kind === "favorites") {
+        await clearAllFavorites();
+        setStatus("Favorites cleared.");
+      } else {
+        await clearViewingHistory();
+        setStatus("Recently watched cleared.");
+      }
+      setConfirmKind(null);
     } catch {
       setStatus("Could not clear everything — try again.");
     } finally {
@@ -47,18 +52,22 @@ export function TvPersonalLibraryCard() {
       </p>
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
-        <button
+        <Button
           type="button"
+          variant="danger"
           disabled={busy}
-          onClick={() => setConfirmOpen(true)}
-          className="outline-none disabled:opacity-50"
+          onClick={() => setConfirmKind("favorites")}
         >
-          <ZendeGlass variant="heroSecondary" className="inline-block">
-            <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-white">
-              {busy ? "Clearing…" : "Clear recently watched & favorites"}
-            </span>
-          </ZendeGlass>
-        </button>
+          {busy ? "Clearing…" : "Clear favorites"}
+        </Button>
+        <Button
+          type="button"
+          variant="danger"
+          disabled={busy}
+          onClick={() => setConfirmKind("history")}
+        >
+          {busy ? "Clearing…" : "Clear recently watched"}
+        </Button>
       </div>
 
       {status ? (
@@ -75,15 +84,21 @@ export function TvPersonalLibraryCard() {
       ) : null}
 
       <ConfirmDialog
-        open={confirmOpen}
-        title="Clear recently watched and favorites?"
-        description="This removes your watch history and saved channels on this account. It cannot be undone."
-        confirmLabel="Clear all"
+        open={confirmKind !== null}
+        title={confirmKind === "favorites" ? "Clear all favorites?" : "Clear recently watched?"}
+        description={
+          confirmKind === "favorites"
+            ? "This removes every saved channel and media item from your account. Your watch history is kept."
+            : "This removes your viewing history and resume positions. Your favorites are kept."
+        }
+        confirmLabel={confirmKind === "favorites" ? "Clear favorites" : "Clear history"}
         destructive
         busy={busy}
-        onConfirm={() => void resetPersonalData()}
+        onConfirm={() => {
+          if (confirmKind) void resetPersonalData(confirmKind);
+        }}
         onCancel={() => {
-          if (!busy) setConfirmOpen(false);
+          if (!busy) setConfirmKind(null);
         }}
       />
     </section>

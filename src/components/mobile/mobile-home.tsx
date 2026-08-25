@@ -12,10 +12,11 @@ import {
 import { TvContinueEmpty } from "@/components/tv/tv-continue-empty";
 import { MobileChannelCard } from "@/components/mobile/mobile-channel-card";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { useChannelHealthLookup } from "@/features/health/use-channel-health";
-import { ZendeLogoWave } from "@/components/loading/zende-logo-wave";
+import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
 import { useCatalogMeta } from "@/features/iptv/catalog-context";
 import { useContinueWatchingItems } from "@/features/iptv/use-continue-watching";
 import { useHomeCatalogShelves } from "@/features/iptv/use-home-catalog-shelves";
@@ -246,8 +247,7 @@ export function MobileHome() {
   if (!catalogLoaded) {
     return (
       <div className="zen-page-bg flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-white/45">
-        <ZendeLogoWave size="md" />
-        <p className="sr-only">Loading</p>
+        <ZendeLoadingState size="full" label="Loading home" />
       </div>
     );
   }
@@ -259,14 +259,13 @@ export function MobileHome() {
         <p className="max-w-sm text-[21px] font-semibold tracking-[-0.04em] text-white">
           Could not reach the catalog server.
         </p>
-        <button
+        <Button
           type="button"
           disabled={busy}
           onClick={() => void refreshCatalog()}
-          className="min-h-[46px] rounded-full bg-[var(--zen-frost)] px-5 text-[14px] font-semibold text-[var(--zen-void)] disabled:opacity-45"
         >
-          {busy ? "Retrying…" : "Retry"}
-        </button>
+          {busy ? <><ZendeSpinner size="tiny" label="Retrying" /> Retrying…</> : "Retry"}
+        </Button>
       </div>
     );
   }
@@ -302,7 +301,7 @@ export function MobileHome() {
               {hero.primaryLabel}
             </CinematicButton>
             <CinematicButton
-              variant="secondary"
+              variant="normal"
               onClick={handleSecondary}
               disabled={busy}
             >
@@ -410,19 +409,19 @@ export function MobileHome() {
               <Link
                 href="/library"
                 onClick={onNavigateClick("/library")}
-                className="zen-pressable flex min-h-[46px] items-center justify-center rounded-xl bg-white text-[14px] font-semibold text-zinc-950 outline-none transition-shadow hover:shadow-md hover:shadow-black/20 focus-visible:ring-2 focus-visible:ring-white"
+                className={buttonVariants({ variant: "normal", className: "w-full" })}
               >
                 Open Library
               </Link>
-              <button
+              <Button
                 type="button"
                 disabled={busy}
                 onClick={() => void refreshCatalog()}
-                className="zen-pressable flex min-h-[46px] items-center justify-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] text-[14px] font-semibold text-white outline-none transition-colors hover:bg-white/[0.1] disabled:opacity-45 focus-visible:ring-2 focus-visible:ring-white"
+                className="w-full"
               >
                 <RefreshCw className="size-4" aria-hidden />
                 {busy ? "Updating" : "Refresh"}
-              </button>
+              </Button>
             </div>
           </div>
         </section>

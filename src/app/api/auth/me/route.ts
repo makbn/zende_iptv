@@ -30,11 +30,12 @@ export async function GET(request: Request) {
       id: true,
       username: true,
       role: true,
+      isDisabled: true,
       isBootstrapAdmin: true,
     },
   });
 
-  if (!user || user.username !== payload.username) {
+  if (!user || user.isDisabled || user.username !== payload.username) {
     return NextResponse.json({ authEnabled: true, user: null });
   }
 

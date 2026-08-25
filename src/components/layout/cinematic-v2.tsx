@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { BROWSE_CONTAINER_CLASS } from "@/components/layout/browse-page-shell";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type CinematicPageProps = {
@@ -157,30 +158,21 @@ export function CinematicActionRow({
 
 export function CinematicButton({
   children,
-  variant = "primary",
+  variant = "normal",
   className,
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "ghost" | "danger";
+  variant?: "normal" | "success" | "danger";
 }) {
   return (
-    <button
-      className={cn(
-        "inline-flex min-h-12 items-center justify-center rounded-full px-5 text-[15px] font-semibold outline-none transition-[transform,background-color,border-color,box-shadow] duration-200 focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] disabled:pointer-events-none disabled:opacity-45 motion-safe:active:scale-[0.98]",
-        variant === "primary" &&
-          "bg-[var(--zen-frost)] text-[var(--zen-void)] shadow-[0_18px_48px_-24px_rgba(56,217,255,0.6)] hover:bg-white/90",
-        variant === "secondary" &&
-          "border border-white/[0.14] bg-white/[0.07] text-white hover:bg-white/[0.12]",
-        variant === "ghost" &&
-          "text-white/68 hover:bg-white/[0.08] hover:text-white",
-        variant === "danger" &&
-          "border border-red-300/25 bg-red-500/12 text-red-50 hover:bg-red-500/18",
-        className,
-      )}
+    <Button
+      variant={variant}
+      size="lg"
+      className={cn("motion-safe:active:scale-[0.98]", className)}
       {...props}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 

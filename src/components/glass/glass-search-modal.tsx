@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { ArrowRight, Search, Sparkles } from "lucide-react";
 
 import { ZendeGlass } from "@/components/glass/zende-glass";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { useRemoteControl } from "@/features/remote/remote-control-context";
 import { cn } from "@/lib/utils";
 
@@ -134,13 +135,14 @@ export function GlassSearchModal({ open, onClose }: Props) {
                 </span>
               </div>
               <div className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto]">
-                <button
+                <Button
                   type="submit"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[var(--zen-frost)] px-5 text-[15px] font-semibold text-[var(--zen-void)] transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                  variant="success"
+                  size="lg"
                 >
                   Show results
                   <ArrowRight className="size-4" aria-hidden />
-                </button>
+                </Button>
                 <Link
                   href="/library#grid"
                   onClick={(event) => {
@@ -152,7 +154,7 @@ export function GlassSearchModal({ open, onClose }: Props) {
                     onClose();
                     void remote.sendNavigate("/library#grid");
                   }}
-                  className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/[0.18] px-5 text-[15px] font-semibold text-white/85 transition-colors hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                  className={buttonVariants({ variant: "normal", size: "lg" })}
                 >
                   Browse all
                 </Link>

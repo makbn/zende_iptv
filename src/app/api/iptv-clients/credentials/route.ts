@@ -3,9 +3,10 @@ import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { gateApiRequest } from "@/lib/auth/gate-api";
+import { forbidCustomerSystemMutation, gateApiRequest } from "@/lib/auth/gate-api";
 import { hashPassword } from "@/lib/auth/password";
 import { prisma } from "@/lib/db/prisma";
+import { THREADFIN_PORTAL_USERNAME } from "@/lib/threadfin/config";
 
 export const runtime = "nodejs";
 
@@ -51,6 +52,8 @@ async function listFilter(
 /** Manage Xtream-compatible portal identities (stored secret is hashed; plaintext is revealed only once on create). */
 export async function GET(request: Request) {
   const gate = await gateApiRequest(request);
+  const forbidden = forbidCustomerSystemMutation(gate);
+  if (forbidden) return forbidden;
   const flt = await listFilter(gate);
   if (!flt.ok) return flt.response;
 
@@ -60,28 +63,32 @@ export async function GET(request: Request) {
           orderBy: { createdAt: "desc" },
           include: { owner: { select: { username: true } } },
         })
-      ).map((r) => ({
-        id: r.id,
-        label: r.label,
-        portalUsername: r.portalUsername,
-        createdAt: r.createdAt.toISOString(),
-        lastUsedAt: r.lastUsedAt?.toISOString() ?? null,
-        ownerUserId: r.ownerUserId,
-        ownerUsername: r.owner?.username ?? null,
-      }))
+      )
+        .filter((r) => r.portalUsername !== THREADFIN_PORTAL_USERNAME)
+        .map((r) => ({
+          id: r.id,
+          label: r.label,
+          portalUsername: r.portalUsername,
+          createdAt: r.createdAt.toISOString(),
+          lastUsedAt: r.lastUsedAt?.toISOString() ?? null,
+          ownerUserId: r.ownerUserId,
+          ownerUsername: r.owner?.username ?? null,
+        }))
     : (
         await prisma.iptvClientCredential.findMany({
           where: flt.filter.where,
           orderBy: { createdAt: "desc" },
         })
-      ).map((r) => ({
-        id: r.id,
-        label: r.label,
-        portalUsername: r.portalUsername,
-        createdAt: r.createdAt.toISOString(),
-        lastUsedAt: r.lastUsedAt?.toISOString() ?? null,
-        ownerUserId: r.ownerUserId,
-      }));
+      )
+        .filter((r) => r.portalUsername !== THREADFIN_PORTAL_USERNAME)
+        .map((r) => ({
+          id: r.id,
+          label: r.label,
+          portalUsername: r.portalUsername,
+          createdAt: r.createdAt.toISOString(),
+          lastUsedAt: r.lastUsedAt?.toISOString() ?? null,
+          ownerUserId: r.ownerUserId,
+        }));
 
   return NextResponse.json({ credentials });
 }
@@ -89,6 +96,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const gate = await gateApiRequest(request);
   if ("response" in gate) return gate.response;
+  const forbidden = forbidCustomerSystemMutation(gate);
+  if (forbidden) return forbidden;
 
   let json: unknown;
   try {

@@ -1,7 +1,7 @@
 "use client";
 
-import { useVirtualizer } from "@tanstack/react-virtual";
-import { useRef, type ReactNode } from "react";
+import { useVirtualizer, useWindowVirtualizer } from "@tanstack/react-virtual";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -59,7 +59,8 @@ export function VirtualChannelList<T>({
 
 type VirtualGridProps<T> = {
   items: T[];
-  columnCount: number;
+  /** Minimum column width in px — used to auto-compute column count. */
+  columnWidth?: number;
   rowHeight: number;
   gap?: number;
   className?: string;
@@ -67,27 +68,47 @@ type VirtualGridProps<T> = {
   getKey: (item: T, index: number) => string;
 };
 
-/** Virtualized poster/compact grid (fixed row height). */
+/** Virtualized responsive poster grid using window scroll. */
 export function VirtualChannelGrid<T>({
   items,
-  columnCount,
+  columnWidth = 195,
   rowHeight,
   gap = 12,
   className,
   renderItem,
   getKey,
 }: VirtualGridProps<T>) {
-  const parentRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [columnCount, setColumnCount] = useState(1);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const updateCols = () => {
+      const width = el.offsetWidth;
+      const cols = Math.max(1, Math.floor((width + gap) / (columnWidth + gap)));
+      setColumnCount(cols);
+    };
+
+    updateCols();
+
+    const observer = new ResizeObserver(updateCols);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [columnWidth, gap]);
+
   const rowCount = Math.ceil(items.length / columnCount);
-  const virtualizer = useVirtualizer({
+
+  const virtualizer = useWindowVirtualizer({
     count: rowCount,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => rowHeight + gap,
+    estimateSize: useCallback(() => rowHeight + gap, [rowHeight, gap]),
     overscan: 3,
+    scrollMargin: containerRef.current?.offsetTop ?? 0,
   });
 
   return (
-    <div ref={parentRef} className={cn("max-h-[min(75vh,800px)] overflow-y-auto", className)}>
+    <div ref={containerRef} className={className}>
       <div
         className="relative w-full"
         style={{ height: `${virtualizer.getTotalSize()}px` }}
@@ -98,11 +119,12 @@ export function VirtualChannelGrid<T>({
           return (
             <div
               key={`row-${row.index}`}
-              className="absolute left-0 top-0 grid w-full gap-3"
+              className="absolute left-0 top-0 grid w-full"
               style={{
                 height: `${rowHeight}px`,
-                transform: `translateY(${row.start}px)`,
+                transform: `translateY(${row.start - virtualizer.options.scrollMargin}px)`,
                 gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
+                gap: `${gap}px`,
               }}
             >
               {rowItems.map((item, col) =>

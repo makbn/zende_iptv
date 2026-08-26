@@ -1,14 +1,6 @@
 "use client";
 
 import { Button } from "@appica/ui-react/button";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardMedia,
-  CardTitle,
-} from "@appica/ui-react/card";
-
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@appica/ui-react/context-menu";
 import type { KeyboardEvent } from "react";
 import { ListMinus, Play, Star, Tv } from "lucide-react";
@@ -23,7 +15,6 @@ import {
   gradientFromChannelName,
   sanitizeGroupTitle,
 } from "@/components/channels/channel-presentation";
-import { tvTileFocusClass } from "@/components/tv/tv-focus";
 import type { HealthScoreDto } from "@/features/health/use-channel-health";
 import { channelArtBadgeLabel, parseChannelLabel } from "@/lib/channel/channel-label";
 import { resolveLibraryContentType } from "@/lib/channels/content-type";
@@ -60,7 +51,6 @@ export function TvChannelTile({
   channel,
   onSelect,
   onPreview,
-  fastMode = true,
   healthScore,
   className,
   showFavoriteStar = true,
@@ -81,57 +71,55 @@ export function TvChannelTile({
   };
 
   const fillsGridCell = className?.includes("poster-grid__tile");
-  const articleClass = cn(
-    "group relative snap-start",
-    fillsGridCell ? "w-full min-w-0" : "w-[178px] shrink-0 sm:w-[214px]",
-    className,
-  );
 
-  const shell = (
-    <>
-      {/* div[role=button]: avoids invalid <Button variant="ghost"> nesting if badge/star tooling renders controls */}
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={open}
-        onKeyDown={onTileKeyDown}
-        aria-label={`Play ${label}`}
-        className={cn(
-          "block w-full cursor-pointer text-left",
-          tvTileFocusClass(),
+  const tileContent = (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={open}
+      onKeyDown={onTileKeyDown}
+      aria-label={`Play ${label}`}
+      className={cn(
+        "group relative flex w-full cursor-pointer flex-col overflow-hidden rounded-xl border border-border bg-background-subtle text-left snap-start",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+        fillsGridCell ? "min-w-0" : "w-[178px] shrink-0 sm:w-[214px]",
+        className,
+      )}
+    >
+      <div className="relative aspect-[2/3] w-full overflow-hidden bg-background-muted">
+        {channel.tvgLogo ? (
+          <ChannelLogo
+            name={label}
+            logoUrl={channel.tvgLogo}
+            fit="cover"
+            aspect="fill"
+          />
+        ) : (
+          <div
+            className="absolute inset-0 flex items-center justify-center p-4"
+            style={{ background: gradientFromName(label) }}
+          >
+            <span className="text-center text-sm font-semibold leading-snug text-foreground-intense">
+              {label}
+            </span>
+          </div>
         )}
-      >
-        <Card frame="solid" inset>
-          <CardMedia className="aspect-[2/3] bg-background-muted">
-            {channel.tvgLogo ? (
-              <ChannelLogo
-                name={label}
-                logoUrl={channel.tvgLogo}
-                fit="cover"
-                aspect="fill"
-              />
-            ) : (
-              <div
-                className="absolute inset-0 flex items-center justify-center p-6"
-                style={{ background: gradientFromName(label) }}
-              >
-                <span className="text-center text-sm font-semibold leading-snug text-foreground-intense">
-                  {label}
-                </span>
-              </div>
-            )}
-            {contentType === "live" ? (
-              <div className="absolute left-2 top-2 z-10">
-                <ChannelHealthBadge score={healthScore} />
-              </div>
-            ) : null}
-          </CardMedia>
-          <CardHeader className="min-h-24">
-            <CardTitle className="line-clamp-2 text-base">{label}</CardTitle>
-            {meta ? <CardDescription className="truncate">{meta}</CardDescription> : null}
-          </CardHeader>
-        </Card>
+        {contentType === "live" ? (
+          <div className="absolute left-2 top-2 z-10">
+            <ChannelHealthBadge score={healthScore} />
+          </div>
+        ) : null}
       </div>
+
+      <div className="flex min-h-[4.5rem] flex-col justify-center p-3">
+        <h3 className="line-clamp-2 text-sm font-medium leading-tight text-foreground-intense">
+          {label}
+        </h3>
+        {meta ? (
+          <p className="mt-1 truncate text-xs text-foreground-muted">{meta}</p>
+        ) : null}
+      </div>
+
       {(channelArtBadgeLabel(parsed, contentType) || showFavoriteStar) ? (
         <div className="pointer-events-none absolute right-2 top-2 z-20 flex flex-col items-end gap-1">
           {channelArtBadgeLabel(parsed, contentType) ? (
@@ -146,9 +134,11 @@ export function TvChannelTile({
           ) : null}
         </div>
       ) : null}
+
       {onPreview ? (
         <div className="pointer-events-auto absolute bottom-4 right-4 z-20">
-          <Button variant="secondary"
+          <Button
+            variant="secondary"
             size="sm"
             type="button"
             onClick={(e) => {
@@ -163,64 +153,56 @@ export function TvChannelTile({
           </Button>
         </div>
       ) : null}
-    </>
+    </div>
   );
 
   if (!contextMenu) {
-    return (
-      <article className={articleClass}>
-        {shell}
-      </article>
-    );
+    return tileContent;
   }
 
   const { onPlay, onAddFavorite, onRemoveFromRecent } = contextMenu;
 
   return (
     <ContextMenu>
-      <article className={articleClass}>
-        <ContextMenuTrigger className="relative block w-full outline-none">
-          {shell}
-        </ContextMenuTrigger>
-      </article>
-      <>
-        <ContextMenuContent className="z-[100]" sideOffset={8}>
+      <ContextMenuTrigger className="block w-full outline-none">
+        {tileContent}
+      </ContextMenuTrigger>
+      <ContextMenuContent className="z-[100]" sideOffset={8}>
+        <div>
           <div>
-            <div>
-              <ContextMenuItem
-                className={cn(
-                  "flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground-intense outline-none",
-                  "data-[highlighted]:bg-background-muted",
-                )}
-                onClick={onPlay}
-              >
-                <Play className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
-                Play
-              </ContextMenuItem>
-              <ContextMenuItem
-                className={cn(
-                  "flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground-intense outline-none",
-                  "data-[highlighted]:bg-background-muted",
-                )}
-                onClick={onAddFavorite}
-              >
-                <Star className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
-                Add to favorites
-              </ContextMenuItem>
-              <ContextMenuItem
-                className={cn(
-                  "flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground-intense outline-none",
-                  "data-[highlighted]:bg-background-muted",
-                )}
-                onClick={onRemoveFromRecent}
-              >
-                <ListMinus className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
-                Remove from recently watched
-              </ContextMenuItem>
-            </div>
+            <ContextMenuItem
+              className={cn(
+                "flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground-intense outline-none",
+                "data-[highlighted]:bg-background-muted",
+              )}
+              onClick={onPlay}
+            >
+              <Play className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
+              Play
+            </ContextMenuItem>
+            <ContextMenuItem
+              className={cn(
+                "flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground-intense outline-none",
+                "data-[highlighted]:bg-background-muted",
+              )}
+              onClick={onAddFavorite}
+            >
+              <Star className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
+              Add to favorites
+            </ContextMenuItem>
+            <ContextMenuItem
+              className={cn(
+                "flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground-intense outline-none",
+                "data-[highlighted]:bg-background-muted",
+              )}
+              onClick={onRemoveFromRecent}
+            >
+              <ListMinus className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
+              Remove from recently watched
+            </ContextMenuItem>
           </div>
-        </ContextMenuContent>
-      </>
+        </div>
+      </ContextMenuContent>
     </ContextMenu>
   );
 }

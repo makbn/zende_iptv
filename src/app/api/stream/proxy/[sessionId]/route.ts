@@ -49,6 +49,7 @@ import {
   getSharedRootPin,
   rememberSharedRootPin,
 } from "@/lib/stream/shared-root-pin-cache";
+import { createResilientUpstream } from "@/lib/stream/resilient-upstream";
 
 export const runtime = "nodejs";
 
@@ -1125,8 +1126,43 @@ export async function GET(
       h.set("Content-Disposition", `attachment; filename="${filename}"`);
       h.set("Cache-Control", "private, no-store");
     }
+    const isLiveTsResilience = isRootBootstrap && isOpenEndedLiveMpegTsUrl(fetchUrl) && !asDownload && session.title !== DVR_RECORDING_SESSION_TITLE;
+
+    let responseBody: ReadableStream<Uint8Array> = upstream.body;
+    if (isLiveTsResilience) {
+      log.info("wrapping mpeg-ts passthrough with resilient upstream", { sessionId, fetchUrl: safeUrl(fetchUrl) });
+      const resilientFetch = async () => {
+        const result = await fetchFollowingRedirects(
+          fetchUrl,
+          baseHeaders,
+          cookieJar,
+          AbortSignal.timeout(fetchTimeoutMs),
+          proxyAgent
+        );
+        if (!result.response.ok || !result.response.body) {
+          result.response.body?.cancel().catch(() => {});
+          throw new Error(`Upstream returned ${result.response.status}`);
+        }
+        if (result.jarUpdated) {
+          void persistCookieJar(sessionId, cookieJar);
+        }
+        return result.response.body;
+      };
+
+      responseBody = createResilientUpstream({
+        fetchUpstream: resilientFetch,
+        maxConsecutiveFailures: 5,
+        initialBackoffMs: 50,
+        maxBackoffMs: 500,
+        label: sessionId,
+        initialStream: upstream.body,
+      });
+      
+      h.delete("content-length");
+    }
+
     if (cacheLease) {
-      const [clientBody, cacheBody] = upstream.body.tee();
+      const [clientBody, cacheBody] = responseBody.tee();
       h.set("X-Zende-Stream-Cache", "MISS");
       setCacheDiagnostics(h, "MISS", responseCacheId);
       void readSharedCacheBody(cacheBody)
@@ -1141,7 +1177,7 @@ export async function GET(
       return new NextResponse(clientBody, { status: upstream.status, headers: h });
     }
     setCacheDiagnostics(h, "BYPASS", responseCacheId);
-    return new NextResponse(upstream.body, { status: upstream.status, headers: h });
+    return new NextResponse(responseBody, { status: upstream.status, headers: h });
   }
 
   const buf = await upstream.arrayBuffer();

@@ -24,7 +24,7 @@ import { ZendeSpinner } from "@/components/loading/zende-spinner";
 import { Button } from "@appica/ui-react/button";
 
 import { MobileChannelCard } from "@/components/mobile/mobile-channel-card";
-import { VirtualChannelList } from "@/components/library/virtual-channel-list";
+import { VirtualChannelList, VirtualChannelGrid } from "@/components/library/virtual-channel-list";
 import { LibraryResultsShell } from "@/components/library/library-results-shell";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import { Card } from "@appica/ui-react/card";
@@ -496,10 +496,15 @@ export function MobileLibraryPage() {
         </div>
 
         {view === "posters" ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {visible.map((channel, index) => (
+          <VirtualChannelGrid
+            items={visible}
+            columnWidth={160}
+            rowHeight={280}
+            gap={12}
+            getKey={(channel, index) => `${channel.url}-${index}`}
+            renderItem={(channel) => (
               <MobileChannelCard
-                key={`${channel.url}-${index}`}
+                key={`${channel.url}`}
                 channel={channel}
                 fastMode
                 onSelect={(ch) =>
@@ -513,8 +518,8 @@ export function MobileLibraryPage() {
                     : undefined
                 }
               />
-            ))}
-          </div>
+            )}
+          />
         ) : (
           <VirtualChannelList
             items={visible}

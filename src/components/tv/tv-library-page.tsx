@@ -19,8 +19,6 @@ import { ChannelLogo, sanitizeGroupTitle, ChannelArtBadge } from "@/components/c
 import { TvChannelTile } from "@/components/tv/tv-channel-tile";
 import {
   BROWSE_CONTAINER_CLASS,
-  POSTER_GRID_CLASS,
-  POSTER_GRID_TILE_CLASS,
 } from "@/components/layout/browse-page-shell";
 import {
   TV_BROWSE_STICKY_TOP_CLASS,
@@ -31,7 +29,7 @@ import { useLibraryCatalog } from "@/features/iptv/use-library-catalog";
 import { useLibraryContentTab } from "@/features/iptv/use-library-content-tab";
 import { useLibrarySearch } from "@/features/iptv/use-library-search";
 import { LibraryResultsShell } from "@/components/library/library-results-shell";
-import { VirtualChannelList } from "@/components/library/virtual-channel-list";
+import { VirtualChannelList, VirtualChannelGrid } from "@/components/library/virtual-channel-list";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { contentTypeFromStreamUrl, resolveLibraryContentType } from "@/lib/channels/content-type";
@@ -658,8 +656,13 @@ export function TvLibraryPage() {
             </div>
           ) : view === "posters" ? (
             <div className="flex flex-col gap-6">
-              <div className={POSTER_GRID_CLASS}>
-                {visible.map((ch, i) => (
+              <VirtualChannelGrid
+                items={visible}
+                columnWidth={195}
+                rowHeight={340}
+                gap={16}
+                getKey={(ch, i) => `${ch.url}-${i}`}
+                renderItem={(ch, i) => (
                   <TvChannelTile
                     key={`${ch.url}-${i}`}
                     channel={ch}
@@ -674,10 +677,9 @@ export function TvLibraryPage() {
                         ? (channel) => setPreviewChannel(channel)
                         : undefined
                     }
-                    className={POSTER_GRID_TILE_CLASS}
                   />
-                ))}
-              </div>
+                )}
+              />
               {hasMore ? (
                 <div className="flex justify-center pb-4">
                   <Button

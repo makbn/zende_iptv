@@ -1,6 +1,6 @@
 "use client";
 
-import { BrowseChrome } from "@/components/glass/browse-chrome";
+import { AppShell } from "@/components/layout/app-shell";
 import { MobileBrowseTopBar } from "@/components/mobile/mobile-browse-top-bar";
 import { TvTopBar } from "@/components/tv/tv-top-bar";
 
@@ -10,7 +10,7 @@ export default function BrowseLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <BrowseChrome>
+    <AppShell>
       <div className="md:hidden">
         <MobileBrowseTopBar />
       </div>
@@ -18,6 +18,6 @@ export default function BrowseLayout({
         <TvTopBar />
       </div>
       {children}
-    </BrowseChrome>
+    </AppShell>
   );
 }

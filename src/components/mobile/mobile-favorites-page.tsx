@@ -1,5 +1,9 @@
 "use client";
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@appica/ui-react/select";
+
+import { Input } from "@appica/ui-react/input";
+
 import Link from "next/link";
 import {
   startTransition,
@@ -14,8 +18,8 @@ import { Heart, Radio, Search, X } from "lucide-react";
 
 import { MobileChannelCard } from "@/components/mobile/mobile-channel-card";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
-import { ZendeGlass } from "@/components/glass/zende-glass";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Card } from "@appica/ui-react/card";
+import { Button, buttonVariants } from "@appica/ui-react/button";
 import {
   listFavorites,
   subscribeFavorites,
@@ -120,48 +124,48 @@ export function MobileFavoritesPage() {
   }, []);
 
   return (
-    <main className="zen-page-bg min-h-screen pb-28 pt-[5.35rem] text-foreground">
+    <main className="bg-background min-h-screen pb-28 pt-[5.35rem] text-foreground">
       <section className="px-4">
         <div
           className={cn(
-            "relative overflow-hidden rounded-[24px] border border-white/[0.11] bg-white/[0.055] px-4 py-3 ring-1 ring-white/[0.05]",
+            "relative overflow-hidden rounded-lg border border-border bg-background-muted px-4 py-3 ring-1 ring-border",
             "backdrop-blur-xl transition-[border-color,box-shadow] duration-300 ease-out",
-            "hover:border-white/[0.12] hover:shadow-[0_12px_40px_-28px_rgba(0,0,0,0.55)]",
+            "hover:border-border hover:shadow-lg",
             "motion-safe:animate-fav-hero-in motion-reduce:animate-none motion-reduce:opacity-100",
           )}
         >
           <div
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_100%_120%_at_0%_0%,oklch(0.44_0.12_42/0.12),transparent_55%)]"
+            className="pointer-events-none absolute inset-0 bg-background-subtle"
             aria-hidden
           />
           <div className="relative flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-400/22 bg-amber-400/[0.09] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.11em] text-amber-200/88">
-              <Heart className="size-2.5 fill-amber-300/90 text-amber-300" aria-hidden />
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-warning bg-warning-subtle px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.11em] text-warning-strong">
+              <Heart className="size-2.5 fill-current text-warning-strong" aria-hidden />
               Saved
             </span>
-            <h1 className="min-w-0 text-[1.45rem] font-semibold leading-none tracking-[-0.055em] text-white sm:text-[1.55rem]">
+            <h1 className="min-w-0 text-[1.45rem] font-semibold leading-none tracking-[-0.055em] text-foreground-intense sm:text-[1.55rem]">
               Favorites
             </h1>
             {enriched.length > 0 ? (
               <>
                 <span
-                  className="hidden h-3 w-px shrink-0 bg-white/15 sm:block"
+                  className="hidden h-3 w-px shrink-0 bg-background-muted sm:block"
                   aria-hidden
                 />
                 <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-                  <span className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] bg-black/25 px-2 py-0.5 ring-1 ring-white/[0.03]">
-                    <span className="tabular-nums text-[12px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2 py-0.5 ring-1 ring-border">
+                    <span className="tabular-nums text-[12px] font-semibold text-foreground-intense">
                       {enriched.length.toLocaleString()}
                     </span>
-                    <span className="text-[10px] font-medium text-white/42">
+                    <span className="text-[10px] font-medium text-foreground-intense">
                       channels
                     </span>
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] bg-black/25 px-2 py-0.5 ring-1 ring-white/[0.03]">
-                    <span className="tabular-nums text-[12px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2 py-0.5 ring-1 ring-border">
+                    <span className="tabular-nums text-[12px] font-semibold text-foreground-intense">
                       {groupOptions.length.toLocaleString()}
                     </span>
-                    <span className="text-[10px] font-medium text-white/42">
+                    <span className="text-[10px] font-medium text-foreground-intense">
                       groups
                     </span>
                   </span>
@@ -169,14 +173,14 @@ export function MobileFavoritesPage() {
               </>
             ) : null}
           </div>
-          <p className="relative mt-1.5 text-[11.5px] leading-snug text-white/42">
+          <p className="relative mt-1.5 text-[11.5px] leading-snug text-foreground-intense">
             Search and sort — your grid starts below.
           </p>
           {enriched.length > 0 ? (
             <Link
               href="/guide"
               onClick={onNavigateClick("/guide")}
-              className="relative mt-3 flex min-h-11 items-center justify-center gap-2 rounded-full border border-[var(--zen-signal)]/25 bg-[var(--zen-signal)]/10 px-4 text-[13px] font-semibold text-cyan-100/90 outline-none ring-1 ring-[var(--zen-signal)]/15 active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+              className="relative mt-3 flex min-h-11 items-center justify-center gap-2 rounded-full border border-primary bg-primary px-4 text-[13px] font-semibold text-primary-strong outline-none ring-1 ring-primary/15 active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-primary"
             >
               <Radio className="size-4" aria-hidden />
               Open TV guide
@@ -188,35 +192,35 @@ export function MobileFavoritesPage() {
       {enriched.length > 0 ? (
         <>
           <section className="sticky top-[5.35rem] z-40 mt-2 px-3" aria-label="Favorite filters">
-            <ZendeGlass
-              variant="panelCompact"
-              className="rounded-[24px] border-white/[0.12] bg-black/62 p-2.5 shadow-[0_18px_58px_-28px_rgba(0,0,0,0.9)] transition-[box-shadow,transform] duration-300 ease-out"
+            <Card
+              frame="solid"
+              className="rounded-lg border-border bg-background p-2.5 shadow-lg transition-[box-shadow,transform] duration-300 ease-out"
             >
               <label className="relative block">
                 <span className="sr-only">Search favorites</span>
-                <Search className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-white/38" />
-                <input
+                <Search className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-foreground-intense" />
+                <Input
                   ref={searchInputRef}
                   type="search"
                   placeholder="Search favorites"
                   value={query}
-                  onChange={(event) => setQuery(event.target.value)}
+                  onValueChange={(value) => setQuery(value)}
                   onKeyDown={onSearchKeyDown}
-                  className="h-12 w-full rounded-[20px] border border-white/[0.11] bg-black/35 pl-11 pr-11 text-[16px] text-white outline-none placeholder:text-white/34 focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]/60"
+                  className="h-12 w-full rounded-lg border border-border bg-background pl-11 pr-11 text-[16px] text-foreground-intense outline-none placeholder:text-foreground-intense focus-visible:ring-2 focus-visible:ring-primary/60"
                 />
                 {query ? (
-                  <button
+                  <Button variant="ghost"
                     type="button"
                     onClick={() => setQuery("")}
-                    className="absolute right-2 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-2xl text-white/55"
+                    className="absolute right-2 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-2xl text-foreground-intense"
                     aria-label="Clear search"
                   >
                     <X className="size-4" aria-hidden />
-                  </button>
+                  </Button>
                 ) : null}
               </label>
 
-              <div className="tv-row-scroll zen-stagger-row mt-3 flex gap-2 overflow-x-auto pb-0.5" role="group" aria-label="Sort favorites">
+              <div className="mt-3 flex gap-2 overflow-x-auto pb-0.5" role="group" aria-label="Sort favorites">
                 {(
                   [
                     ["recent", "Recent"],
@@ -224,7 +228,7 @@ export function MobileFavoritesPage() {
                     ["group", "Group"],
                   ] as const
                 ).map(([id, label]) => (
-                  <button
+                  <Button variant="ghost"
                     key={id}
                     type="button"
                     aria-pressed={sort === id}
@@ -233,40 +237,40 @@ export function MobileFavoritesPage() {
                       "min-h-10 shrink-0 rounded-2xl px-4 text-[13px] font-semibold outline-none transition-[transform,background-color,color,box-shadow] duration-200 ease-out",
                       "active:scale-[0.98]",
                         sort === id
-                          ? "bg-[var(--zen-frost)] text-[var(--zen-void)] shadow-sm"
-                        : "border border-white/[0.1] bg-white/[0.06] text-white/70 hover:bg-white/[0.1] hover:text-white/85",
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                        : "border border-border bg-background-muted text-foreground-intense hover:bg-background-muted hover:text-foreground-intense",
                     )}
                   >
                     {label}
-                  </button>
+                  </Button>
                 ))}
               </div>
               {groupOptions.length > 0 ? (
-                <select
+                <Select
                   value={groupFilter ?? ""}
-                  onChange={(event) => setGroupFilter(event.target.value || null)}
-                  className="mt-2 h-11 w-full rounded-[18px] border border-white/[0.11] bg-black/45 px-3 text-[14px] font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                  onValueChange={(value) =>setGroupFilter(value ? String(value) : null)}
                   aria-label="Category"
                 >
-                  <option value="">All categories</option>
+<SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
+                  <SelectItem value="">All categories</SelectItem>
                   {groupOptions.map(([group, count]) => (
-                    <option key={group} value={group}>
+                    <SelectItem key={group} value={group}>
                       {group} ({count.toLocaleString()})
-                    </option>
+                    </SelectItem>
                   ))}
-                </select>
+                </SelectContent></Select>
               ) : null}
-            </ZendeGlass>
+            </Card>
           </section>
 
           <section className="mt-3 px-4" aria-live="polite">
             <div className="mb-2.5 flex items-end justify-between gap-3">
               <div>
-                <h2 className="text-[15px] font-semibold tracking-tight text-white">
+                <h2 className="text-[15px] font-semibold tracking-tight text-foreground-intense">
                   {filtered.length.toLocaleString()}{" "}
-                  <span className="font-medium text-white/55">in view</span>
+                  <span className="font-medium text-foreground-intense">in view</span>
                 </h2>
-                <p className="mt-0.5 text-[11px] text-white/38">
+                <p className="mt-0.5 text-[11px] text-foreground-intense">
                   {activeFilters ? "Filtered from your saves" : "All saved"}
                 </p>
               </div>
@@ -277,7 +281,7 @@ export function MobileFavoritesPage() {
                     setQuery("");
                     setGroupFilter(null);
                   }}
-                  size="xs"
+                  size="sm"
                 >
                   Reset
                 </Button>
@@ -306,7 +310,7 @@ export function MobileFavoritesPage() {
             </div>
 
             {visible.length === 0 ? (
-              <div className="rounded-[26px] border border-white/[0.08] bg-white/[0.04] p-5 text-[14px] leading-relaxed text-white/48">
+              <div className="rounded-lg border border-border bg-background-muted p-5 text-[14px] leading-relaxed text-foreground-intense">
                 No favorites match those filters.
               </div>
             ) : null}
@@ -325,18 +329,18 @@ export function MobileFavoritesPage() {
         </>
       ) : (
         <section className="mt-5 px-4">
-          <div className="rounded-[28px] border border-white/[0.08] bg-white/[0.04] p-5">
-            <h2 className="text-[20px] font-semibold text-white">
+          <div className="rounded-lg border border-border bg-background-muted p-5">
+            <h2 className="text-[20px] font-semibold text-foreground-intense">
               No favorites yet
             </h2>
-            <p className="mt-2 text-[14px] leading-relaxed text-white/48">
+            <p className="mt-2 text-[14px] leading-relaxed text-foreground-intense">
               Tap the star on channels in Home, Library, or Watch. They will
               appear here for fast touch access.
             </p>
             <Link
               href="/library"
               onClick={onNavigateClick("/library")}
-              className={buttonVariants({ variant: "normal", size: "lg", className: "mt-5 w-full" })}
+              className={buttonVariants({ variant: "secondary", size: "lg", className: "mt-5 w-full" })}
             >
               Open Library
             </Link>

@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Volume2, VolumeX } from "lucide-react";
 
 import { ZendeLoadingState } from "@/components/loading/zende-spinner";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@appica/ui-react/button";
 import { cn } from "@/lib/utils";
 import { secureImageUrl } from "@/lib/media/secure-image-url";
 import {
@@ -120,7 +120,7 @@ export function BoardView() {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center gap-4 bg-black text-white">
+      <div className="fixed inset-0 flex flex-col items-center justify-center gap-4 bg-background text-foreground-intense">
         <ZendeLoadingState
           size="large"
           label={`Preparing ${ids.length} stream${ids.length !== 1 ? "s" : ""}…`}
@@ -131,13 +131,13 @@ export function BoardView() {
 
   if (loadError || sessions.length === 0) {
     return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center gap-6 bg-black text-white">
-        <p className="text-[16px] text-white/60">
+      <div className="fixed inset-0 flex flex-col items-center justify-center gap-6 bg-background text-foreground-intense">
+        <p className="text-[16px] text-foreground-intense">
           {loadError ?? "No channels selected."}
         </p>
         <Link
           href="/"
-          className={buttonVariants({ variant: "normal", size: "lg" })}
+          className={buttonVariants({ variant: "secondary", size: "lg" })}
         >
           Back to Home
         </Link>
@@ -151,24 +151,24 @@ export function BoardView() {
   // ── board ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-black text-white">
+    <div className="fixed inset-0 flex flex-col bg-background text-foreground-intense">
 
       {/* ── header ── */}
-      <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-white/[0.1] bg-black/72 px-3 py-2 shadow-[0_18px_60px_-34px_rgba(0,0,0,0.92)] backdrop-blur-xl sm:h-12 sm:px-4 sm:py-0">
+      <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-background px-3 py-2 shadow-lg backdrop-blur-xl sm:h-12 sm:px-4 sm:py-0">
         {/* Left: back + title */}
         <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="flex min-h-10 items-center gap-1.5 rounded-full px-2 text-[13px] font-semibold text-white/55 outline-none transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+            className="flex min-h-10 items-center gap-1.5 rounded-full px-2 text-[13px] font-semibold text-foreground-intense outline-none transition-colors hover:text-foreground-intense focus-visible:ring-2 focus-visible:ring-primary"
             aria-label="Back to home"
           >
             <ArrowLeft className="h-4 w-4" />
             Back
           </Link>
-          <span className="hidden text-white/[0.15] sm:inline">|</span>
-          <p className="hidden text-[13px] font-medium text-white/60 sm:block">
+          <span className="hidden text-foreground-intense sm:inline">|</span>
+          <p className="hidden text-[13px] font-medium text-foreground-intense sm:block">
             Board -{" "}
-            <span className="text-white/90">
+            <span className="text-foreground-intense">
               {n} channel{n !== 1 ? "s" : ""}
             </span>
           </p>
@@ -176,76 +176,76 @@ export function BoardView() {
 
         {/* Right: audio source picker */}
         <div className="relative" ref={audioMenuRef}>
-          <button
+          <Button variant="ghost"
             type="button"
             onClick={() => setAudioMenuOpen((v) => !v)}
             aria-label="Select audio source"
             className={cn(
               "flex min-h-10 items-center gap-2 rounded-full px-3 py-1.5 text-[13px] font-semibold outline-none transition-colors",
-              "border border-white/[0.12] bg-white/[0.07] hover:bg-white/[0.11] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
-              audioMenuOpen && "bg-white/[0.12]",
+              "border border-border bg-background-muted hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-primary",
+              audioMenuOpen && "bg-background-muted",
             )}
           >
             {activeAudioId ? (
-              <Volume2 className="h-4 w-4 text-emerald-400" />
+              <Volume2 className="h-4 w-4 text-success-strong" />
             ) : (
-              <VolumeX className="h-4 w-4 text-white/40" />
+              <VolumeX className="h-4 w-4 text-foreground-intense" />
             )}
-            <span className="max-w-[118px] truncate text-white/80 sm:max-w-[160px]">
+            <span className="max-w-[118px] truncate text-foreground-intense sm:max-w-[160px]">
               {activeSession ? activeSession.title : "All muted"}
             </span>
-          </button>
+          </Button>
 
           {/* Dropdown */}
           {audioMenuOpen && (
             <div
               className={cn(
-                "absolute right-0 top-[calc(100%+8px)] z-50 min-w-[min(82vw,260px)] overflow-hidden rounded-[22px] p-1",
-                "border border-white/[0.14] bg-black/90 shadow-2xl backdrop-blur-2xl",
+                "absolute right-0 top-[calc(100%+8px)] z-50 min-w-[min(82vw,260px)] overflow-hidden rounded-lg p-1",
+                "border border-border bg-background shadow-2xl backdrop-blur-2xl",
               )}
             >
               {/* Mute all option */}
-              <button
+              <Button variant="ghost"
                 type="button"
                 onClick={() => { setActiveAudioId(null); setAudioMenuOpen(false); }}
                 className={cn(
                   "flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[13px] outline-none transition-colors",
-                  "hover:bg-white/[0.08]",
-                  activeAudioId === null ? "text-white" : "text-white/55",
+                  "hover:bg-background-muted",
+                  activeAudioId === null ? "text-foreground-intense" : "text-foreground-intense",
                 )}
               >
                 <VolumeX className="h-4 w-4 shrink-0" />
                 <span>All muted</span>
                 {activeAudioId === null && (
-                  <span className="ml-auto text-emerald-400">✓</span>
+                  <span className="ml-auto text-success-strong">✓</span>
                 )}
-              </button>
+              </Button>
 
-              <div className="my-1 border-t border-white/[0.08]" />
+              <div className="my-1 border-t border-border" />
 
               {/* One option per stream */}
               {sessions.map((session) => {
                 const active = activeAudioId === session.id;
                 return (
-                  <button
+                  <Button variant="ghost"
                     key={session.id}
                     type="button"
                     onClick={() => { setActiveAudioId(session.id); setAudioMenuOpen(false); }}
                     className={cn(
                       "flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[13px] outline-none transition-colors",
-                      "hover:bg-white/[0.08]",
-                      active ? "text-white" : "text-white/55",
+                      "hover:bg-background-muted",
+                      active ? "text-foreground-intense" : "text-foreground-intense",
                     )}
                   >
                     <Volume2
                       className={cn(
                         "h-4 w-4 shrink-0",
-                        active ? "text-emerald-400" : "text-white/30",
+                        active ? "text-success-strong" : "text-foreground-intense",
                       )}
                     />
                     <span className="min-w-0 flex-1 truncate">{session.title}</span>
-                    {active && <span className="ml-auto text-emerald-400">✓</span>}
-                  </button>
+                    {active && <span className="ml-auto text-success-strong">✓</span>}
+                  </Button>
                 );
               })}
             </div>
@@ -254,12 +254,12 @@ export function BoardView() {
       </div>
 
       {/* ── stream grid ── */}
-      <div className={cn("grid flex-1 gap-px bg-white/[0.05]", gridClass(n))}>
+      <div className={cn("grid flex-1 gap-px bg-background-muted", gridClass(n))}>
         {sessions.map((session, idx) => (
           <div
             key={session.id}
             className={cn(
-              "group relative overflow-hidden bg-black",
+              "group relative overflow-hidden bg-background",
               cellClass(n, idx),
             )}
           >
@@ -274,7 +274,7 @@ export function BoardView() {
             <div
               className={cn(
                 "pointer-events-none absolute inset-x-0 bottom-0 flex items-end gap-2",
-                "bg-gradient-to-t from-black/80 via-black/30 to-transparent p-3",
+                "bg-gradient-to-t from-background via-background to-transparent p-3",
                 "opacity-100 transition-opacity duration-200 sm:opacity-0 sm:group-hover:opacity-100",
               )}
             >
@@ -286,11 +286,11 @@ export function BoardView() {
                   className="h-6 w-6 shrink-0 rounded object-contain"
                 />
               ) : null}
-              <p className="min-w-0 flex-1 truncate text-[12px] font-semibold text-white/90">
+              <p className="min-w-0 flex-1 truncate text-[12px] font-semibold text-foreground-intense">
                 {session.title}
               </p>
               {activeAudioId === session.id && (
-                <Volume2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                <Volume2 className="h-3.5 w-3.5 shrink-0 text-success-strong" />
               )}
             </div>
           </div>

@@ -1,12 +1,14 @@
 "use client";
 
+import { Input } from "@appica/ui-react/input";
+
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Play, X } from "lucide-react";
 
-import { ZendeGlass } from "@/components/glass/zende-glass";
+import { Card } from "@appica/ui-react/card";
 import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
-import { Button } from "@/components/ui/button";
+import { Button } from "@appica/ui-react/button";
 import { cn } from "@/lib/utils";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { createWatchUrl } from "@/lib/navigation/watch-url";
@@ -102,10 +104,10 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
       role="presentation"
     >
       {/* Backdrop */}
-      <button
+      <Button variant="ghost"
         type="button"
         aria-label="Dismiss"
-        className="absolute inset-0 bg-black/60 backdrop-blur-md motion-safe:animate-[glass-backdrop-in_0.28s_ease-out_both]"
+        className="absolute inset-0 bg-background backdrop-blur-md motion-safe:animate-[glass-backdrop-in_0.28s_ease-out_both]"
         onClick={onClose}
       />
 
@@ -117,45 +119,45 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
         className="relative z-10 flex w-full max-w-[580px] flex-col outline-none motion-safe:animate-[glass-modal-pop_0.42s_cubic-bezier(0.16,1,0.3,1)_both]"
         style={{ maxHeight: "calc(100dvh - 64px)" }}
       >
-        <ZendeGlass
-          variant="panel"
-          className="flex flex-col overflow-hidden shadow-[0_40px_120px_-48px_rgba(0,0,0,0.95)]"
+        <Card
+          frame="glass"
+          className="flex flex-col overflow-hidden shadow-lg"
         >
           {/* Header */}
-          <div className="flex items-start justify-between border-b border-white/[0.07] px-5 pb-3 pt-5">
+          <div className="flex items-start justify-between border-b border-border px-5 pb-3 pt-5">
             <div>
               <p
                 id={labelId}
-                className="text-[13px] font-semibold uppercase tracking-[0.12em] text-white/45"
+                className="text-[13px] font-semibold uppercase tracking-[0.12em] text-foreground-intense"
               >
                 Watch Together
               </p>
-              <p className="mt-0.5 text-[15px] text-white/55">
+              <p className="mt-0.5 text-[15px] text-foreground-intense">
                 Pick up to {MAX} channels — they&apos;ll play side-by-side.
               </p>
             </div>
-            <button
+            <Button variant="ghost"
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="ml-4 mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white/40 outline-none hover:bg-white/10 hover:text-white"
+              className="ml-4 mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-foreground-intense outline-none hover:bg-background-muted hover:text-foreground-intense"
             >
               <X className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
 
           {/* Search */}
-          <div className="border-b border-white/[0.07] px-5 py-3">
-            <input
+          <div className="border-b border-border px-5 py-3">
+            <Input
               ref={inputRef}
               type="search"
               placeholder="Search channels…"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               className={cn(
-                "w-full rounded-xl bg-white/[0.06] px-4 py-2.5 text-[15px] text-white/90 placeholder:text-white/30",
-                "border border-white/[0.08] outline-none transition-colors",
-                "focus:border-white/20 focus:bg-white/[0.08]",
+                "w-full rounded-xl bg-background-muted px-4 py-2.5 text-[15px] text-foreground-intense placeholder:text-foreground-intense",
+                "border border-border outline-none transition-colors",
+                "focus:border-border focus:bg-background-muted",
               )}
             />
           </div>
@@ -165,29 +167,29 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
             {loading || refreshing ? (
               <ZendeLoadingState className="py-14" size="small" label="Loading live channels…" />
             ) : channels.length === 0 ? (
-              <p className="px-5 py-10 text-center text-[14px] text-white/35">
+              <p className="px-5 py-10 text-center text-[14px] text-foreground-intense">
                 No channels match &quot;{q}&quot;
               </p>
             ) : (
-              <ul className="divide-y divide-white/[0.05]">
+              <ul className="divide-y divide-border">
                 {channels.slice(0, 500).map((ch) => {
                   const isSelected = selected.some((c) => c.url === ch.url);
                   const atMax = !isSelected && selected.length >= MAX;
                   return (
                     <li key={ch.url}>
-                      <button
+                      <Button variant="ghost"
                         type="button"
                         disabled={atMax}
                         onClick={() => toggle(ch)}
                         className={cn(
                           "flex w-full items-center gap-3 px-5 py-3 text-left outline-none transition-colors",
-                          "hover:bg-white/[0.05] focus-visible:bg-white/[0.07]",
+                          "hover:bg-background-muted focus-visible:bg-background-muted",
                           "disabled:cursor-not-allowed disabled:opacity-35",
-                          isSelected && "bg-white/[0.06]",
+                          isSelected && "bg-background-muted",
                         )}
                       >
                         {/* Channel logo */}
-                        <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/[0.07]">
+                        <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-background-muted">
                           {ch.tvgLogo ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
@@ -200,7 +202,7 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
                               }}
                             />
                           ) : (
-                            <span className="text-[11px] font-bold text-white/35">
+                            <span className="text-[11px] font-bold text-foreground-intense">
                               {ch.name.slice(0, 2).toUpperCase()}
                             </span>
                           )}
@@ -208,11 +210,11 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
 
                         {/* Name + group */}
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[14px] font-medium text-white/90">
+                          <p className="truncate text-[14px] font-medium text-foreground-intense">
                             {ch.name}
                           </p>
                           {ch.groupTitle ? (
-                            <p className="truncate text-[12px] text-white/35">
+                            <p className="truncate text-[12px] text-foreground-intense">
                               {ch.groupTitle}
                             </p>
                           ) : null}
@@ -223,18 +225,18 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
                           className={cn(
                             "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors",
                             isSelected
-                              ? "border-emerald-400 bg-emerald-400"
-                              : "border-white/25",
+                              ? "border-success bg-success-subtle"
+                              : "border-border",
                           )}
                         >
                           {isSelected && (
                             <Check
-                              className="h-3 w-3 text-black"
+                              className="h-3 w-3 text-foreground-inverse"
                               strokeWidth={3}
                             />
                           )}
                         </div>
-                      </button>
+                      </Button>
                     </li>
                   );
                 })}
@@ -242,41 +244,41 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
             )}
             {!loading && channels.length > 0 && hasMore ? (
               <div className="px-5 py-3">
-                <button
+                <Button variant="ghost"
                   type="button"
                   onClick={() => setOffset((n) => n + 500)}
                   className={cn(
-                    "w-full rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-[13px] font-semibold text-white/85 outline-none",
-                    "hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-white",
+                    "w-full rounded-xl border border-border bg-background-muted px-4 py-2.5 text-[13px] font-semibold text-foreground-intense outline-none",
+                    "hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-border",
                     refreshing && "opacity-50",
                   )}
                   disabled={refreshing}
                 >
                   {refreshing ? "Loading more…" : "Load more live channels"}
-                </button>
+                </Button>
               </div>
             ) : null}
           </div>
 
           {/* Footer */}
-          <div className="border-t border-white/[0.07] px-5 py-4">
+          <div className="border-t border-border px-5 py-4">
             {/* Selected pills */}
             {selected.length > 0 && (
               <div className="mb-3 flex flex-wrap gap-1.5">
                 {selected.map((ch) => (
                   <span
                     key={ch.url}
-                    className="flex items-center gap-1 rounded-full bg-white/[0.08] px-2.5 py-1 text-[12px] font-medium text-white/80"
+                    className="flex items-center gap-1 rounded-full bg-background-muted px-2.5 py-1 text-[12px] font-medium text-foreground-intense"
                   >
                     <span className="max-w-[110px] truncate">{ch.name}</span>
-                    <button
+                    <Button variant="ghost"
                       type="button"
                       onClick={() => toggle(ch)}
                       aria-label={`Remove ${ch.name}`}
-                      className="ml-0.5 text-white/40 outline-none hover:text-white"
+                      className="ml-0.5 text-foreground-intense outline-none hover:text-foreground-intense"
                     >
                       <X className="h-3 w-3" />
-                    </button>
+                    </Button>
                   </span>
                 ))}
               </div>
@@ -286,7 +288,7 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
               type="button"
               disabled={selected.length === 0 || launching}
               onClick={() => void handleWatch()}
-              variant="success"
+              variant="primary"
               size="lg"
               className="w-full"
             >
@@ -302,7 +304,7 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
                   : `Watch ${selected.length} channel${selected.length !== 1 ? "s" : ""}`}
             </Button>
           </div>
-        </ZendeGlass>
+        </Card>
       </div>
     </div>
   );

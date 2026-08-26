@@ -135,7 +135,7 @@ export function FullPageLoadOverlay() {
   return (
     <div
       className={cn(
-        "fixed inset-0 z-[300] flex flex-col items-center justify-center bg-[var(--tv-page-bg)] transition-opacity duration-500 ease-out motion-reduce:duration-150",
+        "fixed inset-0 z-[300] flex flex-col items-center justify-center bg-background transition-opacity duration-500 ease-out motion-reduce:duration-150",
         visible ? "opacity-100" : "pointer-events-none opacity-0",
       )}
       onTransitionEnd={(e) => {
@@ -155,13 +155,13 @@ export function FullPageLoadOverlay() {
       />
       {playback ? (
         <div className="mt-7 max-w-[min(88vw,32rem)] text-center">
-          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-[#fd367e]">
+          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-primary-strong">
             Request received
           </p>
-          <p className="mt-2 truncate text-lg font-semibold text-white sm:text-xl">
+          <p className="mt-2 truncate text-lg font-semibold text-foreground-intense sm:text-xl">
             {playback.title}
           </p>
-          <p className="mt-1 text-sm text-white/60">{playback.message}</p>
+          <p className="mt-1 text-sm text-foreground-intense">{playback.message}</p>
         </div>
       ) : null}
     </div>

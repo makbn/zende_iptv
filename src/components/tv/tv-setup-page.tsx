@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 import { TvCatalogSetupStrip } from "@/components/tv/tv-catalog-setup-strip";
-import { ZendeGlass } from "@/components/glass/zende-glass";
+import { Card } from "@appica/ui-react/card";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
 import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
 import { cn } from "@/lib/utils";
 import { TV_BROWSE_TOP_PAD_CLASS } from "@/components/tv/tv-top-bar";
+import { BROWSE_CONTAINER_CLASS } from "@/components/layout/browse-page-shell";
 
 const source = BUILTIN_PLAYLIST_SOURCES[0]!;
 
@@ -38,22 +39,22 @@ export function TvSetupPage() {
   }, [catalogLoaded, channelCount, router]);
 
   return (
-    <div className="zen-page-bg min-h-screen text-foreground">
+    <div className="bg-background min-h-screen text-foreground">
       <main
         className={cn(
           "flex min-h-screen flex-col pb-24",
           TV_BROWSE_TOP_PAD_CLASS,
         )}
       >
-        <div className="mx-auto flex w-full max-w-[1920px] flex-1 flex-col justify-center px-6 sm:px-10 lg:px-14 xl:px-20">
-          <div className="mb-7 text-center motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100">
-            <p className="zen-kicker">
+        <div className={cn(BROWSE_CONTAINER_CLASS, "flex flex-1 flex-col justify-center")}>
+          <div className="mb-7 text-center motion-reduce:animate-none motion-reduce:opacity-100">
+            <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">
               Welcome
             </p>
-            <h1 className="zen-page-title mt-3">
+            <h1 className="text-4xl font-semibold tracking-tight text-foreground-intense mt-3">
               Set up Zende
             </h1>
-            <p className="zen-body-muted mx-auto mt-3 max-w-md sm:text-[16px]">
+            <p className="text-sm text-foreground-muted mx-auto mt-3 max-w-md sm:text-[16px]">
               Add the built-in channel index once. Home then shows recents and picks — tuned for the big screen.
             </p>
           </div>
@@ -74,13 +75,13 @@ export function TvSetupPage() {
               onClick={onNavigateClick("/settings")}
               className="outline-none"
             >
-              <ZendeGlass variant="heroSecondary" className="inline-block">
-                <span className="flex min-h-[44px] min-w-[160px] items-center justify-center px-6 text-[16px] font-semibold text-white">
+              <Card frame="solid" className="inline-block">
+                <span className="flex min-h-[44px] min-w-[160px] items-center justify-center px-6 text-[16px] font-semibold text-foreground-intense">
                   Advanced options
                 </span>
-              </ZendeGlass>
+              </Card>
             </Link>
-            <p className="max-w-sm text-center text-[14px] leading-relaxed text-white/40">
+            <p className="max-w-sm text-center text-[14px] leading-relaxed text-foreground-intense">
               Catalog updates and stream health tools live in Settings whenever you
               need them.
             </p>
@@ -88,8 +89,8 @@ export function TvSetupPage() {
         </div>
       </main>
 
-      <footer className="border-t border-white/[0.06] py-10 text-center">
-        <p className="text-[13px] leading-relaxed text-white/35">
+      <footer className="border-t border-border py-10 text-center">
+        <p className="text-[13px] leading-relaxed text-foreground-intense">
           Third-party streams. You are responsible for content you access.
         </p>
       </footer>

@@ -1,8 +1,10 @@
 "use client";
 
+import { Input } from "@appica/ui-react/input";
+
 import { useCallback, useEffect, useState } from "react";
 
-import { ZendeGlass } from "@/components/glass/zende-glass";
+import { Card } from "@appica/ui-react/card";
 import { TvCatalogSetupStrip } from "@/components/tv/tv-catalog-setup-strip";
 import { TvManualChannelsSection } from "@/components/tv/tv-manual-channels-section";
 import { TvPersonalLibraryCard } from "@/components/tv/tv-personal-library-card";
@@ -12,7 +14,7 @@ import { TvSettingsAuthPanel } from "@/components/tv/tv-settings-auth-panel";
 import { TvSettingsIntegrationsPanel } from "@/components/tv/tv-settings-integrations-panel";
 import { TvSettingsProxiesPanel } from "@/components/tv/tv-settings-proxies-panel";
 import { TvSettingsCachePanel } from "@/components/tv/tv-settings-cache-panel";
-import { Button } from "@/components/ui/button";
+import { Button } from "@appica/ui-react/button";
 import { ZendeSpinner } from "@/components/loading/zende-spinner";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { createClientLogger } from "@/core/logging/client";
@@ -129,32 +131,32 @@ export function MobileSettingsPage() {
   }, [secret]);
 
   return (
-    <main className="settings-ui zen-page-bg min-h-screen w-full max-w-full overflow-x-hidden pb-28 pt-[calc(4.75rem+env(safe-area-inset-top))] text-foreground">
+    <main className="bg-background min-h-screen w-full max-w-full overflow-x-hidden pb-28 pt-[calc(4.75rem+env(safe-area-inset-top))] text-foreground">
       <section className="px-1.5">
         <div
           className={cn(
-            "rounded-[18px] border border-white/[0.11] bg-white/[0.055] px-3 py-2.5 ring-1 ring-white/[0.05]",
-            "backdrop-blur-xl motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100",
+            "rounded-lg border border-border bg-background-muted px-3 py-2.5 ring-1 ring-border",
+            "backdrop-blur-xl motion-reduce:animate-none motion-reduce:opacity-100",
           )}
         >
-          <p className="zen-kicker text-[10px]">
+          <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted text-[10px]">
             Zende
           </p>
-          <h1 className="mt-1 text-[1.45rem] font-semibold leading-none tracking-[-0.055em] text-white sm:text-[1.55rem]">
+          <h1 className="mt-1 text-[1.45rem] font-semibold leading-none tracking-[-0.055em] text-foreground-intense sm:text-[1.55rem]">
             Settings
           </h1>
-          <p className="mt-1.5 max-w-[36ch] text-[11.5px] leading-snug text-white/42">
+          <p className="mt-1.5 max-w-[36ch] text-[11.5px] leading-snug text-foreground-intense">
             Catalog, security, integrations, VPN proxies, and server tools — tabs below.
           </p>
         </div>
       </section>
 
       <section className="sticky top-[5.35rem] z-40 mt-2 px-1" aria-label="Settings sections">
-        <ZendeGlass
-          variant="panelCompact"
-          className="rounded-[18px] border-white/[0.12] bg-black/62 p-1 shadow-[0_18px_58px_-28px_rgba(0,0,0,0.9)] transition-shadow duration-300"
+        <Card
+          frame="solid"
+          className="rounded-lg border-border bg-background p-1 shadow-lg transition-shadow duration-300"
         >
-          <div className="tv-row-scroll flex gap-2 overflow-x-auto" role="tablist" aria-label="Settings">
+          <div className="flex gap-2 overflow-x-auto" role="tablist" aria-label="Settings">
             {(
               (canManageSystem ? [
                 ["catalog", "Catalog"],
@@ -164,36 +166,36 @@ export function MobileSettingsPage() {
                 ["server", "Server"],
               ] : [["authentication", "My account"]]) as readonly (readonly [SettingsTab, string])[]
             ).map(([id, label]) => (
-              <button
+              <Button variant="ghost"
                 key={id}
                 type="button"
                 role="tab"
                 aria-selected={activeTab === id}
                 onClick={() => setTab(id)}
                 className={cn(
-                  "zen-pressable min-h-11 shrink-0 rounded-2xl px-4 text-[13px] font-semibold outline-none",
+                  "transition-colors min-h-11 shrink-0 rounded-2xl px-4 text-[13px] font-semibold outline-none",
                   "transition-[background-color,color,transform,box-shadow] duration-200 ease-out active:scale-[0.99] motion-reduce:transform-none",
-                  "focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
+                  "focus-visible:ring-2 focus-visible:ring-primary",
                   activeTab === id
-                    ? "bg-[var(--zen-frost)] text-[var(--zen-void)] shadow-sm"
-                    : "border border-white/[0.1] bg-white/[0.06] text-white/70 hover:bg-white/[0.1]",
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "border border-border bg-background-muted text-foreground-intense hover:bg-background-muted",
                 )}
               >
                 {label}
-              </button>
+              </Button>
             ))}
           </div>
-        </ZendeGlass>
+        </Card>
       </section>
 
       <div className="mt-2.5 min-w-0 max-w-full space-y-2.5 px-1.5" role="tabpanel">
         {canManageSystem && activeTab === "catalog" ? (
           <>
-            <details open className="group rounded-[26px] border border-white/[0.1] bg-white/[0.04] ring-1 ring-white/[0.04]">
-              <summary className="cursor-pointer list-none px-4 py-3.5 text-[16px] font-semibold text-white marker:content-none [&::-webkit-details-marker]:hidden">
+            <details open className="group rounded-lg border border-border bg-background-muted ring-1 ring-border">
+              <summary className="cursor-pointer list-none px-4 py-3.5 text-[16px] font-semibold text-foreground-intense marker:content-none [&::-webkit-details-marker]:hidden">
                 Catalog & playback
               </summary>
-              <div className="space-y-4 border-t border-white/[0.06] p-4 pt-3">
+              <div className="space-y-4 border-t border-border p-4 pt-3">
                 <TvCatalogSetupStrip
                   source={source}
                   busy={catalogBusy}
@@ -213,11 +215,11 @@ export function MobileSettingsPage() {
         ) : null}
 
         {activeTab === "authentication" ? (
-          <details open className="rounded-[26px] border border-white/[0.1] bg-white/[0.04] ring-1 ring-white/[0.04]">
-            <summary className="cursor-pointer list-none px-4 py-3.5 text-[16px] font-semibold text-white marker:content-none [&::-webkit-details-marker]:hidden">
+          <details open className="rounded-lg border border-border bg-background-muted ring-1 ring-border">
+            <summary className="cursor-pointer list-none px-4 py-3.5 text-[16px] font-semibold text-foreground-intense marker:content-none [&::-webkit-details-marker]:hidden">
               Authentication
             </summary>
-            <div className="border-t border-white/[0.06] p-4 pt-3">
+            <div className="border-t border-border p-4 pt-3">
               <TvSettingsAuthPanel />
               {!canManageSystem ? <div className="mt-4"><TvPersonalLibraryCard /></div> : null}
             </div>
@@ -225,50 +227,50 @@ export function MobileSettingsPage() {
         ) : null}
 
         {canManageSystem && activeTab === "integrations" ? (
-          <details open className="rounded-[26px] border border-white/[0.1] bg-white/[0.04] ring-1 ring-white/[0.04]">
-            <summary className="cursor-pointer list-none px-4 py-3.5 text-[16px] font-semibold text-white marker:content-none [&::-webkit-details-marker]:hidden">
+          <details open className="rounded-lg border border-border bg-background-muted ring-1 ring-border">
+            <summary className="cursor-pointer list-none px-4 py-3.5 text-[16px] font-semibold text-foreground-intense marker:content-none [&::-webkit-details-marker]:hidden">
               Integrations
             </summary>
-            <div className="border-t border-white/[0.06] p-4 pt-3">
+            <div className="border-t border-border p-4 pt-3">
               <TvSettingsIntegrationsPanel />
             </div>
           </details>
         ) : null}
 
         {canManageSystem && activeTab === "proxies" ? (
-          <details open className="rounded-[26px] border border-white/[0.1] bg-white/[0.04] ring-1 ring-white/[0.04]">
-            <summary className="cursor-pointer list-none px-4 py-3.5 text-[16px] font-semibold text-white marker:content-none [&::-webkit-details-marker]:hidden">
+          <details open className="rounded-lg border border-border bg-background-muted ring-1 ring-border">
+            <summary className="cursor-pointer list-none px-4 py-3.5 text-[16px] font-semibold text-foreground-intense marker:content-none [&::-webkit-details-marker]:hidden">
               VPN proxies
             </summary>
-            <div className="border-t border-white/[0.06] p-4 pt-3">
+            <div className="border-t border-border p-4 pt-3">
               <TvSettingsProxiesPanel />
             </div>
           </details>
         ) : null}
 
         {canManageSystem && activeTab === "server" ? (
-          <details open className="rounded-[26px] border border-white/[0.1] bg-white/[0.04] ring-1 ring-white/[0.04]">
-            <summary className="cursor-pointer list-none px-4 py-3.5 text-[16px] font-semibold text-white marker:content-none [&::-webkit-details-marker]:hidden">
+          <details open className="rounded-lg border border-border bg-background-muted ring-1 ring-border">
+            <summary className="cursor-pointer list-none px-4 py-3.5 text-[16px] font-semibold text-foreground-intense marker:content-none [&::-webkit-details-marker]:hidden">
               Server tools
             </summary>
-            <div className="border-t border-white/[0.06] p-4 pt-3">
+            <div className="border-t border-border p-4 pt-3">
             <TvSettingsCachePanel />
             <label className="mt-4 block">
               <span className="sr-only">Operator secret</span>
-              <input
+              <Input
                 type="password"
                 autoComplete="off"
                 placeholder="Bearer token"
                 value={secret}
                 onChange={(event) => setSecret(event.target.value)}
-                className="h-12 w-full rounded-2xl border border-white/[0.12] bg-black/30 px-4 text-[16px] text-white outline-none placeholder:text-white/35 focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]/60"
+                className="h-12 w-full rounded-2xl border border-border bg-background px-4 text-[16px] text-foreground-intense outline-none placeholder:text-foreground-intense focus-visible:ring-2 focus-visible:ring-primary/60"
               />
             </label>
             <div className="mt-4 grid gap-3">
               <Button
                 type="button"
                 size="lg"
-                variant="success"
+                variant="primary"
                 onClick={saveSecret}
                 className="w-full"
               >
@@ -285,10 +287,10 @@ export function MobileSettingsPage() {
               </Button>
             </div>
             {savedHint ? (
-              <p className="mt-3 text-[14px] text-emerald-300/90">{savedHint}</p>
+              <p className="mt-3 text-[14px] text-success-strong">{savedHint}</p>
             ) : null}
             {runStatus ? (
-              <p className="mt-3 text-[14px] leading-relaxed text-white/50">
+              <p className="mt-3 text-[14px] leading-relaxed text-foreground-intense">
                 {runStatus}
               </p>
             ) : null}

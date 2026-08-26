@@ -1,5 +1,7 @@
 "use client";
 
+import { Input } from "@appica/ui-react/input";
+
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
@@ -12,13 +14,14 @@ import { TvSettingsAuthPanel } from "@/components/tv/tv-settings-auth-panel";
 import { TvSettingsIntegrationsPanel } from "@/components/tv/tv-settings-integrations-panel";
 import { TvSettingsProxiesPanel } from "@/components/tv/tv-settings-proxies-panel";
 import { TvSettingsCachePanel } from "@/components/tv/tv-settings-cache-panel";
-import { Button } from "@/components/ui/button";
+import { BROWSE_CONTAINER_CLASS } from "@/components/layout/browse-page-shell";
+import { Button } from "@appica/ui-react/button";
 import { ZendeSpinner } from "@/components/loading/zende-spinner";
 import {
-  CinematicCommandPanel,
-  CinematicHero,
-  CinematicMetrics,
-} from "@/components/layout/cinematic-v2";
+  AppicaPanel,
+  AppicaHero,
+  AppicaMetrics,
+} from "@/components/layout/appica-page";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { createClientLogger } from "@/core/logging/client";
 import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
@@ -148,17 +151,17 @@ export function TvSettingsPage() {
   }, [secret]);
 
   return (
-    <div className="settings-ui zen-page-bg min-h-screen overflow-x-clip text-foreground">
+    <div className="bg-background min-h-screen overflow-x-clip text-foreground">
       <main className={cn("pb-24", TV_BROWSE_TOP_PAD_CLASS)}>
-        <CinematicHero
+        <AppicaHero
           className="pt-8"
           eyebrow="Settings"
           title="Settings"
           description="Catalog, access, integrations, VPN routing, playback, and server tools."
           aside={
-            <CinematicCommandPanel>
-              <p className="zen-kicker">System status</p>
-              <CinematicMetrics
+            <AppicaPanel>
+              <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">System status</p>
+              <AppicaMetrics
                 className="mt-4"
                 metrics={[
                   {
@@ -177,16 +180,16 @@ export function TvSettingsPage() {
                   },
                 ]}
               />
-              <p className="mt-5 text-[14px] leading-relaxed text-white/56">
+              <p className="mt-5 text-[14px] leading-relaxed text-foreground-intense">
                 Pick a section below.
               </p>
-            </CinematicCommandPanel>
+            </AppicaPanel>
           }
         />
 
-        <div className="mx-auto mt-5 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
+        <div className={cn(BROWSE_CONTAINER_CLASS, "mt-5")}>
           <div
-            className="flex flex-wrap gap-2 border-b border-white/[0.08] pb-px"
+            className="flex flex-wrap gap-2 border-b border-border pb-px"
             role="tablist"
             aria-label="Settings sections"
           >
@@ -199,30 +202,30 @@ export function TvSettingsPage() {
                 ["server", "Server & reliability"],
               ] : [["authentication", "My account"]]) as readonly (readonly [SettingsTab, string])[]
             ).map(([id, label]) => (
-              <button
+              <Button variant="ghost"
                 key={id}
                 type="button"
                 role="tab"
                 aria-selected={activeTab === id}
                 onClick={() => setTab(id)}
                 className={cn(
-                  "-mb-px rounded-t-[18px] px-4 py-2.5 text-[15px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
+                  "-mb-px rounded-t-[18px] px-4 py-2.5 text-[15px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-primary",
                   "transition-[color,background-color,border-color,transform] duration-200 ease-out",
                   "motion-safe:hover:-translate-y-px",
                   activeTab === id
-                    ? "border border-b-0 border-white/[0.14] bg-white/[0.08] text-white"
-                    : "border border-transparent text-white/45 hover:text-white/75",
+                    ? "border border-b-0 border-border bg-background-muted text-foreground-intense"
+                    : "border border-transparent text-foreground-intense hover:text-foreground-intense",
                 )}
               >
                 {label}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
 
         {canManageSystem && activeTab === "catalog" ? (
           <>
-            <div className="mx-auto mt-8 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
+            <div className={cn(BROWSE_CONTAINER_CLASS, "mt-8")}>
               <TvCatalogSetupStrip
                 source={source}
                 busy={catalogBusy}
@@ -234,73 +237,73 @@ export function TvSettingsPage() {
               />
             </div>
 
-            <div className="mx-auto mt-8 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
+            <div className={cn(BROWSE_CONTAINER_CLASS, "mt-8")}>
               <TvPlaybackPrefsCard />
               <TvParentalControlsCard />
             </div>
-            <div className="mx-auto mt-8 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
+            <div className={cn(BROWSE_CONTAINER_CLASS, "mt-8")}>
               <TvPersonalLibraryCard />
             </div>
 
-            <div className="mx-auto mt-10 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
+            <div className={cn(BROWSE_CONTAINER_CLASS, "mt-10")}>
               <TvManualChannelsSection />
             </div>
           </>
         ) : null}
 
         {activeTab === "authentication" ? (
-          <div className="mx-auto mt-8 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
+          <div className={cn(BROWSE_CONTAINER_CLASS, "mt-8")}>
             <TvSettingsAuthPanel />
             {!canManageSystem ? <div className="mt-8"><TvPersonalLibraryCard /></div> : null}
           </div>
         ) : null}
 
         {canManageSystem && activeTab === "integrations" ? (
-          <div className="mx-auto mt-8 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
+          <div className={cn(BROWSE_CONTAINER_CLASS, "mt-8")}>
             <TvSettingsIntegrationsPanel />
           </div>
         ) : null}
 
         {canManageSystem && activeTab === "proxies" ? (
-          <div className="mx-auto mt-8 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
+          <div className={cn(BROWSE_CONTAINER_CLASS, "mt-8")}>
             <TvSettingsProxiesPanel />
           </div>
         ) : null}
 
         {canManageSystem && activeTab === "server" ? (
-          <div className="mx-auto mt-8 max-w-[1920px] space-y-8 px-6 sm:px-10 lg:px-14 xl:px-20">
+          <div className={cn(BROWSE_CONTAINER_CLASS, "mt-8 space-y-8")}>
           <TvSettingsCachePanel />
           <section
             className={cn(
-              "zen-panel rounded-[28px] p-6",
+              "border border-border bg-background-subtle shadow-sm rounded-lg p-6",
             )}
             aria-labelledby="health-operator-heading"
           >
             <h2
               id="health-operator-heading"
-              className="text-[18px] font-semibold text-white"
+              className="text-[18px] font-semibold text-foreground-intense"
             >
               Self-hosted server key
             </h2>
-            <p className="mt-2 text-[15px] leading-relaxed text-white/50">
+            <p className="mt-2 text-[15px] leading-relaxed text-foreground-intense">
               If your deployment uses a shared secret for automated jobs, enter it here
               so this browser can sync the channel list with the server and run manual
               sweeps. Saved only in{" "}
-              <span className="text-white/70">session storage</span> for this tab.
+              <span className="text-foreground-intense">session storage</span> for this tab.
             </p>
 
             <label className="mt-5 block">
               <span className="sr-only">Operator secret</span>
-              <input
+              <Input
                 type="password"
                 autoComplete="off"
                 placeholder="Bearer token (optional locally)"
                 value={secret}
                 onChange={(e) => setSecret(e.target.value)}
                 className={cn(
-                  "mt-1 h-12 w-full rounded-xl border border-white/[0.12] bg-black/30 px-4",
-                  "text-[16px] text-white placeholder:text-white/35",
-                  "outline-none ring-offset-[var(--tv-page-bg)] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
+                  "mt-1 h-12 w-full rounded-xl border border-border bg-background px-4",
+                  "text-[16px] text-foreground-intense placeholder:text-foreground-intense",
+                  "outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-primary",
                 )}
               />
             </label>
@@ -308,27 +311,27 @@ export function TvSettingsPage() {
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <Button
                 type="button"
-                variant="success"
+                variant="primary"
                 onClick={() => saveSecret()}
               >
                 Save key
               </Button>
               {savedHint ? (
-                <p className="text-[14px] text-emerald-400/95">{savedHint}</p>
+                <p className="text-[14px] text-success-strong">{savedHint}</p>
               ) : null}
             </div>
           </section>
 
           <section
             className={cn(
-              "rounded-2xl border border-white/[0.1] bg-white/[0.04] p-6 ring-1 ring-white/[0.04]",
+              "rounded-2xl border border-border bg-background-muted p-6 ring-1 ring-border",
             )}
             aria-labelledby="health-run-heading"
           >
-            <h2 id="health-run-heading" className="text-[18px] font-semibold text-white">
+            <h2 id="health-run-heading" className="text-[18px] font-semibold text-foreground-intense">
               Stream reliability sweep
             </h2>
-            <p className="mt-2 text-[15px] leading-relaxed text-white/50">
+            <p className="mt-2 text-[15px] leading-relaxed text-foreground-intense">
               Channel badges use a rolling window of reachability checks. When your
               server is configured, the same job runs on a schedule; you can run it
               manually here.
@@ -347,14 +350,14 @@ export function TvSettingsPage() {
                 className={cn(
                   "mt-4 text-[15px] leading-relaxed",
                   runStatus.startsWith("Sweep finished")
-                    ? "text-emerald-400/95"
-                    : "text-amber-300/95",
+                    ? "text-success-strong"
+                    : "text-warning-strong",
                 )}
               >
                 {runStatus}
               </p>
             ) : null}
-            <p className="mt-5 text-[14px] leading-relaxed text-white/38">
+            <p className="mt-5 text-[14px] leading-relaxed text-foreground-intense">
               If you host Zende on your own server, you can automate these checks so
               reliability badges stay current without opening Settings. How you schedule
               that depends on your platform—your deployment notes cover it.
@@ -363,12 +366,12 @@ export function TvSettingsPage() {
         </div>
         ) : null}
 
-        <div className="mx-auto mt-12 max-w-[1920px] px-6 sm:px-10 lg:px-14 xl:px-20">
+        <div className={cn(BROWSE_CONTAINER_CLASS, "mt-12")}>
           <p className="text-[15px]">
             <Link
               href="/"
               onClick={onNavigateClick("/")}
-              className="font-medium text-white/85 underline-offset-4 hover:underline"
+              className="font-medium text-foreground-intense underline-offset-4 hover:underline"
             >
               ← Home
             </Link>
@@ -376,8 +379,8 @@ export function TvSettingsPage() {
         </div>
       </main>
 
-      <footer className="border-t border-white/[0.06] py-10 text-center">
-        <p className="text-[13px] leading-relaxed text-white/35">
+      <footer className="border-t border-border py-10 text-center">
+        <p className="text-[13px] leading-relaxed text-foreground-intense">
           Third-party streams. You are responsible for content you access.
         </p>
       </footer>

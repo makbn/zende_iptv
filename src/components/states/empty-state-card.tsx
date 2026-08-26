@@ -13,20 +13,20 @@ export function EmptyStateCard({ title, description, children, className }: Prop
   return (
     <div
       className={cn(
-        "zen-panel relative isolate flex flex-col justify-center overflow-hidden rounded-[28px] px-8 py-12",
+        "border border-border bg-background-subtle shadow-sm relative isolate flex flex-col justify-center overflow-hidden rounded-lg px-8 py-12",
         className,
       )}
       role="status"
     >
       <div
-        className="absolute -right-16 -top-20 h-44 w-44 rounded-full bg-[var(--zen-signal)]/10 blur-3xl"
+        className="absolute -right-16 -top-20 h-44 w-44 rounded-full bg-primary blur-3xl"
         aria-hidden
       />
-      <p className="zen-kicker">Nothing here yet</p>
-      <p className="mt-3 text-[22px] font-semibold tracking-[-0.04em] text-white">
+      <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">Nothing here yet</p>
+      <p className="mt-3 text-[22px] font-semibold tracking-[-0.04em] text-foreground-intense">
         {title}
       </p>
-      <p className="zen-body-muted mt-2 max-w-2xl">{description}</p>
+      <p className="text-sm text-foreground-muted mt-2 max-w-2xl">{description}</p>
       {children ? <div className="mt-4">{children}</div> : null}
     </div>
   );

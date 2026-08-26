@@ -1,5 +1,7 @@
 "use client";
 
+import { Button } from "@appica/ui-react/button";
+
 import { AlertCircle, X } from "lucide-react";
 
 export function NavErrorBanner({
@@ -15,22 +17,22 @@ export function NavErrorBanner({
       role="alert"
       aria-live="polite"
     >
-      <div className="flex items-start gap-3 rounded-[24px] border border-red-400/25 bg-black/82 px-4 py-3.5 shadow-[0_18px_64px_-26px_rgba(0,0,0,0.92)] backdrop-blur-2xl ring-1 ring-red-200/10">
-        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-300/90" />
+      <div className="flex items-start gap-3 rounded-lg border border-error bg-background px-4 py-3.5 shadow-lg backdrop-blur-2xl ring-1 ring-border">
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-error-strong" />
         <div className="min-w-0 flex-1">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-red-200/65">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-error-strong">
             Playback could not start
           </p>
-          <p className="mt-1 text-[14px] leading-snug text-white/82">{message}</p>
+          <p className="mt-1 text-[14px] leading-snug text-foreground-intense">{message}</p>
         </div>
-        <button
+        <Button variant="ghost"
           type="button"
           onClick={onDismiss}
-          className="shrink-0 rounded-full p-1 text-white/45 outline-none transition-colors hover:bg-white/10 hover:text-white/80 focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+          className="shrink-0 rounded-full p-1 text-foreground-intense outline-none transition-colors hover:bg-background-muted hover:text-foreground-intense focus-visible:ring-2 focus-visible:ring-primary"
           aria-label="Dismiss"
         >
           <X className="h-4 w-4" />
-        </button>
+        </Button>
       </div>
     </div>
   );

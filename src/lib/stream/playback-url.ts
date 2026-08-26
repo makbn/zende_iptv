@@ -1,17 +1,10 @@
 /**
- * Xtream live URLs are often stored as `.ts` (infinite MPEG-TS).
- * Browsers + our HLS proxy need `.m3u8` — same stream id, different container.
+ * Preserve Xtream's open-ended MPEG-TS endpoint. Some providers allow many
+ * concurrent `.ts` feeds but rotate/invalidate account-wide HLS redirect
+ * tokens whenever another `.m3u8` channel starts.
  */
 export function normalizeXtreamLivePlaybackUrl(url: string): string {
-  try {
-    const u = new URL(url.trim());
-    const m = /^(\/live\/[^/]+\/[^/]+\/\d+)\.ts$/i.exec(u.pathname);
-    if (!m) return url;
-    u.pathname = `${m[1]}.m3u8`;
-    return u.href;
-  } catch {
-    return url;
-  }
+  return url.trim();
 }
 
 /** Xtream live endpoints authenticate in the path and do not need a separate cookie warm-up. */

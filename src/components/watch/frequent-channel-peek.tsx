@@ -1,5 +1,7 @@
 "use client";
 
+import { Button } from "@appica/ui-react/button";
+
 import {
   useEffect,
   useMemo,
@@ -8,7 +10,7 @@ import {
   type RefObject,
 } from "react";
 
-import { ZendeGlass } from "@/components/glass/zende-glass";
+import { Card } from "@appica/ui-react/card";
 import { ChannelResolutionBadge } from "@/components/tv/channel-resolution-badge";
 import { useMatchMedia } from "@/lib/hooks/use-match-media";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
@@ -42,14 +44,6 @@ export function ringNeighborEntries(
   };
 }
 
-function hueFromString(s: string): number {
-  let h = 216;
-  for (let i = 0; i < s.length; i++) {
-    h = (h * 33 + s.charCodeAt(i) * 17) % 360;
-  }
-  return h;
-}
-
 function ChannelArt({
   displayName,
   logoUrl,
@@ -66,40 +60,33 @@ function ChannelArt({
   const [broken, setBroken] = useState(false);
   const showLogo = Boolean(logoUrl) && !broken;
   const initial = displayName.trim().slice(0, 1).toUpperCase() || "?";
-  const hue = useMemo(() => hueFromString(displayName), [displayName]);
-
   const frame =
     layout === "compact"
       ? cn(
-          "relative mx-auto flex aspect-video w-full max-w-[220px] items-center justify-center overflow-hidden",
-          "rounded-[12px] ring-1 ring-white/[0.12]",
+          "relative mx-auto flex aspect-video w-full max-w-[220px] items-center justify-center overflow-hidden bg-background-muted",
+          "rounded-lg ring-1 ring-border",
           emphasis === "now"
-            ? "max-h-[84px] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+            ? "max-h-[84px] shadow-lg"
             : "max-h-[68px] opacity-[0.94]",
         )
       : layout === "sheet"
       ? cn(
-          "relative mx-auto flex aspect-video w-full items-center justify-center overflow-hidden",
-          "rounded-[11px] ring-1 ring-white/[0.12]",
+          "relative mx-auto flex aspect-video w-full items-center justify-center overflow-hidden bg-background-muted",
+          "rounded-lg ring-1 ring-border",
           emphasis === "now"
-            ? "max-h-[64px] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+            ? "max-h-[64px] shadow-lg"
             : "max-h-[54px] opacity-[0.94]",
         )
       : cn(
-          "relative mx-auto flex aspect-video w-full items-center justify-center overflow-hidden rounded-[10px]",
-          "ring-1 ring-white/[0.1]",
+          "relative mx-auto flex aspect-video w-full items-center justify-center overflow-hidden rounded-lg bg-background-muted",
+          "ring-1 ring-border",
           emphasis === "now"
-            ? "max-h-[58px] max-w-[118px] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:max-h-[62px] sm:max-w-[128px]"
+            ? "max-h-[58px] max-w-[118px] shadow-lg sm:max-h-[62px] sm:max-w-[128px]"
             : "max-h-[48px] max-w-[92px] opacity-[0.9] sm:max-h-[52px] sm:max-w-[100px]",
         );
 
   return (
-    <div
-      className={frame}
-      style={{
-        background: `linear-gradient(148deg, hsl(${hue} 46% 22%) 0%, hsl(${(hue + 52) % 360} 42% 11%) 52%, oklch(0.1 0.02 ${hue}) 100%)`,
-      }}
-    >
+    <div className={frame}>
       {showLogo ? (
         // eslint-disable-next-line @next/next/no-img-element -- IPTV logos from arbitrary origins
         <img
@@ -108,8 +95,8 @@ function ChannelArt({
           className={cn(
             "relative z-[1] object-contain transition-transform duration-300 ease-out group-hover:scale-[1.04]",
             emphasis === "now"
-              ? "max-h-[76%] max-w-[84%] drop-shadow-[0_8px_20px_rgba(0,0,0,0.5)]"
-              : "max-h-[72%] max-w-[80%] drop-shadow-[0_4px_12px_rgba(0,0,0,0.45)]",
+              ? "max-h-[76%] max-w-[84%] drop-shadow-lg"
+              : "max-h-[72%] max-w-[80%] drop-shadow-lg",
           )}
           referrerPolicy="no-referrer"
           onError={() => setBroken(true)}
@@ -117,7 +104,7 @@ function ChannelArt({
       ) : (
         <span
           className={cn(
-            "relative z-[1] select-none font-semibold text-white/[0.28]",
+            "relative z-[1] select-none font-semibold text-foreground-intense",
             emphasis === "now"
               ? "text-[clamp(1.05rem,2.8vw,1.35rem)]"
               : "text-[clamp(0.85rem,2.2vw,1.05rem)]",
@@ -126,8 +113,8 @@ function ChannelArt({
           {initial}
         </span>
       )}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/72 via-black/15 to-transparent" />
-      <div className="pointer-events-none absolute inset-0 opacity-30 mix-blend-overlay bg-[radial-gradient(ellipse_at_35%_22%,rgba(255,255,255,0.16),transparent_58%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background via-background to-transparent" />
+      <div className="pointer-events-none absolute inset-0 opacity-30 mix-blend-overlay bg-background-subtle" />
       {resolutionLabel ? (
         <div className="absolute right-1.5 top-1.5 z-[3] sm:right-2 sm:top-2">
           <ChannelResolutionBadge label={resolutionLabel} />
@@ -319,7 +306,7 @@ function metaLabel(raw: string | undefined): string | null {
   return s;
 }
 
-/** Center slot = 1; neighbors ~0.75; farthest left/right ~0.2 (smooth ramp). */
+/** Keep every channel legible while giving the current channel clear emphasis. */
 function stripSlotOpacity(
   index: number,
   centerIndex: number,
@@ -331,16 +318,16 @@ function stripSlotOpacity(
   const maxDist = Math.max(center, length - 1 - center);
   if (dist === 0) return 1;
   if (maxDist <= 0) return 1;
-  if (maxDist === 1) return 0.75;
+  if (maxDist === 1) return 0.9;
   const t = (dist - 1) / (maxDist - 1);
-  return 0.75 + (0.2 - 0.75) * t;
+  return 0.9 + (0.72 - 0.9) * t;
 }
 
 /** Frosted glass plate per tile (strip has no shared backdrop — legibility lives here). */
 const stripTileGlassSurface = cn(
-  "border border-white/[0.14] bg-black/45 backdrop-blur-2xl backdrop-saturate-150",
-  "ring-1 ring-white/[0.11]",
-  "shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_10px_36px_-14px_rgba(0,0,0,0.72)]",
+  "border border-border bg-background backdrop-blur-2xl backdrop-saturate-150",
+  "ring-1 ring-border",
+  "shadow-lg",
 );
 
 function StripTile({
@@ -369,8 +356,8 @@ function StripTile({
         ? "text-[12px] leading-snug"
         : "text-[10px] sm:text-[11px]",
     slot.kind === "current"
-      ? "text-white [text-shadow:0_1px_14px_rgba(0,0,0,0.75)]"
-      : "text-white/92 [text-shadow:0_1px_10px_rgba(0,0,0,0.55)]",
+      ? "text-foreground-intense "
+      : "text-foreground-intense ",
   );
   const metaCls = cn(
     "line-clamp-1 w-full text-center font-medium uppercase tracking-[0.07em]",
@@ -379,7 +366,7 @@ function StripTile({
       : layout === "compact"
         ? "text-[9px]"
         : "text-[8px] sm:text-[9px]",
-    slot.kind === "current" ? "text-white/58" : "text-white/52",
+    slot.kind === "current" ? "text-foreground-intense" : "text-foreground-intense",
   );
 
   const body = (
@@ -430,12 +417,12 @@ function StripTile({
           layout === "compact" && "w-full min-w-0",
         )}
       >
-        <ZendeGlass
-          variant="panelCompact"
+        <Card
+          frame="solid"
           className={cn(
-            "relative w-full overflow-hidden rounded-[16px]",
+            "relative w-full overflow-hidden rounded-lg",
             stripTileGlassSurface,
-            "ring-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_14px_44px_-16px_rgba(0,0,0,0.82)]",
+            "ring-border shadow-lg",
           )}
         >
           <div
@@ -450,33 +437,33 @@ function StripTile({
           >
             {body}
           </div>
-        </ZendeGlass>
+        </Card>
       </div>
     );
   }
 
   return (
-    <button
+    <Button variant="ghost"
       type="button"
       onClick={() => onJumpChannel(slot.entry)}
       aria-label={`Open ${slot.entry.name}`}
       style={{ opacity: ringOpacity }}
       className={cn(
-        "group min-h-0 cursor-pointer border-none bg-transparent p-0 text-left outline-none transition-[transform,opacity] duration-300 ease-out",
+        "group h-auto min-h-0 cursor-pointer border-none bg-transparent p-0 text-left outline-none transition-[transform,opacity] duration-300 ease-out",
         layout === "rail" &&
           "w-[min(108px,26vw)] shrink-0 snap-center snap-always sm:w-[118px]",
         layout === "compact" && "w-full min-w-0",
         layout === "rail" && "hover:-translate-y-px active:scale-[0.99]",
-        "focus-visible:ring-2 focus-visible:ring-white/45 focus-visible:ring-offset-2 focus-visible:ring-offset-black/90",
+        "focus-visible:ring-2 focus-visible:ring-border focus-visible:ring-offset-2 focus-visible:ring-offset-black/90",
       )}
     >
-      <ZendeGlass
-        variant="panelCompact"
+      <Card
+        frame="solid"
         className={cn(
-          "h-full w-full overflow-hidden rounded-[14px]",
+          "h-full w-full overflow-hidden rounded-lg",
           stripTileGlassSurface,
           "transition-[box-shadow,transform] duration-200",
-          "group-hover:bg-black/52 group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_12px_40px_-12px_rgba(0,0,0,0.78)]",
+          "group-hover:bg-background group-hover:shadow-lg",
         )}
       >
         <div
@@ -491,8 +478,8 @@ function StripTile({
         >
           {body}
         </div>
-      </ZendeGlass>
-    </button>
+      </Card>
+    </Button>
   );
 }
 
@@ -629,7 +616,7 @@ export function FrequentChannelPeek({
       )}
 
       {ring.length === 1 ? (
-        <p className="mt-3 px-4 text-center text-[10px] font-medium tracking-wide text-white/38 sm:px-5">
+        <p className="mt-3 px-4 text-center text-[10px] font-medium tracking-wide text-foreground-intense sm:px-5">
           Only one channel in this ring · prev/next loops here
         </p>
       ) : null}

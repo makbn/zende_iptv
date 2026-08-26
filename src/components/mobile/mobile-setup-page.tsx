@@ -31,23 +31,23 @@ export function MobileSetupPage() {
   }, [catalogLoaded, channelCount, router]);
 
   return (
-    <main className="zen-page-bg min-h-screen pb-28 pt-[5.35rem] text-foreground">
+    <main className="bg-background min-h-screen pb-28 pt-[5.35rem] text-foreground">
       <section className="px-4">
         <div
           className={cn(
-            "relative overflow-hidden rounded-[24px] border border-white/[0.11] bg-white/[0.055] p-4 ring-1 ring-white/[0.05]",
-            "backdrop-blur-xl motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100",
+            "relative overflow-hidden rounded-lg border border-border bg-background-muted p-4 ring-1 ring-border",
+            "backdrop-blur-xl motion-reduce:animate-none motion-reduce:opacity-100",
           )}
         >
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_40%_-20%,rgba(56,217,255,0.22),transparent_55%)]" />
+          <div className="pointer-events-none absolute inset-0 bg-background-subtle" />
           <div className="relative">
-            <p className="zen-kicker text-[10px]">
+            <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted text-[10px]">
               Welcome
             </p>
-            <h1 className="mt-1 text-[clamp(1.55rem,5.8vw,1.9rem)] font-semibold leading-tight tracking-[-0.055em] text-white">
+            <h1 className="mt-1 text-[clamp(1.55rem,5.8vw,1.9rem)] font-semibold leading-tight tracking-[-0.055em] text-foreground-intense">
               Set up Zende
             </h1>
-            <p className="mt-2 text-[13px] leading-snug text-white/48">
+            <p className="mt-2 text-[13px] leading-snug text-foreground-intense">
               Add the built-in index once — Home fills with recents and picks right after.
             </p>
           </div>
@@ -65,15 +65,15 @@ export function MobileSetupPage() {
           onRefresh={() => void refreshCatalog()}
         />
 
-        <div className="zen-card rounded-[26px] p-5">
+        <div className="border border-border bg-background-subtle shadow-sm rounded-lg p-5">
           <Link
             href="/settings"
             onClick={onNavigateClick("/settings")}
-            className="flex min-h-[52px] items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.06] text-[15px] font-semibold text-white"
+            className="flex min-h-[52px] items-center justify-center rounded-full border border-border bg-background-muted text-[15px] font-semibold text-foreground-intense"
           >
             Advanced options
           </Link>
-          <p className="mt-4 text-center text-[13px] leading-relaxed text-white/38">
+          <p className="mt-4 text-center text-[13px] leading-relaxed text-foreground-intense">
             Catalog updates and stream health tools are always available in
             Settings.
           </p>

@@ -1,5 +1,7 @@
 "use client";
 
+import { Button } from "@appica/ui-react/button";
+
 import { Star } from "lucide-react";
 import { useSyncExternalStore } from "react";
 
@@ -34,7 +36,7 @@ export function FavoriteStarButton({
     size === "md" ? "size-[22px]" : "size-[18px] stroke-[2.25px]";
 
   return (
-    <button
+    <Button variant="ghost"
       type="button"
       aria-label={active ? "Remove from favorites" : "Add to favorites"}
       aria-pressed={active}
@@ -45,19 +47,19 @@ export function FavoriteStarButton({
       }}
       className={cn(
         "rounded-xl outline-none transition-[transform,colors,background-color] duration-200",
-        "focus-visible:ring-2 focus-visible:ring-amber-400/90 focus-visible:ring-offset-2 focus-visible:ring-offset-black/90",
+        "focus-visible:ring-2 focus-visible:ring-border focus-visible:ring-offset-2 focus-visible:ring-offset-black/90",
         "hover:scale-105 active:scale-95",
         active
-          ? "bg-amber-400/15 p-1.5 text-amber-300 shadow-[inset_0_0_0_1px_rgba(251,191,36,0.35)]"
-          : "bg-black/45 p-1.5 text-white/55 backdrop-blur-md hover:bg-black/55 hover:text-white/88",
+          ? "bg-warning-subtle p-1.5 text-warning-strong shadow-lg"
+          : "bg-background p-1.5 text-foreground-intense backdrop-blur-md hover:bg-background hover:text-foreground-intense",
         size === "md" && "p-2",
         className,
       )}
     >
       <Star
-        className={cn(iconClass, active && "fill-amber-400 text-amber-300")}
+        className={cn(iconClass, active && "fill-current text-warning-strong")}
         aria-hidden
       />
-    </button>
+    </Button>
   );
 }

@@ -1,12 +1,18 @@
 "use client";
 
+import { Textarea } from "@appica/ui-react/textarea";
+
+import { Input } from "@appica/ui-react/input";
+
+import { Button } from "@appica/ui-react/button";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Pencil, Trash2, X } from "lucide-react";
 
 import { parseM3u } from "@/core/playlist/m3u-parse";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
-import { ZendeGlass } from "@/components/glass/zende-glass";
+import { Card } from "@appica/ui-react/card";
 import { useAuth } from "@/features/auth/auth-context";
 import {
   canModifyManualChannelEntry,
@@ -445,47 +451,47 @@ export function TvManualChannelsSection() {
   );
 
   const inputClass = cn(
-    "mt-1.5 h-11 w-full rounded-xl border border-white/[0.12] bg-black/30 px-4",
-    "text-[15px] text-white placeholder:text-white/35",
-    "outline-none ring-offset-[var(--tv-page-bg)] focus-visible:ring-2 focus-visible:ring-white",
+    "mt-1.5 h-11 w-full rounded-xl border border-border bg-background px-4",
+    "text-[15px] text-foreground-intense placeholder:text-foreground-intense",
+    "outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-border",
   );
 
   return (
     <section
       className={cn(
-        "rounded-2xl border border-white/[0.1] bg-white/[0.04] p-6 ring-1 ring-white/[0.04]",
+        "rounded-2xl border border-border bg-background-muted p-6 ring-1 ring-border",
       )}
       aria-labelledby="manual-channels-heading"
     >
       <h2
         id="manual-channels-heading"
-        className="text-[18px] font-semibold text-white"
+        className="text-[18px] font-semibold text-foreground-intense"
       >
         Your streams
       </h2>
-      <p className="mt-2 text-[15px] leading-relaxed text-white/50">
+      <p className="mt-2 text-[15px] leading-relaxed text-foreground-intense">
         Add channels by URL — they show up everywhere alongside the built-in catalog:
         Home, Library, search, and Watch. When sign-in is enabled, each channel is
         owned by whoever added or imported it; admins can edit any channel.
       </p>
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
-        <button
+        <Button variant="ghost"
           type="button"
           disabled={clearingAll || (entriesTotal === 0 && builtinChannelTotal === 0)}
           onClick={() => void onRemoveAllImported()}
           className={cn(
-            "inline-flex items-center gap-2 rounded-xl border border-red-400/35 bg-red-500/10 px-4 py-2.5",
-            "text-[14px] font-semibold text-red-200/95 outline-none transition-colors",
-            "hover:bg-red-500/18 focus-visible:ring-2 focus-visible:ring-red-300/60",
+            "inline-flex items-center gap-2 rounded-xl border border-error bg-error-subtle px-4 py-2.5",
+            "text-[14px] font-semibold text-error-strong outline-none transition-colors",
+            "hover:bg-error-subtle focus-visible:ring-2 focus-visible:ring-border",
             "disabled:cursor-not-allowed disabled:opacity-45",
           )}
         >
           <Trash2 className="size-4" aria-hidden />
           {clearingAll ? "Removing…" : "Remove all channels"}
-        </button>
+        </Button>
         {entriesTotal > 0 || builtinChannelTotal > 0 ? (
-          <span className="text-[13px] text-white/40">
+          <span className="text-[13px] text-foreground-intense">
             {entriesTotal > 0
               ? `${entriesTotal.toLocaleString()} imported`
               : "No imports"}
@@ -498,8 +504,8 @@ export function TvManualChannelsSection() {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <label className="block sm:col-span-2">
-          <span className="text-[13px] font-medium text-white/55">Channel name</span>
-          <input
+          <span className="text-[13px] font-medium text-foreground-intense">Channel name</span>
+          <Input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -509,8 +515,8 @@ export function TvManualChannelsSection() {
           />
         </label>
         <label className="block sm:col-span-2">
-          <span className="text-[13px] font-medium text-white/55">Stream URL</span>
-          <input
+          <span className="text-[13px] font-medium text-foreground-intense">Stream URL</span>
+          <Input
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
@@ -520,8 +526,8 @@ export function TvManualChannelsSection() {
           />
         </label>
         <label className="block">
-          <span className="text-[13px] font-medium text-white/55">Group (optional)</span>
-          <input
+          <span className="text-[13px] font-medium text-foreground-intense">Group (optional)</span>
+          <Input
             type="text"
             value={groupTitle}
             onChange={(e) => setGroupTitle(e.target.value)}
@@ -531,8 +537,8 @@ export function TvManualChannelsSection() {
           />
         </label>
         <label className="block">
-          <span className="text-[13px] font-medium text-white/55">Logo URL (optional)</span>
-          <input
+          <span className="text-[13px] font-medium text-foreground-intense">Logo URL (optional)</span>
+          <Input
             type="url"
             value={logo}
             onChange={(e) => setLogo(e.target.value)}
@@ -544,70 +550,70 @@ export function TvManualChannelsSection() {
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button
+        <Button variant="ghost"
           type="button"
           onClick={() => onAddOne()}
           className="outline-none transition-transform active:scale-[0.99] motion-reduce:transform-none"
         >
-          <ZendeGlass variant="ctaPill">
-            <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
+          <Card frame="solid">
+            <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-foreground-inverse">
               Add channel
             </span>
-          </ZendeGlass>
-        </button>
+          </Card>
+        </Button>
       </div>
 
-      <div className="mt-8 border-t border-white/[0.08] pt-8">
-        <h3 className="text-[15px] font-semibold text-white/90">
+      <div className="mt-8 border-t border-border pt-8">
+        <h3 className="text-[15px] font-semibold text-foreground-intense">
           Import from playlist URL
         </h3>
-        <p className="mt-1 text-[14px] leading-relaxed text-white/45">
+        <p className="mt-1 text-[14px] leading-relaxed text-foreground-intense">
           Paste a remote M3U/M3U8 URL and Zende imports channels server-side.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <input
+          <Input
             type="url"
             value={playlistUrl}
             onChange={(e) => setPlaylistUrl(e.target.value)}
             placeholder="http(s)://.../playlist.m3u8"
             className={cn(inputClass, "mt-0 min-w-[320px] flex-1")}
           />
-          <button
+          <Button variant="ghost"
             type="button"
             onClick={() => void onImportPlaylistUrl()}
             className="outline-none transition-transform active:scale-[0.99] motion-reduce:transform-none"
           >
-            <ZendeGlass variant="heroSecondary" className="inline-block">
-              <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-white">
+            <Card frame="solid" className="inline-block">
+              <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-foreground-intense">
                 Import URL
               </span>
-            </ZendeGlass>
-          </button>
+            </Card>
+          </Button>
         </div>
 
-        <h3 className="mt-8 text-[15px] font-semibold text-white/90">
+        <h3 className="mt-8 text-[15px] font-semibold text-foreground-intense">
           Import from Xtream credentials
         </h3>
-        <p className="mt-1 text-[14px] leading-relaxed text-white/45">
+        <p className="mt-1 text-[14px] leading-relaxed text-foreground-intense">
           Enter server host, username, and password. Zende builds the
-          <code className="mx-1 text-white/70">get.php</code> URL automatically.
+          <code className="mx-1 text-foreground-intense">get.php</code> URL automatically.
         </p>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          <input
+          <Input
             type="text"
             value={xtreamHost}
             onChange={(e) => setXtreamHost(e.target.value)}
             placeholder="http://example.com"
             className={cn(inputClass, "mt-0")}
           />
-          <input
+          <Input
             type="text"
             value={xtreamUser}
             onChange={(e) => setXtreamUser(e.target.value)}
             placeholder="Username"
             className={cn(inputClass, "mt-0")}
           />
-          <input
+          <Input
             type="text"
             value={xtreamPass}
             onChange={(e) => setXtreamPass(e.target.value)}
@@ -615,46 +621,46 @@ export function TvManualChannelsSection() {
             className={cn(inputClass, "mt-0")}
           />
         </div>
-        <button
+        <Button variant="ghost"
           type="button"
           onClick={() => void onImportXtream()}
           className="mt-3 outline-none transition-transform active:scale-[0.99] motion-reduce:transform-none"
         >
-          <ZendeGlass variant="heroSecondary" className="inline-block">
-            <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-white">
+          <Card frame="solid" className="inline-block">
+            <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-foreground-intense">
               Import Xtream playlist
             </span>
-          </ZendeGlass>
-        </button>
+          </Card>
+        </Button>
 
-        <h3 className="mt-8 text-[15px] font-semibold text-white/90">
+        <h3 className="mt-8 text-[15px] font-semibold text-foreground-intense">
           Import from M3U
         </h3>
-        <p className="mt-1 text-[14px] leading-relaxed text-white/45">
+        <p className="mt-1 text-[14px] leading-relaxed text-foreground-intense">
           Paste a snippet from any compatible playlist file — multiple channels at once.
         </p>
-        <textarea
+        <Textarea
           value={m3uPaste}
           onChange={(e) => setM3uPaste(e.target.value)}
           rows={5}
           placeholder={"#EXTINF:-1,Example\nhttps://example.com/stream.m3u8"}
           className={cn(
-            "mt-3 w-full resize-y rounded-xl border border-white/[0.12] bg-black/30 px-4 py-3",
-            "font-mono text-[13px] leading-relaxed text-white placeholder:text-white/30",
-            "outline-none ring-offset-[var(--tv-page-bg)] focus-visible:ring-2 focus-visible:ring-white",
+            "mt-3 w-full resize-y rounded-xl border border-border bg-background px-4 py-3",
+            "font-mono text-[13px] leading-relaxed text-foreground-intense placeholder:text-foreground-intense",
+            "outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-border",
           )}
         />
-        <button
+        <Button variant="ghost"
           type="button"
           onClick={() => onImportM3u()}
           className="mt-3 outline-none transition-transform active:scale-[0.99] motion-reduce:transform-none"
         >
-          <ZendeGlass variant="heroSecondary" className="inline-block">
-            <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-white">
+          <Card frame="solid" className="inline-block">
+            <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-foreground-intense">
               Import pasted channels
             </span>
-          </ZendeGlass>
-        </button>
+          </Card>
+        </Button>
       </div>
 
       {hint ? (
@@ -664,8 +670,8 @@ export function TvManualChannelsSection() {
             hint.startsWith("Added") ||
               hint.startsWith("Imported") ||
               hint.startsWith("Updated")
-              ? "text-emerald-400/95"
-              : "text-amber-300/95",
+              ? "text-success-strong"
+              : "text-warning-strong",
           )}
           role="status"
         >
@@ -676,22 +682,22 @@ export function TvManualChannelsSection() {
       {entries.length > 0 || entriesTotal > 0 || manageOpen ? (
         <div className="mt-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="text-[15px] font-semibold text-white/90">
+            <h3 className="text-[15px] font-semibold text-foreground-intense">
               Channel manager
             </h3>
-            <button
+            <Button variant="ghost"
               type="button"
               onClick={() => setManageOpen((v) => !v)}
-              className="rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2 text-[13px] font-medium text-white/80 outline-none hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-white"
+              className="rounded-xl border border-border bg-background-muted px-4 py-2 text-[13px] font-medium text-foreground-intense outline-none hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-border"
             >
               {manageOpen ? "Hide manager" : "Search & manage channels"}
-            </button>
+            </Button>
           </div>
 
           {manageOpen ? (
             <>
               <div className="mt-3 flex flex-wrap gap-2">
-                <input
+                <Input
                   type="text"
                   value={manageQuery}
                   onChange={(e) => setManageQuery(e.target.value)}
@@ -699,29 +705,29 @@ export function TvManualChannelsSection() {
                   className={cn(inputClass, "mt-0 min-w-[280px] flex-1")}
                 />
                 {manageQuery ? (
-                  <button
+                  <Button variant="ghost"
                     type="button"
                     onClick={() => setManageQuery("")}
-                    className="rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2 text-[13px] font-medium text-white/75 outline-none hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-white"
+                    className="rounded-xl border border-border bg-background-muted px-4 py-2 text-[13px] font-medium text-foreground-intense outline-none hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-border"
                   >
                     Clear
-                  </button>
+                  </Button>
                 ) : null}
               </div>
 
               {selectedEntry ? (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <span className="text-[12px] text-white/45">
-                    Selected: <span className="text-white/80">{selectedEntry.channel.name}</span>
+                  <span className="text-[12px] text-foreground-intense">
+                    Selected: <span className="text-foreground-intense">{selectedEntry.channel.name}</span>
                   </span>
-                  <button
+                  <Button variant="ghost"
                     type="button"
                     onClick={() => openEdit(selectedEntry)}
-                    className="rounded-xl border border-white/[0.12] bg-white/[0.06] px-3 py-1.5 text-[12px] font-medium text-white/80 outline-none hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-white"
+                    className="rounded-xl border border-border bg-background-muted px-3 py-1.5 text-[12px] font-medium text-foreground-intense outline-none hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-border"
                   >
                     Edit selected
-                  </button>
-                  <button
+                  </Button>
+                  <Button variant="ghost"
                     type="button"
                     onClick={() =>
                       void zendeFetch("/api/channels/manual", {
@@ -734,26 +740,26 @@ export function TvManualChannelsSection() {
                         setSelectedEntryId(null);
                       })
                     }
-                    className="rounded-xl border border-red-400/25 bg-red-500/10 px-3 py-1.5 text-[12px] font-medium text-red-100 outline-none hover:bg-red-500/20 focus-visible:ring-2 focus-visible:ring-red-300"
+                    className="rounded-xl border border-error bg-error-subtle px-3 py-1.5 text-[12px] font-medium text-error-strong outline-none hover:bg-error-subtle focus-visible:ring-2 focus-visible:ring-border"
                   >
                     Remove selected
-                  </button>
+                  </Button>
                 </div>
               ) : null}
 
               {manageQuery.trim().length < 2 ? (
-                <p className="mt-3 text-[13px] text-white/45">
+                <p className="mt-3 text-[13px] text-foreground-intense">
                   Enter at least 2 characters to search channels.
                 </p>
               ) : null}
 
               {loadingEntries ? (
-                <p className="mt-3 text-[13px] text-white/45">Searching…</p>
+                <p className="mt-3 text-[13px] text-foreground-intense">Searching…</p>
               ) : null}
 
               {manageQuery.trim().length >= 2 ? (
                 <>
-                  <p className="mt-3 text-[12px] text-white/40">
+                  <p className="mt-3 text-[12px] text-foreground-intense">
                     Results: {visibleEntries.length.toLocaleString()} / {entriesTotal.toLocaleString()}
                   </p>
                   <ul className="mt-2 space-y-2" aria-label="Manual channel search results">
@@ -766,26 +772,26 @@ export function TvManualChannelsSection() {
                           className={cn(
                             "flex items-start gap-3 rounded-xl border px-4 py-3",
                             selected
-                              ? "border-white/[0.24] bg-white/[0.09]"
-                              : "border-white/[0.08] bg-black/25",
+                              ? "border-border bg-background-muted"
+                              : "border-border bg-background",
                           )}
                         >
-                          <button
+                          <Button variant="ghost"
                             type="button"
                             onClick={() => setSelectedEntryId(e.id)}
-                            className="mt-0.5 rounded-md border border-white/[0.2] bg-white/[0.06] px-2 py-1 text-[11px] text-white/75 outline-none hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-white"
+                            className="mt-0.5 rounded-md border border-border bg-background-muted px-2 py-1 text-[11px] text-foreground-intense outline-none hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-border"
                             aria-label={`Select ${e.channel.name}`}
                           >
                             {selected ? "Selected" : "Select"}
-                          </button>
+                          </Button>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-[15px] font-medium text-white">
+                            <p className="truncate text-[15px] font-medium text-foreground-intense">
                               {e.channel.name}
                             </p>
-                            <p className="mt-0.5 truncate font-mono text-[12px] text-white/45">
+                            <p className="mt-0.5 truncate font-mono text-[12px] text-foreground-intense">
                               {e.channel.url}
                             </p>
-                            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[12px] text-white/38">
+                            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[12px] text-foreground-intense">
                               {e.channel.groupTitle ? <span>{e.channel.groupTitle}</span> : null}
                               {e.channel.tvgLanguage ? (
                                 <span>Lang: {e.channel.tvgLanguage}</span>
@@ -793,7 +799,7 @@ export function TvManualChannelsSection() {
                             </div>
                           </div>
                           {!mod ? (
-                            <span className="px-2 py-1 text-[11px] text-white/35">
+                            <span className="px-2 py-1 text-[11px] text-foreground-intense">
                               Added by another user
                             </span>
                           ) : null}
@@ -802,16 +808,16 @@ export function TvManualChannelsSection() {
                     })}
                   </ul>
                   {entriesTotal === 0 && !loadingEntries ? (
-                    <p className="mt-3 text-[13px] text-white/45">No channels match that search.</p>
+                    <p className="mt-3 text-[13px] text-foreground-intense">No channels match that search.</p>
                   ) : null}
                   {hasMoreManage ? (
-                    <button
+                    <Button variant="ghost"
                       type="button"
                       onClick={() => setVisibleManageCount((n) => n + ENTRY_PAGE_SIZE)}
-                      className="mt-3 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2 text-[13px] font-medium text-white/80 outline-none hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-white"
+                      className="mt-3 rounded-xl border border-border bg-background-muted px-4 py-2 text-[13px] font-medium text-foreground-intense outline-none hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-border"
                     >
                       Load more ({Math.min(ENTRY_PAGE_SIZE, entriesTotal - visibleEntries.length)} more)
-                    </button>
+                    </Button>
                   ) : null}
                 </>
               ) : null}
@@ -819,7 +825,7 @@ export function TvManualChannelsSection() {
           ) : null}
         </div>
       ) : (
-        <p className="mt-8 text-[14px] text-white/38">
+        <p className="mt-8 text-[14px] text-foreground-intense">
           No personal streams yet — add one above or import from M3U.
         </p>
       )}
@@ -827,7 +833,7 @@ export function TvManualChannelsSection() {
       {editing ? (
         <div
           className={cn(
-            "fixed inset-0 z-[80] flex items-end justify-center bg-black/70 p-4 sm:items-center",
+            "fixed inset-0 z-[80] flex items-end justify-center bg-background p-4 sm:items-center",
             "motion-safe:animate-[glass-backdrop-in_0.25s_ease-out_both] motion-reduce:animate-none motion-reduce:opacity-100",
           )}
           role="dialog"
@@ -836,31 +842,31 @@ export function TvManualChannelsSection() {
         >
           <div
             className={cn(
-              "max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/[0.12] bg-[var(--tv-page-bg)] p-6 shadow-2xl",
+              "max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-border bg-background p-6 shadow-2xl",
               "motion-safe:animate-[glass-modal-pop_0.36s_cubic-bezier(0.16,1,0.3,1)_both]",
             )}
           >
             <div className="flex items-start justify-between gap-3">
               <h3
                 id="edit-manual-channel-title"
-                className="text-[17px] font-semibold text-white"
+                className="text-[17px] font-semibold text-foreground-intense"
               >
                 Edit channel
               </h3>
-              <button
+              <Button variant="ghost"
                 type="button"
                 onClick={closeEdit}
-                className="rounded-lg p-2 text-white/55 outline-none transition-colors hover:bg-white/10 hover:text-white active:bg-white/10 focus-visible:ring-2 focus-visible:ring-white motion-reduce:transition-none"
+                className="rounded-lg p-2 text-foreground-intense outline-none transition-colors hover:bg-background-muted hover:text-foreground-intense active:bg-background-muted focus-visible:ring-2 focus-visible:ring-border motion-reduce:transition-none"
                 aria-label="Close"
               >
                 <X className="size-5" />
-              </button>
+              </Button>
             </div>
 
             <div className="mt-5 grid gap-4">
               <label className="block">
-                <span className="text-[13px] font-medium text-white/55">Name</span>
-                <input
+                <span className="text-[13px] font-medium text-foreground-intense">Name</span>
+                <Input
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
@@ -869,8 +875,8 @@ export function TvManualChannelsSection() {
                 />
               </label>
               <label className="block">
-                <span className="text-[13px] font-medium text-white/55">Stream URL</span>
-                <input
+                <span className="text-[13px] font-medium text-foreground-intense">Stream URL</span>
+                <Input
                   type="url"
                   value={editUrl}
                   onChange={(e) => setEditUrl(e.target.value)}
@@ -879,8 +885,8 @@ export function TvManualChannelsSection() {
                 />
               </label>
               <label className="block">
-                <span className="text-[13px] font-medium text-white/55">Logo URL</span>
-                <input
+                <span className="text-[13px] font-medium text-foreground-intense">Logo URL</span>
+                <Input
                   type="url"
                   value={editLogo}
                   onChange={(e) => setEditLogo(e.target.value)}
@@ -889,8 +895,8 @@ export function TvManualChannelsSection() {
                 />
               </label>
               <label className="block">
-                <span className="text-[13px] font-medium text-white/55">Group</span>
-                <input
+                <span className="text-[13px] font-medium text-foreground-intense">Group</span>
+                <Input
                   type="text"
                   value={editGroup}
                   onChange={(e) => setEditGroup(e.target.value)}
@@ -899,8 +905,8 @@ export function TvManualChannelsSection() {
                 />
               </label>
               <label className="block">
-                <span className="text-[13px] font-medium text-white/55">Language</span>
-                <input
+                <span className="text-[13px] font-medium text-foreground-intense">Language</span>
+                <Input
                   type="text"
                   value={editLang}
                   onChange={(e) => setEditLang(e.target.value)}
@@ -910,8 +916,8 @@ export function TvManualChannelsSection() {
                 />
               </label>
               <label className="block">
-                <span className="text-[13px] font-medium text-white/55">TVG ID</span>
-                <input
+                <span className="text-[13px] font-medium text-foreground-intense">TVG ID</span>
+                <Input
                   type="text"
                   value={editTvgId}
                   onChange={(e) => setEditTvgId(e.target.value)}
@@ -920,15 +926,15 @@ export function TvManualChannelsSection() {
                 />
               </label>
               <label className="block">
-                <span className="text-[13px] font-medium text-white/55">Description</span>
-                <textarea
+                <span className="text-[13px] font-medium text-foreground-intense">Description</span>
+                <Textarea
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
                   rows={3}
                   className={cn(
-                    "mt-1.5 w-full resize-y rounded-xl border border-white/[0.12] bg-black/30 px-4 py-3",
-                    "text-[15px] text-white placeholder:text-white/35",
-                    "outline-none ring-offset-[var(--tv-page-bg)] focus-visible:ring-2 focus-visible:ring-white",
+                    "mt-1.5 w-full resize-y rounded-xl border border-border bg-background px-4 py-3",
+                    "text-[15px] text-foreground-intense placeholder:text-foreground-intense",
+                    "outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-border",
                   )}
                   autoComplete="off"
                 />
@@ -936,30 +942,26 @@ export function TvManualChannelsSection() {
             </div>
 
             {editHint ? (
-              <p className="mt-3 text-[14px] text-amber-300/95" role="status">
+              <p className="mt-3 text-[14px] text-warning-strong" role="status">
                 {editHint}
               </p>
             ) : null}
 
             <div className="mt-6 flex flex-wrap justify-end gap-3">
-              <button
+              <Button variant="ghost"
                 type="button"
                 onClick={closeEdit}
-                className="rounded-xl px-4 py-2.5 text-[15px] font-medium text-white/70 outline-none transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white active:bg-white/10 motion-reduce:transition-none"
+                className="rounded-xl px-4 py-2.5 text-[15px] font-medium text-foreground-intense outline-none transition-colors hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-border active:bg-background-muted motion-reduce:transition-none"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button variant="primary"
+                size="lg"
                 type="button"
                 onClick={onSaveEdit}
-                className="outline-none transition-transform active:scale-[0.99] motion-reduce:transform-none"
               >
-                <ZendeGlass variant="ctaPill">
-                  <span className="flex items-center px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
-                    Save changes
-                  </span>
-                </ZendeGlass>
-              </button>
+                Save changes
+              </Button>
             </div>
           </div>
         </div>

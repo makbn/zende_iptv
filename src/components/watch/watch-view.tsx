@@ -1,7 +1,10 @@
 "use client";
 
+import { Input } from "@appica/ui-react/input";
+import { Slider } from "@appica/ui-react/slider";
+
 import dynamic from "next/dynamic";
-import { Menu } from "@base-ui/react/menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuGroupLabel, DropdownMenuItem, DropdownMenuTrigger } from "@appica/ui-react/dropdown-menu";
 import Link from "next/link";
 import {
   FastForward,
@@ -21,7 +24,7 @@ import {
   VolumeX,
 } from "lucide-react";
 import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@appica/ui-react/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
@@ -46,7 +49,7 @@ import {
   listManualChannelEntries,
   subscribeManualChannels,
 } from "@/lib/channels/manual-channels-store";
-import { BrowseShellRefContext } from "@/components/glass/browse-chrome";
+import { BrowseShellRefContext } from "@/components/layout/app-shell";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { getWatchReturnHref } from "@/lib/navigation/watch-browse-origin";
@@ -61,7 +64,7 @@ import {
   type ChannelZapMode,
   ZAP_MODE_LABELS,
 } from "@/lib/watch/watch-channel-ring";
-import { ZendeGlass } from "@/components/glass/zende-glass";
+import { Card } from "@appica/ui-react/card";
 import type { PlayerError, PlayerSession } from "@/components/player/stream-player";
 
 const StreamPlayer = dynamic(
@@ -1167,7 +1170,7 @@ export function WatchView() {
     legacyBridge === "working"
   ) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-black px-8 text-center text-white">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-8 text-center text-foreground-intense">
         <ZendeLoadingState
           size="large"
           label="Preparing playback…"
@@ -1179,11 +1182,11 @@ export function WatchView() {
 
   if (sessionMetaError) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-black px-8 text-center text-white">
-        <p className="text-[17px] text-white/70">{sessionMetaError}</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-8 text-center text-foreground-intense">
+        <p className="text-[17px] text-foreground-intense">{sessionMetaError}</p>
         <Link
           href="/library"
-          className={buttonVariants({ variant: "normal", size: "lg" })}
+          className={buttonVariants({ variant: "secondary", size: "lg" })}
         >
           Back to Library
         </Link>
@@ -1193,11 +1196,11 @@ export function WatchView() {
 
   if (!playbackSrc) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-black px-8 text-center text-white">
-        <p className="text-[17px] text-white/70">No stream was selected.</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-8 text-center text-foreground-intense">
+        <p className="text-[17px] text-foreground-intense">No stream was selected.</p>
         <Link
           href="/"
-          className={buttonVariants({ variant: "normal", size: "lg" })}
+          className={buttonVariants({ variant: "secondary", size: "lg" })}
         >
           Back to Home
         </Link>
@@ -1209,7 +1212,7 @@ export function WatchView() {
     <BrowseShellRefContext.Provider value={containerRef}>
       <div
         ref={containerRef}
-        className="fixed inset-0 z-0 overflow-hidden bg-black text-white"
+        className="fixed inset-0 z-0 overflow-hidden bg-background text-foreground-intense"
       >
         <div className="absolute inset-0">
           <div
@@ -1243,17 +1246,17 @@ export function WatchView() {
           </div>
 
           {autoplayBlocked && !playerFatalError ? (
-            <button
+            <Button variant="ghost"
               type="button"
               onClick={() => togglePlay()}
-              className="pointer-events-auto absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-black/45 px-6 text-center outline-none"
+              className="pointer-events-auto absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-background px-6 text-center outline-none"
               aria-label="Tap to play"
             >
-              <span className="flex size-16 items-center justify-center rounded-full bg-white/12 ring-1 ring-white/20">
-                <Play className="size-8 pl-1 text-white" fill="currentColor" aria-hidden />
+              <span className="flex size-16 items-center justify-center rounded-full bg-background-muted ring-1 ring-border">
+                <Play className="size-8 pl-1 text-foreground-intense" fill="currentColor" aria-hidden />
               </span>
-              <span className="text-[16px] font-semibold text-white">Tap to play</span>
-            </button>
+              <span className="text-[16px] font-semibold text-foreground-intense">Tap to play</span>
+            </Button>
           ) : null}
 
           <div
@@ -1262,33 +1265,33 @@ export function WatchView() {
               buffering && !playerFatalError ? "opacity-100" : "opacity-0",
             )}
           >
-            <ZendeGlass variant="panelCompact" className="pointer-events-none">
+            <Card frame="solid" className="pointer-events-none">
               <div className="flex items-center gap-3 px-5 py-3">
                 <ZendeSpinner size="large" label="Buffering stream" />
                 <div className="text-left">
-                  <p className="text-[14px] font-semibold text-white">
+                  <p className="text-[14px] font-semibold text-foreground-intense">
                     Buffering
                   </p>
-                  <p className="text-[12px] text-white/55">
+                  <p className="text-[12px] text-foreground-intense">
                     Network or stream is catching up
                   </p>
                 </div>
               </div>
-            </ZendeGlass>
+            </Card>
           </div>
 
           {playerFatalError && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 px-4">
-              <ZendeGlass variant="panelCompact" className="max-w-sm">
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background px-4">
+              <Card frame="solid" className="max-w-sm">
                 <div className="px-5 py-4 text-left">
-                  <p className="text-[14px] font-semibold text-red-400">
+                  <p className="text-[14px] font-semibold text-error-strong">
                     Playback failed
                   </p>
-                  <p className="mt-1 text-[14px] leading-relaxed text-white/70">
+                  <p className="mt-1 text-[14px] leading-relaxed text-foreground-intense">
                     This stream could not be played. It may be offline, blocked in
                     your browser, or use an unsupported format.
                   </p>
-                  <details className="mt-2 text-[12px] text-white/40">
+                  <details className="mt-2 text-[12px] text-foreground-intense">
                     <summary className="cursor-pointer select-none">Technical details</summary>
                     <p className="mt-1 break-all font-mono">
                       {playerFatalError.details}
@@ -1315,77 +1318,77 @@ export function WatchView() {
                     </Button>
                   </div>
                 </div>
-              </ZendeGlass>
+              </Card>
             </div>
           )}
 
           {infoOpen ? (
-            <div className="absolute inset-0 z-[35] flex items-center justify-center bg-black/60 px-4">
-              <ZendeGlass variant="panelCompact" className="max-w-md w-full">
+            <div className="absolute inset-0 z-[35] flex items-center justify-center bg-background px-4">
+              <Card frame="solid" className="max-w-md w-full">
                 <div className="px-5 py-4 text-left">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-white/45">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-foreground-intense">
                         Now playing
                       </p>
-                      <h2 className="mt-1 truncate text-[18px] font-semibold text-white">
+                      <h2 className="mt-1 truncate text-[18px] font-semibold text-foreground-intense">
                         {titleDisplay}
                       </h2>
                       {group ? (
-                        <p className="mt-1 truncate text-[13px] text-white/50">{group}</p>
+                        <p className="mt-1 truncate text-[13px] text-foreground-intense">{group}</p>
                       ) : null}
                     </div>
-                    <button
+                    <Button variant="ghost"
                       type="button"
                       onClick={() => setInfoOpen(false)}
-                      className="rounded-lg px-2 py-1 text-[13px] text-white/55 hover:bg-white/10"
+                      className="rounded-lg px-2 py-1 text-[13px] text-foreground-intense hover:bg-background-muted"
                     >
                       Esc
-                    </button>
+                    </Button>
                   </div>
 
-                  <div className="mt-4 rounded-xl border border-white/[0.08] bg-black/25 px-3 py-2.5">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-white/40">
+                  <div className="mt-4 rounded-xl border border-border bg-background px-3 py-2.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground-intense">
                       Channel zap
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {(["frequent", "favorites", "group"] as const).map((mode) => (
-                        <button
+                        <Button variant="ghost"
                           key={mode}
                           type="button"
                           onClick={() => setZapMode(mode)}
                           className={cn(
                             "rounded-full px-3 py-1.5 text-[13px] font-semibold outline-none",
                             zapMode === mode
-                              ? "bg-white text-zinc-950"
-                              : "border border-white/[0.12] text-white/75 hover:bg-white/[0.08]",
+                              ? "bg-background-muted text-foreground-inverse"
+                              : "border border-border text-foreground-intense hover:bg-background-muted",
                           )}
                         >
                           {ZAP_MODE_LABELS[mode]}
-                        </button>
+                        </Button>
                       ))}
                     </div>
-                    <p className="mt-2 text-[12px] text-white/40">
+                    <p className="mt-2 text-[12px] text-foreground-intense">
                       ↑↓ or Channel ± to change channel · Shift+Z cycles mode
                     </p>
                   </div>
 
                   {isLivePlayback && !recordingId ? (
-                    <button
+                    <Button variant="ghost"
                       type="button"
                       disabled={recordingBusy}
                       onClick={() => void startRecording()}
-                      className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-rose-500/90 px-4 py-3 text-[15px] font-semibold text-white outline-none hover:bg-rose-500 disabled:opacity-50"
+                      className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-error-subtle px-4 py-3 text-[15px] font-semibold text-foreground-intense outline-none hover:bg-error-subtle disabled:opacity-50"
                     >
                       <Circle className="size-4 fill-current" aria-hidden />
                       {recordingBusy ? <><ZendeSpinner size="tiny" label="Starting recording" /> Starting…</> : "Record 2 hours"}
-                    </button>
+                    </Button>
                   ) : null}
                   {recordingHint ? (
-                    <p className="mt-2 text-[13px] text-emerald-300/90">{recordingHint}</p>
+                    <p className="mt-2 text-[13px] text-success-strong">{recordingHint}</p>
                   ) : null}
                 </div>
-              </ZendeGlass>
+              </Card>
             </div>
           ) : null}
 
@@ -1393,7 +1396,7 @@ export function WatchView() {
             inert={!chromeVisible ? true : undefined}
             className={cn(
               "absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 transition-opacity duration-300 ease-out motion-reduce:transition-none",
-              "bg-gradient-to-b from-black/85 via-black/40 to-transparent",
+              "bg-gradient-to-b from-background via-background to-transparent",
               "p-3 pb-10 pt-[max(0.65rem,env(safe-area-inset-top))]",
               chromeVisible ? "opacity-100" : "pointer-events-none opacity-0",
             )}
@@ -1419,18 +1422,18 @@ export function WatchView() {
                   ) : null}
                 </div>
                 {isRecordedPlayback ? (
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-sky-300/90">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-primary-strong">
                     Recorded
                   </span>
                 ) : isVodPlayback ? (
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-sky-300/90">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-primary-strong">
                     VOD
                   </span>
                 ) : isLivePlayback ? (
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-emerald-400/90">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-success-strong">
                     <span className="relative flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60 opacity-75" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success-subtle opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-success-subtle" />
                     </span>
                     Live
                   </span>
@@ -1455,7 +1458,7 @@ export function WatchView() {
               href="/library"
               className={cn(
                 "pointer-events-auto hidden min-h-9 shrink-0 items-center rounded-full px-2.5 py-1.5 text-[13px] font-medium sm:flex",
-                "text-white/70 outline-none hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
+                "text-foreground-intense outline-none hover:bg-background-muted hover:text-foreground-intense focus-visible:ring-2 focus-visible:ring-primary",
               )}
             >
               Library
@@ -1492,12 +1495,12 @@ export function WatchView() {
             <div
               className={cn(
                 "relative w-full overflow-hidden rounded-t-[20px] rounded-b-none border-x-0 border-b-0",
-                "border border-white/[0.1] border-b-transparent bg-black/78",
-                "shadow-[0_-14px_48px_-28px_rgba(0,0,0,0.92)] backdrop-blur-xl ring-1 ring-white/[0.04]",
+                "border border-border border-b-transparent bg-background",
+                "shadow-lg backdrop-blur-xl ring-1 ring-border",
               )}
             >
               <div
-                className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--zen-signal)]/55 to-transparent"
+                className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary to-transparent"
                 aria-hidden
               />
               <div className="px-2.5 pb-[max(0.65rem,env(safe-area-inset-bottom))] pt-2 sm:px-3">
@@ -1510,17 +1513,17 @@ export function WatchView() {
                   />
                 ) : null}
 
-                <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] tabular-nums text-white/55">
+                <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] tabular-nums text-foreground-intense">
                   {isLivePlayback ? (
-                    <span className="inline-flex items-center gap-1.5 font-medium uppercase tracking-wide text-emerald-300/88">
+                    <span className="inline-flex items-center gap-1.5 font-medium uppercase tracking-wide text-success-strong">
                       <span className="relative flex h-1.5 w-1.5">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60 opacity-75" />
-                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success-subtle opacity-75" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success-subtle" />
                       </span>
                       Live
                     </span>
                   ) : isRecordedPlayback ? (
-                    <span className="font-medium uppercase tracking-wide text-sky-300/88">
+                    <span className="font-medium uppercase tracking-wide text-primary-strong">
                       Recorded
                     </span>
                   ) : (
@@ -1528,15 +1531,15 @@ export function WatchView() {
                   )}
                   <div className="flex items-center gap-1.5">
                     {isVodPlayback ? (
-                      <button
+                      <Button variant="ghost"
                         type="button"
                         onClick={() => remoteAwareSeekTo(0)}
-                        className="rounded-full border border-white/[0.12] bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/68 hover:bg-white/[0.08]"
+                        className="rounded-full border border-border bg-background-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground-intense hover:bg-background-muted"
                       >
                         Start over
-                      </button>
+                      </Button>
                     ) : null}
-                    <span className="text-white/45">
+                    <span className="text-foreground-intense">
                       {isVodPlayback
                         ? formatClock(effectiveDuration)
                         : isLivePlayback
@@ -1598,49 +1601,49 @@ export function WatchView() {
                   </div>
 
                   <div className="ml-auto flex min-w-0 items-center gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  <Menu.Root modal={false}>
+                  <DropdownMenu modal={false}>
                     <GlassIconMenuTrigger
                       aria-label="Playback speed"
                       disabled={!isVodPlayback}
                     >
                       <Gauge className="h-4 w-4" />
                     </GlassIconMenuTrigger>
-                    <Menu.Portal>
-                      <Menu.Positioner
+                    <>
+                      <DropdownMenuContent
                         side="top"
                         align="end"
                         sideOffset={10}
                         className="z-[100]"
                       >
-                        <Menu.Popup className="min-w-[140px] origin-bottom rounded-2xl border border-white/[0.14] bg-zinc-950/95 p-1 shadow-2xl outline-none">
-                          <Menu.Viewport>
-                            <Menu.Group>
-                              <Menu.GroupLabel className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-white/45">
+                        <div className="min-w-[140px] origin-bottom rounded-2xl border border-border bg-background p-1 shadow-2xl outline-none">
+                          <div>
+                            <DropdownMenuGroup>
+                              <DropdownMenuGroupLabel className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-foreground-intense">
                                 Speed
-                              </Menu.GroupLabel>
+                              </DropdownMenuGroupLabel>
                               {PLAYBACK_SPEEDS.map((r) => (
-                                <Menu.Item
+                                <DropdownMenuItem
                                   key={r}
                                   className={cn(
-                                    "flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-white/90 outline-none",
-                                    "data-[highlighted]:bg-white/12",
+                                    "flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-foreground-intense outline-none",
+                                    "data-[highlighted]:bg-background-muted",
                                   )}
                                   onClick={() => applySpeed(r)}
                                 >
                                   {r === 1 ? "Normal" : `${r}×`}
                                   {playbackRate === r ? (
-                                    <span className="text-emerald-400">✓</span>
+                                    <span className="text-success-strong">✓</span>
                                   ) : null}
-                                </Menu.Item>
+                                </DropdownMenuItem>
                               ))}
-                            </Menu.Group>
-                          </Menu.Viewport>
-                        </Menu.Popup>
-                      </Menu.Positioner>
-                    </Menu.Portal>
-                  </Menu.Root>
+                            </DropdownMenuGroup>
+                          </div>
+                        </div>
+                      </DropdownMenuContent>
+                    </>
+                  </DropdownMenu>
 
-                  <Menu.Root modal={false}>
+                  <DropdownMenu modal={false}>
                     <GlassIconMenuTrigger
                       aria-label="Quality"
                       disabled={!qualityEnabled}
@@ -1649,32 +1652,32 @@ export function WatchView() {
                         {qualityLabelShort}
                       </span>
                     </GlassIconMenuTrigger>
-                    <Menu.Portal>
-                      <Menu.Positioner
+                    <>
+                      <DropdownMenuContent
                         side="top"
                         align="end"
                         sideOffset={10}
                         className="z-[100]"
                       >
-                        <Menu.Popup className="min-w-[180px] origin-bottom rounded-2xl border border-white/[0.14] bg-zinc-950/95 p-1 shadow-2xl outline-none">
-                          <Menu.Viewport>
-                            <Menu.Group>
-                              <Menu.GroupLabel className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-white/45">
+                        <div className="min-w-[180px] origin-bottom rounded-2xl border border-border bg-background p-1 shadow-2xl outline-none">
+                          <div>
+                            <DropdownMenuGroup>
+                              <DropdownMenuGroupLabel className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-foreground-intense">
                                 Quality
-                              </Menu.GroupLabel>
+                              </DropdownMenuGroupLabel>
                               {qualityOptions.length === 0 ? (
-                                <p className="px-3 py-2 text-[13px] text-white/50">
+                                <p className="px-3 py-2 text-[13px] text-foreground-intense">
                                   {playerSession?.isNativeHls
                                     ? "Use Safari native HLS (no manual ladder)."
                                     : "Single track or not loaded yet."}
                                 </p>
                               ) : (
                                 qualityOptions.map((q) => (
-                                  <Menu.Item
+                                  <DropdownMenuItem
                                     key={q.index}
                                     className={cn(
-                                      "flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-white/90 outline-none",
-                                      "data-[highlighted]:bg-white/12",
+                                      "flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-foreground-intense outline-none",
+                                      "data-[highlighted]:bg-background-muted",
                                     )}
                                     onClick={() =>
                                       playerSession?.setQualityLevel(q.index)
@@ -1682,66 +1685,66 @@ export function WatchView() {
                                   >
                                     {q.label}
                                     {currentLoadLevel === q.index ? (
-                                      <span className="text-emerald-400">✓</span>
+                                      <span className="text-success-strong">✓</span>
                                     ) : null}
-                                  </Menu.Item>
+                                  </DropdownMenuItem>
                                 ))
                               )}
-                            </Menu.Group>
-                          </Menu.Viewport>
-                        </Menu.Popup>
-                      </Menu.Positioner>
-                    </Menu.Portal>
-                  </Menu.Root>
+                            </DropdownMenuGroup>
+                          </div>
+                        </div>
+                      </DropdownMenuContent>
+                    </>
+                  </DropdownMenu>
 
                   {audioTracks.length > 1 ? (
-                    <Menu.Root modal={false}>
+                    <DropdownMenu modal={false}>
                       <GlassIconMenuTrigger aria-label="Audio track">
                         <Languages className="h-4 w-4" />
                       </GlassIconMenuTrigger>
-                      <Menu.Portal>
-                        <Menu.Positioner side="top" align="end" sideOffset={10} className="z-[100]">
-                          <Menu.Popup className="min-w-[180px] origin-bottom rounded-2xl border border-white/[0.14] bg-zinc-950/95 p-1 shadow-2xl outline-none">
-                            <Menu.Viewport>
-                              <Menu.Group>
-                                <Menu.GroupLabel className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-white/45">
+                      <>
+                        <DropdownMenuContent side="top" align="end" sideOffset={10} className="z-[100]">
+                          <div className="min-w-[180px] origin-bottom rounded-2xl border border-border bg-background p-1 shadow-2xl outline-none">
+                            <div>
+                              <DropdownMenuGroup>
+                                <DropdownMenuGroupLabel className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-foreground-intense">
                                   Audio
-                                </Menu.GroupLabel>
+                                </DropdownMenuGroupLabel>
                                 {audioTracks.map((t) => (
-                                  <Menu.Item
+                                  <DropdownMenuItem
                                     key={t.index}
-                                    className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-white/90 outline-none data-[highlighted]:bg-white/12"
+                                    className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-foreground-intense outline-none data-[highlighted]:bg-background-muted"
                                     onClick={() => playerSession?.setAudioTrack(t.index)}
                                   >
                                     {t.label}
                                     {currentAudioTrack === t.index ? (
-                                      <span className="text-emerald-400">✓</span>
+                                      <span className="text-success-strong">✓</span>
                                     ) : null}
-                                  </Menu.Item>
+                                  </DropdownMenuItem>
                                 ))}
-                              </Menu.Group>
-                            </Menu.Viewport>
-                          </Menu.Popup>
-                        </Menu.Positioner>
-                      </Menu.Portal>
-                    </Menu.Root>
+                              </DropdownMenuGroup>
+                            </div>
+                          </div>
+                        </DropdownMenuContent>
+                      </>
+                    </DropdownMenu>
                   ) : null}
 
                   {showSubtitleControls ? (
-                    <Menu.Root modal={false}>
+                    <DropdownMenu modal={false}>
                       <GlassIconMenuTrigger aria-label="Subtitles">
                         <Subtitles className="h-4 w-4" />
                       </GlassIconMenuTrigger>
-                      <Menu.Portal>
-                        <Menu.Positioner side="top" align="end" sideOffset={10} className="z-[100]">
-                          <Menu.Popup className="min-w-[220px] origin-bottom rounded-2xl border border-white/[0.14] bg-zinc-950/95 p-1 shadow-2xl outline-none">
-                            <Menu.Viewport>
-                              <Menu.Group>
-                                <Menu.GroupLabel className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-white/45">
+                      <>
+                        <DropdownMenuContent side="top" align="end" sideOffset={10} className="z-[100]">
+                          <div className="min-w-[220px] origin-bottom rounded-2xl border border-border bg-background p-1 shadow-2xl outline-none">
+                            <div>
+                              <DropdownMenuGroup>
+                                <DropdownMenuGroupLabel className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-foreground-intense">
                                   Subtitles
-                                </Menu.GroupLabel>
-                                <Menu.Item
-                                  className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-white/90 outline-none data-[highlighted]:bg-white/12"
+                                </DropdownMenuGroupLabel>
+                                <DropdownMenuItem
+                                  className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-foreground-intense outline-none data-[highlighted]:bg-background-muted"
                                   onClick={() => {
                                     handleBuiltinSubtitle(-1);
                                     externalSubtitles.markOff();
@@ -1750,67 +1753,64 @@ export function WatchView() {
                                   Off
                                   {currentSubtitleTrack < 0 &&
                                   !externalSubtitles.activeTrackId ? (
-                                    <span className="text-emerald-400">✓</span>
+                                    <span className="text-success-strong">✓</span>
                                   ) : null}
-                                </Menu.Item>
+                                </DropdownMenuItem>
                                 {hasBuiltinSubtitles
                                   ? subtitleTracks
                                       .filter((track) => track.index >= 0)
                                       .map((track) => (
-                                        <Menu.Item
+                                        <DropdownMenuItem
                                           key={`builtin-${track.index}`}
-                                          className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-white/90 outline-none data-[highlighted]:bg-white/12"
+                                          className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-foreground-intense outline-none data-[highlighted]:bg-background-muted"
                                           onClick={() => handleBuiltinSubtitle(track.index)}
                                         >
                                           {track.label}
                                           {currentSubtitleTrack === track.index &&
                                           externalSubtitles.activeSource !== "external" ? (
-                                            <span className="text-emerald-400">✓</span>
+                                            <span className="text-success-strong">✓</span>
                                           ) : null}
-                                        </Menu.Item>
+                                        </DropdownMenuItem>
                                       ))
                                   : null}
                                 {externalSubtitles.tracks.map((track) => (
-                                  <Menu.Item
+                                  <DropdownMenuItem
                                     key={`external-${track.id}`}
-                                    className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-white/90 outline-none data-[highlighted]:bg-white/12"
+                                    className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-foreground-intense outline-none data-[highlighted]:bg-background-muted"
                                     onClick={() => handleExternalSubtitle(track.id)}
                                   >
                                     {track.label}
                                     {externalSubtitles.activeTrackId === track.id ? (
-                                      <span className="text-emerald-400">✓</span>
+                                      <span className="text-success-strong">✓</span>
                                     ) : null}
-                                  </Menu.Item>
+                                  </DropdownMenuItem>
                                 ))}
-                                <Menu.Item
-                                  className="mt-1 flex cursor-pointer items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-[14px] font-medium text-[var(--zen-signal)] outline-none data-[highlighted]:bg-white/10"
+                                <DropdownMenuItem
+                                  className="mt-1 flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-background-muted px-3 py-2.5 text-[14px] font-medium text-primary-strong outline-none data-[highlighted]:bg-background-muted"
                                   onClick={() => setSubtitleSearchOpen(true)}
                                 >
                                   <Search className="size-4" aria-hidden />
                                   Search online…
-                                </Menu.Item>
-                              </Menu.Group>
-                            </Menu.Viewport>
-                          </Menu.Popup>
-                        </Menu.Positioner>
-                      </Menu.Portal>
-                    </Menu.Root>
+                                </DropdownMenuItem>
+                              </DropdownMenuGroup>
+                            </div>
+                          </div>
+                        </DropdownMenuContent>
+                      </>
+                    </DropdownMenu>
                   ) : null}
 
                   <div className="hidden items-center gap-1.5 sm:flex">
-                    <span className="text-[11px] text-white/40">Vol</span>
-                    <input
+                    <span className="text-[11px] text-foreground-intense">Vol</span>
+                    <Slider
                       aria-label="Volume"
-                      type="range"
                       min={0}
                       max={1}
                       step={0.02}
-                      value={volume}
-                      onChange={(e) => setVol(Number(e.target.value))}
-                      className={cn(
-                        "h-1 w-20 cursor-pointer appearance-none rounded-full bg-white/15",
-                        "[&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white",
-                      )}
+                      value={[volume]}
+                      onValueChange={(value) => setVol(Array.isArray(value) ? (value[0] ?? 0) : value)}
+                      tooltipVisibility="never"
+                      className="w-20"
                     />
                   </div>
 
@@ -1833,7 +1833,7 @@ export function WatchView() {
                           : "Picture in picture"
                       }
                       onClick={() => void togglePip()}
-                      className={pipActive ? "border-[var(--zen-signal)]/45 bg-[var(--zen-signal)]/12" : undefined}
+                      className={pipActive ? "border-primary bg-primary" : undefined}
                     >
                       <PictureInPicture className="h-4 w-4" />
                     </GlassIconButton>
@@ -1880,16 +1880,16 @@ function GlassTextButton({
   onClick: () => void;
 }) {
   return (
-    <button
+    <Button variant="ghost"
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex shrink-0 rounded-full border border-white/[0.16] bg-black/58 px-2.5 py-1.5 text-[13px] font-semibold text-white/90 outline-none backdrop-blur-xl",
-        "transition-colors hover:bg-white/[0.08] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
+        "inline-flex shrink-0 rounded-full border border-border bg-background px-2.5 py-1.5 text-[13px] font-semibold text-foreground-intense outline-none backdrop-blur-xl",
+        "transition-colors hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-primary",
       )}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -1907,20 +1907,20 @@ function GlassIconButton({
   "aria-label": string;
 }) {
   return (
-    <button
+    <Button variant="ghost"
       type="button"
       aria-label={ariaLabel}
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "inline-flex h-9 min-w-9 items-center justify-center rounded-full border border-white/[0.14] bg-black/50 text-white outline-none transition-colors sm:h-10 sm:min-w-10",
-        "hover:bg-white/[0.08] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
+        "inline-flex h-9 min-w-9 items-center justify-center rounded-full border border-border bg-background text-foreground-intense outline-none transition-colors sm:h-10 sm:min-w-10",
+        "hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-primary",
         "disabled:cursor-not-allowed disabled:opacity-35",
         className,
       )}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -1934,21 +1934,21 @@ function GlassPrimaryButton({
   "aria-label": string;
 }) {
   return (
-    <button
+    <Button variant="ghost"
       type="button"
       aria-label={ariaLabel}
       onClick={onClick}
       className={cn(
-        "inline-flex h-10 min-w-10 items-center justify-center rounded-full border border-white/[0.2] bg-[var(--zen-frost)] text-[var(--zen-void)] outline-none sm:h-11 sm:min-w-11",
-        "shadow-[0_8px_24px_-12px_rgba(56,217,255,0.5)] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
+        "inline-flex h-10 min-w-10 items-center justify-center rounded-full border border-border bg-primary text-primary-foreground outline-none sm:h-11 sm:min-w-11",
+        "shadow-lg focus-visible:ring-2 focus-visible:ring-primary",
       )}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
-/** Menu trigger with the same liquid-glass shell as other icon controls. */
+/** Appica menu trigger shared by the player controls. */
 function GlassIconMenuTrigger({
   children,
   className,
@@ -1961,33 +1961,33 @@ function GlassIconMenuTrigger({
   "aria-label": string;
 }) {
   return (
-    <Menu.Trigger
+    <DropdownMenuTrigger
       disabled={disabled}
       aria-label={ariaLabel}
       className={cn(
-        "inline-flex h-9 min-w-9 items-center justify-center rounded-full border border-white/[0.14] bg-black/50 text-white outline-none sm:h-10 sm:min-w-10",
-        "hover:bg-white/[0.08] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
+        "inline-flex h-9 min-w-9 items-center justify-center rounded-full border border-border bg-background text-foreground-intense outline-none sm:h-10 sm:min-w-10",
+        "hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-primary",
         "disabled:cursor-not-allowed disabled:opacity-35",
-        "data-[popup-open]:bg-white/[0.12]",
+        "data-[popup-open]:bg-background-muted",
         className,
       )}
     >
       {children}
-    </Menu.Trigger>
+    </DropdownMenuTrigger>
   );
 }
 
 function LiveBufferBar({ bufferRatio }: { bufferRatio: number }) {
   return (
     <div
-      className="relative mb-2 h-2 w-full overflow-hidden rounded-full border border-white/[0.08] bg-white/[0.08]"
+      className="relative mb-2 h-2 w-full overflow-hidden rounded-full border border-border bg-background-muted"
       aria-hidden
     >
       <div
-        className="absolute inset-y-0 left-0 rounded-full bg-white/20 transition-[width] duration-300"
+        className="absolute inset-y-0 left-0 rounded-full bg-background-muted transition-[width] duration-300"
         style={{ width: `${Math.min(100, bufferRatio * 100 || 8)}%` }}
       />
-      <div className="absolute inset-y-0 left-0 w-10 rounded-full bg-gradient-to-r from-emerald-300/85 to-white/65" />
+      <div className="absolute inset-y-0 left-0 w-10 rounded-full bg-gradient-to-r from-primary-subtle to-background-muted" />
     </div>
   );
 }
@@ -2023,7 +2023,7 @@ function SeekBar({
       aria-valuemax={100}
       aria-valuenow={Math.round(ratio * 100)}
       className={cn(
-        "group relative mb-2 h-2 w-full cursor-pointer overflow-hidden rounded-full border border-white/[0.08] bg-white/[0.08]",
+        "group relative mb-2 h-2 w-full cursor-pointer overflow-hidden rounded-full border border-border bg-background-muted",
         disabled && "cursor-default opacity-50",
       )}
       onPointerDown={(e) => {
@@ -2037,11 +2037,11 @@ function SeekBar({
       }}
     >
       <div
-        className="absolute inset-y-0 left-0 bg-white/20"
+        className="absolute inset-y-0 left-0 bg-background-muted"
         style={{ width: `${Math.min(100, bufferRatio * 100)}%` }}
       />
       <div
-        className="absolute inset-y-0 left-0 bg-gradient-to-r from-cyan-300 to-white"
+        className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary-subtle to-background-muted"
         style={{ width: `${ratio * 100}%` }}
       />
     </div>

@@ -1,17 +1,22 @@
 "use client";
 
+import { Input } from "@appica/ui-react/input";
+import { Radio as AppicaRadio } from "@appica/ui-react/radio";
+import { RadioGroup } from "@appica/ui-react/radio-group";
+
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState, startTransition } from "react";
 
-import { ZendeGlass } from "@/components/glass/zende-glass";
+import { Card } from "@appica/ui-react/card";
 import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@appica/ui-react/button";
+import { BROWSE_CONTAINER_CLASS } from "@/components/layout/browse-page-shell";
 import {
-  CinematicCommandPanel,
-  CinematicHero,
-  CinematicMetrics,
-} from "@/components/layout/cinematic-v2";
+  AppicaPanel,
+  AppicaHero,
+  AppicaMetrics,
+} from "@/components/layout/appica-page";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import {
   TvRecordingRecentIssues,
@@ -470,24 +475,24 @@ export function TvRecordingsPage() {
 
   if (!catalogLoaded) {
     return (
-      <div className="zen-page-bg flex min-h-screen items-center justify-center pt-20 text-white/45">
+      <div className="bg-background flex min-h-screen items-center justify-center pt-20 text-foreground-intense">
         <ZendeLoadingState size="full" label="Loading recordings…" />
       </div>
     );
   }
 
   return (
-    <div className="zen-page-bg min-h-screen text-foreground">
+    <div className="bg-background min-h-screen text-foreground">
       <main className={cn("pb-28", TV_BROWSE_TOP_PAD_CLASS)}>
-        <CinematicHero
+        <AppicaHero
           className="pb-8 pt-8"
           eyebrow="Recorder"
           title="Recordings"
           description="Schedule, monitor, play, and download recordings."
           aside={
-            <CinematicCommandPanel>
-              <p className="zen-kicker">Recorder status</p>
-              <CinematicMetrics
+            <AppicaPanel>
+              <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">Recorder status</p>
+              <AppicaMetrics
                 className="mt-4"
                 metrics={[
                   {
@@ -506,28 +511,28 @@ export function TvRecordingsPage() {
                   },
                 ]}
               />
-              <p className="mt-5 text-[14px] leading-relaxed text-white/56">
+              <p className="mt-5 text-[14px] leading-relaxed text-foreground-intense">
                 Recording uses your catalog stream URLs.
               </p>
-            </CinematicCommandPanel>
+            </AppicaPanel>
           }
         />
 
-        <div className="mx-auto max-w-[1920px] space-y-8 px-6 sm:px-10 lg:px-14 xl:px-20">
+        <div className={cn(BROWSE_CONTAINER_CLASS, "space-y-8")}>
           {overview && !overview.ffmpegAvailable ? (
             <div
-              className="flex items-start gap-3 rounded-[24px] border border-amber-300/25 bg-amber-400/[0.1] px-4 py-3.5 text-[15px] leading-snug text-amber-100/95 shadow-[0_18px_58px_-34px_rgba(0,0,0,0.9)] backdrop-blur-xl"
+              className="flex items-start gap-3 rounded-lg border border-warning bg-warning-subtle px-4 py-3.5 text-[15px] leading-snug text-warning-strong shadow-lg backdrop-blur-xl"
               role="status"
             >
               <AlertTriangle
-                className="mt-0.5 size-5 shrink-0 text-amber-300/90"
+                className="mt-0.5 size-5 shrink-0 text-warning-strong"
                 aria-hidden
               />
               <div>
-                <p className="font-semibold text-amber-50">ffmpeg not detected</p>
-                <p className="mt-1 text-[14px] text-amber-100/75">
+                <p className="font-semibold text-warning-strong">ffmpeg not detected</p>
+                <p className="mt-1 text-[14px] text-warning-strong">
                   Install ffmpeg on the host and ensure it is on{" "}
-                  <code className="rounded bg-black/30 px-1.5 py-0.5 font-mono text-[13px]">
+                  <code className="rounded bg-background px-1.5 py-0.5 font-mono text-[13px]">
                     PATH
                   </code>{" "}
                   so scheduled and manual recordings can start.
@@ -537,7 +542,7 @@ export function TvRecordingsPage() {
           ) : null}
 
           {loadError ? (
-            <div className="rounded-[24px] border border-red-400/20 bg-red-500/10 px-4 py-3 text-[15px] text-red-100/90 backdrop-blur-xl">
+            <div className="rounded-lg border border-error bg-error-subtle px-4 py-3 text-[15px] text-error-strong backdrop-blur-xl">
               {loadError}
             </div>
           ) : null}
@@ -547,27 +552,27 @@ export function TvRecordingsPage() {
               <div>
                 <h2
                   id="rec-start-heading"
-                  className="zen-section-title"
+                  className="text-xl font-semibold tracking-tight text-foreground-intense"
                 >
                   New recording
                 </h2>
-                <p className="zen-body-muted mt-1 max-w-xl">
+                <p className="text-sm text-foreground-muted mt-1 max-w-xl">
                   Schedule a future capture or start encoding now — pick a channel
                   and times in the recorder.
                 </p>
               </div>
-              <button
+              <Button variant="ghost"
                 type="button"
                 onClick={() => setStartRecordingDialogOpen(true)}
                 className="shrink-0 outline-none"
               >
-                <ZendeGlass variant="ctaPill">
-                  <span className="flex items-center gap-2 px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
+                <Card frame="solid">
+                  <span className="flex items-center gap-2 px-5 py-2.5 text-[15px] font-semibold text-foreground-inverse">
                     <Plus className="size-4" aria-hidden />
                     Start a recording
                   </span>
-                </ZendeGlass>
-              </button>
+                </Card>
+              </Button>
             </div>
           </section>
 
@@ -576,10 +581,10 @@ export function TvRecordingsPage() {
               className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto px-4 py-8 sm:px-6 sm:py-10"
               role="presentation"
             >
-              <button
+              <Button variant="ghost"
                 type="button"
                 aria-label="Close dialog"
-                className="fixed inset-0 bg-black/70 backdrop-blur-md motion-safe:animate-[glass-backdrop-in_0.25s_ease-out_both]"
+                className="fixed inset-0 bg-background backdrop-blur-md motion-safe:animate-[glass-backdrop-in_0.25s_ease-out_both]"
                 onClick={() => setStartRecordingDialogOpen(false)}
               />
               <div
@@ -588,54 +593,54 @@ export function TvRecordingsPage() {
                 aria-labelledby="rec-start-dialog-title"
                 className="relative z-10 my-auto w-full max-w-5xl motion-safe:animate-[glass-modal-pop_0.36s_cubic-bezier(0.16,1,0.3,1)_both]"
               >
-                <ZendeGlass
-                  variant="panel"
-                  className="flex max-h-[min(92vh,880px)] flex-col overflow-hidden border border-white/[0.12] shadow-[0_40px_120px_-48px_rgba(0,0,0,0.95)]"
+                <Card
+                  frame="glass"
+                  className="flex max-h-[min(92vh,880px)] flex-col overflow-hidden border border-border shadow-lg"
                 >
-                  <div className="flex shrink-0 items-start justify-between gap-3 border-b border-white/[0.08] px-5 py-4 sm:px-6">
+                  <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-5 py-4 sm:px-6">
                     <div className="min-w-0">
                       <p
                         id="rec-start-dialog-title"
-                        className="text-[18px] font-semibold text-white"
+                        className="text-[18px] font-semibold text-foreground-intense"
                       >
                         Start a recording
                       </p>
-                      <p className="mt-1 text-[14px] text-white/45">
+                      <p className="mt-1 text-[14px] text-foreground-intense">
                         Search your catalog, choose a channel, then schedule or
                         record now.
                       </p>
                     </div>
-                    <button
+                    <Button variant="ghost"
                       type="button"
                       onClick={() => setStartRecordingDialogOpen(false)}
-                      className="shrink-0 rounded-lg p-2 text-white/40 outline-none transition-colors hover:bg-white/[0.08] hover:text-white/85"
+                      className="shrink-0 rounded-lg p-2 text-foreground-intense outline-none transition-colors hover:bg-background-muted hover:text-foreground-intense"
                       aria-label="Close"
                     >
                       <X className="size-5" />
-                    </button>
+                    </Button>
                   </div>
 
                   <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6">
                     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
-                      <ZendeGlass
-                        variant="panel"
-                        className="overflow-hidden rounded-[1.35rem] border border-white/[0.1] p-5 shadow-[0_24px_64px_-28px_rgba(0,0,0,0.55)]"
+                      <Card
+                        frame="glass"
+                        className="overflow-hidden rounded-lg border border-border p-5 shadow-lg"
                       >
-                        <label className="block text-[13px] font-medium uppercase tracking-[0.12em] text-white/40">
+                        <label className="block text-[13px] font-medium uppercase tracking-[0.12em] text-foreground-intense">
                           Find channel
                         </label>
                         <div className="relative mt-2">
                           <Search
-                            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white/35"
+                            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-foreground-intense"
                             aria-hidden
                           />
-                          <input
+                          <Input
                             value={channelQuery}
                             onChange={(e) => setChannelQuery(e.target.value)}
                             placeholder="Type a channel or group name…"
                             className={cn(
-                              "h-11 w-full rounded-xl border border-white/[0.1] bg-black/35 pl-10 pr-3 text-[15px] text-white outline-none",
-                              "placeholder:text-white/30 focus:border-white/25 focus:ring-2 focus:ring-white/15",
+                              "h-11 w-full rounded-xl border border-border bg-background pl-10 pr-3 text-[15px] text-foreground-intense outline-none",
+                              "placeholder:text-foreground-intense focus:border-border focus:ring-2 focus:ring-border",
                             )}
                           />
                         </div>
@@ -649,7 +654,7 @@ export function TvRecordingsPage() {
                             const active = selected?.url === ch.url;
                             return (
                               <li key={ch.url}>
-                                <button
+                                <Button variant="ghost"
                                   type="button"
                                   role="option"
                                   aria-selected={active}
@@ -657,11 +662,11 @@ export function TvRecordingsPage() {
                                   className={cn(
                                     "flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left outline-none transition-colors",
                                     active
-                                      ? "bg-white/[0.12] ring-1 ring-white/[0.14]"
-                                      : "hover:bg-white/[0.06]",
+                                      ? "bg-background-muted ring-1 ring-border"
+                                      : "hover:bg-background-muted",
                                   )}
                                 >
-                                  <span className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-white/[0.06] ring-1 ring-white/[0.08]">
+                                  <span className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-background-muted ring-1 ring-border">
                                     {ch.tvgLogo ? (
                                       <Image
                                         src={secureImageUrl(ch.tvgLogo, undefined, "logo")!}
@@ -672,34 +677,34 @@ export function TvRecordingsPage() {
                                         unoptimized
                                       />
                                     ) : (
-                                      <span className="flex size-full items-center justify-center text-white/35">
+                                      <span className="flex size-full items-center justify-center text-foreground-intense">
                                         <Video className="size-4" aria-hidden />
                                       </span>
                                     )}
                                   </span>
                                   <span className="min-w-0 flex-1">
-                                    <span className="block truncate text-[15px] font-medium text-white/95">
+                                    <span className="block truncate text-[15px] font-medium text-foreground-intense">
                                       {label}
                                     </span>
                                     {ch.groupTitle ? (
-                                      <span className="mt-0.5 block truncate text-[13px] text-white/40">
+                                      <span className="mt-0.5 block truncate text-[13px] text-foreground-intense">
                                         {ch.groupTitle}
                                       </span>
                                     ) : null}
                                   </span>
-                                </button>
+                                </Button>
                               </li>
                             );
                           })}
                         </ul>
-                      </ZendeGlass>
+                      </Card>
 
-                      <ZendeGlass
-                        variant="panel"
-                        className="rounded-[1.35rem] border border-white/[0.1] p-5 shadow-[0_24px_64px_-28px_rgba(0,0,0,0.55)]"
+                      <Card
+                        frame="glass"
+                        className="rounded-lg border border-border p-5 shadow-lg"
                       >
                         <div
-                          className="flex flex-wrap gap-2 border-b border-white/[0.08] pb-4"
+                          className="flex flex-wrap gap-2 border-b border-border pb-4"
                           role="tablist"
                           aria-label="Recording mode"
                         >
@@ -709,7 +714,7 @@ export function TvRecordingsPage() {
                               ["now", "Record now", Radio],
                             ] as const
                           ).map(([id, label, Icon]) => (
-                            <button
+                            <Button variant="ghost"
                               key={id}
                               type="button"
                               role="tab"
@@ -718,19 +723,19 @@ export function TvRecordingsPage() {
                               className={cn(
                                 "inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-[14px] font-medium outline-none transition-colors",
                                 tab === id
-                                  ? "bg-white/[0.12] text-white ring-1 ring-white/[0.14]"
-                                  : "text-white/45 hover:bg-white/[0.05] hover:text-white/75",
+                                  ? "bg-background-muted text-foreground-intense ring-1 ring-border"
+                                  : "text-foreground-intense hover:bg-background-muted hover:text-foreground-intense",
                               )}
                             >
                               <Icon className="size-4 opacity-80" aria-hidden />
                               {label}
-                            </button>
+                            </Button>
                           ))}
                         </div>
 
                         {selected ? (
-                          <div className="mt-4 flex items-center gap-3 rounded-xl border border-white/[0.08] bg-black/25 px-3 py-2.5">
-                            <span className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-white/[0.06] ring-1 ring-white/[0.08]">
+                          <div className="mt-4 flex items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
+                            <span className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-background-muted ring-1 ring-border">
                               {selected.tvgLogo ? (
                                 <Image
                                   src={secureImageUrl(selected.tvgLogo, undefined, "logo")!}
@@ -741,22 +746,22 @@ export function TvRecordingsPage() {
                                   unoptimized
                                 />
                               ) : (
-                                <span className="flex size-full items-center justify-center text-white/35">
+                                <span className="flex size-full items-center justify-center text-foreground-intense">
                                   <Video className="size-5" aria-hidden />
                                 </span>
                               )}
                             </span>
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-[15px] font-semibold text-white">
+                              <p className="truncate text-[15px] font-semibold text-foreground-intense">
                                 {parseChannelLabel(selected.name).displayName}
                               </p>
-                              <p className="truncate text-[13px] text-white/40">
+                              <p className="truncate text-[13px] text-foreground-intense">
                                 {selected.groupTitle ?? "Uncategorized"}
                               </p>
                             </div>
                           </div>
                         ) : (
-                          <p className="mt-6 text-center text-[15px] text-white/40">
+                          <p className="mt-6 text-center text-[15px] text-foreground-intense">
                             Select a channel from the list.
                           </p>
                         )}
@@ -764,47 +769,35 @@ export function TvRecordingsPage() {
                         {tab === "schedule" && selected ? (
                           <div className="mt-5 space-y-4">
                             <div>
-                              <label className="text-[13px] font-medium text-white/50">
+                              <label className="text-[13px] font-medium text-foreground-intense">
                                 Start
                               </label>
-                              <input
+                              <Input
                                 type="datetime-local"
                                 value={startLocal}
                                 onChange={(e) => setStartLocal(e.target.value)}
                                 className={cn(
-                                  "mt-1.5 h-11 w-full max-w-md rounded-xl border border-white/[0.1] bg-black/35 px-3 text-[15px] text-white outline-none",
-                                  "focus:border-white/25 focus:ring-2 focus:ring-white/15",
+                                  "mt-1.5 h-11 w-full max-w-md rounded-xl border border-border bg-background px-3 text-[15px] text-foreground-intense outline-none",
+                                  "focus:border-border focus:ring-2 focus:ring-border",
                                 )}
                               />
                             </div>
                             <fieldset className="space-y-2">
-                              <legend className="text-[13px] font-medium text-white/50">
+                              <legend className="text-[13px] font-medium text-foreground-intense">
                                 End
                               </legend>
-                              <div className="flex flex-wrap gap-3">
-                                <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] text-white/75">
-                                  <input
-                                    type="radio"
-                                    name="endModeDialog"
-                                    checked={endMode === "duration"}
-                                    onChange={() => setEndMode("duration")}
-                                    className="accent-white"
-                                  />
+                              <RadioGroup value={endMode} onValueChange={(value) => setEndMode(value as "duration" | "end")} orientation="horizontal" className="flex flex-wrap gap-3">
+                                <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] text-foreground-intense">
+                                  <AppicaRadio value="duration" />
                                   Duration (minutes)
                                 </label>
-                                <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] text-white/75">
-                                  <input
-                                    type="radio"
-                                    name="endModeDialog"
-                                    checked={endMode === "end"}
-                                    onChange={() => setEndMode("end")}
-                                    className="accent-white"
-                                  />
+                                <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] text-foreground-intense">
+                                  <AppicaRadio value="end" />
                                   End time
                                 </label>
-                              </div>
+                              </RadioGroup>
                               {endMode === "duration" ? (
-                                <input
+                                <Input
                                   type="number"
                                   min={1}
                                   max={480}
@@ -813,18 +806,18 @@ export function TvRecordingsPage() {
                                     setDurationMinutes(Number(e.target.value) || 1)
                                   }
                                   className={cn(
-                                    "h-11 w-32 rounded-xl border border-white/[0.1] bg-black/35 px-3 text-[15px] text-white outline-none",
-                                    "focus:border-white/25 focus:ring-2 focus:ring-white/15",
+                                    "h-11 w-32 rounded-xl border border-border bg-background px-3 text-[15px] text-foreground-intense outline-none",
+                                    "focus:border-border focus:ring-2 focus:ring-border",
                                   )}
                                 />
                               ) : (
-                                <input
+                                <Input
                                   type="datetime-local"
                                   value={endLocal}
                                   onChange={(e) => setEndLocal(e.target.value)}
                                   className={cn(
-                                    "mt-1 h-11 w-full max-w-md rounded-xl border border-white/[0.1] bg-black/35 px-3 text-[15px] text-white outline-none",
-                                    "focus:border-white/25 focus:ring-2 focus:ring-white/15",
+                                    "mt-1 h-11 w-full max-w-md rounded-xl border border-border bg-background px-3 text-[15px] text-foreground-intense outline-none",
+                                    "focus:border-border focus:ring-2 focus:ring-border",
                                   )}
                                 />
                               )}
@@ -836,7 +829,7 @@ export function TvRecordingsPage() {
                                 (overview !== null && !overview.ffmpegAvailable)
                               }
                               onClick={() => void submitSchedule()}
-                              variant="success"
+                              variant="primary"
                             >
                               {busy ? (
                                 <ZendeSpinner size="small" label="Adding schedule" />
@@ -850,10 +843,10 @@ export function TvRecordingsPage() {
                         {tab === "now" && selected ? (
                           <div className="mt-5 space-y-4">
                             <div>
-                              <label className="text-[13px] font-medium text-white/50">
+                              <label className="text-[13px] font-medium text-foreground-intense">
                                 Duration (minutes)
                               </label>
-                              <input
+                              <Input
                                 type="number"
                                 min={1}
                                 max={480}
@@ -862,8 +855,8 @@ export function TvRecordingsPage() {
                                   setNowDuration(Number(e.target.value) || 1)
                                 }
                                 className={cn(
-                                  "mt-1.5 h-11 w-32 rounded-xl border border-white/[0.1] bg-black/35 px-3 text-[15px] text-white outline-none",
-                                  "focus:border-white/25 focus:ring-2 focus:ring-white/15",
+                                  "mt-1.5 h-11 w-32 rounded-xl border border-border bg-background px-3 text-[15px] text-foreground-intense outline-none",
+                                  "focus:border-border focus:ring-2 focus:ring-border",
                                 )}
                               />
                             </div>
@@ -874,7 +867,7 @@ export function TvRecordingsPage() {
                                 (overview !== null && !overview.ffmpegAvailable)
                               }
                               onClick={() => void submitNow()}
-                              variant="success"
+                              variant="primary"
                             >
                               {busy ? (
                                 <ZendeSpinner size="small" label="Starting recording" />
@@ -884,11 +877,11 @@ export function TvRecordingsPage() {
                             </Button>
                           </div>
                         ) : null}
-                      </ZendeGlass>
+                      </Card>
                     </div>
                   </div>
 
-                  <div className="shrink-0 border-t border-white/[0.08] bg-black/20 px-5 py-3 sm:px-6">
+                  <div className="shrink-0 border-t border-border bg-background px-5 py-3 sm:px-6">
                     <Button
                       type="button"
                       onClick={() => setStartRecordingDialogOpen(false)}
@@ -896,7 +889,7 @@ export function TvRecordingsPage() {
                       Close
                     </Button>
                   </div>
-                </ZendeGlass>
+                </Card>
               </div>
             </div>
           ) : null}
@@ -905,7 +898,7 @@ export function TvRecordingsPage() {
             <section aria-labelledby="rec-active-heading">
               <h2
                 id="rec-active-heading"
-                className="text-lg font-semibold tracking-tight text-white"
+                className="text-lg font-semibold tracking-tight text-foreground-intense"
               >
                 Recording now
               </h2>
@@ -928,32 +921,32 @@ export function TvRecordingsPage() {
                       : 0;
                   return (
                     <li key={r.id}>
-                      <ZendeGlass
-                        variant="panel"
-                        className="relative overflow-hidden rounded-[1.25rem] border border-rose-400/20 bg-rose-500/[0.06] p-4"
+                      <Card
+                        frame="glass"
+                        className="relative overflow-hidden rounded-lg border border-error bg-error-subtle p-4"
                       >
                         <div
-                          className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-white/[0.06]"
+                          className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-background-muted"
                           aria-hidden
                         >
                           <div
-                            className="h-full bg-rose-400/80 transition-[width] duration-700 ease-out"
+                            className="h-full bg-error-subtle transition-[width] duration-700 ease-out"
                             style={{ width: `${Math.round(t * 100)}%` }}
                           />
                         </div>
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.14em] text-rose-200/85">
+                            <p className="flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.14em] text-error-strong">
                               <span className="relative flex size-2">
-                                <span className="absolute inline-flex size-full animate-ping rounded-full bg-rose-400/50 opacity-60" />
-                                <span className="relative inline-flex size-2 rounded-full bg-rose-400" />
+                                <span className="absolute inline-flex size-full animate-ping rounded-full bg-error-subtle opacity-60" />
+                                <span className="relative inline-flex size-2 rounded-full bg-error-subtle" />
                               </span>
                               Live
                             </p>
-                            <p className="mt-2 truncate text-[16px] font-semibold text-white">
+                            <p className="mt-2 truncate text-[16px] font-semibold text-foreground-intense">
                               {r.channelName}
                             </p>
-                            <p className="mt-1 text-[13px] text-white/45">
+                            <p className="mt-1 text-[13px] text-foreground-intense">
                               Until{" "}
                               {new Intl.DateTimeFormat(undefined, {
                                 hour: "numeric",
@@ -965,7 +958,7 @@ export function TvRecordingsPage() {
                             type="button"
                             disabled={busy}
                             onClick={() => void stopRecording(r.id)}
-                            variant="danger"
+                            variant="destructive"
                             size="sm"
                             className="shrink-0"
                           >
@@ -973,7 +966,7 @@ export function TvRecordingsPage() {
                             Stop &amp; save
                           </Button>
                         </div>
-                      </ZendeGlass>
+                      </Card>
                     </li>
                   );
                 })}
@@ -985,69 +978,59 @@ export function TvRecordingsPage() {
             <section aria-labelledby="rec-upcoming-heading">
               <h2
                 id="rec-upcoming-heading"
-                className="text-lg font-semibold tracking-tight text-white"
+                className="text-lg font-semibold tracking-tight text-foreground-intense"
               >
                 Upcoming
               </h2>
               <ul className="mt-4 space-y-3">
                 {overview.schedules.map((s) => (
                   <li key={s.id}>
-                    <ZendeGlass
-                      variant="panel"
-                      className="rounded-[1.15rem] border border-white/[0.08] p-4 sm:p-5"
+                    <Card
+                      frame="glass"
+                      className="rounded-lg border border-border p-4 sm:p-5"
                     >
                       {editingId === s.id ? (
                         <div className="grid gap-4 md:grid-cols-2">
                           <div>
-                            <p className="text-[13px] font-medium text-white/45">
+                            <p className="text-[13px] font-medium text-foreground-intense">
                               Start
                             </p>
-                            <input
+                            <Input
                               type="datetime-local"
                               value={editStart}
                               onChange={(e) => setEditStart(e.target.value)}
                               className={cn(
-                                "mt-1 h-10 w-full rounded-lg border border-white/[0.1] bg-black/35 px-2.5 text-[14px] text-white outline-none",
-                                "focus:border-white/25",
+                                "mt-1 h-10 w-full rounded-lg border border-border bg-background px-2.5 text-[14px] text-foreground-intense outline-none",
+                                "focus:border-border",
                               )}
                             />
                           </div>
                           <div>
-                            <p className="text-[13px] font-medium text-white/45">
+                            <p className="text-[13px] font-medium text-foreground-intense">
                               End
                             </p>
-                            <div className="mt-1 flex flex-wrap gap-2">
-                              <label className="inline-flex items-center gap-1.5 text-[13px] text-white/65">
-                                <input
-                                  type="radio"
-                                  checked={editEndMode === "end"}
-                                  onChange={() => setEditEndMode("end")}
-                                  className="accent-white"
-                                />
+                            <RadioGroup value={editEndMode} onValueChange={(value) => setEditEndMode(value as "end" | "duration")} orientation="horizontal" className="mt-1 flex flex-wrap gap-2">
+                              <label className="inline-flex items-center gap-1.5 text-[13px] text-foreground-intense">
+                                <AppicaRadio value="end" />
                                 Time
                               </label>
-                              <label className="inline-flex items-center gap-1.5 text-[13px] text-white/65">
-                                <input
-                                  type="radio"
-                                  checked={editEndMode === "duration"}
-                                  onChange={() => setEditEndMode("duration")}
-                                  className="accent-white"
-                                />
+                              <label className="inline-flex items-center gap-1.5 text-[13px] text-foreground-intense">
+                                <AppicaRadio value="duration" />
                                 Minutes from start
                               </label>
-                            </div>
+                            </RadioGroup>
                             {editEndMode === "end" ? (
-                              <input
+                              <Input
                                 type="datetime-local"
                                 value={editEnd}
                                 onChange={(e) => setEditEnd(e.target.value)}
                                 className={cn(
-                                  "mt-2 h-10 w-full rounded-lg border border-white/[0.1] bg-black/35 px-2.5 text-[14px] text-white outline-none",
-                                  "focus:border-white/25",
+                                  "mt-2 h-10 w-full rounded-lg border border-border bg-background px-2.5 text-[14px] text-foreground-intense outline-none",
+                                  "focus:border-border",
                                 )}
                               />
                             ) : (
-                              <input
+                              <Input
                                 type="number"
                                 min={1}
                                 max={480}
@@ -1056,8 +1039,8 @@ export function TvRecordingsPage() {
                                   setEditDuration(Number(e.target.value) || 1)
                                 }
                                 className={cn(
-                                  "mt-2 h-10 w-28 rounded-lg border border-white/[0.1] bg-black/35 px-2.5 text-[14px] text-white outline-none",
-                                  "focus:border-white/25",
+                                  "mt-2 h-10 w-28 rounded-lg border border-border bg-background px-2.5 text-[14px] text-foreground-intense outline-none",
+                                  "focus:border-border",
                                 )}
                               />
                             )}
@@ -1067,7 +1050,7 @@ export function TvRecordingsPage() {
                               type="button"
                               disabled={busy}
                               onClick={() => void saveEdit()}
-                              variant="success"
+                              variant="primary"
                               size="sm"
                             >
                               Save changes
@@ -1085,17 +1068,17 @@ export function TvRecordingsPage() {
                       ) : (
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex min-w-0 items-center gap-3">
-                            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] ring-1 ring-white/[0.08]">
+                            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-background-muted ring-1 ring-border">
                               <CalendarClock
-                                className="size-5 text-white/55"
+                                className="size-5 text-foreground-intense"
                                 aria-hidden
                               />
                             </span>
                             <div className="min-w-0">
-                              <p className="truncate text-[16px] font-semibold text-white">
+                              <p className="truncate text-[16px] font-semibold text-foreground-intense">
                                 {s.channelName}
                               </p>
-                              <p className="mt-0.5 text-[14px] text-white/45">
+                              <p className="mt-0.5 text-[14px] text-foreground-intense">
                                 {formatRange(s.startsAt, s.endsAt)}
                               </p>
                             </div>
@@ -1114,7 +1097,7 @@ export function TvRecordingsPage() {
                               type="button"
                               disabled={busy}
                               onClick={() => void cancelSchedule(s.id)}
-                              variant="danger"
+                              variant="destructive"
                               size="sm"
                             >
                               <Trash2 className="size-3.5" aria-hidden />
@@ -1123,7 +1106,7 @@ export function TvRecordingsPage() {
                           </div>
                         </div>
                       )}
-                    </ZendeGlass>
+                    </Card>
                   </li>
                 ))}
               </ul>
@@ -1133,14 +1116,14 @@ export function TvRecordingsPage() {
           <section aria-labelledby="rec-library-heading">
             <h2
               id="rec-library-heading"
-              className="text-lg font-semibold tracking-tight text-white"
+              className="text-lg font-semibold tracking-tight text-foreground-intense"
             >
               Finished recordings
             </h2>
             {!overview ? (
               <ZendeLoadingState className="mt-4 items-start text-left" size="small" label="Loading recording library…" />
             ) : overview.library.length === 0 ? (
-              <p className="mt-4 text-[15px] text-white/45">
+              <p className="mt-4 text-[15px] text-foreground-intense">
                 Finished recordings and failed captures appear here. Failed rows
                 show the server error and cannot be played or downloaded.
               </p>
@@ -1150,15 +1133,15 @@ export function TvRecordingsPage() {
                   const isFailed = item.status === "FAILED";
                   return (
                   <li key={item.id}>
-                    <ZendeGlass
-                      variant="panel"
+                    <Card
+                      frame="glass"
                       className={cn(
-                        "flex flex-col gap-4 rounded-[1.15rem] border border-white/[0.08] p-4 sm:flex-row sm:items-stretch sm:justify-between sm:gap-6 sm:p-5",
-                        isFailed && "border-red-400/25 bg-red-500/[0.04]",
+                        "flex flex-col gap-4 rounded-lg border border-border p-4 sm:flex-row sm:items-stretch sm:justify-between sm:gap-6 sm:p-5",
+                        isFailed && "border-error bg-error-subtle",
                       )}
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-3">
-                        <span className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-white/[0.06] ring-1 ring-white/[0.08]">
+                        <span className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-background-muted ring-1 ring-border">
                           {item.channelLogo ? (
                             <Image
                               src={secureImageUrl(item.channelLogo, undefined, "logo")!}
@@ -1169,16 +1152,16 @@ export function TvRecordingsPage() {
                               unoptimized
                             />
                           ) : (
-                            <span className="flex size-full items-center justify-center text-white/35">
+                            <span className="flex size-full items-center justify-center text-foreground-intense">
                               <Video className="size-6" aria-hidden />
                             </span>
                           )}
                         </span>
                         <div className="min-w-0">
-                          <p className="truncate text-[16px] font-semibold text-white">
+                          <p className="truncate text-[16px] font-semibold text-foreground-intense">
                             {item.channelName}
                           </p>
-                          <p className="mt-1 text-[13px] text-white/45">
+                          <p className="mt-1 text-[13px] text-foreground-intense">
                             {item.endedAt
                               ? new Intl.DateTimeFormat(undefined, {
                                   dateStyle: "medium",
@@ -1188,7 +1171,7 @@ export function TvRecordingsPage() {
                             · {formatBytes(item.sizeBytes)} ·{" "}
                             <span
                               className={cn(
-                                isFailed ? "text-red-200/90" : "text-white/55",
+                                isFailed ? "text-error-strong" : "text-foreground-intense",
                               )}
                             >
                               {isFailed
@@ -1200,7 +1183,7 @@ export function TvRecordingsPage() {
                           </p>
                           {isFailed ? (
                             <p
-                              className="mt-2 line-clamp-3 text-[12px] leading-snug text-red-200/75"
+                              className="mt-2 line-clamp-3 text-[12px] leading-snug text-error-strong"
                               title={item.error ?? undefined}
                             >
                               {libraryFailSummary(item.error)}
@@ -1212,7 +1195,7 @@ export function TvRecordingsPage() {
                         {isFailed ? (
                           <span
                             className={cn(
-                              "inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-red-400/30 bg-red-500/10 px-4 text-[14px] font-semibold text-red-100/85",
+                              "inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-error bg-error-subtle px-4 text-[14px] font-semibold text-error-strong",
                             )}
                             role="status"
                           >
@@ -1222,7 +1205,7 @@ export function TvRecordingsPage() {
                         ) : (
                           <Link
                             href={`/watch?recording=${encodeURIComponent(item.id)}`}
-                            className={buttonVariants({ variant: "success", size: "sm" })}
+                            className={buttonVariants({ variant: "primary", size: "sm" })}
                           >
                             <Play className="size-4" aria-hidden />
                             Play
@@ -1244,14 +1227,14 @@ export function TvRecordingsPage() {
                             setLibraryDeleteError(null);
                             setLibraryDeleteTarget(item);
                           }}
-                          variant="danger"
+                          variant="destructive"
                           size="sm"
                         >
                           <Trash2 className="size-4" aria-hidden />
                           Remove
                         </Button>
                       </div>
-                    </ZendeGlass>
+                    </Card>
                   </li>
                   );
                 })}
@@ -1269,7 +1252,7 @@ export function TvRecordingsPage() {
 
         <div
           className={cn(
-            "pointer-events-none fixed inset-x-0 z-40 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent",
+            "pointer-events-none fixed inset-x-0 z-40 h-px bg-border",
             TV_BROWSE_STICKY_TOP_CLASS,
           )}
           aria-hidden
@@ -1280,10 +1263,10 @@ export function TvRecordingsPage() {
             className="fixed inset-0 z-[200] flex items-center justify-center px-4 py-10 sm:px-6"
             role="presentation"
           >
-            <button
+            <Button variant="ghost"
               type="button"
               aria-label="Dismiss"
-              className="absolute inset-0 bg-black/70 backdrop-blur-md"
+              className="absolute inset-0 bg-background backdrop-blur-md"
               onClick={() => {
                 setLibraryDeleteTarget(null);
                 setLibraryDeleteError(null);
@@ -1293,18 +1276,18 @@ export function TvRecordingsPage() {
               role="dialog"
               aria-modal="true"
               aria-labelledby="lib-del-title"
-              className="relative z-10 w-full max-w-md rounded-2xl border border-white/[0.12] bg-zinc-950/95 p-6 shadow-2xl ring-1 ring-white/[0.06]"
+              className="relative z-10 w-full max-w-md rounded-2xl border border-border bg-background p-6 shadow-2xl ring-1 ring-border"
             >
               <div className="flex items-start justify-between gap-3">
                 <h2
                   id="lib-del-title"
-                  className="text-[18px] font-semibold text-white"
+                  className="text-[18px] font-semibold text-foreground-intense"
                 >
                   Remove recording?
                 </h2>
-                <button
+                <Button variant="ghost"
                   type="button"
-                  className="rounded-lg p-2 text-white/40 hover:bg-white/[0.08] hover:text-white/80"
+                  className="rounded-lg p-2 text-foreground-intense hover:bg-background-muted hover:text-foreground-intense"
                   aria-label="Close"
                   onClick={() => {
                     setLibraryDeleteTarget(null);
@@ -1312,17 +1295,17 @@ export function TvRecordingsPage() {
                   }}
                 >
                   <X className="size-5" />
-                </button>
+                </Button>
               </div>
-              <p className="mt-3 text-[15px] leading-relaxed text-white/55">
+              <p className="mt-3 text-[15px] leading-relaxed text-foreground-intense">
                 This deletes{" "}
-                <span className="font-medium text-white/85">
+                <span className="font-medium text-foreground-intense">
                   {libraryDeleteTarget.channelName}
                 </span>{" "}
                 from the server permanently, including the MP4 file. This cannot be undone.
               </p>
               {libraryDeleteError ? (
-                <p className="mt-3 text-[14px] text-red-300">{libraryDeleteError}</p>
+                <p className="mt-3 text-[14px] text-error-strong">{libraryDeleteError}</p>
               ) : null}
               <div className="mt-6 flex flex-wrap justify-end gap-3">
                 <Button
@@ -1339,7 +1322,7 @@ export function TvRecordingsPage() {
                   type="button"
                   disabled={busy}
                   onClick={() => void confirmDeleteLibraryRecording()}
-                  variant="danger"
+                  variant="destructive"
                 >
                   {busy ? (
                     <ZendeSpinner size="tiny" label="Removing recording" />
@@ -1358,10 +1341,10 @@ export function TvRecordingsPage() {
             className="fixed inset-0 z-[200] flex items-center justify-center px-4 py-10 sm:px-6"
             role="presentation"
           >
-            <button
+            <Button variant="ghost"
               type="button"
               aria-label="Dismiss"
-              className="absolute inset-0 bg-black/70 backdrop-blur-md"
+              className="absolute inset-0 bg-background backdrop-blur-md"
               onClick={() => {
                 setStuckStopDialog(null);
                 setStuckStopError(null);
@@ -1371,24 +1354,24 @@ export function TvRecordingsPage() {
               role="dialog"
               aria-modal="true"
               aria-labelledby="stuck-stop-title"
-              className="relative z-10 w-full max-w-md rounded-2xl border border-amber-400/25 bg-zinc-950/95 p-6 shadow-2xl ring-1 ring-white/[0.06]"
+              className="relative z-10 w-full max-w-md rounded-2xl border border-warning bg-background p-6 shadow-2xl ring-1 ring-border"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 flex-1 items-start gap-3">
                   <AlertTriangle
-                    className="mt-0.5 size-6 shrink-0 text-amber-300"
+                    className="mt-0.5 size-6 shrink-0 text-warning-strong"
                     aria-hidden
                   />
                   <h2
                     id="stuck-stop-title"
-                    className="text-[18px] font-semibold leading-snug text-white"
+                    className="text-[18px] font-semibold leading-snug text-foreground-intense"
                   >
                     Stop unavailable
                   </h2>
                 </div>
-                <button
+                <Button variant="ghost"
                   type="button"
-                  className="rounded-lg p-2 text-white/40 hover:bg-white/[0.08] hover:text-white/80"
+                  className="rounded-lg p-2 text-foreground-intense hover:bg-background-muted hover:text-foreground-intense"
                   aria-label="Close"
                   onClick={() => {
                     setStuckStopDialog(null);
@@ -1396,21 +1379,21 @@ export function TvRecordingsPage() {
                   }}
                 >
                   <X className="size-5" />
-                </button>
+                </Button>
               </div>
-              <p className="mt-3 text-[15px] font-medium text-white/85">
+              <p className="mt-3 text-[15px] font-medium text-foreground-intense">
                 {stuckStopDialog.channelName}
               </p>
-              <p className="mt-2 text-[15px] leading-relaxed text-white/55">
+              <p className="mt-2 text-[15px] leading-relaxed text-foreground-intense">
                 {stuckStopDialog.message}
               </p>
-              <p className="mt-3 text-[14px] leading-relaxed text-white/45">
+              <p className="mt-3 text-[14px] leading-relaxed text-foreground-intense">
                 You can remove this entry from the list and delete any partial file on
                 the server. Use this only if the encoder is no longer running (for
                 example after an update or restart).
               </p>
               {stuckStopError ? (
-                <p className="mt-3 text-[14px] text-red-300">{stuckStopError}</p>
+                <p className="mt-3 text-[14px] text-error-strong">{stuckStopError}</p>
               ) : null}
               <div className="mt-6 flex flex-wrap justify-end gap-3">
                 <Button
@@ -1427,7 +1410,7 @@ export function TvRecordingsPage() {
                   type="button"
                   disabled={busy}
                   onClick={() => void forceRemoveStuckRecording()}
-                  variant="danger"
+                  variant="destructive"
                 >
                   {busy ? (
                     <ZendeSpinner size="tiny" label="Removing stuck recording" />

@@ -2,8 +2,8 @@
 
 import { useCallback, useState } from "react";
 
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Button } from "@/components/ui/button";
+import { AppicaConfirmDialog } from "@/components/appica/confirm-dialog";
+import { Button } from "@appica/ui-react/button";
 import { clearAllFavorites } from "@/lib/favorites/favorites-store";
 import { clearViewingHistory } from "@/lib/watch/viewing-stats";
 import { cn } from "@/lib/utils";
@@ -35,17 +35,17 @@ export function TvPersonalLibraryCard() {
   return (
     <section
       className={cn(
-        "rounded-2xl border border-white/[0.1] bg-white/[0.04] p-6 ring-1 ring-white/[0.04]",
+        "rounded-2xl border border-border bg-background-muted p-6 ring-1 ring-border",
       )}
       aria-labelledby="personal-library-heading"
     >
       <h2
         id="personal-library-heading"
-        className="text-[18px] font-semibold text-white"
+        className="text-[18px] font-semibold text-foreground-intense"
       >
         Recently watched & favorites
       </h2>
-      <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-white/50">
+      <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-foreground-intense">
         Home rows and Favorites are built from your watch history and saved
         channels. Reset them here without touching your catalog or manual
         channels.
@@ -54,7 +54,7 @@ export function TvPersonalLibraryCard() {
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <Button
           type="button"
-          variant="danger"
+          variant="destructive"
           disabled={busy}
           onClick={() => setConfirmKind("favorites")}
         >
@@ -62,7 +62,7 @@ export function TvPersonalLibraryCard() {
         </Button>
         <Button
           type="button"
-          variant="danger"
+          variant="destructive"
           disabled={busy}
           onClick={() => setConfirmKind("history")}
         >
@@ -75,15 +75,15 @@ export function TvPersonalLibraryCard() {
           className={cn(
             "mt-4 text-[15px] leading-relaxed",
             status.includes("cleared")
-              ? "text-emerald-400/95"
-              : "text-amber-300/95",
+              ? "text-success-strong"
+              : "text-warning-strong",
           )}
         >
           {status}
         </p>
       ) : null}
 
-      <ConfirmDialog
+      <AppicaConfirmDialog
         open={confirmKind !== null}
         title={confirmKind === "favorites" ? "Clear all favorites?" : "Clear recently watched?"}
         description={

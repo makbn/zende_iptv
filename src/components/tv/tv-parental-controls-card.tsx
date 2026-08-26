@@ -1,9 +1,14 @@
 "use client";
 
+import { Textarea } from "@appica/ui-react/textarea";
+
+import { Input } from "@appica/ui-react/input";
+import { Checkbox } from "@appica/ui-react/checkbox";
+
 import { Lock, ShieldCheck, Unlock } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@appica/ui-react/button";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { notifyParentalAccessChanged } from "@/lib/parental/parental-events";
 import { cn } from "@/lib/utils";
@@ -159,18 +164,18 @@ export function TvParentalControlsCard() {
   return (
     <section
       className={cn(
-        "mt-8 rounded-2xl border border-white/[0.1] bg-white/[0.04] p-6 ring-1 ring-white/[0.04]",
+        "mt-8 rounded-2xl border border-border bg-background-muted p-6 ring-1 ring-border",
         !settings && "opacity-70",
       )}
       aria-labelledby="parental-heading"
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 id="parental-heading" className="flex items-center gap-2 text-[18px] font-semibold text-white">
-            <ShieldCheck className="size-5 text-[var(--zen-signal)]" aria-hidden />
+          <h2 id="parental-heading" className="flex items-center gap-2 text-[18px] font-semibold text-foreground-intense">
+            <ShieldCheck className="size-5 text-primary-strong" aria-hidden />
             Parental controls
           </h2>
-          <p className="mt-2 max-w-3xl text-[15px] leading-relaxed text-white/50">
+          <p className="mt-2 max-w-3xl text-[15px] leading-relaxed text-foreground-intense">
             Global patterns apply to every account and match channel names and group titles.
             Restricted channels stay out of catalogs, favorites, history, playback, IPTV exports,
             and Plex. This browser can temporarily unlock app browsing and playback; session unlocks
@@ -182,8 +187,8 @@ export function TvParentalControlsCard() {
             className={cn(
               "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[13px] font-semibold",
               settings.locked
-                ? "border-amber-300/25 bg-amber-400/10 text-amber-200"
-                : "border-emerald-300/25 bg-emerald-400/10 text-emerald-200",
+                ? "border-warning bg-warning-subtle text-warning-strong"
+                : "border-success bg-success-subtle text-success-strong",
             )}
           >
             {settings.locked ? <Lock className="size-3.5" /> : <Unlock className="size-3.5" />}
@@ -193,22 +198,21 @@ export function TvParentalControlsCard() {
       </div>
 
       {settings?.canManage ? (
-        <div className="mt-6 border-t border-white/[0.08] pt-5">
-          <p className="text-[13px] font-semibold uppercase tracking-[0.16em] text-white/38">
+        <div className="mt-6 border-t border-border pt-5">
+          <p className="text-[13px] font-semibold uppercase tracking-[0.16em] text-foreground-intense">
             Administrator policy
           </p>
-          <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-white/[0.08] bg-black/25 px-4 py-3.5">
-            <input
-              type="checkbox"
-              className="mt-1 size-4 shrink-0 rounded border-white/30 bg-black/40"
+          <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-background px-4 py-3.5">
+            <Checkbox
+              className="mt-1 shrink-0"
               checked={enabled}
-              onChange={(event) => setEnabled(event.target.checked)}
+              onCheckedChange={(checked) => setEnabled(checked === true)}
             />
             <span>
-              <span className="block text-[15px] font-medium text-white/90">
+              <span className="block text-[15px] font-medium text-foreground-intense">
                 Enable the global parental filter
               </span>
-              <span className="mt-1 block text-[13px] leading-relaxed text-white/45">
+              <span className="mt-1 block text-[13px] leading-relaxed text-foreground-intense">
                 A policy change immediately invalidates every existing session unlock and refreshes
                 the Threadfin/Plex lineup.
               </span>
@@ -216,17 +220,17 @@ export function TvParentalControlsCard() {
           </label>
 
           <label className="mt-4 block">
-            <span className="text-[13px] font-medium text-white/55">
+            <span className="text-[13px] font-medium text-foreground-intense">
               Hidden patterns (comma, semicolon, or new-line separated)
             </span>
-            <textarea
+            <Textarea
               value={patternsText}
               onChange={(event) => setPatternsText(event.target.value)}
               placeholder="adult, xxx, 18+, +18"
               rows={3}
-              className="mt-2 w-full resize-y rounded-xl border border-white/[0.12] bg-black/30 px-4 py-3 text-[15px] text-white outline-none placeholder:text-white/35 focus-visible:ring-2 focus-visible:ring-white/30"
+              className="mt-2 w-full resize-y rounded-xl border border-border bg-background px-4 py-3 text-[15px] text-foreground-intense outline-none placeholder:text-foreground-intense focus-visible:ring-2 focus-visible:ring-border"
             />
-            <span className="mt-2 block text-[12px] leading-relaxed text-white/38">
+            <span className="mt-2 block text-[12px] leading-relaxed text-foreground-intense">
               While enabled, a built-in safety net also blocks common adult markers such as XX, XXX,
               adult, erotic, 18+, +18, and similar provider labels.
             </span>
@@ -234,10 +238,10 @@ export function TvParentalControlsCard() {
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <label className="block">
-              <span className="text-[13px] font-medium text-white/55">
+              <span className="text-[13px] font-medium text-foreground-intense">
                 {settings.hasPin ? "New PIN (leave blank to keep current)" : "Unlock PIN (optional)"}
               </span>
-              <input
+              <Input
                 type="password"
                 inputMode="numeric"
                 autoComplete="new-password"
@@ -247,30 +251,30 @@ export function TvParentalControlsCard() {
                   setClearPin(false);
                 }}
                 placeholder="4–12 digits"
-                className="mt-2 h-11 w-full rounded-xl border border-white/[0.12] bg-black/30 px-4 text-[15px] text-white outline-none placeholder:text-white/35 focus-visible:ring-2 focus-visible:ring-white/30"
+                className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-4 text-[15px] text-foreground-intense outline-none placeholder:text-foreground-intense focus-visible:ring-2 focus-visible:ring-border"
               />
             </label>
             <label className="block">
-              <span className="text-[13px] font-medium text-white/55">Confirm new PIN</span>
-              <input
+              <span className="text-[13px] font-medium text-foreground-intense">Confirm new PIN</span>
+              <Input
                 type="password"
                 inputMode="numeric"
                 autoComplete="new-password"
                 value={confirmPin}
                 onChange={(event) => setConfirmPin(event.target.value)}
-                className="mt-2 h-11 w-full rounded-xl border border-white/[0.12] bg-black/30 px-4 text-[15px] text-white outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-4 text-[15px] text-foreground-intense outline-none focus-visible:ring-2 focus-visible:ring-border"
               />
             </label>
           </div>
 
           {settings.hasPin ? (
-            <label className="mt-3 flex items-center gap-2 text-[13px] text-white/55">
-              <input
-                type="checkbox"
+            <label className="mt-3 flex items-center gap-2 text-[13px] text-foreground-intense">
+              <Checkbox
                 checked={clearPin}
-                onChange={(event) => {
-                  setClearPin(event.target.checked);
-                  if (event.target.checked) {
+                onCheckedChange={(checked) => {
+                  const next = checked === true;
+                  setClearPin(next);
+                  if (next) {
                     setNewPin("");
                     setConfirmPin("");
                   }
@@ -282,7 +286,7 @@ export function TvParentalControlsCard() {
 
           <Button
             type="button"
-            variant="success"
+            variant="primary"
             disabled={busy}
             onClick={() => void save()}
             className="mt-5"
@@ -293,16 +297,16 @@ export function TvParentalControlsCard() {
       ) : null}
 
       {settings?.enabled && settings.hiddenPatterns.length > 0 ? (
-        <div className="mt-6 border-t border-white/[0.08] pt-5">
-          <p className="text-[13px] font-semibold uppercase tracking-[0.16em] text-white/38">
+        <div className="mt-6 border-t border-border pt-5">
+          <p className="text-[13px] font-semibold uppercase tracking-[0.16em] text-foreground-intense">
             This browser session
           </p>
           {settings.locked ? (
             <div className="mt-4 flex flex-wrap items-end gap-3">
               {settings.hasPin ? (
                 <label className="block min-w-[220px] flex-1">
-                  <span className="text-[13px] font-medium text-white/55">Parental PIN</span>
-                  <input
+                  <span className="text-[13px] font-medium text-foreground-intense">Parental PIN</span>
+                  <Input
                     type="password"
                     inputMode="numeric"
                     autoComplete="off"
@@ -311,13 +315,13 @@ export function TvParentalControlsCard() {
                     onKeyDown={(event) => {
                       if (event.key === "Enter") void unlock();
                     }}
-                    className="mt-2 h-11 w-full rounded-xl border border-white/[0.12] bg-black/30 px-4 text-[15px] text-white outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                    className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-4 text-[15px] text-foreground-intense outline-none focus-visible:ring-2 focus-visible:ring-border"
                   />
                 </label>
               ) : null}
               <Button
                 type="button"
-                variant="success"
+                variant="primary"
                 disabled={busy || (settings.hasPin && !unlockPin)}
                 onClick={() => void unlock()}
               >
@@ -328,7 +332,7 @@ export function TvParentalControlsCard() {
           ) : (
             <Button
               type="button"
-              variant="danger"
+              variant="destructive"
               disabled={busy}
               onClick={() => void lock()}
               className="mt-4"
@@ -341,7 +345,7 @@ export function TvParentalControlsCard() {
       ) : null}
 
       {hint ? (
-        <p className="mt-4 text-[14px] leading-relaxed text-amber-200/90">{hint}</p>
+        <p className="mt-4 text-[14px] leading-relaxed text-warning-strong">{hint}</p>
       ) : null}
     </section>
   );

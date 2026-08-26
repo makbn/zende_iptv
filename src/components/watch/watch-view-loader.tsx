@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 
 const shell = (
-  <div className="min-h-screen animate-pulse bg-black" aria-hidden />
+  <div className="min-h-screen animate-pulse bg-background" aria-hidden />
 );
 
 /**

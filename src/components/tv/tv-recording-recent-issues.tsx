@@ -3,9 +3,9 @@
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 
-import { ZendeGlass } from "@/components/glass/zende-glass";
+import { Card } from "@appica/ui-react/card";
 import { ZendeSpinner } from "@/components/loading/zende-spinner";
-import { Button } from "@/components/ui/button";
+import { Button } from "@appica/ui-react/button";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { secureImageUrl } from "@/lib/media/secure-image-url";
 import { cn } from "@/lib/utils";
@@ -102,11 +102,11 @@ export function TvRecordingRecentIssues({
       <section aria-labelledby="rec-fail-heading" className="pb-6">
         <h2
           id="rec-fail-heading"
-          className="text-lg font-semibold tracking-tight text-white/80"
+          className="text-lg font-semibold tracking-tight text-foreground-intense"
         >
           Recent issues
         </h2>
-        <p className="mt-1 max-w-2xl text-[14px] leading-relaxed text-white/40">
+        <p className="mt-1 max-w-2xl text-[14px] leading-relaxed text-foreground-intense">
           Failed captures stay here until you clear them. Open details for the full log.
         </p>
         <ul className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -118,12 +118,12 @@ export function TvRecordingRecentIssues({
             const source = item.scheduleId ? "Scheduled" : "Record now";
             return (
               <li key={item.id}>
-                <ZendeGlass
-                  variant="panel"
-                  className="flex h-full flex-col gap-4 rounded-[1.1rem] border border-red-500/15 bg-gradient-to-br from-red-950/[0.35] to-black/40 p-4 ring-1 ring-red-500/10"
+                <Card
+                  frame="glass"
+                  className="flex h-full flex-col gap-4 rounded-lg border border-error bg-gradient-to-br from-primary-subtle to-background p-4 ring-1 ring-border"
                 >
                   <div className="flex min-w-0 gap-3">
-                    <span className="relative size-12 shrink-0 overflow-hidden rounded-xl bg-white/[0.06] ring-1 ring-white/[0.08]">
+                    <span className="relative size-12 shrink-0 overflow-hidden rounded-xl bg-background-muted ring-1 ring-border">
                       {item.channelLogo ? (
                         <Image
                           src={secureImageUrl(item.channelLogo, undefined, "logo")!}
@@ -134,41 +134,41 @@ export function TvRecordingRecentIssues({
                           unoptimized
                         />
                       ) : (
-                        <span className="flex size-full items-center justify-center text-red-300/50">
+                        <span className="flex size-full items-center justify-center text-error-strong">
                           <Radio className="size-5" aria-hidden />
                         </span>
                       )}
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="truncate text-[15px] font-semibold text-white">
+                        <p className="truncate text-[15px] font-semibold text-foreground-intense">
                           {item.channelName}
                         </p>
-                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-red-400/25 bg-red-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-red-200/90">
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-error bg-error-subtle px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-error-strong">
                           <AlertTriangle className="size-3" aria-hidden />
                           Failed
                         </span>
                       </div>
-                      <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-white/45">
+                      <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-foreground-intense">
                         <span className="inline-flex items-center gap-1">
                           <Calendar className="size-3.5 shrink-0 opacity-70" aria-hidden />
                           {when}
                         </span>
-                        <span className="text-white/25">·</span>
+                        <span className="text-foreground-intense">·</span>
                         <span>{source}</span>
                         {item.channelGroup ? (
                           <>
-                            <span className="text-white/25">·</span>
+                            <span className="text-foreground-intense">·</span>
                             <span className="truncate">{item.channelGroup}</span>
                           </>
                         ) : null}
                       </p>
                     </div>
                   </div>
-                  <p className="line-clamp-2 text-[13px] leading-snug text-red-200/75">
+                  <p className="line-clamp-2 text-[13px] leading-snug text-error-strong">
                     {errorSummary(item.error)}
                   </p>
-                  <button
+                  <Button variant="ghost"
                     type="button"
                     onClick={() => {
                       setClearError(null);
@@ -176,12 +176,12 @@ export function TvRecordingRecentIssues({
                     }}
                     className={cn(
                       "mt-auto inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl text-[14px] font-semibold outline-none transition-colors",
-                      "border border-white/[0.14] bg-white/[0.08] text-white hover:bg-white/[0.12]",
+                      "border border-border bg-background-muted text-foreground-intense hover:bg-background-muted",
                     )}
                   >
                     Details
-                  </button>
-                </ZendeGlass>
+                  </Button>
+                </Card>
               </li>
             );
           })}
@@ -193,10 +193,10 @@ export function TvRecordingRecentIssues({
           className="fixed inset-0 z-[200] flex items-center justify-center px-4 py-10 sm:px-6"
           role="presentation"
         >
-          <button
+          <Button variant="ghost"
             type="button"
             aria-label="Close dialog"
-            className="absolute inset-0 bg-black/70 backdrop-blur-md motion-safe:animate-[glass-backdrop-in_0.25s_ease-out_both]"
+            className="absolute inset-0 bg-background backdrop-blur-md motion-safe:animate-[glass-backdrop-in_0.25s_ease-out_both]"
             onClick={() => setDetail(null)}
           />
           <div
@@ -205,96 +205,96 @@ export function TvRecordingRecentIssues({
             aria-labelledby="rec-issue-dialog-title"
             className="relative z-10 w-full max-w-lg motion-safe:animate-[glass-modal-pop_0.36s_cubic-bezier(0.16,1,0.3,1)_both]"
           >
-            <ZendeGlass
-              variant="panel"
-              className="max-h-[min(85vh,640px)] overflow-hidden border border-white/[0.12] shadow-[0_40px_120px_-48px_rgba(0,0,0,0.95)]"
+            <Card
+              frame="glass"
+              className="max-h-[min(85vh,640px)] overflow-hidden border border-border shadow-lg"
             >
-              <div className="flex items-start justify-between gap-3 border-b border-white/[0.08] px-5 py-4">
+              <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
                 <div className="min-w-0">
                   <p
                     id="rec-issue-dialog-title"
-                    className="text-[12px] font-semibold uppercase tracking-[0.14em] text-red-300/80"
+                    className="text-[12px] font-semibold uppercase tracking-[0.14em] text-error-strong"
                   >
                     Recording issue
                   </p>
-                  <p className="mt-1 truncate text-[18px] font-semibold text-white">
+                  <p className="mt-1 truncate text-[18px] font-semibold text-foreground-intense">
                     {detail.channelName}
                   </p>
                 </div>
-                <button
+                <Button variant="ghost"
                   type="button"
                   onClick={() => setDetail(null)}
-                  className="shrink-0 rounded-lg p-2 text-white/40 outline-none transition-colors hover:bg-white/[0.08] hover:text-white/85"
+                  className="shrink-0 rounded-lg p-2 text-foreground-intense outline-none transition-colors hover:bg-background-muted hover:text-foreground-intense"
                   aria-label="Close"
                 >
                   <X className="size-5" />
-                </button>
+                </Button>
               </div>
 
               <div className="max-h-[calc(min(85vh,640px)-8.5rem)] space-y-4 overflow-y-auto px-5 py-4">
                 <dl className="grid grid-cols-1 gap-3 text-[13px] sm:grid-cols-2">
-                  <div className="rounded-lg border border-white/[0.06] bg-black/30 px-3 py-2">
-                    <dt className="text-white/40">Status</dt>
-                    <dd className="mt-0.5 font-medium text-red-200/90">Failed</dd>
+                  <div className="rounded-lg border border-border bg-background px-3 py-2">
+                    <dt className="text-foreground-intense">Status</dt>
+                    <dd className="mt-0.5 font-medium text-error-strong">Failed</dd>
                   </div>
-                  <div className="rounded-lg border border-white/[0.06] bg-black/30 px-3 py-2">
-                    <dt className="text-white/40">Source</dt>
-                    <dd className="mt-0.5 font-medium text-white/85">
+                  <div className="rounded-lg border border-border bg-background px-3 py-2">
+                    <dt className="text-foreground-intense">Source</dt>
+                    <dd className="mt-0.5 font-medium text-foreground-intense">
                       {detail.scheduleId ? "Scheduled recording" : "Record now"}
                     </dd>
                   </div>
                   {detail.channelGroup ? (
-                    <div className="rounded-lg border border-white/[0.06] bg-black/30 px-3 py-2 sm:col-span-2">
-                      <dt className="text-white/40">Group</dt>
-                      <dd className="mt-0.5 font-medium text-white/85">
+                    <div className="rounded-lg border border-border bg-background px-3 py-2 sm:col-span-2">
+                      <dt className="text-foreground-intense">Group</dt>
+                      <dd className="mt-0.5 font-medium text-foreground-intense">
                         {detail.channelGroup}
                       </dd>
                     </div>
                   ) : null}
-                  <div className="rounded-lg border border-white/[0.06] bg-black/30 px-3 py-2">
-                    <dt className="text-white/40">Started</dt>
-                    <dd className="mt-0.5 font-medium text-white/85">
+                  <div className="rounded-lg border border-border bg-background px-3 py-2">
+                    <dt className="text-foreground-intense">Started</dt>
+                    <dd className="mt-0.5 font-medium text-foreground-intense">
                       {formatWhen(detail.startedAt) ?? "—"}
                     </dd>
                   </div>
-                  <div className="rounded-lg border border-white/[0.06] bg-black/30 px-3 py-2">
-                    <dt className="text-white/40">Ended</dt>
-                    <dd className="mt-0.5 font-medium text-white/85">
+                  <div className="rounded-lg border border-border bg-background px-3 py-2">
+                    <dt className="text-foreground-intense">Ended</dt>
+                    <dd className="mt-0.5 font-medium text-foreground-intense">
                       {formatWhen(detail.endedAt) ?? "—"}
                     </dd>
                   </div>
-                  <div className="rounded-lg border border-white/[0.06] bg-black/30 px-3 py-2 sm:col-span-2">
-                    <dt className="text-white/40">Recording id</dt>
-                    <dd className="mt-0.5 font-mono text-[12px] text-white/70 break-all">
+                  <div className="rounded-lg border border-border bg-background px-3 py-2 sm:col-span-2">
+                    <dt className="text-foreground-intense">Recording id</dt>
+                    <dd className="mt-0.5 font-mono text-[12px] text-foreground-intense break-all">
                       {detail.id}
                     </dd>
                   </div>
-                  <div className="rounded-lg border border-white/[0.06] bg-black/30 px-3 py-2 sm:col-span-2">
-                    <dt className="mb-1 flex items-center gap-1.5 text-white/40">
+                  <div className="rounded-lg border border-border bg-background px-3 py-2 sm:col-span-2">
+                    <dt className="mb-1 flex items-center gap-1.5 text-foreground-intense">
                       Stream URL
                       <ExternalLink className="size-3 opacity-50" aria-hidden />
                     </dt>
-                    <dd className="font-mono text-[11px] leading-relaxed text-white/65 break-all">
+                    <dd className="font-mono text-[11px] leading-relaxed text-foreground-intense break-all">
                       {detail.channelUrl}
                     </dd>
                   </div>
                 </dl>
 
                 <div>
-                  <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-white/45">
+                  <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-foreground-intense">
                     Error log
                   </p>
-                  <pre className="max-h-[220px] overflow-auto rounded-xl border border-red-500/20 bg-black/50 p-3 font-mono text-[11px] leading-relaxed text-red-100/85 [scrollbar-width:thin]">
+                  <pre className="max-h-[220px] overflow-auto rounded-xl border border-error bg-background p-3 font-mono text-[11px] leading-relaxed text-error-strong [scrollbar-width:thin]">
                     {detail.error?.trim() || "No error text was stored."}
                   </pre>
                 </div>
 
                 {clearError ? (
-                  <p className="text-[13px] text-red-300/90">{clearError}</p>
+                  <p className="text-[13px] text-error-strong">{clearError}</p>
                 ) : null}
               </div>
 
-              <div className="flex flex-wrap items-center justify-end gap-3 border-t border-white/[0.08] bg-black/20 px-5 py-4">
+              <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border bg-background px-5 py-4">
                 <Button
                   type="button"
                   onClick={() => setDetail(null)}
@@ -306,7 +306,7 @@ export function TvRecordingRecentIssues({
                   type="button"
                   disabled={clearing}
                   onClick={() => void handleClear()}
-                  variant="danger"
+                  variant="destructive"
                   size="sm"
                 >
                   {clearing ? (
@@ -317,7 +317,7 @@ export function TvRecordingRecentIssues({
                   Clear
                 </Button>
               </div>
-            </ZendeGlass>
+            </Card>
           </div>
         </div>
       ) : null}

@@ -5,12 +5,12 @@ import { tierLabel, type HealthTier } from "@/lib/health/tier";
 import { cn } from "@/lib/utils";
 
 const styles: Record<string, string> = {
-  STABLE: "bg-emerald-500/90 text-black shadow-emerald-500/30",
-  MOODY: "bg-lime-400/95 text-black shadow-lime-400/25",
-  FLAKY: "bg-amber-400/95 text-black shadow-amber-400/25",
-  UNSTABLE: "bg-orange-500/90 text-white shadow-orange-500/30",
-  DOWN: "bg-red-600/95 text-white shadow-red-600/35",
-  UNKNOWN: "bg-white/15 text-white/70 ring-1 ring-white/20",
+  STABLE: "bg-success-subtle text-foreground-inverse shadow-sm",
+  MOODY: "bg-success-subtle text-foreground-inverse shadow-sm",
+  FLAKY: "bg-warning-subtle text-foreground-inverse shadow-sm",
+  UNSTABLE: "bg-warning-subtle text-foreground-intense shadow-sm",
+  DOWN: "bg-error-subtle text-foreground-intense shadow-sm",
+  UNKNOWN: "bg-background-muted text-foreground-intense ring-1 ring-border",
 };
 
 export function ChannelHealthBadge({

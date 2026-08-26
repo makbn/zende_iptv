@@ -11,7 +11,7 @@ export const BROWSE_BOTTOM_PAD_MOBILE = "pb-28";
 export const MOBILE_SCROLL_MT = "scroll-mt-24";
 /** Shared content width and horizontal rhythm for TV/desktop browse pages. */
 export const BROWSE_CONTAINER_CLASS =
-  "mx-auto w-full max-w-[1920px] px-4 sm:px-6 lg:px-10 xl:px-14";
+  "mx-auto w-full px-4 sm:px-6 lg:px-8";
 /** Dense poster grid — fills container width, aligns with filter bars above. */
 export const POSTER_GRID_CLASS = "poster-grid";
 /** Poster tile sizing inside {@link POSTER_GRID_CLASS}. */
@@ -43,14 +43,14 @@ export function BrowsePageShell({
       id={id}
       tabIndex={-1}
       className={cn(
-        "zen-page-bg relative min-h-screen overflow-hidden text-white outline-none",
+        "relative min-h-screen bg-background-subtle text-foreground-intense outline-none",
         BROWSE_TOP_PAD,
         mobileBottomPad && BROWSE_BOTTOM_PAD_MOBILE,
         "md:pb-16",
         className,
       )}
     >
-      <div className="zen-signal-beams" aria-hidden />
+      
       {children}
     </main>
   );

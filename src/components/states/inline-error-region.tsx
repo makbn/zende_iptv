@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { Button } from "@appica/ui-react/button";
 
 type Props = {
   message: string;
@@ -27,7 +27,7 @@ export function InlineErrorRegion({
       role="alert"
       aria-live="polite"
       className={cn(
-        "rounded-[24px] border border-red-400/25 bg-red-950/35 px-4 py-3 text-[15px] text-red-50 shadow-[0_18px_60px_-34px_rgba(0,0,0,0.9)] backdrop-blur-xl ring-1 ring-red-200/10",
+        "rounded-lg border border-error bg-error-subtle px-4 py-3 text-[15px] text-error-strong shadow-lg backdrop-blur-xl ring-1 ring-border",
         className,
       )}
     >
@@ -43,14 +43,14 @@ export function InlineErrorRegion({
             </Button>
           ) : null}
           {onDismiss ? (
-            <button
+            <Button variant="ghost"
               type="button"
               onClick={onDismiss}
-              className="min-h-11 min-w-11 rounded-full text-white/70 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+              className="min-h-11 min-w-11 rounded-full text-foreground-intense outline-none transition-colors hover:bg-background-muted hover:text-foreground-intense focus-visible:ring-2 focus-visible:ring-primary"
               aria-label="Dismiss error"
             >
               x
-            </button>
+            </Button>
           ) : null}
         </div>
       </div>

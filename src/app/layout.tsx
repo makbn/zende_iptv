@@ -6,11 +6,12 @@ import { AppProviders } from "@/components/providers/app-providers";
 import { FullPageLoadOverlay } from "@/components/loading/full-page-load-overlay";
 import { ZendeLoadingState } from "@/components/loading/zende-spinner";
 import { WatchBrowseOriginTracker } from "@/lib/navigation/watch-browse-origin";
+import { ThemeProvider } from "@appica/ui-react/providers/theme-provider";
 
 export const metadata: Metadata = {
   title: "Zende",
   description:
-    "IPTV streaming with Apple TV–style UI, resilient playback, and APIs for companion apps.",
+    "A polished IPTV dashboard for live channels, movies, series, and recordings.",
   icons: {
     icon: [{ url: "/zende-logo.svg", type: "image/svg+xml" }],
   },
@@ -22,12 +23,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark h-full">
+    <html lang="en" className="h-full" suppressHydrationWarning>
       <body className="flex min-h-full flex-col">
-        <FullPageLoadOverlay />
-        <Suspense
+        <ThemeProvider defaultTheme="system" enableSystem disableTransitionOnChange>
+          <FullPageLoadOverlay />
+          <Suspense
           fallback={
-            <div className="flex min-h-screen items-center justify-center bg-[var(--tv-page-bg)]">
+            <div className="flex min-h-screen items-center justify-center bg-background">
               <ZendeLoadingState size="full" label="Loading Zende" />
             </div>
           }
@@ -36,7 +38,8 @@ export default function RootLayout({
             <WatchBrowseOriginTracker />
             {children}
           </AppProviders>
-        </Suspense>
+          </Suspense>
+        </ThemeProvider>
       </body>
     </html>
   );

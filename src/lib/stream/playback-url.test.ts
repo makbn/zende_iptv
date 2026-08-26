@@ -18,6 +18,6 @@ describe("Xtream live playback URLs", () => {
 
   it("normalizes Xtream MPEG-TS live URLs to browser HLS", () => {
     expect(normalizeXtreamLivePlaybackUrl("http://provider.test/live/u/p/42.ts"))
-      .toBe("http://provider.test/live/u/p/42.m3u8");
+      .toBe("http://provider.test/live/u/p/42.ts");
   });
 });

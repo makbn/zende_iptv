@@ -1,5 +1,13 @@
 "use client";
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@appica/ui-react/select";
+
+import { Textarea } from "@appica/ui-react/textarea";
+
+import { Input } from "@appica/ui-react/input";
+
+import { Button } from "@appica/ui-react/button";
+
 import {
   AlertCircle,
   Box,
@@ -19,7 +27,7 @@ import {
 import { ZendeSpinner } from "@/components/loading/zende-spinner";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { ZendeGlass } from "@/components/glass/zende-glass";
+import { Card } from "@appica/ui-react/card";
 import { useAuth } from "@/features/auth/auth-context";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { cn } from "@/lib/utils";
@@ -157,10 +165,10 @@ const GLUETUN_PROVIDERS: Record<VpnProvider, GluetunProviderMeta> = {
 
 function GluetunStatusBadge({ status }: { status: GluetunStatus }) {
   const map: Record<GluetunStatus, { label: string; className: string; icon: React.ReactNode }> = {
-    stopped: { label: "Stopped", className: "bg-white/[0.06] text-white/40", icon: <Square className="h-3 w-3" /> },
-    starting: { label: "Starting…", className: "bg-amber-500/15 text-amber-300/90", icon: <ZendeSpinner size="tiny" label="Starting proxy" /> },
-    running: { label: "Running", className: "bg-emerald-500/15 text-emerald-300/90", icon: <CheckCircle className="h-3 w-3" /> },
-    error: { label: "Error", className: "bg-red-500/15 text-red-300/90", icon: <AlertCircle className="h-3 w-3" /> },
+    stopped: { label: "Stopped", className: "bg-background-muted text-foreground-intense", icon: <Square className="h-3 w-3" /> },
+    starting: { label: "Starting…", className: "bg-warning-subtle text-warning-strong", icon: <ZendeSpinner size="tiny" label="Starting proxy" /> },
+    running: { label: "Running", className: "bg-success-subtle text-success-strong", icon: <CheckCircle className="h-3 w-3" /> },
+    error: { label: "Error", className: "bg-error-subtle text-error-strong", icon: <AlertCircle className="h-3 w-3" /> },
   };
   const { label, className, icon } = map[status] ?? map.stopped;
   return (
@@ -305,27 +313,27 @@ function FileDropTextarea({
 
   return (
     <div className="relative">
-      <textarea
+      <Textarea
         value={value}
         placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         className={cn(
           className,
-          dragging && "border-white/40 bg-white/[0.08] ring-2 ring-white/20",
+          dragging && "border-border bg-background-muted ring-2 ring-border",
         )}
       />
       {dragging && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl">
-          <p className="rounded-lg bg-black/60 px-3 py-1.5 text-[13px] font-medium text-white/80 backdrop-blur-sm">
+          <p className="rounded-lg bg-background px-3 py-1.5 text-[13px] font-medium text-foreground-intense backdrop-blur-sm">
             Drop to load file
           </p>
         </div>
       )}
       {!value && !dragging && (
-        <p className="pointer-events-none absolute bottom-2.5 right-3 text-[11px] text-white/25 select-none">
+        <p className="pointer-events-none absolute bottom-2.5 right-3 text-[11px] text-foreground-intense select-none">
           drag &amp; drop or paste
         </p>
       )}
@@ -347,9 +355,9 @@ function GluetunProviderFields({
 
   const countriesField = (
     <label className="sm:col-span-2">
-      <span className="mb-1.5 block text-[13px] font-medium text-white/60">Countries</span>
-      <input className={inputCls} placeholder="e.g. United Kingdom, France" value={form.countries} onChange={set("countries")} />
-      <p className="mt-1 text-[12px] text-white/35">Comma-separated. Gluetun picks the best server in each country.</p>
+      <span className="mb-1.5 block text-[13px] font-medium text-foreground-intense">Countries</span>
+      <Input className={inputCls} placeholder="e.g. United Kingdom, France" value={form.countries} onChange={set("countries")} />
+      <p className="mt-1 text-[12px] text-foreground-intense">Comma-separated. Gluetun picks the best server in each country.</p>
     </label>
   );
 
@@ -359,12 +367,12 @@ function GluetunProviderFields({
       return (
         <>
           <label>
-            <span className="mb-1.5 block text-[13px] font-medium text-white/60">Username</span>
-            <input className={inputCls} autoComplete="off" value={form.username} onChange={set("username")} />
+            <span className="mb-1.5 block text-[13px] font-medium text-foreground-intense">Username</span>
+            <Input className={inputCls} autoComplete="off" value={form.username} onChange={set("username")} />
           </label>
           <label>
-            <span className="mb-1.5 block text-[13px] font-medium text-white/60">Password</span>
-            <input className={inputCls} type="password" autoComplete="new-password" value={form.password} onChange={set("password")} />
+            <span className="mb-1.5 block text-[13px] font-medium text-foreground-intense">Password</span>
+            <Input className={inputCls} type="password" autoComplete="new-password" value={form.password} onChange={set("password")} />
           </label>
           {countriesField}
         </>
@@ -373,8 +381,8 @@ function GluetunProviderFields({
       return (
         <>
           <label className="sm:col-span-2">
-            <span className="mb-1.5 block text-[13px] font-medium text-white/60">Activation code</span>
-            <input className={inputCls} autoComplete="off" value={form.activationCode} onChange={set("activationCode")} />
+            <span className="mb-1.5 block text-[13px] font-medium text-foreground-intense">Activation code</span>
+            <Input className={inputCls} autoComplete="off" value={form.activationCode} onChange={set("activationCode")} />
           </label>
           {countriesField}
         </>
@@ -384,7 +392,7 @@ function GluetunProviderFields({
       return (
         <>
           <label className="sm:col-span-2">
-            <span className="mb-1.5 block text-[13px] font-medium text-white/60">OpenVPN config (.ovpn)</span>
+            <span className="mb-1.5 block text-[13px] font-medium text-foreground-intense">OpenVPN config (.ovpn)</span>
             <FileDropTextarea
               value={form.ovpnConfig}
               placeholder="Paste your .ovpn file contents here…"
@@ -394,9 +402,9 @@ function GluetunProviderFields({
           </label>
 
           {externalFiles.length > 0 && (
-            <div className="sm:col-span-2 rounded-xl border border-amber-400/20 bg-amber-500/[0.07] px-4 py-3">
-              <p className="text-[13px] font-semibold text-amber-200/80">External files detected</p>
-              <p className="mt-0.5 text-[12px] text-amber-200/60">
+            <div className="sm:col-span-2 rounded-xl border border-warning bg-warning-subtle px-4 py-3">
+              <p className="text-[13px] font-semibold text-warning-strong">External files detected</p>
+              <p className="mt-0.5 text-[12px] text-warning-strong">
                 Your config references these files by name. Paste their contents below so they can be mounted inside the container.
               </p>
             </div>
@@ -404,10 +412,10 @@ function GluetunProviderFields({
 
           {externalFiles.map((filename) => (
             <label key={filename} className="sm:col-span-2">
-              <span className="mb-1.5 flex items-center gap-2 text-[13px] font-medium text-white/60">
-                <span className="font-mono text-white/80">{filename}</span>
+              <span className="mb-1.5 flex items-center gap-2 text-[13px] font-medium text-foreground-intense">
+                <span className="font-mono text-foreground-intense">{filename}</span>
                 {!form.ovpnExtraFiles[filename]?.trim() && (
-                  <span className="text-red-400/70 text-[11px]">required</span>
+                  <span className="text-error-strong text-[11px]">required</span>
                 )}
               </span>
               <FileDropTextarea
@@ -422,12 +430,12 @@ function GluetunProviderFields({
           ))}
 
           <label>
-            <span className="mb-1.5 block text-[13px] font-medium text-white/60">Username <span className="text-white/35">(optional)</span></span>
-            <input className={inputCls} autoComplete="off" value={form.username} onChange={set("username")} />
+            <span className="mb-1.5 block text-[13px] font-medium text-foreground-intense">Username <span className="text-foreground-intense">(optional)</span></span>
+            <Input className={inputCls} autoComplete="off" value={form.username} onChange={set("username")} />
           </label>
           <label>
-            <span className="mb-1.5 block text-[13px] font-medium text-white/60">Password <span className="text-white/35">(optional)</span></span>
-            <input className={inputCls} type="password" autoComplete="new-password" value={form.password} onChange={set("password")} />
+            <span className="mb-1.5 block text-[13px] font-medium text-foreground-intense">Password <span className="text-foreground-intense">(optional)</span></span>
+            <Input className={inputCls} type="password" autoComplete="new-password" value={form.password} onChange={set("password")} />
           </label>
         </>
       );
@@ -436,24 +444,24 @@ function GluetunProviderFields({
       return (
         <>
           <label className="sm:col-span-2">
-            <span className="mb-1.5 block text-[13px] font-medium text-white/60">Private key</span>
-            <input className={cn(inputCls, "font-mono text-[13px]")} autoComplete="off" value={form.wgPrivateKey} onChange={set("wgPrivateKey")} />
+            <span className="mb-1.5 block text-[13px] font-medium text-foreground-intense">Private key</span>
+            <Input className={cn(inputCls, "font-mono text-[13px]")} autoComplete="off" value={form.wgPrivateKey} onChange={set("wgPrivateKey")} />
           </label>
           <label className="sm:col-span-2">
-            <span className="mb-1.5 block text-[13px] font-medium text-white/60">Addresses (CIDR)</span>
-            <input className={inputCls} placeholder="10.0.0.2/32" value={form.wgAddresses} onChange={set("wgAddresses")} />
+            <span className="mb-1.5 block text-[13px] font-medium text-foreground-intense">Addresses (CIDR)</span>
+            <Input className={inputCls} placeholder="10.0.0.2/32" value={form.wgAddresses} onChange={set("wgAddresses")} />
           </label>
           <label className="sm:col-span-2">
-            <span className="mb-1.5 block text-[13px] font-medium text-white/60">Peer public key</span>
-            <input className={cn(inputCls, "font-mono text-[13px]")} autoComplete="off" value={form.wgPeerPublicKey} onChange={set("wgPeerPublicKey")} />
+            <span className="mb-1.5 block text-[13px] font-medium text-foreground-intense">Peer public key</span>
+            <Input className={cn(inputCls, "font-mono text-[13px]")} autoComplete="off" value={form.wgPeerPublicKey} onChange={set("wgPeerPublicKey")} />
           </label>
           <label>
-            <span className="mb-1.5 block text-[13px] font-medium text-white/60">Peer endpoint</span>
-            <input className={inputCls} placeholder="vpn.example.com" value={form.wgPeerEndpoint} onChange={set("wgPeerEndpoint")} />
+            <span className="mb-1.5 block text-[13px] font-medium text-foreground-intense">Peer endpoint</span>
+            <Input className={inputCls} placeholder="vpn.example.com" value={form.wgPeerEndpoint} onChange={set("wgPeerEndpoint")} />
           </label>
           <label>
-            <span className="mb-1.5 block text-[13px] font-medium text-white/60">Peer port</span>
-            <input className={inputCls} type="number" min={1} max={65535} value={form.wgPeerPort} onChange={set("wgPeerPort")} />
+            <span className="mb-1.5 block text-[13px] font-medium text-foreground-intense">Peer port</span>
+            <Input className={inputCls} type="number" min={1} max={65535} value={form.wgPeerPort} onChange={set("wgPeerPort")} />
           </label>
         </>
       );
@@ -558,9 +566,9 @@ function ProxyForm({
   const valid = directValid || gluetunValid || smartDnsValid;
 
   const inputCls = cn(
-    "h-11 w-full rounded-xl border border-white/[0.12] bg-black/30 px-4",
-    "text-[15px] text-white placeholder:text-white/30",
-    "outline-none focus-visible:ring-2 focus-visible:ring-white/50",
+    "h-11 w-full rounded-xl border border-border bg-background px-4",
+    "text-[15px] text-foreground-intense placeholder:text-foreground-intense",
+    "outline-none focus-visible:ring-2 focus-visible:ring-border",
   );
 
   const handleTest = useCallback(async () => {
@@ -618,66 +626,66 @@ function ProxyForm({
   const gluetunProviderMeta = GLUETUN_PROVIDERS[gluetunForm.vpnProvider];
 
   return (
-    <div className="rounded-2xl border border-white/[0.12] bg-white/[0.05] p-6">
-      <h3 className="text-[17px] font-semibold text-white">
+    <div className="rounded-2xl border border-border bg-background-muted p-6">
+      <h3 className="text-[17px] font-semibold text-foreground-intense">
         {initial ? "Edit proxy" : vpnType === "smartdns" ? "Add Smart DNS" : vpnType === "gluetun" ? "Add VPN (Gluetun)" : "Add proxy"}
       </h3>
 
       {/* Name */}
       <div className="mt-5">
         <label>
-          <span className="mb-1.5 block text-[13px] font-medium text-white/60">Name <span className="text-red-400/70">*</span></span>
-          <input className={inputCls} placeholder="e.g. NordVPN UK" value={name} onChange={(e) => setName(e.target.value)} />
+          <span className="mb-1.5 block text-[13px] font-medium text-foreground-intense">Name <span className="text-error-strong">*</span></span>
+          <Input className={inputCls} placeholder="e.g. NordVPN UK" value={name} onValueChange={(value) => setName(value)} />
         </label>
       </div>
 
       {/* VPN type selector (only for new proxies) */}
       {!initial && (
         <div className="mt-5">
-          <p className="mb-2 text-[13px] font-medium text-white/60">Type</p>
+          <p className="mb-2 text-[13px] font-medium text-foreground-intense">Type</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <button
+            <Button variant="ghost"
               type="button"
               onClick={() => setVpnType("direct")}
               className={cn(
                 "rounded-xl border px-4 py-3 text-left outline-none transition-colors",
                 vpnType === "direct"
-                  ? "border-white/25 bg-white/[0.1] text-white"
-                  : "border-white/[0.08] bg-white/[0.03] text-white/50 hover:text-white/75",
+                  ? "border-border bg-background-muted text-foreground-intense"
+                  : "border-border bg-background-muted text-foreground-intense hover:text-foreground-intense",
               )}
             >
               <p className="text-[14px] font-semibold">Direct proxy</p>
-              <p className="mt-0.5 text-[12px] text-white/50">SOCKS5 / HTTP — point at NordVPN, ExpressVPN, Ghost VPN, or any proxy server</p>
-            </button>
-            <button
+              <p className="mt-0.5 text-[12px] text-foreground-intense">SOCKS5 / HTTP — point at NordVPN, ExpressVPN, Ghost VPN, or any proxy server</p>
+            </Button>
+            <Button variant="ghost"
               type="button"
               onClick={() => setVpnType("smartdns")}
               className={cn(
                 "rounded-xl border px-4 py-3 text-left outline-none transition-colors",
                 vpnType === "smartdns"
-                  ? "border-white/25 bg-white/[0.1] text-white"
-                  : "border-white/[0.08] bg-white/[0.03] text-white/50 hover:text-white/75",
+                  ? "border-border bg-background-muted text-foreground-intense"
+                  : "border-border bg-background-muted text-foreground-intense hover:text-foreground-intense",
               )}
             >
               <p className="text-[14px] font-semibold">Smart DNS</p>
-              <p className="mt-0.5 text-[12px] text-white/50">Override DNS only — fastest option, no tunnelling. Works with SmartDNSProxy, Unlocator, OverPlay, ProxyDNS.</p>
-            </button>
-            <button
+              <p className="mt-0.5 text-[12px] text-foreground-intense">Override DNS only — fastest option, no tunnelling. Works with SmartDNSProxy, Unlocator, OverPlay, ProxyDNS.</p>
+            </Button>
+            <Button variant="ghost"
               type="button"
               onClick={() => setVpnType("gluetun")}
               className={cn(
                 "rounded-xl border px-4 py-3 text-left outline-none transition-colors",
                 vpnType === "gluetun"
-                  ? "border-white/25 bg-white/[0.1] text-white"
-                  : "border-white/[0.08] bg-white/[0.03] text-white/50 hover:text-white/75",
+                  ? "border-border bg-background-muted text-foreground-intense"
+                  : "border-border bg-background-muted text-foreground-intense hover:text-foreground-intense",
               )}
             >
               <p className="text-[14px] font-semibold flex items-center gap-2">
                 <Box className="h-3.5 w-3.5" />
                 Gluetun container
               </p>
-              <p className="mt-0.5 text-[12px] text-white/50">Isolated Docker VPN container — supports OpenVPN, WireGuard, and all major providers</p>
-            </button>
+              <p className="mt-0.5 text-[12px] text-foreground-intense">Isolated Docker VPN container — supports OpenVPN, WireGuard, and all major providers</p>
+            </Button>
           </div>
         </div>
       )}
@@ -688,39 +696,39 @@ function ProxyForm({
           {/* Provider picker (only for new proxies) */}
           {!initial && (
             <div className="mt-5">
-              <p className="mb-2 text-[13px] font-medium text-white/60">Provider</p>
+              <p className="mb-2 text-[13px] font-medium text-foreground-intense">Provider</p>
               <div className="flex flex-wrap gap-2">
                 {(["nordvpn", "expressvpn", "protonvpn", "ghostvpn", "custom"] as DirectProvider[]).map((id) => (
-                  <button
+                  <Button variant="ghost"
                     key={id}
                     type="button"
                     onClick={() => applyDirectPreset(id)}
                     className={cn(
                       "rounded-xl border px-4 py-2 text-[14px] font-medium outline-none transition-colors",
                       directProvider === id
-                        ? "border-white/30 bg-white/[0.12] text-white"
-                        : "border-white/[0.1] bg-white/[0.04] text-white/50 hover:text-white/80",
+                        ? "border-border bg-background-muted text-foreground-intense"
+                        : "border-border bg-background-muted text-foreground-intense hover:text-foreground-intense",
                     )}
                   >
                     {id === "custom" ? "Other / custom" : (DIRECT_PRESETS[id as Exclude<DirectProvider, "custom">]?.label ?? id)}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
           )}
 
           {directPreset?.setupWarning && (
-            <div className="mt-4 rounded-xl border border-blue-400/20 bg-blue-500/[0.07] px-4 py-3">
-              <p className="text-[13px] font-semibold text-blue-200/80">Setup required first</p>
-              <p className="mt-1 text-[13px] leading-relaxed text-blue-200/65">{directPreset.setupWarning}</p>
+            <div className="mt-4 rounded-xl border border-primary bg-primary-subtle px-4 py-3">
+              <p className="text-[13px] font-semibold text-primary-strong">Setup required first</p>
+              <p className="mt-1 text-[13px] leading-relaxed text-primary-strong">{directPreset.setupWarning}</p>
             </div>
           )}
 
           {directPreset && (
-            <div className="mt-3 rounded-xl border border-amber-400/20 bg-amber-500/[0.07] px-4 py-3">
-              <p className="text-[13px] leading-relaxed text-amber-200/80">{directPreset.credentialHint}</p>
+            <div className="mt-3 rounded-xl border border-warning bg-warning-subtle px-4 py-3">
+              <p className="text-[13px] leading-relaxed text-warning-strong">{directPreset.credentialHint}</p>
               {directPreset.credentialUrl && (
-                <a href={directPreset.credentialUrl} target="_blank" rel="noopener noreferrer" className="mt-1.5 block text-[13px] font-medium text-amber-300/90 underline-offset-2 hover:underline">
+                <a href={directPreset.credentialUrl} target="_blank" rel="noopener noreferrer" className="mt-1.5 block text-[13px] font-medium text-warning-strong underline-offset-2 hover:underline">
                   Open {directPreset.label} configuration page →
                 </a>
               )}
@@ -729,29 +737,29 @@ function ProxyForm({
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <label>
-              <span className="mb-1.5 block text-[13px] font-medium text-white/60">Protocol</span>
-              <select value={directForm.protocol} onChange={setDirect("protocol")} className={cn(inputCls, "cursor-pointer")}>
-                <option value="socks5">SOCKS5 (recommended)</option>
-                <option value="http">HTTP</option>
-                <option value="https">HTTPS</option>
-              </select>
+              <span className="mb-1.5 block text-[13px] font-medium text-foreground-intense">Protocol</span>
+              <Select value={directForm.protocol} onValueChange={(value) => setDirectForm((form) => ({ ...form, protocol: value as Protocol }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
+                <SelectItem value="socks5">SOCKS5 (recommended)</SelectItem>
+                <SelectItem value="http">HTTP</SelectItem>
+                <SelectItem value="https">HTTPS</SelectItem>
+              </SelectContent></Select>
             </label>
             <label>
-              <span className="mb-1.5 block text-[13px] font-medium text-white/60">Port</span>
-              <input className={inputCls} placeholder={directPreset ? String(directPreset.port) : "1080"} type="number" min={1} max={65535} value={directForm.port} onChange={setDirect("port")} />
+              <span className="mb-1.5 block text-[13px] font-medium text-foreground-intense">Port</span>
+              <Input className={inputCls} placeholder={directPreset ? String(directPreset.port) : "1080"} type="number" min={1} max={65535} value={directForm.port} onChange={setDirect("port")} />
             </label>
             <label className="sm:col-span-2">
-              <span className="mb-1.5 block text-[13px] font-medium text-white/60">Host</span>
-              <input className={inputCls} placeholder={directPreset?.hostPlaceholder ?? "proxy.myvpn.com"} value={directForm.host} onChange={setDirect("host")} />
-              {directPreset?.hostHint && <p className="mt-1.5 text-[12px] leading-relaxed text-white/38">{directPreset.hostHint}</p>}
+              <span className="mb-1.5 block text-[13px] font-medium text-foreground-intense">Host</span>
+              <Input className={inputCls} placeholder={directPreset?.hostPlaceholder ?? "proxy.myvpn.com"} value={directForm.host} onChange={setDirect("host")} />
+              {directPreset?.hostHint && <p className="mt-1.5 text-[12px] leading-relaxed text-foreground-intense">{directPreset.hostHint}</p>}
             </label>
             <label>
-              <span className="mb-1.5 block text-[13px] font-medium text-white/60">Username <span className="text-white/35">(optional)</span></span>
-              <input className={inputCls} autoComplete="off" value={directForm.username} onChange={setDirect("username")} />
+              <span className="mb-1.5 block text-[13px] font-medium text-foreground-intense">Username <span className="text-foreground-intense">(optional)</span></span>
+              <Input className={inputCls} autoComplete="off" value={directForm.username} onChange={setDirect("username")} />
             </label>
             <label>
-              <span className="mb-1.5 block text-[13px] font-medium text-white/60">Password <span className="text-white/35">(optional)</span></span>
-              <input className={inputCls} type="password" autoComplete="new-password" value={directForm.password} onChange={setDirect("password")} />
+              <span className="mb-1.5 block text-[13px] font-medium text-foreground-intense">Password <span className="text-foreground-intense">(optional)</span></span>
+              <Input className={inputCls} type="password" autoComplete="new-password" value={directForm.password} onChange={setDirect("password")} />
             </label>
           </div>
         </>
@@ -760,18 +768,18 @@ function ProxyForm({
       {/* Smart DNS form */}
       {vpnType === "smartdns" && (
         <>
-          <div className="mt-4 rounded-xl border border-blue-400/20 bg-blue-500/[0.07] px-4 py-3">
-            <p className="text-[13px] font-semibold text-blue-200/80">How Smart DNS works</p>
-            <p className="mt-1 text-[13px] leading-relaxed text-blue-200/65">
+          <div className="mt-4 rounded-xl border border-primary bg-primary-subtle px-4 py-3">
+            <p className="text-[13px] font-semibold text-primary-strong">How Smart DNS works</p>
+            <p className="mt-1 text-[13px] leading-relaxed text-primary-strong">
               Only DNS lookups go through the provider — TCP connections stay direct. This gives full stream speed with no
               VPN overhead. The provider's DNS server returns proxy IPs for geo-blocked domains so their servers see an
               allowed country. Your real IP is unchanged.
             </p>
           </div>
 
-          <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-500/[0.07] px-4 py-3">
-            <p className="text-[13px] font-semibold text-amber-200/80">Get your DNS server IPs</p>
-            <p className="mt-1 text-[12px] leading-relaxed text-amber-200/65 mb-2">
+          <div className="mt-4 rounded-xl border border-warning bg-warning-subtle px-4 py-3">
+            <p className="text-[13px] font-semibold text-warning-strong">Get your DNS server IPs</p>
+            <p className="mt-1 text-[12px] leading-relaxed text-warning-strong mb-2">
               Log in to your Smart DNS service and copy the DNS IPs assigned to your account. They are typically found in Dashboard → Setup or DNS Addresses.
             </p>
             <div className="flex flex-wrap gap-2">
@@ -781,7 +789,6 @@ function ProxyForm({
                   href={p.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-lg border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-[12px] font-medium text-amber-300/90 hover:bg-amber-500/15 transition-colors"
                 >
                   {p.label}
                 </a>
@@ -791,25 +798,25 @@ function ProxyForm({
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <label>
-              <span className="mb-1.5 block text-[13px] font-medium text-white/60">
-                Primary DNS server <span className="text-red-400/70">*</span>
+              <span className="mb-1.5 block text-[13px] font-medium text-foreground-intense">
+                Primary DNS server <span className="text-error-strong">*</span>
               </span>
-              <input
+              <Input
                 className={inputCls}
                 placeholder="e.g. 45.55.184.161"
                 value={smartDnsForm.dnsServer}
-                onChange={(e) => setSmartDnsForm((f) => ({ ...f, dnsServer: e.target.value }))}
+                onValueChange={(value) => setSmartDnsForm((f) => ({ ...f, dnsServer: value }))}
               />
             </label>
             <label>
-              <span className="mb-1.5 block text-[13px] font-medium text-white/60">
-                Secondary DNS server <span className="text-white/35">(optional)</span>
+              <span className="mb-1.5 block text-[13px] font-medium text-foreground-intense">
+                Secondary DNS server <span className="text-foreground-intense">(optional)</span>
               </span>
-              <input
+              <Input
                 className={inputCls}
                 placeholder="e.g. 104.197.28.121"
                 value={smartDnsForm.dnsServer2}
-                onChange={(e) => setSmartDnsForm((f) => ({ ...f, dnsServer2: e.target.value }))}
+                onValueChange={(value) => setSmartDnsForm((f) => ({ ...f, dnsServer2: value }))}
               />
             </label>
           </div>
@@ -819,39 +826,39 @@ function ProxyForm({
       {/* Gluetun form */}
       {vpnType === "gluetun" && (
         <>
-          <div className="mt-4 rounded-xl border border-blue-400/20 bg-blue-500/[0.07] px-4 py-3">
-            <p className="text-[13px] font-semibold text-blue-200/80">Docker required</p>
-            <p className="mt-1 text-[13px] leading-relaxed text-blue-200/65">
+          <div className="mt-4 rounded-xl border border-primary bg-primary-subtle px-4 py-3">
+            <p className="text-[13px] font-semibold text-primary-strong">Docker required</p>
+            <p className="mt-1 text-[13px] leading-relaxed text-primary-strong">
               Docker must be installed and running on this server. Gluetun will launch an isolated container per VPN and expose an HTTP proxy locally — no OS-level VPN, no traffic leaks.
             </p>
           </div>
 
           <div className="mt-5">
-            <p className="mb-2 text-[13px] font-medium text-white/60">VPN provider</p>
+            <p className="mb-2 text-[13px] font-medium text-foreground-intense">VPN provider</p>
             <div className="flex flex-wrap gap-2">
               {(Object.entries(GLUETUN_PROVIDERS) as [VpnProvider, GluetunProviderMeta][]).map(([id, meta]) => (
-                <button
+                <Button variant="ghost"
                   key={id}
                   type="button"
                   onClick={() => setGluetunForm((f) => ({ ...EMPTY_GLUETUN, vpnProvider: id, countries: f.countries }))}
                   className={cn(
                     "rounded-xl border px-4 py-2 text-[14px] font-medium outline-none transition-colors",
                     gluetunForm.vpnProvider === id
-                      ? "border-white/30 bg-white/[0.12] text-white"
-                      : "border-white/[0.1] bg-white/[0.04] text-white/50 hover:text-white/80",
+                      ? "border-border bg-background-muted text-foreground-intense"
+                      : "border-border bg-background-muted text-foreground-intense hover:text-foreground-intense",
                   )}
                 >
                   {meta.label}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
 
           {gluetunProviderMeta && (
-            <div className="mt-3 rounded-xl border border-amber-400/20 bg-amber-500/[0.07] px-4 py-3">
-              <p className="text-[13px] leading-relaxed text-amber-200/80">{gluetunProviderMeta.hint}</p>
+            <div className="mt-3 rounded-xl border border-warning bg-warning-subtle px-4 py-3">
+              <p className="text-[13px] leading-relaxed text-warning-strong">{gluetunProviderMeta.hint}</p>
               {gluetunProviderMeta.credentialUrl && (
-                <a href={gluetunProviderMeta.credentialUrl} target="_blank" rel="noopener noreferrer" className="mt-1.5 block text-[13px] font-medium text-amber-300/90 underline-offset-2 hover:underline">
+                <a href={gluetunProviderMeta.credentialUrl} target="_blank" rel="noopener noreferrer" className="mt-1.5 block text-[13px] font-medium text-warning-strong underline-offset-2 hover:underline">
                   Open credential page →
                 </a>
               )}
@@ -870,7 +877,7 @@ function ProxyForm({
 
       {/* Test result (direct / smart DNS) */}
       {testResult && (vpnType === "direct" || vpnType === "smartdns") && (
-        <div className={cn("mt-4 flex items-center gap-2 rounded-xl px-4 py-3 text-[14px]", testResult.ok ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300")}>
+        <div className={cn("mt-4 flex items-center gap-2 rounded-xl px-4 py-3 text-[14px]", testResult.ok ? "bg-success-subtle text-success-strong" : "bg-error-subtle text-error-strong")}>
           {testResult.ok ? <CheckCircle className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
           {testResult.ok
             ? testResult.resolvedIp
@@ -880,31 +887,27 @@ function ProxyForm({
         </div>
       )}
 
-      {error && <p className="mt-3 text-[14px] text-red-300">{error}</p>}
+      {error && <p className="mt-3 text-[14px] text-error-strong">{error}</p>}
 
       <div className="mt-5 flex flex-wrap gap-3">
-        <button type="button" onClick={handleSubmit} disabled={!valid || busy} className="outline-none disabled:opacity-40">
-          <ZendeGlass variant="ctaPill">
-            <span className="flex items-center gap-2 px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
-              {busy ? <ZendeSpinner size="tiny" label="Saving proxy" /> : null}
-              {initial ? "Save changes" : vpnType === "gluetun" ? "Add VPN" : "Add proxy"}
-            </span>
-          </ZendeGlass>
-        </button>
+        <Button variant="primary" size="lg" type="button" onClick={handleSubmit} disabled={!valid || busy}>
+          {busy ? <ZendeSpinner size="tiny" label="Saving proxy" /> : null}
+          {initial ? "Save changes" : vpnType === "gluetun" ? "Add VPN" : "Add proxy"}
+        </Button>
         {(vpnType === "direct" || vpnType === "smartdns") && (
-          <button
+          <Button variant="ghost"
             type="button"
             onClick={handleTest}
             disabled={vpnType === "direct" ? (!directValid || testing) : (!smartDnsValid || testing)}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.12] bg-white/[0.05] px-4 py-2.5 text-[14px] font-medium text-white/75 outline-none hover:bg-white/[0.08] disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background-muted px-4 py-2.5 text-[14px] font-medium text-foreground-intense outline-none hover:bg-background-muted disabled:opacity-40"
           >
             {testing ? <ZendeSpinner size="tiny" label="Testing proxy" /> : <Shield className="h-3.5 w-3.5" />}
             {vpnType === "smartdns" ? "Test DNS" : "Test connection"}
-          </button>
+          </Button>
         )}
-        <button type="button" onClick={onCancel} className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.12] bg-white/[0.05] px-4 py-2.5 text-[14px] font-medium text-white/55 outline-none hover:text-white/80">
+        <Button variant="ghost" type="button" onClick={onCancel} className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background-muted px-4 py-2.5 text-[14px] font-medium text-foreground-intense outline-none hover:text-foreground-intense">
           Cancel
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -937,10 +940,10 @@ function ProxyFormDialog({
       className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto px-4 py-8 sm:px-6"
       role="presentation"
     >
-      <button
+      <Button variant="ghost"
         type="button"
         aria-label="Dismiss"
-        className="fixed inset-0 bg-black/65 backdrop-blur-md motion-safe:animate-[glass-backdrop-in_0.28s_ease-out_both]"
+        className="fixed inset-0 bg-background backdrop-blur-md motion-safe:animate-[glass-backdrop-in_0.28s_ease-out_both]"
         onClick={onClose}
       />
       <div
@@ -1015,39 +1018,39 @@ function GluetunControlPanel({ proxy, onStatusChange }: { proxy: ProxyItem; onSt
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2">
       {(proxy.gluetunStatus === "stopped" || proxy.gluetunStatus === "error") && (
-        <button
+        <Button variant="ghost"
           type="button"
           onClick={() => void handleStart()}
           disabled={busy}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/25 bg-emerald-500/10 px-3 py-1.5 text-[13px] font-medium text-emerald-300/90 outline-none hover:bg-emerald-500/15 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-success bg-success-subtle px-3 py-1.5 text-[13px] font-medium text-success-strong outline-none hover:bg-success-subtle disabled:opacity-50"
         >
           {busy ? <ZendeSpinner size="tiny" label="Starting proxy" /> : <Play className="h-3.5 w-3.5" />}
           Launch
-        </button>
+        </Button>
       )}
       {(proxy.gluetunStatus === "running" || proxy.gluetunStatus === "starting") && (
-        <button
+        <Button variant="ghost"
           type="button"
           onClick={() => void handleStop()}
           disabled={busy}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-red-400/25 bg-red-500/10 px-3 py-1.5 text-[13px] font-medium text-red-300/80 outline-none hover:bg-red-500/15 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-error bg-error-subtle px-3 py-1.5 text-[13px] font-medium text-error-strong outline-none hover:bg-error-subtle disabled:opacity-50"
         >
           {busy ? <ZendeSpinner size="tiny" label="Stopping proxy" /> : <Power className="h-3.5 w-3.5" />}
           Stop
-        </button>
+        </Button>
       )}
-      <button
+      <Button variant="ghost"
         type="button"
         onClick={() => void handleRefresh()}
-        className="inline-flex items-center gap-1 rounded-lg border border-white/[0.1] bg-white/[0.04] px-2.5 py-1.5 text-[12px] text-white/45 outline-none hover:text-white/70"
+        className="inline-flex items-center gap-1 rounded-lg border border-border bg-background-muted px-2.5 py-1.5 text-[12px] text-foreground-intense outline-none hover:text-foreground-intense"
       >
         <RefreshCw className="h-3 w-3" />
         Refresh
-      </button>
+      </Button>
       {proxy.gluetunStatus === "running" && proxy.gluetunHostPort && (
-        <span className="font-mono text-[12px] text-white/35">→ :{ proxy.gluetunHostPort}</span>
+        <span className="font-mono text-[12px] text-foreground-intense">→ :{ proxy.gluetunHostPort}</span>
       )}
-      {error && <span className="text-[12px] text-red-300">{error}</span>}
+      {error && <span className="text-[12px] text-error-strong">{error}</span>}
     </div>
   );
 }
@@ -1151,9 +1154,9 @@ function ChannelAssignmentDialog({
     : assigned;
 
   const inputCls = cn(
-    "h-11 w-full rounded-xl border border-white/[0.12] bg-black/30 px-4",
-    "text-[15px] text-white placeholder:text-white/30",
-    "outline-none focus-visible:ring-2 focus-visible:ring-white/50",
+    "h-11 w-full rounded-xl border border-border bg-background px-4",
+    "text-[15px] text-foreground-intense placeholder:text-foreground-intense",
+    "outline-none focus-visible:ring-2 focus-visible:ring-border",
   );
 
   return (
@@ -1162,10 +1165,10 @@ function ChannelAssignmentDialog({
       role="presentation"
     >
       {/* Backdrop */}
-      <button
+      <Button variant="ghost"
         type="button"
         aria-label="Dismiss"
-        className="absolute inset-0 bg-black/65 backdrop-blur-md motion-safe:animate-[glass-backdrop-in_0.28s_ease-out_both]"
+        className="absolute inset-0 bg-background backdrop-blur-md motion-safe:animate-[glass-backdrop-in_0.28s_ease-out_both]"
         onClick={onClose}
       />
 
@@ -1176,37 +1179,37 @@ function ChannelAssignmentDialog({
         aria-labelledby={dialogId}
         className="relative z-10 flex w-full max-w-2xl flex-col max-h-[92vh] motion-safe:animate-[glass-modal-pop_0.38s_cubic-bezier(0.16,1,0.3,1)_both]"
       >
-        <ZendeGlass variant="panel" className="flex flex-col overflow-hidden shadow-[0_40px_120px_-48px_rgba(0,0,0,0.95)]">
+        <Card frame="glass" className="flex flex-col overflow-hidden shadow-lg">
 
           {/* Header */}
-          <div className="shrink-0 flex items-start justify-between gap-4 border-b border-white/[0.07] px-6 py-5">
+          <div className="shrink-0 flex items-start justify-between gap-4 border-b border-border px-6 py-5">
             <div className="min-w-0">
-              <p id={dialogId} className="text-[13px] font-semibold uppercase tracking-[0.12em] text-white/40">
+              <p id={dialogId} className="text-[13px] font-semibold uppercase tracking-[0.12em] text-foreground-intense">
                 VPN channel routing
               </p>
-              <p className="mt-1 text-[18px] font-semibold text-white truncate">{proxy.name}</p>
-              <p className="mt-0.5 text-[13px] text-white/45 font-mono truncate">{routeDescription}</p>
+              <p className="mt-1 text-[18px] font-semibold text-foreground-intense truncate">{proxy.name}</p>
+              <p className="mt-0.5 text-[13px] text-foreground-intense font-mono truncate">{routeDescription}</p>
               {proxy.vpnType === "gluetun" && proxy.gluetunStatus !== "running" && (
-                <p className="mt-1.5 text-[12px] text-amber-300/70">
+                <p className="mt-1.5 text-[12px] text-warning-strong">
                   Container is {proxy.gluetunStatus} — launch it before watching these channels.
                 </p>
               )}
             </div>
-            <button type="button" onClick={onClose} className="shrink-0 rounded-lg p-2 text-white/40 hover:text-white/80 outline-none transition-colors">
+            <Button variant="ghost" type="button" onClick={onClose} className="shrink-0 rounded-lg p-2 text-foreground-intense hover:text-foreground-intense outline-none transition-colors">
               <X className="h-5 w-5" />
-            </button>
+            </Button>
           </div>
 
           {/* Body — two columns on wide, stacked on narrow */}
           <div className="min-h-0 flex-1 overflow-y-auto">
-            <div className="grid gap-0 sm:grid-cols-2 sm:divide-x sm:divide-white/[0.06]">
+            <div className="grid gap-0 sm:grid-cols-2 sm:divide-x sm:divide-border">
 
               {/* Left — add channels via search */}
               <div className="px-6 py-5">
-                <p className="mb-3 text-[13px] font-semibold uppercase tracking-[0.1em] text-white/40">Add channels</p>
+                <p className="mb-3 text-[13px] font-semibold uppercase tracking-[0.1em] text-foreground-intense">Add channels</p>
                 <div className="relative">
-                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
-                  <input
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-intense" />
+                  <Input
                     ref={searchInputRef}
                     value={searchQ}
                     onChange={handleSearchInput}
@@ -1217,30 +1220,30 @@ function ChannelAssignmentDialog({
 
                 <div className="mt-3 min-h-[120px]">
                   {!searchQ.trim() && (
-                    <p className="text-center text-[13px] text-white/30 pt-8">Type to search all channels</p>
+                    <p className="text-center text-[13px] text-foreground-intense pt-8">Type to search all channels</p>
                   )}
                   {searchBusy && (
-                    <div className="flex items-center justify-center gap-2 pt-8 text-[13px] text-white/40">
+                    <div className="flex items-center justify-center gap-2 pt-8 text-[13px] text-foreground-intense">
                       <ZendeSpinner size="tiny" label="Searching channels" />
                       Searching…
                     </div>
                   )}
                   {!searchBusy && searchQ.trim() && searchResults.length === 0 && (
-                    <p className="text-center text-[13px] text-white/35 pt-8">No unassigned channels matching "{searchQ}"</p>
+                    <p className="text-center text-[13px] text-foreground-intense pt-8">No unassigned channels matching "{searchQ}"</p>
                   )}
                   {searchResults.length > 0 && (
                     <ul className="space-y-1 max-h-[320px] overflow-y-auto">
                       {searchResults.map((ch) => (
-                        <li key={ch.urlHash} className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 hover:bg-white/[0.06] transition-colors">
-                          <span className="min-w-0 flex-1 truncate text-[14px] text-white/80">{ch.label ?? ch.url}</span>
-                          <button
+                        <li key={ch.urlHash} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background-muted px-3 py-2.5 hover:bg-background-muted transition-colors">
+                          <span className="min-w-0 flex-1 truncate text-[14px] text-foreground-intense">{ch.label ?? ch.url}</span>
+                          <Button variant="ghost"
                             type="button"
                             onClick={() => void handleAdd(ch)}
-                            className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-[12px] font-medium text-emerald-300/90 outline-none hover:bg-emerald-500/15 transition-colors"
+                            className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-success bg-success-subtle px-3 py-1 text-[12px] font-medium text-success-strong outline-none hover:bg-success-subtle transition-colors"
                           >
                             <Plus className="h-3 w-3" />
                             Add
-                          </button>
+                          </Button>
                         </li>
                       ))}
                     </ul>
@@ -1249,12 +1252,12 @@ function ChannelAssignmentDialog({
               </div>
 
               {/* Right — assigned channels with filter */}
-              <div className="px-6 py-5 border-t border-white/[0.06] sm:border-t-0">
+              <div className="px-6 py-5 border-t border-border sm:border-t-0">
                 <div className="mb-3 flex items-center justify-between gap-2">
-                  <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-white/40">
+                  <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-foreground-intense">
                     Assigned
                     {assignedTotal > 0 && (
-                      <span className="ml-2 rounded-full bg-white/[0.08] px-2 py-0.5 text-[11px] font-bold text-white/55 normal-case tracking-normal">
+                      <span className="ml-2 rounded-full bg-background-muted px-2 py-0.5 text-[11px] font-bold text-foreground-intense normal-case tracking-normal">
                         {assignedTotal}
                       </span>
                     )}
@@ -1264,10 +1267,10 @@ function ChannelAssignmentDialog({
                 {/* Filter assigned */}
                 {assigned.length > 4 && (
                   <div className="relative mb-3">
-                    <Search className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/30" />
-                    <input
+                    <Search className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground-intense" />
+                    <Input
                       value={filterQ}
-                      onChange={(e) => setFilterQ(e.target.value)}
+                      onValueChange={(value) => setFilterQ(value)}
                       placeholder="Filter assigned…"
                       className={cn(inputCls, "h-9 pl-9 text-[14px]")}
                     />
@@ -1276,33 +1279,33 @@ function ChannelAssignmentDialog({
 
                 <div className="min-h-[120px]">
                   {assignedBusy ? (
-                    <div className="flex items-center justify-center gap-2 pt-8 text-[13px] text-white/40">
+                    <div className="flex items-center justify-center gap-2 pt-8 text-[13px] text-foreground-intense">
                       <ZendeSpinner size="tiny" label="Loading assigned channels" />
                       Loading…
                     </div>
                   ) : assigned.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-white/[0.10] px-4 py-8 text-center">
-                      <Shield className="mx-auto mb-2 h-6 w-6 text-white/20" />
-                      <p className="text-[13px] text-white/35">No channels assigned yet</p>
-                      <p className="mt-1 text-[12px] text-white/25">Search on the left to route channels through this VPN</p>
+                    <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center">
+                      <Shield className="mx-auto mb-2 h-6 w-6 text-foreground-intense" />
+                      <p className="text-[13px] text-foreground-intense">No channels assigned yet</p>
+                      <p className="mt-1 text-[12px] text-foreground-intense">Search on the left to route channels through this VPN</p>
                     </div>
                   ) : filteredAssigned.length === 0 ? (
-                    <p className="text-center text-[13px] text-white/35 pt-8">No channels match "{filterQ}"</p>
+                    <p className="text-center text-[13px] text-foreground-intense pt-8">No channels match "{filterQ}"</p>
                   ) : (
                     <ul className="space-y-1 max-h-[320px] overflow-y-auto">
                       {filteredAssigned.map((ch) => (
-                        <li key={ch.urlHash} className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2.5">
+                        <li key={ch.urlHash} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background-muted px-3 py-2.5">
                           <div className="flex min-w-0 flex-1 items-center gap-2">
-                            <UserCheck className="h-3.5 w-3.5 shrink-0 text-emerald-400/60" />
-                            <span className="truncate text-[14px] text-white/80">{ch.label ?? ch.url}</span>
+                            <UserCheck className="h-3.5 w-3.5 shrink-0 text-success-strong" />
+                            <span className="truncate text-[14px] text-foreground-intense">{ch.label ?? ch.url}</span>
                           </div>
-                          <button
+                          <Button variant="ghost"
                             type="button"
                             onClick={() => void handleRemove(ch)}
-                            className="shrink-0 rounded-lg border border-red-400/20 bg-red-500/10 px-2.5 py-1 text-[12px] font-medium text-red-300/75 outline-none hover:bg-red-500/15 transition-colors"
+                            className="shrink-0 rounded-lg border border-error bg-error-subtle px-2.5 py-1 text-[12px] font-medium text-error-strong outline-none hover:bg-error-subtle transition-colors"
                           >
                             Remove
-                          </button>
+                          </Button>
                         </li>
                       ))}
                     </ul>
@@ -1313,19 +1316,19 @@ function ChannelAssignmentDialog({
           </div>
 
           {/* Footer */}
-          <div className="shrink-0 border-t border-white/[0.07] px-6 py-4 flex items-center justify-between gap-4">
-            <p className="text-[13px] text-white/35">
+          <div className="shrink-0 border-t border-border px-6 py-4 flex items-center justify-between gap-4">
+            <p className="text-[13px] text-foreground-intense">
               Changes apply immediately — no save needed.
             </p>
-            <button
+            <Button variant="ghost"
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-white/[0.12] bg-white/[0.06] px-5 py-2 text-[14px] font-medium text-white/70 outline-none hover:bg-white/[0.1] transition-colors"
+              className="rounded-xl border border-border bg-background-muted px-5 py-2 text-[14px] font-medium text-foreground-intense outline-none hover:bg-background-muted transition-colors"
             >
               Done
-            </button>
+            </Button>
           </div>
-        </ZendeGlass>
+        </Card>
       </div>
     </div>
   );
@@ -1398,30 +1401,26 @@ export function TvSettingsProxiesPanel() {
   return (
     <div className="space-y-8">
       {/* Header section */}
-      <section className="rounded-2xl border border-white/[0.1] bg-white/[0.04] p-6 ring-1 ring-white/[0.04]">
+      <section className="rounded-2xl border border-border bg-background-muted p-6 ring-1 ring-border">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-[18px] font-semibold text-white">VPN Proxies</h2>
-            <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-white/50">
+            <h2 className="text-[18px] font-semibold text-foreground-intense">VPN Proxies</h2>
+            <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-foreground-intense">
               Route specific channels through dedicated VPNs — UK channels via a UK proxy, US channels via a US proxy,
               simultaneously. Two modes: connect to a provider's SOCKS5 endpoint directly, or let Gluetun
               manage an isolated Docker VPN container per proxy.
             </p>
           </div>
-          <button type="button" onClick={openCreate} className="shrink-0 outline-none">
-            <ZendeGlass variant="ctaPill">
-              <span className="flex items-center gap-2 px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
-                <Plus className="h-4 w-4" />
-                Add proxy
-              </span>
-            </ZendeGlass>
-          </button>
+          <Button variant="primary" size="lg" type="button" onClick={openCreate} className="shrink-0">
+            <Plus className="h-4 w-4" />
+            Add proxy
+          </Button>
         </div>
 
         {loading ? (
-          <div className="mt-8 flex items-center gap-2 text-[14px] text-white/40"><ZendeSpinner size="small" label="Loading proxies" /> Loading proxies…</div>
+          <div className="mt-8 flex items-center gap-2 text-[14px] text-foreground-intense"><ZendeSpinner size="small" label="Loading proxies" /> Loading proxies…</div>
         ) : proxies.length === 0 && !formOpen ? (
-          <p className="mt-8 rounded-xl border border-dashed border-white/[0.12] bg-black/20 px-5 py-8 text-center text-[14px] text-white/40">
+          <p className="mt-8 rounded-xl border border-dashed border-border bg-background px-5 py-8 text-center text-[14px] text-foreground-intense">
             No proxies yet — add one above to start routing channels.
           </p>
         ) : (
@@ -1429,31 +1428,31 @@ export function TvSettingsProxiesPanel() {
             {proxies.map((proxy) => (
               <li
                 key={proxy.id}
-                className="flex flex-col gap-3 rounded-xl border border-white/[0.1] bg-black/30 px-4 py-4 sm:flex-row sm:items-start sm:justify-between"
+                className="flex flex-col gap-3 rounded-xl border border-border bg-background px-4 py-4 sm:flex-row sm:items-start sm:justify-between"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    {proxy.vpnType === "gluetun" && <Box className="h-4 w-4 shrink-0 text-white/50" />}
-                    <p className="font-medium text-white">{proxy.name}</p>
+                    {proxy.vpnType === "gluetun" && <Box className="h-4 w-4 shrink-0 text-foreground-intense" />}
+                    <p className="font-medium text-foreground-intense">{proxy.name}</p>
                     {proxy.vpnType === "gluetun" ? (
-                      <span className="rounded-md bg-white/[0.07] px-2 py-0.5 text-[12px] text-white/55">
+                      <span className="rounded-md bg-background-muted px-2 py-0.5 text-[12px] text-foreground-intense">
                         {GLUETUN_PROVIDERS[proxy.vpnProvider as VpnProvider]?.label ?? proxy.vpnProvider}
                       </span>
                     ) : proxy.vpnType === "smartdns" ? (
-                      <span className="rounded-md bg-sky-500/[0.12] px-2 py-0.5 text-[12px] text-sky-300/80">
+                      <span className="rounded-md bg-primary-subtle px-2 py-0.5 text-[12px] text-primary-strong">
                         Smart DNS
                       </span>
                     ) : (
-                      <span className="rounded-md bg-white/[0.07] px-2 py-0.5 font-mono text-[12px] text-white/55">
+                      <span className="rounded-md bg-background-muted px-2 py-0.5 font-mono text-[12px] text-foreground-intense">
                         {proxy.protocol}://{proxy.host}:{proxy.port}
                       </span>
                     )}
                   </div>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[13px] text-white/40">
+                  <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[13px] text-foreground-intense">
                     {proxy.vpnType === "direct" && proxy.username && (
                       <span className="flex items-center gap-1"><UserCheck className="h-3 w-3" />{proxy.username}</span>
                     )}
-                    <span className={cn("rounded-full px-2 py-0.5 text-[12px] font-medium", proxy.channelCount > 0 ? "bg-emerald-500/15 text-emerald-300/90" : "bg-white/[0.06] text-white/35")}>
+                    <span className={cn("rounded-full px-2 py-0.5 text-[12px] font-medium", proxy.channelCount > 0 ? "bg-success-subtle text-success-strong" : "bg-background-muted text-foreground-intense")}>
                       {proxy.channelCount} {proxy.channelCount === 1 ? "channel" : "channels"}
                     </span>
                     {proxy.vpnType === "gluetun" && (
@@ -1465,39 +1464,39 @@ export function TvSettingsProxiesPanel() {
                   )}
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2">
-                  <button
+                  <Button variant="ghost"
                     type="button"
                     onClick={() => setManagingProxy(proxy)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.12] bg-white/[0.06] px-3 py-2 text-[13px] font-medium text-white/75 outline-none hover:bg-white/[0.1]"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background-muted px-3 py-2 text-[13px] font-medium text-foreground-intense outline-none hover:bg-background-muted"
                   >
                     <Shield className="h-3.5 w-3.5" />
                     Channels
                     {proxy.channelCount > 0 && (
-                      <span className="rounded-full bg-white/[0.1] px-1.5 py-0.5 text-[11px] font-bold text-white/60">
+                      <span className="rounded-full bg-background-muted px-1.5 py-0.5 text-[11px] font-bold text-foreground-intense">
                         {proxy.channelCount}
                       </span>
                     )}
-                  </button>
+                  </Button>
                   {canEditProxy(proxy) && (
-                    <button
+                    <Button variant="ghost"
                       type="button"
                       onClick={() => void openEdit(proxy)}
                       disabled={editLoading === proxy.id}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.12] bg-white/[0.06] px-3 py-2 text-[13px] font-medium text-white/75 outline-none hover:bg-white/[0.1] disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background-muted px-3 py-2 text-[13px] font-medium text-foreground-intense outline-none hover:bg-background-muted disabled:opacity-50"
                     >
                       {editLoading === proxy.id ? <ZendeSpinner size="tiny" label="Loading proxy editor" /> : <Pencil className="h-3.5 w-3.5" />}
                       Edit
-                    </button>
+                    </Button>
                   )}
                   {canEditProxy(proxy) && (
-                    <button
+                    <Button variant="ghost"
                       type="button"
                       onClick={() => void handleDelete(proxy.id)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-400/25 bg-red-500/10 px-3 py-2 text-[13px] font-medium text-red-200/90 outline-none hover:bg-red-500/15"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-error bg-error-subtle px-3 py-2 text-[13px] font-medium text-error-strong outline-none hover:bg-error-subtle"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                       Delete
-                    </button>
+                    </Button>
                   )}
                 </div>
               </li>
@@ -1520,17 +1519,17 @@ export function TvSettingsProxiesPanel() {
       />
 
       {/* Info footer */}
-      <section className="rounded-2xl border border-white/[0.08] bg-white/[0.02] px-6 py-5 space-y-5">
+      <section className="rounded-2xl border border-border bg-background-muted px-6 py-5 space-y-5">
         <div>
-          <h3 className="text-[15px] font-semibold text-white/70">Direct proxy vs Gluetun container</h3>
-          <ul className="mt-3 space-y-2.5 text-[14px] leading-relaxed text-white/45">
+          <h3 className="text-[15px] font-semibold text-foreground-intense">Direct proxy vs Gluetun container</h3>
+          <ul className="mt-3 space-y-2.5 text-[14px] leading-relaxed text-foreground-intense">
             <li>
-              <span className="font-medium text-white/65">Direct proxy</span> — connect to a remote SOCKS5 or HTTP proxy endpoint provided by your VPN service.
+              <span className="font-medium text-foreground-intense">Direct proxy</span> — connect to a remote SOCKS5 or HTTP proxy endpoint provided by your VPN service.
               NordVPN, ExpressVPN, and Ghost VPN expose SOCKS5 on their servers; just enter the hostname and service credentials.
             </li>
             <li>
-              <span className="font-medium text-white/65">Gluetun container</span> — Docker launches an isolated{" "}
-              <a href="https://github.com/qdm12/gluetun" target="_blank" rel="noopener noreferrer" className="text-white/60 hover:text-white/80 underline">Gluetun</a>{" "}
+              <span className="font-medium text-foreground-intense">Gluetun container</span> — Docker launches an isolated{" "}
+              <a href="https://github.com/qdm12/gluetun" target="_blank" rel="noopener noreferrer" className="text-foreground-intense hover:text-foreground-intense underline">Gluetun</a>{" "}
               container per proxy. It connects to the VPN internally and exposes a local HTTP proxy that Zende routes through.
               Supports NordVPN, ExpressVPN, ProtonVPN, custom OpenVPN, and WireGuard.
               Run multiple containers for different countries simultaneously.
@@ -1538,9 +1537,9 @@ export function TvSettingsProxiesPanel() {
           </ul>
         </div>
         <div>
-          <h3 className="text-[15px] font-semibold text-white/70">Zero-leak guarantee</h3>
-          <ul className="mt-3 space-y-2 text-[14px] leading-relaxed text-white/45">
-            <li>• Every request in a proxied session — master playlist, variant playlists, <span className="font-mono text-white/60">.ts</span> segments, AES keys — goes through the proxy.</li>
+          <h3 className="text-[15px] font-semibold text-foreground-intense">Zero-leak guarantee</h3>
+          <ul className="mt-3 space-y-2 text-[14px] leading-relaxed text-foreground-intense">
+            <li>• Every request in a proxied session — master playlist, variant playlists, <span className="font-mono text-foreground-intense">.ts</span> segments, AES keys — goes through the proxy.</li>
             <li>• No fallback to direct. If the proxy or container is unreachable, the stream fails rather than leaking your real IP.</li>
             <li>• Gluetun containers are completely isolated — each runs its own VPN tunnel with no effect on other channels or system traffic.</li>
           </ul>

@@ -1,6 +1,8 @@
 "use client";
 
-import { Menu } from "@base-ui/react/menu";
+import { Button } from "@appica/ui-react/button";
+
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuGroupLabel, DropdownMenuItem, DropdownMenuTrigger } from "@appica/ui-react/dropdown-menu";
 import { ChevronLeft, ChevronRight, ListVideo } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -31,19 +33,19 @@ function GlassIconButton({
   "aria-label": string;
 }) {
   return (
-    <button
+    <Button variant="ghost"
       type="button"
       aria-label={ariaLabel}
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "inline-flex h-9 min-w-9 items-center justify-center rounded-full border border-white/[0.14] bg-black/50 text-white outline-none transition-colors sm:h-10 sm:min-w-10",
-        "hover:bg-white/[0.08] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
+        "inline-flex h-9 min-w-9 items-center justify-center rounded-full border border-border bg-background text-foreground-intense outline-none transition-colors sm:h-10 sm:min-w-10",
+        "hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-primary",
         "disabled:cursor-not-allowed disabled:opacity-35",
       )}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -117,18 +119,18 @@ export function EpisodePlaybackControls({ playback, logo, group, disabled }: Pro
   if (!seriesId || playback.contentKind !== "episode") return null;
 
   return (
-    <div className="pointer-events-auto mb-2 rounded-[16px] border border-white/[0.09] bg-black/32 px-2.5 py-2 ring-1 ring-white/[0.04]">
+    <div className="pointer-events-auto mb-2 rounded-lg border border-border bg-background px-2.5 py-2 ring-1 ring-border">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/34">
+          <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-foreground-intense">
             Episode
           </p>
-          <p className="mt-0.5 min-w-0 truncate text-[12px] font-semibold text-white/82">
+          <p className="mt-0.5 min-w-0 truncate text-[12px] font-semibold text-foreground-intense">
             {playback.seriesTitle ?? showTitle ?? "Show"}
-            <span className="text-white/35"> · </span>
-            <span className="text-white">{episodeLabel}</span>
+            <span className="text-foreground-intense"> · </span>
+            <span className="text-foreground-intense">{episodeLabel}</span>
             {playback.episodeTitle ? (
-              <span className="hidden text-white/52 md:inline">
+              <span className="hidden text-foreground-intense md:inline">
                 {" "}
                 · {playback.episodeTitle}
               </span>
@@ -148,69 +150,69 @@ export function EpisodePlaybackControls({ playback, logo, group, disabled }: Pro
           </span>
         </GlassIconButton>
 
-        <Menu.Root modal={false}>
-          <Menu.Trigger
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger
             disabled={disabled || busy || loading || flat.length === 0}
             aria-label="Choose episode"
             className={cn(
-              "inline-flex h-9 items-center gap-1.5 rounded-full border border-white/[0.14] bg-black/50 px-3 text-[12px] font-semibold text-white outline-none transition-colors sm:h-10",
-              "hover:bg-white/[0.08] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
+              "inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-background px-3 text-[12px] font-semibold text-foreground-intense outline-none transition-colors sm:h-10",
+              "hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-primary",
               "disabled:cursor-not-allowed disabled:opacity-35",
-              "data-[popup-open]:bg-white/[0.12]",
+              "data-[popup-open]:bg-background-muted",
             )}
           >
             <ListVideo className="h-4 w-4" aria-hidden />
             Episodes
-          </Menu.Trigger>
-          <Menu.Portal>
-            <Menu.Positioner side="top" align="center" sideOffset={12} className="z-[100]">
-              <Menu.Popup className="flex max-h-[min(70vh,520px)] w-[min(92vw,420px)] flex-col overflow-hidden rounded-[22px] border border-white/[0.14] bg-zinc-950/95 p-1 shadow-2xl outline-none backdrop-blur-2xl">
-                <div className="border-b border-white/[0.08] px-3 py-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/45">
+          </DropdownMenuTrigger>
+          <>
+            <DropdownMenuContent side="top" align="center" sideOffset={12} className="z-[100]">
+              <div className="flex max-h-[min(70vh,520px)] w-[min(92vw,420px)] flex-col overflow-hidden rounded-lg border border-border bg-background p-1 shadow-2xl outline-none backdrop-blur-2xl">
+                <div className="border-b border-border px-3 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-foreground-intense">
                     {playback.seriesTitle ?? showTitle ?? "Show"}
                   </p>
                 </div>
-                <div className="flex gap-1 overflow-x-auto border-b border-white/[0.08] px-2 py-2">
+                <div className="flex gap-1 overflow-x-auto border-b border-border px-2 py-2">
                   {episodesBySeason.seasons.map((season) => (
-                    <button
+                    <Button variant="ghost"
                       key={season}
                       type="button"
                       onClick={() => setPickerSeason(season)}
                       className={cn(
                         "shrink-0 rounded-full px-3 py-1.5 text-[12px] font-medium",
                         activeSeason === season
-                          ? "bg-[var(--zen-frost)] text-[var(--zen-void)]"
-                          : "bg-white/10 text-white/70 hover:bg-white/15",
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-background-muted text-foreground-intense hover:bg-background-muted",
                       )}
                     >
                       S{season}
-                    </button>
+                    </Button>
                   ))}
                 </div>
-                <Menu.Viewport className="min-h-0 flex-1 overflow-y-auto p-2">
-                  <Menu.Group>
+                <div className="min-h-0 flex-1 overflow-y-auto p-2">
+                  <DropdownMenuGroup>
                     {(episodesBySeason.map.get(activeSeason ?? "") ?? []).map((ep) => (
-                      <Menu.Item
+                      <DropdownMenuItem
                         key={ep.playUrl}
                         className={cn(
                           "flex cursor-pointer flex-col rounded-xl px-3 py-2.5 text-left outline-none",
-                          "data-[highlighted]:bg-white/12",
-                          ep.index === currentIndex && "bg-[var(--zen-signal)]/14",
+                          "data-[highlighted]:bg-background-muted",
+                          ep.index === currentIndex && "bg-primary",
                         )}
                         onClick={() => void jumpToEpisode(ep, ep.index)}
                       >
-                        <span className="text-[14px] font-medium text-white">
+                        <span className="text-[14px] font-medium text-foreground-intense">
                           {formatEpisodeCode(ep.season, ep.episodeNum)}
                           {ep.title ? ` · ${ep.title}` : ""}
                         </span>
-                      </Menu.Item>
+                      </DropdownMenuItem>
                     ))}
-                  </Menu.Group>
-                </Menu.Viewport>
-              </Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
-        </Menu.Root>
+                  </DropdownMenuGroup>
+                </div>
+              </div>
+            </DropdownMenuContent>
+          </>
+        </DropdownMenu>
 
         <GlassIconButton
           aria-label="Next episode"

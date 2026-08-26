@@ -140,7 +140,9 @@ const MAX_REDIRECT_HOPS = 10;
  */
 const DIRECT_UPSTREAM_DISPATCHER = new Agent({
   connectTimeout: 4_000,
-  connections: 64,
+  // One open MPEG-TS request per live viewer plus HLS/VOD bursts. Keep enough
+  // capacity for 100 concurrent channels without serializing at the origin.
+  connections: 256,
   pipelining: 1,
   keepAliveTimeout: 30_000,
   keepAliveMaxTimeout: 120_000,

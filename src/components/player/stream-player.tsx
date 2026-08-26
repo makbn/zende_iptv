@@ -3,10 +3,10 @@
 import type { HlsConfig } from "hls.js";
 import type Hls from "hls.js";
 import {
-  forwardRef,
   useCallback,
   useEffect,
   useRef,
+  type Ref,
 } from "react";
 
 import { getStreamHlsConfig } from "@/lib/player/hls-live-config";
@@ -48,6 +48,7 @@ export type PlayerError = {
 };
 
 type Props = {
+  ref?: Ref<HTMLVideoElement>;
   src: string;
   className?: string;
   /** Native HTML5 controls — prefer custom chrome on watch. */
@@ -105,9 +106,19 @@ function mergeRefs<T>(
   };
 }
 
-export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
-  function StreamPlayer(
+type MpegTsPlayer = {
+  attachMediaElement(media: HTMLMediaElement): void;
+  detachMediaElement(): void;
+  load(): void;
+  unload(): void;
+  play(): Promise<void>;
+  destroy(): void;
+  on(event: string, listener: (...args: unknown[]) => void): void;
+};
+
+export function StreamPlayer(
     {
+      ref,
       src,
       className,
       controls = true,
@@ -115,8 +126,7 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
       onError,
       hlsConfig: hlsConfigExtra,
       playbackMode,
-    },
-    ref,
+    }: Props,
   ) {
     const innerRef = useRef<HTMLVideoElement>(null);
     const setRef = useCallback((node: HTMLVideoElement | null) => {
@@ -147,11 +157,13 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
       if (!video || !src) return;
 
       let hls: Hls | null = null;
+      let mpegtsPlayer: MpegTsPlayer | null = null;
       let HlsModule: typeof import("hls.js").default | null = null;
       let networkRetryTimer: ReturnType<typeof setTimeout> | null = null;
       let mediaHardResetTimer: ReturnType<typeof setTimeout> | null = null;
       let hlsRecreateAttempt = 0;
       const hlsMode = shouldUseHls(src, playbackMode);
+      const mpegtsMode = playbackMode === "mpegts";
       let isNativeHls = false;
       let cancelled = false;
 
@@ -231,6 +243,14 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
 
       const startPlayback = () => {
         if (cancelled) return;
+
+        if (mpegtsMode && mpegtsPlayer) {
+          mpegtsPlayer.attachMediaElement(video);
+          mpegtsPlayer.load();
+          void mpegtsPlayer.play().catch(() => {});
+          onSessionChangeRef.current?.(buildSession());
+          return;
+        }
 
         const canNativeHls =
           video.canPlayType("application/vnd.apple.mpegurl") !== "";
@@ -465,7 +485,43 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
       let raf1 = 0;
 
       void (async () => {
-        if (hlsMode) {
+        if (mpegtsMode) {
+          try {
+            const mod = await import("mpegts.js");
+            if (cancelled) return;
+            const mpegts = mod.default;
+            if (!mpegts.getFeatureList().mseLivePlayback) {
+              throw new Error("This browser does not support live MPEG-TS playback.");
+            }
+            const player = mpegts.createPlayer(
+              { type: "mpegts", isLive: true, url: src, cors: false, withCredentials: true },
+              {
+                enableStashBuffer: false,
+                isLive: true,
+                lazyLoad: false,
+                autoCleanupSourceBuffer: true,
+                autoCleanupMaxBackwardDuration: 30,
+                autoCleanupMinBackwardDuration: 15,
+              },
+            ) as MpegTsPlayer;
+            player.on(mpegts.Events.ERROR, (...args: unknown[]) => {
+              onErrorRef.current?.({
+                type: String(args[0] ?? "mpegts"),
+                details: String(args[1] ?? "playback-error"),
+                fatal: true,
+                reason: typeof args[2] === "string" ? args[2] : undefined,
+              });
+            });
+            mpegtsPlayer = player;
+          } catch (e) {
+            onErrorRef.current?.({
+              type: "mpegts",
+              details: "unsupported",
+              fatal: true,
+              reason: e instanceof Error ? e.message : "MPEG-TS player failed to load.",
+            });
+          }
+        } else if (hlsMode) {
           try {
             const mod = await import("hls.js");
             if (cancelled) return;
@@ -503,6 +559,16 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
           hls.destroy();
           hls = null;
         }
+        if (mpegtsPlayer) {
+          try {
+            mpegtsPlayer.unload();
+            mpegtsPlayer.detachMediaElement();
+            mpegtsPlayer.destroy();
+          } catch {
+            /* best-effort MPEG-TS teardown */
+          }
+          mpegtsPlayer = null;
+        }
         video.removeEventListener("loadedmetadata", bumpSession);
         onSessionChangeRef.current?.(null);
         video.pause();
@@ -514,7 +580,7 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
     return (
       <video
         ref={mergeRefs(setRef, ref)}
-        className={cn("h-full w-full bg-black object-contain", className)}
+        className={cn("h-full w-full bg-background object-contain", className)}
         controls={controls}
         playsInline
         // Keep remote playback / PiP allowed (hls.js ManagedMediaSource may flip these).
@@ -524,7 +590,4 @@ export const StreamPlayer = forwardRef<HTMLVideoElement, Props>(
         autoPlay
       />
     );
-  },
-);
-
-StreamPlayer.displayName = "StreamPlayer";
+  }

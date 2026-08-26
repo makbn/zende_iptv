@@ -1,5 +1,7 @@
 "use client";
 
+import { Input } from "@appica/ui-react/input";
+
 import Link from "next/link";
 import { startTransition, useCallback, useEffect, useState } from "react";
 import {
@@ -15,9 +17,9 @@ import {
   X,
 } from "lucide-react";
 
-import { ZendeGlass } from "@/components/glass/zende-glass";
+import { Card } from "@appica/ui-react/card";
 import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@appica/ui-react/button";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import {
   TvRecordingRecentIssues,
@@ -368,7 +370,7 @@ export function MobileRecordingsPage() {
 
   if (!catalogLoaded) {
     return (
-      <div className="zen-page-bg flex min-h-screen items-center justify-center px-4 text-white/45">
+      <div className="bg-background flex min-h-screen items-center justify-center px-4 text-foreground-intense">
         <ZendeLoadingState size="full" label="Loading recordings…" />
       </div>
     );
@@ -376,21 +378,21 @@ export function MobileRecordingsPage() {
 
   return (
     <>
-    <main className="zen-page-bg min-h-screen pb-28 pt-[5.35rem] text-foreground">
+    <main className="bg-background min-h-screen pb-28 pt-[5.35rem] text-foreground">
       <section className="px-4">
         <div
           className={cn(
-            "rounded-[24px] border border-white/[0.11] bg-white/[0.055] px-4 py-3 ring-1 ring-white/[0.05]",
-            "backdrop-blur-xl motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100",
+            "rounded-lg border border-border bg-background-muted px-4 py-3 ring-1 ring-border",
+            "backdrop-blur-xl motion-reduce:animate-none motion-reduce:opacity-100",
           )}
         >
-          <p className="zen-kicker text-[10px]">
+          <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted text-[10px]">
             Zende
           </p>
-          <h1 className="mt-1 text-[1.45rem] font-semibold leading-none tracking-[-0.055em] text-white sm:text-[1.55rem]">
+          <h1 className="mt-1 text-[1.45rem] font-semibold leading-none tracking-[-0.055em] text-foreground-intense sm:text-[1.55rem]">
             Recordings
           </h1>
-          <p className="mt-1.5 max-w-[36ch] text-[11.5px] leading-snug text-white/42">
+          <p className="mt-1.5 max-w-[36ch] text-[11.5px] leading-snug text-foreground-intense">
             Schedule, monitor encodes, play or download MP4s — controls below.
           </p>
         </div>
@@ -398,14 +400,14 @@ export function MobileRecordingsPage() {
 
       <div className="mt-3 space-y-5 px-4">
         {overview && !overview.ffmpegAvailable ? (
-          <div className="flex gap-3 rounded-[24px] border border-amber-400/25 bg-amber-500/[0.09] p-4 text-[14px] leading-relaxed text-amber-100/90">
-            <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-300" aria-hidden />
+          <div className="flex gap-3 rounded-lg border border-warning bg-warning-subtle p-4 text-[14px] leading-relaxed text-warning-strong">
+            <AlertTriangle className="mt-0.5 size-5 shrink-0 text-warning-strong" aria-hidden />
             <p>ffmpeg is not available on the host, so recordings cannot start.</p>
           </div>
         ) : null}
 
         {loadError ? (
-          <div className="rounded-[24px] border border-red-400/20 bg-red-500/10 p-4 text-[14px] text-red-100/90">
+          <div className="rounded-lg border border-error bg-error-subtle p-4 text-[14px] text-error-strong">
             {loadError}
           </div>
         ) : null}
@@ -414,89 +416,89 @@ export function MobileRecordingsPage() {
           <ZendeLoadingState className="py-10" size="small" label="Loading recording library…" />
         ) : null}
 
-        <ZendeGlass
-          variant="panel"
-          className="rounded-[30px] border-white/[0.1] bg-white/[0.05] p-4"
+        <Card
+          frame="glass"
+          className="rounded-lg border-border bg-background-muted p-4"
         >
-          <h2 className="text-[20px] font-semibold text-white">Pick a channel</h2>
+          <h2 className="text-[20px] font-semibold text-foreground-intense">Pick a channel</h2>
           <label className="relative mt-3 block">
             <span className="sr-only">Find channel</span>
-            <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-white/35" />
-            <input
+            <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-foreground-intense" />
+            <Input
               value={channelQuery}
               onChange={(event) => setChannelQuery(event.target.value)}
               placeholder="Search channel or group"
-              className="h-12 w-full rounded-[20px] border border-white/[0.11] bg-black/35 pl-11 pr-3 text-[16px] text-white outline-none placeholder:text-white/34 focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]/60"
+              className="h-12 w-full rounded-lg border border-border bg-background pl-11 pr-3 text-[16px] text-foreground-intense outline-none placeholder:text-foreground-intense focus-visible:ring-2 focus-visible:ring-primary/60"
             />
           </label>
 
-          <div className="tv-row-scroll zen-stagger-row mt-3 flex gap-2 overflow-x-auto pb-1">
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
             {filteredChannels.map((channel) => {
               const label = parseChannelLabel(channel.name).displayName;
               const active = selected?.url === channel.url;
               return (
-                <button
+                <Button variant="ghost"
                   key={channel.url}
                   type="button"
                   onClick={() => setSelected(channel)}
                   className={cn(
                     "min-h-[74px] w-[220px] shrink-0 rounded-2xl border px-3 py-2 text-left",
                     active
-                      ? "border-white/30 bg-white/[0.14]"
-                      : "border-white/[0.08] bg-white/[0.05]",
+                      ? "border-border bg-background-muted"
+                      : "border-border bg-background-muted",
                   )}
                 >
                   <span className="flex items-center gap-3">
-                    <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.07]">
+                    <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-background-muted">
                       {channel.tvgLogo ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={secureImageUrl(channel.tvgLogo, undefined, "logo")} alt="" className="max-h-8 max-w-9 object-contain" loading="lazy" />
                       ) : (
-                        <Video className="size-4 text-white/40" aria-hidden />
+                        <Video className="size-4 text-foreground-intense" aria-hidden />
                       )}
                     </span>
                     <span className="min-w-0">
-                      <span className="block truncate text-[14px] font-semibold text-white">
+                      <span className="block truncate text-[14px] font-semibold text-foreground-intense">
                         {label}
                       </span>
-                      <span className="mt-0.5 block truncate text-[12px] text-white/42">
+                      <span className="mt-0.5 block truncate text-[12px] text-foreground-intense">
                         {channel.groupTitle ?? "Uncategorized"}
                       </span>
                     </span>
                   </span>
-                </button>
+                </Button>
               );
             })}
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl border border-white/[0.08] bg-black/20 p-1">
+          <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl border border-border bg-background p-1">
             {(
               [
                 ["schedule", "Schedule", CalendarClock],
                 ["now", "Now", Radio],
               ] as const
             ).map(([id, label, Icon]) => (
-              <button
+              <Button variant="ghost"
                 key={id}
                 type="button"
                 onClick={() => setTab(id)}
                 className={cn(
                   "flex min-h-11 items-center justify-center gap-2 rounded-xl text-[14px] font-semibold",
-                  tab === id ? "bg-[var(--zen-frost)] text-[var(--zen-void)]" : "text-white/55",
+                  tab === id ? "bg-primary text-primary-foreground" : "text-foreground-intense",
                 )}
               >
                 <Icon className="size-4" aria-hidden />
                 {label}
-              </button>
+              </Button>
             ))}
           </div>
 
           {selected ? (
-            <div className="mt-4 rounded-2xl border border-white/[0.08] bg-black/25 p-3">
-              <p className="truncate text-[15px] font-semibold text-white">
+            <div className="mt-4 rounded-2xl border border-border bg-background p-3">
+              <p className="truncate text-[15px] font-semibold text-foreground-intense">
                 {parseChannelLabel(selected.name).displayName}
               </p>
-              <p className="mt-1 truncate text-[13px] text-white/42">
+              <p className="mt-1 truncate text-[13px] text-foreground-intense">
                 {selected.groupTitle ?? "Uncategorized"}
               </p>
             </div>
@@ -504,31 +506,31 @@ export function MobileRecordingsPage() {
 
           {tab === "schedule" ? (
             <div className="mt-4 grid gap-3">
-              <label className="grid gap-1.5 text-[13px] font-medium text-white/50">
+              <label className="grid gap-1.5 text-[13px] font-medium text-foreground-intense">
                 Start
-                <input
+                <Input
                   type="datetime-local"
                   value={startLocal}
                   onChange={(event) => setStartLocal(event.target.value)}
-                  className="h-12 rounded-2xl border border-white/[0.1] bg-black/35 px-3 text-[16px] text-white outline-none"
+                  className="h-12 rounded-2xl border border-border bg-background px-3 text-[16px] text-foreground-intense outline-none"
                 />
               </label>
-              <label className="grid gap-1.5 text-[13px] font-medium text-white/50">
+              <label className="grid gap-1.5 text-[13px] font-medium text-foreground-intense">
                 Duration minutes
-                <input
+                <Input
                   type="number"
                   min={1}
                   max={480}
                   value={durationMinutes}
                   onChange={(event) => setDurationMinutes(Number(event.target.value) || 1)}
-                  className="h-12 rounded-2xl border border-white/[0.1] bg-black/35 px-3 text-[16px] text-white outline-none"
+                  className="h-12 rounded-2xl border border-border bg-background px-3 text-[16px] text-foreground-intense outline-none"
                 />
               </label>
               <Button
                 type="button"
                 disabled={busy || !selected || (overview !== null && !overview.ffmpegAvailable)}
                 onClick={() => void submitSchedule()}
-                variant="success"
+                variant="primary"
                 size="lg"
               >
                 {busy ? <ZendeSpinner size="small" label="Adding schedule" /> : "Add schedule"}
@@ -536,52 +538,52 @@ export function MobileRecordingsPage() {
             </div>
           ) : (
             <div className="mt-4 grid gap-3">
-              <label className="grid gap-1.5 text-[13px] font-medium text-white/50">
+              <label className="grid gap-1.5 text-[13px] font-medium text-foreground-intense">
                 Duration minutes
-                <input
+                <Input
                   type="number"
                   min={1}
                   max={480}
                   value={nowDuration}
                   onChange={(event) => setNowDuration(Number(event.target.value) || 1)}
-                  className="h-12 rounded-2xl border border-white/[0.1] bg-black/35 px-3 text-[16px] text-white outline-none"
+                  className="h-12 rounded-2xl border border-border bg-background px-3 text-[16px] text-foreground-intense outline-none"
                 />
               </label>
               <Button
                 type="button"
                 disabled={busy || !selected || (overview !== null && !overview.ffmpegAvailable)}
                 onClick={() => void submitNow()}
-                variant="success"
+                variant="primary"
                 size="lg"
               >
                 {busy ? <ZendeSpinner size="small" label="Starting recording" /> : "Start recording"}
               </Button>
             </div>
           )}
-        </ZendeGlass>
+        </Card>
 
         {overview?.active.length ? (
           <section aria-labelledby="mobile-active-recordings">
-            <h2 id="mobile-active-recordings" className="text-[20px] font-semibold text-white">
+            <h2 id="mobile-active-recordings" className="text-[20px] font-semibold text-foreground-intense">
               Recording now
             </h2>
             <div className="mt-3 grid gap-3">
               {overview.active.map((recording) => (
-                <div key={recording.id} className="rounded-[24px] border border-rose-400/20 bg-rose-500/[0.07] p-4">
-                  <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-rose-200/85">
+                <div key={recording.id} className="rounded-lg border border-error bg-error-subtle p-4">
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-error-strong">
                     Live
                   </p>
-                  <p className="mt-2 truncate text-[16px] font-semibold text-white">
+                  <p className="mt-2 truncate text-[16px] font-semibold text-foreground-intense">
                     {recording.channelName}
                   </p>
-                  <p className="mt-1 text-[13px] text-white/45">
+                  <p className="mt-1 text-[13px] text-foreground-intense">
                     Until {new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(recording.plannedEndsAt))}
                   </p>
                   <Button
                     type="button"
                     disabled={busy}
                     onClick={() => void stopRecording(recording.id)}
-                    variant="danger"
+                    variant="destructive"
                     className="mt-3 w-full"
                   >
                     <CircleStop className="size-4" aria-hidden />
@@ -595,23 +597,23 @@ export function MobileRecordingsPage() {
 
         {overview?.schedules.length ? (
           <section aria-labelledby="mobile-upcoming-recordings">
-            <h2 id="mobile-upcoming-recordings" className="text-[20px] font-semibold text-white">
+            <h2 id="mobile-upcoming-recordings" className="text-[20px] font-semibold text-foreground-intense">
               Upcoming
             </h2>
             <div className="mt-3 grid gap-3">
               {overview.schedules.map((schedule) => (
-                <div key={schedule.id} className="rounded-[24px] border border-white/[0.08] bg-white/[0.04] p-4">
-                  <p className="truncate text-[16px] font-semibold text-white">
+                <div key={schedule.id} className="rounded-lg border border-border bg-background-muted p-4">
+                  <p className="truncate text-[16px] font-semibold text-foreground-intense">
                     {schedule.channelName}
                   </p>
-                  <p className="mt-1 text-[13px] leading-relaxed text-white/45">
+                  <p className="mt-1 text-[13px] leading-relaxed text-foreground-intense">
                     {formatRange(schedule.startsAt, schedule.endsAt)}
                   </p>
                   <Button
                     type="button"
                     disabled={busy}
                     onClick={() => void cancelSchedule(schedule.id)}
-                    variant="danger"
+                    variant="destructive"
                     className="mt-3 w-full"
                   >
                     <Trash2 className="size-4" aria-hidden />
@@ -625,28 +627,28 @@ export function MobileRecordingsPage() {
 
         {overview ? (
           <section aria-labelledby="mobile-recording-library">
-            <h2 id="mobile-recording-library" className="text-[20px] font-semibold text-white">
+            <h2 id="mobile-recording-library" className="text-[20px] font-semibold text-foreground-intense">
               Finished recordings
             </h2>
             {overview.library.length === 0 ? (
-              <p className="mt-3 text-[15px] leading-relaxed text-white/45">
+              <p className="mt-3 text-[15px] leading-relaxed text-foreground-intense">
                 Finished recordings and failed captures appear here. Failed rows
                 show the server error and cannot be played or downloaded.
               </p>
             ) : (
-              <div className="mt-3 grid gap-3 zen-stagger-row">
+              <div className="mt-3 grid gap-3 ">
                 {overview.library.map((item) => {
                   const isFailed = item.status === "FAILED";
                   return (
                     <div
                       key={item.id}
                       className={cn(
-                        "rounded-[24px] border bg-white/[0.04] p-4",
-                        isFailed ? "border-red-400/25 bg-red-500/[0.04]" : "border-white/[0.08]",
+                        "rounded-lg border bg-background-muted p-4",
+                        isFailed ? "border-error bg-error-subtle" : "border-border",
                       )}
                     >
                       <div className="flex gap-3">
-                        <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.06] ring-1 ring-white/[0.08]">
+                        <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-background-muted ring-1 ring-border">
                           {item.channelLogo ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
@@ -656,14 +658,14 @@ export function MobileRecordingsPage() {
                               loading="lazy"
                             />
                           ) : (
-                            <Video className="size-5 text-white/35" aria-hidden />
+                            <Video className="size-5 text-foreground-intense" aria-hidden />
                           )}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[16px] font-semibold text-white">
+                          <p className="truncate text-[16px] font-semibold text-foreground-intense">
                             {item.channelName}
                           </p>
-                          <p className="mt-1 text-[13px] text-white/45">
+                          <p className="mt-1 text-[13px] text-foreground-intense">
                             {item.endedAt
                               ? new Intl.DateTimeFormat(undefined, {
                                   dateStyle: "medium",
@@ -673,7 +675,7 @@ export function MobileRecordingsPage() {
                             · {formatBytes(item.sizeBytes)} ·{" "}
                             <span
                               className={cn(
-                                isFailed ? "text-red-200/90" : "text-white/55",
+                                isFailed ? "text-error-strong" : "text-foreground-intense",
                               )}
                             >
                               {isFailed
@@ -685,7 +687,7 @@ export function MobileRecordingsPage() {
                           </p>
                           {isFailed ? (
                             <p
-                              className="mt-2 line-clamp-4 text-[12px] leading-snug text-red-200/75"
+                              className="mt-2 line-clamp-4 text-[12px] leading-snug text-error-strong"
                               title={item.error ?? undefined}
                             >
                               {mobileLibraryFailSummary(item.error)}
@@ -696,7 +698,7 @@ export function MobileRecordingsPage() {
                       <div className="mt-3 flex flex-col gap-2">
                         {isFailed ? (
                           <div
-                            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-red-400/30 bg-red-500/10 text-[14px] font-semibold text-red-100/85"
+                            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-error bg-error-subtle text-[14px] font-semibold text-error-strong"
                             role="status"
                           >
                             <AlertTriangle className="size-4 shrink-0" aria-hidden />
@@ -708,7 +710,7 @@ export function MobileRecordingsPage() {
                             onClick={onNavigateClick(
                               `/watch?recording=${encodeURIComponent(item.id)}`,
                             )}
-                            className={buttonVariants({ variant: "success", className: "w-full" })}
+                            className={buttonVariants({ variant: "primary", className: "w-full" })}
                           >
                             <Play className="size-4" aria-hidden />
                             Play
@@ -730,7 +732,7 @@ export function MobileRecordingsPage() {
                             setLibraryDeleteError(null);
                             setLibraryDeleteTarget(item);
                           }}
-                          variant="danger"
+                          variant="destructive"
                           className="w-full"
                         >
                           <Trash2 className="size-4" aria-hidden />
@@ -755,10 +757,10 @@ export function MobileRecordingsPage() {
           className="fixed inset-0 z-[200] flex items-end justify-center px-4 pb-8 pt-10 sm:items-center"
           role="presentation"
         >
-          <button
+          <Button variant="ghost"
             type="button"
             aria-label="Dismiss"
-            className="absolute inset-0 bg-black/70 backdrop-blur-md"
+            className="absolute inset-0 bg-background backdrop-blur-md"
             onClick={() => {
               setLibraryDeleteTarget(null);
               setLibraryDeleteError(null);
@@ -768,18 +770,18 @@ export function MobileRecordingsPage() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="mobile-lib-del-title"
-            className="relative z-10 w-full max-w-md rounded-[24px] border border-white/[0.12] bg-zinc-950/95 p-5 shadow-2xl ring-1 ring-white/[0.06]"
+            className="relative z-10 w-full max-w-md rounded-lg border border-border bg-background p-5 shadow-2xl ring-1 ring-border"
           >
             <div className="flex items-start justify-between gap-3">
               <h2
                 id="mobile-lib-del-title"
-                className="text-[17px] font-semibold text-white"
+                className="text-[17px] font-semibold text-foreground-intense"
               >
                 Remove recording?
               </h2>
-              <button
+              <Button variant="ghost"
                 type="button"
-                className="rounded-lg p-2 text-white/40 hover:bg-white/[0.08]"
+                className="rounded-lg p-2 text-foreground-intense hover:bg-background-muted"
                 aria-label="Close"
                 onClick={() => {
                   setLibraryDeleteTarget(null);
@@ -787,17 +789,17 @@ export function MobileRecordingsPage() {
                 }}
               >
                 <X className="size-5" />
-              </button>
+              </Button>
             </div>
-            <p className="mt-3 text-[15px] leading-relaxed text-white/55">
+            <p className="mt-3 text-[15px] leading-relaxed text-foreground-intense">
               This deletes{" "}
-              <span className="font-medium text-white/85">
+              <span className="font-medium text-foreground-intense">
                 {libraryDeleteTarget.channelName}
               </span>{" "}
               from the server permanently, including the MP4 file. This cannot be undone.
             </p>
             {libraryDeleteError ? (
-              <p className="mt-3 text-[14px] text-red-300">{libraryDeleteError}</p>
+              <p className="mt-3 text-[14px] text-error-strong">{libraryDeleteError}</p>
             ) : null}
             <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <Button
@@ -814,7 +816,7 @@ export function MobileRecordingsPage() {
                 type="button"
                 disabled={busy}
                 onClick={() => void confirmDeleteLibraryRecording()}
-                variant="danger"
+                variant="destructive"
               >
                 {busy ? (
                   <ZendeSpinner size="tiny" label="Removing recording" />
@@ -833,10 +835,10 @@ export function MobileRecordingsPage() {
           className="fixed inset-0 z-[200] flex items-end justify-center px-4 pb-8 pt-10 sm:items-center"
           role="presentation"
         >
-          <button
+          <Button variant="ghost"
             type="button"
             aria-label="Dismiss"
-            className="absolute inset-0 bg-black/70 backdrop-blur-md"
+            className="absolute inset-0 bg-background backdrop-blur-md"
             onClick={() => {
               setStuckStopDialog(null);
               setStuckStopError(null);
@@ -846,24 +848,24 @@ export function MobileRecordingsPage() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="mobile-stuck-stop-title"
-            className="relative z-10 w-full max-w-md rounded-[24px] border border-amber-400/25 bg-zinc-950/95 p-5 shadow-2xl"
+            className="relative z-10 w-full max-w-md rounded-lg border border-warning bg-background p-5 shadow-2xl"
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex min-w-0 flex-1 items-start gap-2">
                 <AlertTriangle
-                  className="mt-0.5 size-5 shrink-0 text-amber-300"
+                  className="mt-0.5 size-5 shrink-0 text-warning-strong"
                   aria-hidden
                 />
                 <h2
                   id="mobile-stuck-stop-title"
-                  className="text-[17px] font-semibold leading-snug text-white"
+                  className="text-[17px] font-semibold leading-snug text-foreground-intense"
                 >
                   Stop unavailable
                 </h2>
               </div>
-              <button
+              <Button variant="ghost"
                 type="button"
-                className="rounded-lg p-2 text-white/40 hover:bg-white/[0.08]"
+                className="rounded-lg p-2 text-foreground-intense hover:bg-background-muted"
                 aria-label="Close"
                 onClick={() => {
                   setStuckStopDialog(null);
@@ -871,19 +873,19 @@ export function MobileRecordingsPage() {
                 }}
               >
                 <X className="size-5" />
-              </button>
+              </Button>
             </div>
-            <p className="mt-2 text-[15px] font-medium text-white/90">
+            <p className="mt-2 text-[15px] font-medium text-foreground-intense">
               {stuckStopDialog.channelName}
             </p>
-            <p className="mt-2 text-[14px] leading-relaxed text-white/55">
+            <p className="mt-2 text-[14px] leading-relaxed text-foreground-intense">
               {stuckStopDialog.message}
             </p>
-            <p className="mt-2 text-[13px] leading-relaxed text-white/45">
+            <p className="mt-2 text-[13px] leading-relaxed text-foreground-intense">
               Remove this listing and any partial file if the encoder is already gone.
             </p>
             {stuckStopError ? (
-              <p className="mt-2 text-[13px] text-red-300">{stuckStopError}</p>
+              <p className="mt-2 text-[13px] text-error-strong">{stuckStopError}</p>
             ) : null}
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <Button
@@ -900,7 +902,7 @@ export function MobileRecordingsPage() {
                 type="button"
                 disabled={busy}
                 onClick={() => void forceRemoveStuckRecording()}
-                variant="danger"
+                variant="destructive"
               >
                 {busy ? (
                   <ZendeSpinner size="tiny" label="Removing stuck recording" />

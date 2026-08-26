@@ -1,5 +1,9 @@
 "use client";
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@appica/ui-react/select";
+
+import { Input } from "@appica/ui-react/input";
+
 import {
   startTransition,
   useCallback,
@@ -17,13 +21,13 @@ import {
   X,
 } from "lucide-react";
 import { ZendeSpinner } from "@/components/loading/zende-spinner";
-import { Button } from "@/components/ui/button";
+import { Button } from "@appica/ui-react/button";
 
 import { MobileChannelCard } from "@/components/mobile/mobile-channel-card";
 import { VirtualChannelList } from "@/components/library/virtual-channel-list";
 import { LibraryResultsShell } from "@/components/library/library-results-shell";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
-import { ZendeGlass } from "@/components/glass/zende-glass";
+import { Card } from "@appica/ui-react/card";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { useLibraryCatalog } from "@/features/iptv/use-library-catalog";
 import { useLibraryContentTab } from "@/features/iptv/use-library-content-tab";
@@ -237,29 +241,25 @@ export function MobileLibraryPage() {
   }, [clearSearch]);
 
   return (
-    <main className="zen-page-bg min-h-screen pb-28 pt-[5.35rem] text-foreground">
+    <main className="bg-background min-h-screen pb-28 pt-[5.35rem] text-foreground">
       <section className="px-4">
-        <ZendeGlass
-          variant="panelCompact"
-          className="relative overflow-hidden rounded-[30px] border-white/[0.12] bg-black/58 p-3 shadow-[0_22px_72px_-40px_rgba(0,0,0,0.94)]"
+        <Card
+          frame="solid"
+          className="relative overflow-hidden rounded-lg border-border bg-background p-3 shadow-lg"
         >
-          <div
-            className="pointer-events-none absolute -right-16 -top-20 size-48 rounded-full bg-[var(--zen-signal)]/16 blur-3xl"
-            aria-hidden
-          />
           <div className="relative flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="zen-kicker text-[10px]">Signal deck</p>
-              <h1 className="mt-1 text-[2rem] font-semibold leading-[0.88] tracking-[-0.075em] text-white">
+              <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted text-[10px]">Signal deck</p>
+              <h1 className="mt-1 text-[2rem] font-semibold leading-[0.88] tracking-[-0.075em] text-foreground-intense">
                 Tune faster.
               </h1>
-              <p className="mt-2 max-w-[32ch] text-[12px] leading-snug text-white/46">
+              <p className="mt-2 max-w-[32ch] text-[12px] leading-snug text-foreground-intense">
                 Search, filter, preview, then keep moving.
               </p>
             </div>
-            <div className="rounded-[20px] border border-white/[0.1] bg-black/35 px-3 py-2 text-right ring-1 ring-white/[0.04]">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Showing</p>
-              <p className="mt-0.5 text-[20px] font-semibold tracking-[-0.055em] text-white">
+            <div className="rounded-lg border border-border bg-background px-3 py-2 text-right ring-1 ring-border">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-foreground-intense">Showing</p>
+              <p className="mt-0.5 text-[20px] font-semibold tracking-[-0.055em] text-foreground-intense">
                 {resultsBusy ? <ZendeSpinner size="tiny" label="Updating results" /> : total.toLocaleString()}
               </p>
             </div>
@@ -268,10 +268,10 @@ export function MobileLibraryPage() {
           <label className="relative mt-4 block">
             <span className="sr-only">Search channels</span>
             <Search
-              className="pointer-events-none absolute left-4 top-1/2 size-[19px] -translate-y-1/2 text-[var(--zen-signal)]/72"
+              className="pointer-events-none absolute left-4 top-1/2 size-[19px] -translate-y-1/2 text-primary-strong/72"
               aria-hidden
             />
-            <input
+            <Input
               ref={searchInputRef}
               type="text"
               inputMode="search"
@@ -280,164 +280,164 @@ export function MobileLibraryPage() {
               placeholder="Search channels, countries…"
               autoComplete="off"
               value={draftQuery}
-              onChange={(event) => setDraftQuery(event.target.value)}
+              onValueChange={(value) => setDraftQuery(value)}
               onKeyDown={onSearchKeyDown}
-              className="h-[52px] w-full rounded-[22px] border border-white/[0.12] bg-black/42 pl-11 pr-11 text-[17px] font-semibold tracking-[-0.02em] text-white outline-none placeholder:text-white/34 focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]/60"
+              className="h-[52px] w-full rounded-lg border border-border bg-background pl-11 pr-11 text-[17px] font-semibold tracking-[-0.02em] text-foreground-intense outline-none placeholder:text-foreground-intense focus-visible:ring-2 focus-visible:ring-primary/60"
             />
             {draftQuery ? (
-              <button
+              <Button variant="ghost"
                 type="button"
                 onClick={() => clearSearch()}
-                className="absolute right-2 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-2xl text-white/55 outline-none active:bg-white/10 focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                className="absolute right-2 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-2xl text-foreground-intense outline-none active:bg-background-muted focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label="Clear search"
               >
                 <X className="size-4" aria-hidden />
-              </button>
+              </Button>
             ) : null}
           </label>
 
-          <div className="tv-row-scroll mt-3 flex gap-2 overflow-x-auto pb-0.5" role="tablist" aria-label="Content type">
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-0.5" role="tablist" aria-label="Content type">
             {([
               ["all", "All"],
               ["live", "Live"],
               ["movie", "Movies"],
               ["series", "Shows"],
             ] as const).map(([id, label]) => (
-              <button
+              <Button variant="ghost"
                 key={id}
                 type="button"
                 role="tab"
                 aria-selected={contentTab === id}
                 onClick={() => setContentTab(id)}
                 className={cn(
-                  "zen-pressable min-h-11 shrink-0 rounded-[18px] px-4 text-[13px] font-semibold outline-none",
+                  "transition-colors min-h-11 shrink-0 rounded-lg px-4 text-[13px] font-semibold outline-none",
                   "transition-[background-color,color,transform,box-shadow] duration-200 ease-out",
                   contentTab === id
-                    ? "bg-[var(--zen-frost)] text-[var(--zen-void)] shadow-[0_14px_34px_-22px_rgba(56,217,255,0.65)]"
-                    : "border border-white/[0.1] bg-white/[0.06] text-white/70 hover:bg-white/[0.1]",
+                    ? "bg-primary text-primary-foreground shadow-lg"
+                    : "border border-border bg-background-muted text-foreground-intense hover:bg-background-muted",
                 )}
               >
                 {label}
-              </button>
+              </Button>
             ))}
           </div>
           <div className="relative mt-3 grid gap-2">
-            <select
+            <Select
               value={categoryFilter ?? ""}
-              onChange={(event) => setCategoryFilter(event.target.value || null)}
-              className="h-12 w-full rounded-[20px] border border-white/[0.11] bg-black/45 px-3 text-[14px] font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+              onValueChange={(value) =>setCategoryFilter(value ? String(value) : null)}
               aria-label="Category"
             >
-              <option value="">All categories</option>
+<SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
+              <SelectItem value="">All categories</SelectItem>
               {categoryOptions.map(({ key, label, count }) => (
-                <option key={key} value={key}>
+                <SelectItem key={key} value={key}>
                   {label} ({count.toLocaleString()})
-                </option>
+                </SelectItem>
               ))}
-            </select>
+            </SelectContent></Select>
             <div className="grid grid-cols-2 gap-2">
-              <select
+              <Select
                 value={languageFilter ?? ""}
-                onChange={(event) => setLanguageFilter(event.target.value || null)}
-                className="h-12 w-full rounded-[20px] border border-white/[0.11] bg-black/45 px-3 text-[14px] font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                onValueChange={(value) =>setLanguageFilter(value ? String(value) : null)}
                 aria-label="Language"
               >
-                <option value="">All languages</option>
+<SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
+                <SelectItem value="">All languages</SelectItem>
                 {languageOptions.map((language) => (
-                  <option key={language.key} value={language.key}>
+                  <SelectItem key={language.key} value={language.key}>
                     {language.label} ({language.count.toLocaleString()})
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
-              <select
+              </SelectContent></Select>
+              <Select
                 value={countryFilter ?? ""}
-                onChange={(event) => setCountryFilter(event.target.value || null)}
-                className="h-12 w-full rounded-[20px] border border-white/[0.11] bg-black/45 px-3 text-[14px] font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                onValueChange={(value) =>setCountryFilter(value ? String(value) : null)}
                 aria-label="Country"
               >
-                <option value="">All countries</option>
+<SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
+                <SelectItem value="">All countries</SelectItem>
                 {countryOptions.map((country) => (
-                  <option key={country.key} value={country.key}>
+                  <SelectItem key={country.key} value={country.key}>
                     {country.label} ({country.count.toLocaleString()})
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
+              </SelectContent></Select>
             </div>
-            <select
+            <Select
               value={yearFilter ?? ""}
-              onChange={(event) => setYearFilter(event.target.value || null)}
-              className="h-12 w-full rounded-[20px] border border-white/[0.11] bg-black/45 px-3 text-[14px] font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+              onValueChange={(value) =>setYearFilter(value ? String(value) : null)}
               aria-label="Year"
             >
-              <option value="">All years</option>
+<SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
+              <SelectItem value="">All years</SelectItem>
               {yearOptions.map((year) => (
-                <option key={year.key} value={year.key}>
+                <SelectItem key={year.key} value={year.key}>
                   {year.label} ({year.count.toLocaleString()})
-                </option>
+                </SelectItem>
               ))}
-            </select>
+            </SelectContent></Select>
           </div>
 
           <div className="mt-3 flex items-center gap-2">
-            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[18px] border border-white/[0.1] bg-black/25 px-3 py-2 text-[12px] font-semibold text-white/46">
-              <SlidersHorizontal className="size-4 shrink-0 text-white/35" aria-hidden />
+            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-[12px] font-semibold text-foreground-intense">
+              <SlidersHorizontal className="size-4 shrink-0 text-foreground-intense" aria-hidden />
               <span className="truncate">
                 {activeFilterCount > 0
                   ? `${activeFilterCount} tuned · ${catalogNoun(contentTab)}`
                   : `All ${catalogNoun(contentTab)}`}
               </span>
             </div>
-            <div className="flex rounded-2xl border border-white/[0.1] bg-black/25 p-1">
-            <button
+            <div className="flex rounded-2xl border border-border bg-background p-1">
+            <Button variant="ghost"
               type="button"
               onClick={() => setView("posters")}
               className={cn(
-                "zen-pressable flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-[12px] font-semibold outline-none",
-                view === "posters" ? "bg-[var(--zen-frost)] text-[var(--zen-void)]" : "text-white/60",
+                "transition-colors flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-[12px] font-semibold outline-none",
+                view === "posters" ? "bg-primary text-primary-foreground" : "text-foreground-intense",
               )}
               aria-pressed={view === "posters"}
             >
               <LayoutGrid className="size-3.5" aria-hidden />
               Posters
-            </button>
-            <button
+            </Button>
+            <Button variant="ghost"
               type="button"
               onClick={() => setView("compact")}
               className={cn(
-                "zen-pressable flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-[12px] font-semibold outline-none",
-                view === "compact" ? "bg-[var(--zen-frost)] text-[var(--zen-void)]" : "text-white/60",
+                "transition-colors flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-[12px] font-semibold outline-none",
+                view === "compact" ? "bg-primary text-primary-foreground" : "text-foreground-intense",
               )}
               aria-pressed={view === "compact"}
             >
               <List className="size-3.5" aria-hidden />
               List
-            </button>
+            </Button>
             </div>
           </div>
           {activeFilters ? (
-            <div className="tv-row-scroll mt-3 flex gap-2 overflow-x-auto border-t border-white/[0.06] pt-3">
+            <div className="mt-3 flex gap-2 overflow-x-auto border-t border-border pt-3">
               {appliedQuery.trim() ? (
-                <span className="shrink-0 rounded-full bg-[var(--zen-signal)]/13 px-3 py-1.5 text-[12px] font-semibold text-white/86">
+                <span className="shrink-0 rounded-full bg-primary px-3 py-1.5 text-[12px] font-semibold text-foreground-intense">
                   “{truncateFacet(appliedQuery.trim())}”
                 </span>
               ) : null}
               {categoryLabel ? (
-                <span className="shrink-0 rounded-full bg-white/[0.08] px-3 py-1.5 text-[12px] font-semibold text-white/78">
+                <span className="shrink-0 rounded-full bg-background-muted px-3 py-1.5 text-[12px] font-semibold text-foreground-intense">
                   {truncateFacet(categoryLabel)}
                 </span>
               ) : null}
               {languageLabel ? (
-                <span className="shrink-0 rounded-full bg-white/[0.08] px-3 py-1.5 text-[12px] font-semibold text-white/78">
+                <span className="shrink-0 rounded-full bg-background-muted px-3 py-1.5 text-[12px] font-semibold text-foreground-intense">
                   {truncateFacet(languageLabel)}
                 </span>
               ) : null}
               {countryLabel ? (
-                <span className="shrink-0 rounded-full bg-white/[0.08] px-3 py-1.5 text-[12px] font-semibold text-white/78">
+                <span className="shrink-0 rounded-full bg-background-muted px-3 py-1.5 text-[12px] font-semibold text-foreground-intense">
                   {truncateFacet(countryLabel)}
                 </span>
               ) : null}
               {yearLabel ? (
-                <span className="shrink-0 rounded-full bg-white/[0.08] px-3 py-1.5 text-[12px] font-semibold text-white/78">
+                <span className="shrink-0 rounded-full bg-background-muted px-3 py-1.5 text-[12px] font-semibold text-foreground-intense">
                   {yearLabel}
                 </span>
               ) : null}
@@ -450,21 +450,21 @@ export function MobileLibraryPage() {
                   setCountryFilter(null);
                   setYearFilter(null);
                 }}
-                size="xs"
+                size="sm"
                 className="shrink-0"
               >
                 Clear
               </Button>
             </div>
           ) : null}
-        </ZendeGlass>
+        </Card>
       </section>
 
       <LibraryResultsShell busy={resultsBusy} label={isSearchPending ? "Searching…" : "Updating results…"}>
       <section className="mt-5 px-4" aria-live="polite">
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
-            <h2 className="text-[20px] font-semibold text-white">
+            <h2 className="text-[20px] font-semibold text-foreground-intense">
               {filteredCount.toLocaleString()}{" "}
               {contentTab === "movie"
                 ? "movies"
@@ -474,7 +474,7 @@ export function MobileLibraryPage() {
                     ? "live channels"
                     : "channels"}
             </h2>
-            <p className="mt-1 text-[13px] text-white/42">
+            <p className="mt-1 text-[13px] text-foreground-intense">
               {activeFilters ? "Filtered results" : "Full catalog"}
             </p>
           </div>
@@ -543,7 +543,7 @@ export function MobileLibraryPage() {
         )}
 
         {!resultsBusy && visible.length === 0 ? (
-          <div className="zen-panel rounded-[26px] p-5 text-[14px] leading-relaxed text-white/58">
+          <div className="border border-border bg-background-subtle shadow-sm rounded-lg p-5 text-[14px] leading-relaxed text-foreground-intense">
             {contentTab === "movie"
               ? "No on-demand movies found. Re-import your Xtream account in Settings — Movies are VOD files, not live movie channels."
               : contentTab === "series"

@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import {
-  CinematicActionRow,
-  CinematicButton,
-  CinematicCommandPanel,
-  CinematicHero,
-  CinematicPage,
-  CinematicRail,
-  CinematicSection,
-} from "@/components/layout/cinematic-v2";
+  AppicaActionRow,
+  AppicaButton,
+  AppicaPanel,
+  AppicaHero,
+  AppicaPage,
+  AppicaRail,
+  AppicaSection,
+} from "@/components/layout/appica-page";
 import { TvChannelTile } from "@/components/tv/tv-channel-tile";
 import { TvContinueEmpty } from "@/components/tv/tv-continue-empty";
 import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
@@ -25,7 +25,7 @@ import { useContinueWatchingItems } from "@/features/iptv/use-continue-watching"
 import { useHomeCatalogShelves } from "@/features/iptv/use-home-catalog-shelves";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@appica/ui-react/button";
 import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
 import { addFavorite } from "@/lib/favorites/favorites-store";
@@ -233,7 +233,7 @@ export function TvHome() {
 
   if (!catalogLoaded) {
     return (
-      <div className="zen-page-bg flex min-h-screen flex-col items-center justify-center gap-4 pt-20 text-white/45">
+      <div className="bg-background flex min-h-screen flex-col items-center justify-center gap-4 pt-20 text-foreground-intense">
         <ZendeLoadingState size="full" label="Loading home" />
       </div>
     );
@@ -241,9 +241,9 @@ export function TvHome() {
 
   if (metaFailed) {
     return (
-      <div className="zen-page-bg flex min-h-screen flex-col items-center justify-center gap-4 px-6 pt-20 text-center text-white/60">
-        <p className="zen-kicker">Catalog offline</p>
-        <p className="max-w-md text-[22px] font-semibold tracking-[-0.04em] text-white">
+      <div className="bg-background flex min-h-screen flex-col items-center justify-center gap-4 px-6 pt-20 text-center text-foreground-intense">
+        <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">Catalog offline</p>
+        <p className="max-w-md text-[22px] font-semibold tracking-[-0.04em] text-foreground-intense">
           Could not reach the catalog server.
         </p>
         <Button
@@ -259,59 +259,59 @@ export function TvHome() {
 
   if ((channelCount ?? 0) === 0) {
     return (
-      <div className="zen-page-bg flex min-h-screen items-center justify-center pt-20 text-white/45">
+      <div className="bg-background flex min-h-screen items-center justify-center pt-20 text-foreground-intense">
         <p className="text-[15px] font-medium">Opening setup…</p>
       </div>
     );
   }
 
   return (
-    <CinematicPage className="pt-20 md:pt-24">
-      <CinematicHero
+    <AppicaPage className="pt-20 md:pt-24">
+      <AppicaHero
         eyebrow={hero.eyebrow}
         title={hero.title}
         description={hero.subtitle}
         aside={
-          <CinematicCommandPanel className="max-w-[34rem] p-5">
-            <p className="zen-kicker">
+          <AppicaPanel className="max-w-[34rem] p-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">
               {continueWatching.length > 0 ? "Resume" : "Start watching"}
             </p>
-            <p className="mt-2 text-[22px] font-semibold leading-tight tracking-[-0.055em] text-white">
+            <p className="mt-2 text-[22px] font-semibold leading-tight tracking-[-0.055em] text-foreground-intense">
               {featured ? parseChannelLabel(featured.name?.trim() || "Channel").displayName : "Pick something good"}
             </p>
-            <p className="mt-2 max-w-md text-[14px] leading-relaxed text-white/52">
+            <p className="mt-2 max-w-md text-[14px] leading-relaxed text-foreground-intense">
               {continueWatching.length > 0
                 ? "Jump back in, or open Library when you want to browse by movies, shows, and live TV."
                 : showColdStartRecommendations
                   ? "No history yet, so Home is starting with English movies and shows from your catalog."
                   : "Start from the featured item or open Library to browse by type, language, and category."}
             </p>
-            <CinematicActionRow className="mt-5">
-              <CinematicButton onClick={handlePrimary} disabled={busy}>
+            <AppicaActionRow className="mt-5">
+              <AppicaButton onClick={handlePrimary} disabled={busy}>
                 {hero.primaryLabel}
-              </CinematicButton>
-              <CinematicButton
+              </AppicaButton>
+              <AppicaButton
                 type="button"
-                variant="normal"
+                variant="secondary"
                 onClick={handleSecondary}
                 disabled={busy}
               >
                 {hero.secondaryLabel}
-              </CinematicButton>
-            </CinematicActionRow>
-          </CinematicCommandPanel>
+              </AppicaButton>
+            </AppicaActionRow>
+          </AppicaPanel>
         }
       />
 
       <div className="space-y-8 pb-10 sm:space-y-10 sm:pb-12">
         {continueWatching.length > 0 ? (
-          <CinematicSection
+          <AppicaSection
             id="continue"
             eyebrow="Resume"
             title="Continue watching"
             description="Unfinished episodes, movies, and replays."
           >
-            <CinematicRail>
+            <AppicaRail>
               {continueWatching.map((item, i) => (
                 <div key={`cw-${item.channel.url}-${i}`} className="relative w-[260px] shrink-0 snap-start sm:w-[288px]">
                   <TvChannelTile
@@ -320,39 +320,39 @@ export function TvHome() {
                     onSelect={() => openContinueItem(item)}
                   />
                   <div
-                    className="pointer-events-none absolute inset-x-3 bottom-3 h-1 overflow-hidden rounded-full bg-white/15"
+                    className="pointer-events-none absolute inset-x-3 bottom-3 h-1 overflow-hidden rounded-full bg-background-muted"
                     aria-hidden
                   >
                     <div
-                      className="h-full rounded-full bg-[var(--zen-signal)]"
+                      className="h-full rounded-full bg-primary"
                       style={{ width: `${Math.round(item.progress * 100)}%` }}
                     />
                   </div>
                 </div>
               ))}
-            </CinematicRail>
-          </CinematicSection>
+            </AppicaRail>
+          </AppicaSection>
         ) : showColdStartRecommendations ? null : (
-          <CinematicSection
+          <AppicaSection
             id="continue"
             eyebrow="Resume"
             title="Continue watching"
             description="Unfinished episodes, movies, and replays."
           >
-            <CinematicRail>
+            <AppicaRail>
               <TvContinueEmpty />
-            </CinematicRail>
-          </CinematicSection>
+            </AppicaRail>
+          </AppicaSection>
         )}
 
         {showColdStartRecommendations && recommendedMovies.length > 0 ? (
-          <CinematicSection
+          <AppicaSection
             id="recommended-movies"
             eyebrow="Start here"
             title="English movies to try"
             description="A curated first row from your English on-demand catalog."
           >
-            <CinematicRail>
+            <AppicaRail>
               {recommendedMovies.map((ch, i) => (
                 <TvChannelTile
                   key={`movie-rec-${ch.url}-${i}`}
@@ -364,18 +364,18 @@ export function TvHome() {
                   }}
                 />
               ))}
-            </CinematicRail>
-          </CinematicSection>
+            </AppicaRail>
+          </AppicaSection>
         ) : null}
 
         {showColdStartRecommendations && recommendedSeries.length > 0 ? (
-          <CinematicSection
+          <AppicaSection
             id="recommended-series"
             eyebrow="Binge row"
             title="English shows to sample"
             description="Series suggestions appear here before your watch history exists."
           >
-            <CinematicRail>
+            <AppicaRail>
               {recommendedSeries.map((ch, i) => (
                 <TvChannelTile
                   key={`series-rec-${ch.url}-${i}`}
@@ -387,18 +387,18 @@ export function TvHome() {
                   }}
                 />
               ))}
-            </CinematicRail>
-          </CinematicSection>
+            </AppicaRail>
+          </AppicaSection>
         ) : null}
 
         {recentChannels.length > 0 ? (
-          <CinematicSection
+          <AppicaSection
             id="recent"
             eyebrow="History"
             title="Recently watched"
             description="Channels you opened last."
           >
-            <CinematicRail>
+            <AppicaRail>
             {recentChannels.map((ch, i) => (
               <TvChannelTile
                 key={`recent-${ch.url}-${i}`}
@@ -418,40 +418,40 @@ export function TvHome() {
                 }}
               />
             ))}
-            </CinematicRail>
-          </CinematicSection>
+            </AppicaRail>
+          </AppicaSection>
         ) : (
-          <CinematicSection
+          <AppicaSection
             id="recent"
             eyebrow="History"
             title="Recently watched"
             description="Channels you play will appear here."
           >
-            <div className="flex w-[min(100vw-3rem,420px)] shrink-0 snap-start flex-col justify-center rounded-2xl border border-white/[0.08] bg-white/[0.03] px-7 py-10 ring-1 ring-white/[0.04]">
-              <p className="text-[17px] font-semibold text-white">Nothing here yet</p>
-              <p className="mt-2 text-[15px] leading-relaxed text-white/48">
+            <div className="flex w-[min(100vw-3rem,420px)] shrink-0 snap-start flex-col justify-center rounded-2xl border border-border bg-background-muted px-7 py-10 ring-1 ring-border">
+              <p className="text-[17px] font-semibold text-foreground-intense">Nothing here yet</p>
+              <p className="mt-2 text-[15px] leading-relaxed text-foreground-intense">
                 Start something from{" "}
                 <Link
                   href="/library"
                   onClick={onNavigateClick("/library")}
-                  className="font-medium text-white/90 underline-offset-4 hover:underline"
+                  className="font-medium text-foreground-intense underline-offset-4 hover:underline"
                 >
                   Library
                 </Link>{" "}
                 or press Play above — your lineup builds automatically.
               </p>
             </div>
-          </CinematicSection>
+          </AppicaSection>
         )}
 
         {frequentChannels.length > 0 ? (
-          <CinematicSection
+          <AppicaSection
             id="frequent"
             eyebrow="Pattern"
             title="Because you watch"
             description="Your most played channels."
           >
-            <CinematicRail>
+            <AppicaRail>
             {frequentChannels.map((ch, i) => (
               <TvChannelTile
                 key={`freq-${ch.url}-${i}`}
@@ -463,11 +463,11 @@ export function TvHome() {
                 }}
               />
             ))}
-            </CinematicRail>
-          </CinematicSection>
+            </AppicaRail>
+          </AppicaSection>
         ) : null}
 
-        <CinematicSection
+        <AppicaSection
           id="live"
           eyebrow="Live"
           title="Discover"
@@ -477,7 +477,7 @@ export function TvHome() {
               : "Explore live channels from your catalog."
           }
         >
-          <CinematicRail>
+          <AppicaRail>
           {discoverSlice.map((ch, i) => (
             <TvChannelTile
               key={`disc-${ch.url}-${i}`}
@@ -489,24 +489,24 @@ export function TvHome() {
               }}
             />
           ))}
-          </CinematicRail>
-        </CinematicSection>
+          </AppicaRail>
+        </AppicaSection>
 
-        <CinematicSection
+        <AppicaSection
           eyebrow="Control"
           title="Need the full catalog?"
           description="Library has search, filters, compact lists, preview, and reliability badges for every stream."
         >
-          <div className="zen-panel flex flex-col items-start justify-between gap-4 rounded-[32px] p-5 sm:flex-row sm:items-center">
-            <p className="text-[15px] leading-relaxed text-white/55">
-              <span className="font-medium text-white/80">Library</span> has search,
+          <div className="border border-border bg-background-subtle shadow-sm flex flex-col items-start justify-between gap-4 rounded-lg p-5 sm:flex-row sm:items-center">
+            <p className="text-[15px] leading-relaxed text-foreground-intense">
+              <span className="font-medium text-foreground-intense">Library</span> has search,
               full lists, and reliability badges for every stream.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link
                 href="/library"
                 onClick={onNavigateClick("/library")}
-                className={buttonVariants({ variant: "normal" })}
+                className={buttonVariants({ variant: "secondary" })}
               >
                 Open Library
               </Link>
@@ -519,15 +519,15 @@ export function TvHome() {
               </Button>
             </div>
           </div>
-        </CinematicSection>
+        </AppicaSection>
       </div>
 
-      <footer className="border-t border-white/[0.06] py-10 text-center">
-        <p className="text-[13px] leading-relaxed text-white/35">
+      <footer className="border-t border-border py-10 text-center">
+        <p className="text-[13px] leading-relaxed text-foreground-intense">
           Third-party streams. You are responsible for content you access.
         </p>
       </footer>
       {navError && <NavErrorBanner message={navError} onDismiss={clearNavError} />}
-    </CinematicPage>
+    </AppicaPage>
   );
 }

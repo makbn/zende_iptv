@@ -58,7 +58,7 @@ export function ChannelLogo({
       className={cn(
         fillMode
           ? "channel-logo--fill"
-          : "relative w-full overflow-hidden rounded-xl bg-white/[0.04]",
+          : "relative w-full overflow-hidden rounded-xl bg-background-muted",
         !fillMode && aspect === "video" && "aspect-video",
         className,
       )}
@@ -84,7 +84,7 @@ export function ChannelLogo({
         />
       ) : (
         <div
-          className="absolute inset-0 flex items-center justify-center p-3 text-center text-[13px] font-semibold leading-tight text-white/90"
+          className="absolute inset-0 flex items-center justify-center p-3 text-center text-[13px] font-semibold leading-tight text-foreground-intense"
           style={{ background: gradientFromChannelName(name) }}
           aria-hidden
         >

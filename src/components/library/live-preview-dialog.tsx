@@ -7,7 +7,7 @@ import { createPortal } from "react-dom";
 
 import { StreamPlayer } from "@/components/player/stream-player";
 import { ZendeSpinner } from "@/components/loading/zende-spinner";
-import { Button } from "@/components/ui/button";
+import { Button } from "@appica/ui-react/button";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { createWatchUrl } from "@/lib/navigation/watch-url";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
@@ -142,8 +142,8 @@ export function LivePreviewDialog({ channel, onClose, presentation = "dialog" }:
 
   if (presentation === "embedded") {
     return (
-      <div className="overflow-hidden rounded-[24px] border border-white/[0.1] bg-black/70">
-        <div className="relative aspect-video w-full bg-black">
+      <div className="overflow-hidden rounded-lg border border-border bg-background">
+        <div className="relative aspect-video w-full bg-background">
           {src ? (
             <StreamPlayer
               src={src}
@@ -156,20 +156,20 @@ export function LivePreviewDialog({ channel, onClose, presentation = "dialog" }:
               }}
             />
           ) : error ? (
-            <div className="flex h-full items-center justify-center px-6 text-center text-[13px] text-amber-200/90">
+            <div className="flex h-full items-center justify-center px-6 text-center text-[13px] text-warning-strong">
               {error}
             </div>
           ) : (
-            <div className="flex h-full items-center justify-center gap-3 text-white/55">
+            <div className="flex h-full items-center justify-center gap-3 text-foreground-intense">
               <ZendeSpinner size="small" label="Loading live preview" />
               <span className="text-[13px]">Loading live preview independently…</span>
             </div>
           )}
         </div>
-        <div className="flex items-center justify-between gap-3 border-t border-white/[0.08] px-4 py-3">
+        <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3">
           <div className="min-w-0">
-            <p className="truncate text-[12px] font-semibold text-white/82">{channel.name}</p>
-            <p className="mt-0.5 text-[10px] text-white/36">
+            <p className="truncate text-[12px] font-semibold text-foreground-intense">{channel.name}</p>
+            <p className="mt-0.5 text-[10px] text-foreground-intense">
               {error ? "Preview unavailable — guide unaffected" : "Shared Library preview player"}
             </p>
           </div>
@@ -190,33 +190,33 @@ export function LivePreviewDialog({ channel, onClose, presentation = "dialog" }:
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/78 p-4 backdrop-blur-xl">
-      <button
+    <div className="fixed inset-0 z-[210] flex items-center justify-center bg-background p-4 backdrop-blur-xl">
+      <Button variant="ghost"
         type="button"
         className="absolute inset-0"
         aria-label="Close preview"
         onClick={onClose}
       />
-      <div className="relative z-10 max-h-[92vh] w-full max-w-[980px] overflow-y-auto rounded-[28px] border border-white/15 bg-black shadow-[0_34px_120px_-44px_rgba(0,0,0,0.96)] ring-1 ring-white/[0.06]">
-        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+      <div className="relative z-10 max-h-[92vh] w-full max-w-[980px] overflow-y-auto rounded-lg border border-border bg-background shadow-lg ring-1 ring-border">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div className="min-w-0">
-            <p className="truncate text-[16px] font-semibold tracking-[-0.02em] text-white">
+            <p className="truncate text-[16px] font-semibold tracking-[-0.02em] text-foreground-intense">
               Live Preview: {channel.name}
             </p>
             {channel.groupTitle ? (
-              <p className="truncate text-[12px] text-white/45">{channel.groupTitle}</p>
+              <p className="truncate text-[12px] text-foreground-intense">{channel.groupTitle}</p>
             ) : null}
           </div>
-          <button
+          <Button variant="ghost"
             type="button"
             onClick={onClose}
-            className="rounded-full p-1.5 text-white/60 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+            className="rounded-full p-1.5 text-foreground-intense hover:bg-background-muted hover:text-foreground-intense focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             aria-label="Close preview"
           >
             <X className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
-        <div className="relative aspect-video w-full bg-black">
+        <div className="relative aspect-video w-full bg-background">
           {src ? (
             <StreamPlayer
               src={src}
@@ -229,25 +229,25 @@ export function LivePreviewDialog({ channel, onClose, presentation = "dialog" }:
               }}
             />
           ) : error ? (
-            <div className="flex h-full items-center justify-center px-6 text-center text-[14px] text-amber-200/95">
+            <div className="flex h-full items-center justify-center px-6 text-center text-[14px] text-warning-strong">
               {error}
             </div>
           ) : (
-            <div className="flex h-full items-center justify-center gap-3 text-white/60">
+            <div className="flex h-full items-center justify-center gap-3 text-foreground-intense">
               <ZendeSpinner size="small" label="Loading programme guide" />
               <span className="text-[14px]">Starting live preview…</span>
             </div>
           )}
         </div>
-        <div className="border-t border-white/10 bg-white/[0.025] px-4 py-3">
-          <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/42">
-            <CalendarClock className="size-3.5 text-[var(--zen-signal)]/80" aria-hidden />
+        <div className="border-t border-border bg-background-muted px-4 py-3">
+          <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground-intense">
+            <CalendarClock className="size-3.5 text-primary-strong/80" aria-hidden />
             Programme guide
           </div>
           {epgLoading ? (
             <div className="grid grid-cols-2 gap-2" aria-label="Loading programme guide">
-              <div className="h-[54px] animate-pulse rounded-xl bg-white/[0.06]" />
-              <div className="h-[54px] animate-pulse rounded-xl bg-white/[0.04]" />
+              <div className="h-[54px] animate-pulse rounded-xl bg-background-muted" />
+              <div className="h-[54px] animate-pulse rounded-xl bg-background-muted" />
             </div>
           ) : epg?.current || epg?.next ? (
             <div className="grid grid-cols-2 gap-2">
@@ -256,15 +256,15 @@ export function LivePreviewDialog({ channel, onClose, presentation = "dialog" }:
                 return (
                   <div
                     key={kind}
-                    className="min-w-0 rounded-xl border border-white/[0.08] bg-black/30 px-3 py-2"
+                    className="min-w-0 rounded-xl border border-border bg-background px-3 py-2"
                   >
-                    <p className="text-[9px] font-semibold uppercase tracking-[0.13em] text-white/35">
+                    <p className="text-[9px] font-semibold uppercase tracking-[0.13em] text-foreground-intense">
                       {kind === "current" ? "Now" : "Next"}
                     </p>
-                    <p className="mt-0.5 truncate text-[12px] font-semibold text-white/88">
+                    <p className="mt-0.5 truncate text-[12px] font-semibold text-foreground-intense">
                       {slot?.title ?? "—"}
                     </p>
-                    <p className="mt-0.5 text-[10px] tabular-nums text-white/38">
+                    <p className="mt-0.5 text-[10px] tabular-nums text-foreground-intense">
                       {slot ? formatSlotTime(slot) : "No listing"}
                     </p>
                   </div>
@@ -272,12 +272,12 @@ export function LivePreviewDialog({ channel, onClose, presentation = "dialog" }:
               })}
             </div>
           ) : (
-            <p className="rounded-xl border border-white/[0.07] bg-black/25 px-3 py-2 text-[12px] text-white/42">
+            <p className="rounded-xl border border-border bg-background px-3 py-2 text-[12px] text-foreground-intense">
               {channel.tvgId?.trim() ? "No current programme data." : "This channel has no EPG ID."}
             </p>
           )}
         </div>
-        <div className="flex items-center justify-end gap-2 border-t border-white/10 px-4 py-3">
+        <div className="flex items-center justify-end gap-2 border-t border-border px-4 py-3">
           <Button
             type="button"
             onClick={onClose}
@@ -293,7 +293,7 @@ export function LivePreviewDialog({ channel, onClose, presentation = "dialog" }:
               onClose();
               router.push(watchHref);
             }}
-            variant="success"
+            variant="primary"
             size="sm"
           >
             Open full player

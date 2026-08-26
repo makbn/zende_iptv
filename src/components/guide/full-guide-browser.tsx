@@ -1,5 +1,7 @@
 "use client";
 
+import { Input } from "@appica/ui-react/input";
+
 import {
   CalendarDays,
   Clock3,
@@ -11,10 +13,11 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { ZendeGlass } from "@/components/glass/zende-glass";
+import { Card } from "@appica/ui-react/card";
+import { BROWSE_CONTAINER_CLASS } from "@/components/layout/browse-page-shell";
 import { LivePreviewDialog } from "@/components/library/live-preview-dialog";
 import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
-import { Button } from "@/components/ui/button";
+import { Button } from "@appica/ui-react/button";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { secureImageUrl } from "@/lib/media/secure-image-url";
@@ -230,34 +233,34 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
   return (
     <>
     <section aria-label="Full TV guide" className="space-y-4">
-      <ZendeGlass variant="panelCompact" className="p-3 sm:p-4">
+      <Card frame="solid" className="p-3 sm:p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <label className="relative block min-w-0 flex-1">
             <Search
-              className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-white/38"
+              className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-foreground-intense"
               aria-hidden
             />
             <span className="sr-only">Search channels and programme guide</span>
-            <input
+            <Input
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search channels or programmes — TSN, tennis, US Open…"
-              className="h-12 w-full rounded-full border border-white/[0.12] bg-black/30 pl-11 pr-11 text-[14px] text-white outline-none placeholder:text-white/34 focus:border-[var(--zen-signal)]/60 focus:ring-2 focus:ring-[var(--zen-signal)]/20"
+              className="h-12 w-full rounded-full border border-border bg-background pl-11 pr-11 text-[14px] text-foreground-intense outline-none placeholder:text-foreground-intense focus:border-primary focus:ring-2 focus:ring-primary/20"
             />
             {query ? (
-              <button
+              <Button variant="ghost"
                 type="button"
                 onClick={() => setQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-2 text-white/45 hover:bg-white/10 hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-2 text-foreground-intense hover:bg-background-muted hover:text-foreground-intense"
                 aria-label="Clear guide search"
               >
                 <X className="size-4" aria-hidden />
-              </button>
+              </Button>
             ) : null}
           </label>
-          <div className="flex shrink-0 items-center gap-2 px-2 text-[12px] text-white/48" aria-live="polite">
-            {searchPending ? <ZendeSpinner size="small" label="Searching guide" /> : <Radio className="size-4 text-[var(--zen-signal)]" aria-hidden />}
+          <div className="flex shrink-0 items-center gap-2 px-2 text-[12px] text-foreground-intense" aria-live="polite">
+            {searchPending ? <ZendeSpinner size="small" label="Searching guide" /> : <Radio className="size-4 text-primary-strong" aria-hidden />}
             {searchPending
               ? normalizedInput
                 ? `Searching “${normalizedInput}”…`
@@ -267,57 +270,57 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
                 : `${results.length.toLocaleString()} channels with schedules`}
           </div>
         </div>
-        <p className="mt-2 px-2 text-[11px] leading-relaxed text-white/38">
+        <p className="mt-2 px-2 text-[11px] leading-relaxed text-foreground-intense">
           One search checks channel names, programme titles, and programme descriptions. Select a channel to inspect it; playback only starts when you use the Play button.
         </p>
-      </ZendeGlass>
+      </Card>
 
       {error ? (
-        <ZendeGlass variant="danger" className="p-5 text-[14px]">
+        <Card frame="solid" className="p-5 text-[14px]">
           {error}
-        </ZendeGlass>
+        </Card>
       ) : null}
 
       {searchPending ? (
-        <ZendeGlass
-          variant="panel"
+        <Card
+          frame="glass"
           className="relative overflow-hidden px-5 py-7 text-center sm:px-8 sm:py-9"
         >
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(56,217,255,0.12),transparent_58%)]" />
+          <div className="pointer-events-none absolute inset-0 bg-background-subtle" />
           <div className="relative mx-auto flex max-w-[620px] flex-col items-center">
             <ZendeLoadingState
               size="large"
               label={normalizedInput ? `Searching for “${normalizedInput}”` : "Building your live guide"}
               description="Checking channel names, programme titles, and descriptions. The first provider lookup after a restart can take a few seconds."
             />
-            <div className="mt-5 h-1.5 w-full max-w-[360px] overflow-hidden rounded-full bg-white/[0.06]">
-              <div className="h-full w-1/2 animate-pulse rounded-full bg-gradient-to-r from-transparent via-[var(--zen-signal)] to-transparent" />
+            <div className="mt-5 h-1.5 w-full max-w-[360px] overflow-hidden rounded-full bg-background-muted">
+              <div className="h-full w-1/2 animate-pulse rounded-full bg-gradient-to-r from-transparent via-primary to-transparent" />
             </div>
           </div>
-        </ZendeGlass>
+        </Card>
       ) : null}
 
       {!error && !loading && results.length === 0 ? (
-        <ZendeGlass variant="panel" className="p-7 text-center">
-          <Search className="mx-auto size-8 text-white/30" aria-hidden />
-          <p className="mt-3 text-[18px] font-semibold text-white">No matching guide entries</p>
-          <p className="mt-1 text-[13px] text-white/45">
+        <Card frame="glass" className="p-7 text-center">
+          <Search className="mx-auto size-8 text-foreground-intense" aria-hidden />
+          <p className="mt-3 text-[18px] font-semibold text-foreground-intense">No matching guide entries</p>
+          <p className="mt-1 text-[13px] text-foreground-intense">
             Try a channel name, sport, event, movie, or a word from the programme description.
           </p>
-        </ZendeGlass>
+        </Card>
       ) : null}
 
       {results.length > 0 && selected ? (
         <div className={cn("flex flex-col gap-4 transition-opacity duration-200 lg:flex-row lg:items-start", searchPending && "opacity-45")}>
-          <ZendeGlass
-            variant="panelCompact"
-            className={cn("overflow-hidden lg:w-[36%] lg:min-w-[320px]", mobile && "rounded-[22px]")}
+          <Card
+            frame="solid"
+            className={cn("overflow-hidden lg:w-[36%] lg:min-w-[320px]", mobile && "rounded-lg")}
           >
-            <div className="border-b border-white/[0.08] px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-white/38">
+            <div className="border-b border-border px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-foreground-intense">
                 Channels
               </p>
-              <p className="mt-1 text-[12px] text-white/48">
+              <p className="mt-1 text-[12px] text-foreground-intense">
                 Select a row to see its complete schedule.
               </p>
             </div>
@@ -326,74 +329,74 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
                 const isSelected = result.channel.url === selected.channel.url;
                 const summaries = summaryProgrammes(result, now);
                 return (
-                  <button
+                  <Button variant="ghost"
                     key={`${result.channel.tvgId ?? result.channel.url}:${result.channel.url}`}
                     type="button"
                     onClick={() => selectChannel(result.channel.url)}
                     className={cn(
-                      "w-full rounded-[18px] border px-3 py-3 text-left transition-colors",
+                      "w-full rounded-lg border px-3 py-3 text-left transition-colors",
                       isSelected
-                        ? "border-[var(--zen-signal)]/45 bg-[var(--zen-signal)]/[0.1]"
-                        : "border-transparent bg-white/[0.025] hover:border-white/[0.1] hover:bg-white/[0.055]",
+                        ? "border-primary bg-primary"
+                        : "border-transparent bg-background-muted hover:border-border hover:bg-background-muted",
                     )}
                     aria-pressed={isSelected}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/[0.09] bg-black/35">
+                      <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-background">
                         {result.channel.tvgLogo ? (
                           <img src={secureImageUrl(result.channel.tvgLogo, undefined, "logo")} alt="" className="max-h-8 max-w-8 object-contain" loading="lazy" />
                         ) : (
-                          <Radio className="size-4 text-white/32" aria-hidden />
+                          <Radio className="size-4 text-foreground-intense" aria-hidden />
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[14px] font-semibold text-white/90">{result.channel.name}</p>
-                        <p className="mt-0.5 truncate text-[10px] uppercase tracking-[0.1em] text-white/34">
+                        <p className="truncate text-[14px] font-semibold text-foreground-intense">{result.channel.name}</p>
+                        <p className="mt-0.5 truncate text-[10px] uppercase tracking-[0.1em] text-foreground-intense">
                           {result.channel.groupTitle || result.channel.tvgId || "Live TV"}
                         </p>
                       </div>
                       {result.matchCount > 0 ? (
-                        <span className="rounded-full bg-[var(--zen-signal)]/15 px-2 py-1 text-[10px] font-semibold text-[var(--zen-signal)]">
+                        <span className="rounded-full bg-primary px-2 py-1 text-[10px] font-semibold text-primary-strong">
                           {result.matchCount} {result.matchCount === 1 ? "match" : "matches"}
                         </span>
                       ) : null}
                     </div>
                     {summaries.length > 0 ? (
-                      <div className="mt-2 space-y-1 border-t border-white/[0.06] pt-2">
+                      <div className="mt-2 space-y-1 border-t border-border pt-2">
                         {summaries.map((programme) => (
                           <div key={programme.id} className="flex min-w-0 gap-2 text-[11px]">
-                            <span className="shrink-0 tabular-nums text-white/34">{formatTime(programme.startMs)}</span>
-                            <span className={cn("truncate text-white/54", programme.matched && "font-semibold text-[var(--zen-signal)]")}>{programme.title}</span>
+                            <span className="shrink-0 tabular-nums text-foreground-intense">{formatTime(programme.startMs)}</span>
+                            <span className={cn("truncate text-foreground-intense", programme.matched && "font-semibold text-primary-strong")}>{programme.title}</span>
                           </div>
                         ))}
                       </div>
                     ) : null}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
-          </ZendeGlass>
+          </Card>
 
           <div ref={detailRef} className="min-w-0 flex-1 scroll-mt-24">
-          <ZendeGlass variant="panel" className="overflow-hidden">
-            <div className="flex flex-col gap-3 border-b border-white/[0.09] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <Card frame="glass" className="overflow-hidden">
+            <div className="flex flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
               <div className="flex min-w-0 items-center gap-3">
-                <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-[15px] border border-white/[0.1] bg-black/35">
+                <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-background">
                   {selected.channel.tvgLogo ? (
                     <img src={secureImageUrl(selected.channel.tvgLogo, undefined, "logo")} alt="" className="max-h-10 max-w-10 object-contain" />
                   ) : (
-                    <Radio className="size-5 text-white/35" aria-hidden />
+                    <Radio className="size-5 text-foreground-intense" aria-hidden />
                   )}
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-[19px] font-semibold tracking-[-0.035em] text-white">{selected.channel.name}</p>
-                  <p className="mt-0.5 truncate text-[12px] text-white/42">{selected.channel.groupTitle || "Live TV"}</p>
+                  <p className="truncate text-[19px] font-semibold tracking-[-0.035em] text-foreground-intense">{selected.channel.name}</p>
+                  <p className="mt-0.5 truncate text-[12px] text-foreground-intense">{selected.channel.groupTitle || "Live TV"}</p>
                 </div>
               </div>
               <Button
                 type="button"
                 onClick={() => onPlayChannel(selected.channel)}
-                variant="success"
+                variant="primary"
                 size="sm"
                 className="shrink-0"
               >
@@ -402,18 +405,18 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
               </Button>
             </div>
 
-            <div className="flex min-h-[180px] flex-col items-center justify-center gap-3 border-b border-white/[0.08] bg-black/45 px-6 py-8 text-center sm:min-h-[220px]">
-              <div className="flex size-12 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.06]">
-                <Play className="ml-0.5 size-5 fill-current text-white/75" aria-hidden />
+            <div className="flex min-h-[180px] flex-col items-center justify-center gap-3 border-b border-border bg-background px-6 py-8 text-center sm:min-h-[220px]">
+              <div className="flex size-12 items-center justify-center rounded-full border border-border bg-background-muted">
+                <Play className="ml-0.5 size-5 fill-current text-foreground-intense" aria-hidden />
               </div>
               <div>
-                <p className="text-[14px] font-semibold text-white/88">Live preview</p>
-                <p className="mt-1 text-[11px] text-white/38">
+                <p className="text-[14px] font-semibold text-foreground-intense">Live preview</p>
+                <p className="mt-1 text-[11px] text-foreground-intense">
                   Uses the same preview player as Library search.
                 </p>
                 {selectedCurrent ? (
-                  <p className="mt-2 text-[12px] text-white/62">
-                    On now: <span className="font-semibold text-white/88">{selectedCurrent.title}</span>
+                  <p className="mt-2 text-[12px] text-foreground-intense">
+                    On now: <span className="font-semibold text-foreground-intense">{selectedCurrent.title}</span>
                   </p>
                 ) : null}
               </div>
@@ -426,33 +429,33 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
               </Button>
             </div>
 
-            <div className="border-t border-white/[0.08] px-4 py-4 sm:px-5">
+            <div className="border-t border-border px-4 py-4 sm:px-5">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2">
-                    <CalendarDays className="size-4 text-[var(--zen-signal)]" aria-hidden />
-                    <h2 className="text-[16px] font-semibold text-white">Full programme guide</h2>
+                    <CalendarDays className="size-4 text-primary-strong" aria-hidden />
+                    <h2 className="text-[16px] font-semibold text-foreground-intense">Full programme guide</h2>
                   </div>
-                  <p className="mt-1 text-[11px] text-white/38">
+                  <p className="mt-1 text-[11px] text-foreground-intense">
                     {detailLoading
                       ? "Loading the complete schedule…"
                       : `${selected.programmes.length.toLocaleString()} upcoming and recent listings`}
                   </p>
                 </div>
                 {debouncedQuery && selected.matchCount > 0 ? (
-                  <span className="rounded-full border border-[var(--zen-signal)]/25 bg-[var(--zen-signal)]/[0.08] px-3 py-1.5 text-[10px] font-semibold text-[var(--zen-signal)]">
+                  <span className="rounded-full border border-primary bg-primary px-3 py-1.5 text-[10px] font-semibold text-primary-strong">
                     {selected.matchCount} programme {selected.matchCount === 1 ? "match" : "matches"}
                   </span>
                 ) : null}
               </div>
 
               {detailError ? (
-                <p className="mb-3 rounded-xl border border-amber-300/15 bg-amber-300/[0.06] px-3 py-2 text-[11px] text-amber-100/75">
+                <p className="mb-3 rounded-xl border border-warning bg-warning-subtle px-3 py-2 text-[11px] text-warning-strong">
                   {detailError}
                 </p>
               ) : null}
               {detailLoading ? (
-                <div className="mb-3 flex items-center gap-2 rounded-xl border border-white/[0.07] bg-black/20 px-3 py-3 text-[12px] text-white/45">
+                <div className="mb-3 flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-3 text-[12px] text-foreground-intense">
                   <ZendeSpinner size="tiny" label="Loading full EPG" />
                   Loading full EPG for {selected.channel.name}…
                 </div>
@@ -465,42 +468,42 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
                   return (
                     <div key={programme.id}>
                       {showDate ? (
-                        <p className="sticky top-0 z-10 mb-2 mt-4 bg-[rgba(13,17,22,0.94)] py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/38 first:mt-0">
+                        <p className="sticky top-0 z-10 mb-2 mt-4 bg-background py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-foreground-intense first:mt-0">
                           {dateFormatter.format(new Date(programme.startMs))}
                         </p>
                       ) : null}
                       <article
                         className={cn(
-                          "rounded-[17px] border px-3 py-3",
+                          "rounded-lg border px-3 py-3",
                           programme.matched
-                            ? "border-[var(--zen-signal)]/38 bg-[var(--zen-signal)]/[0.09]"
+                            ? "border-primary bg-primary"
                             : isCurrent
-                              ? "border-white/[0.16] bg-white/[0.075]"
-                              : "border-white/[0.07] bg-black/20",
+                              ? "border-border bg-background-muted"
+                              : "border-border bg-background",
                         )}
                       >
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-                          <div className="flex shrink-0 items-center gap-2 text-[11px] tabular-nums text-white/46 sm:w-[118px] sm:flex-col sm:items-start sm:gap-0.5">
+                          <div className="flex shrink-0 items-center gap-2 text-[11px] tabular-nums text-foreground-intense sm:w-[118px] sm:flex-col sm:items-start sm:gap-0.5">
                             <span>{formatTime(programme.startMs)}–{formatTime(programme.stopMs)}</span>
-                            <span className="flex items-center gap-1 text-[10px] text-white/30">
+                            <span className="flex items-center gap-1 text-[10px] text-foreground-intense">
                               <Clock3 className="size-3" aria-hidden />
                               {formatDuration(programme.startMs, programme.stopMs)}
                             </span>
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="text-[13px] font-semibold text-white/90">{programme.title}</h3>
+                              <h3 className="text-[13px] font-semibold text-foreground-intense">{programme.title}</h3>
                               {isCurrent ? (
-                                <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-red-200">Live now</span>
+                                <span className="rounded-full bg-error-subtle px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-error-strong">Live now</span>
                               ) : null}
                               {programme.matched ? (
-                                <span className="rounded-full bg-[var(--zen-signal)]/15 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--zen-signal)]">Search match</span>
+                                <span className="rounded-full bg-primary px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-primary-strong">Search match</span>
                               ) : null}
                             </div>
                             {programme.description ? (
-                              <p className="mt-1.5 text-[11px] leading-relaxed text-white/46">{programme.description}</p>
+                              <p className="mt-1.5 text-[11px] leading-relaxed text-foreground-intense">{programme.description}</p>
                             ) : (
-                              <p className="mt-1 text-[11px] text-white/28">No programme description supplied.</p>
+                              <p className="mt-1 text-[11px] text-foreground-intense">No programme description supplied.</p>
                             )}
                           </div>
                         </div>
@@ -510,34 +513,34 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
                 })}
               </div>
             </div>
-          </ZendeGlass>
+          </Card>
           </div>
         </div>
       ) : null}
     </section>
     {detailOpen && selectedSummary && typeof document !== "undefined" ? createPortal((
       <div
-        className="guide-fullscreen-dialog"
+        className="fixed inset-0 z-50 overflow-y-auto bg-background"
         role="dialog"
         aria-modal="true"
         aria-label={`Full guide for ${selectedSummary.channel.name}`}
       >
-        <header className="guide-fullscreen-dialog__header sticky top-0 z-20 border-b border-white/[0.09] bg-[rgba(7,10,14,0.94)] px-4 py-3 backdrop-blur-2xl sm:px-6">
-          <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-4">
+        <header className="sticky top-0 z-20 border-b border-border bg-background px-4 py-3 backdrop-blur-2xl sm:px-6">
+          <div className={cn(BROWSE_CONTAINER_CLASS, "flex items-center justify-between gap-4")}>
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-[14px] border border-white/[0.1] bg-black/40">
+              <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-background">
                 {selectedSummary.channel.tvgLogo ? (
                   <img src={secureImageUrl(selectedSummary.channel.tvgLogo, undefined, "logo")} alt="" className="max-h-9 max-w-9 object-contain" />
                 ) : (
-                  <Radio className="size-4 text-white/35" aria-hidden />
+                  <Radio className="size-4 text-foreground-intense" aria-hidden />
                 )}
               </div>
               <div className="min-w-0">
-                <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[var(--zen-signal)]">Full channel guide</p>
+                <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-primary-strong">Full channel guide</p>
                 <h2 className="truncate text-[17px] font-semibold tracking-[-0.03em] sm:text-[20px]">
                   {selectedSummary.channel.name}
                 </h2>
-                <p className="truncate text-[11px] text-white/38">
+                <p className="truncate text-[11px] text-foreground-intense">
                   {selectedSummary.channel.groupTitle || "Live TV"}
                 </p>
               </div>
@@ -546,36 +549,36 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
               <Button
                 type="button"
                 onClick={() => onPlayChannel(selectedSummary.channel)}
-                variant="success"
+                variant="primary"
                 size="sm"
                 className="hidden sm:inline-flex"
               >
                 <Play className="size-3.5 fill-current" aria-hidden />
                 Play channel
               </Button>
-              <button
+              <Button variant="ghost"
                 type="button"
                 onClick={() => setDetailOpen(false)}
-                className="rounded-full border border-white/[0.12] bg-white/[0.06] p-2.5 text-white/70 hover:bg-white/[0.12] hover:text-white"
+                className="rounded-full border border-border bg-background-muted p-2.5 text-foreground-intense hover:bg-background-muted hover:text-foreground-intense"
                 aria-label="Close full channel guide"
               >
                 <X className="size-5" aria-hidden />
-              </button>
+              </Button>
             </div>
           </div>
         </header>
 
-        <main className="guide-fullscreen-dialog__content mx-auto grid max-w-[1600px] gap-5 px-4 py-5 sm:px-6 lg:grid-cols-2 lg:items-start lg:gap-7 lg:py-7">
+        <main className={cn(BROWSE_CONTAINER_CLASS, "grid gap-5 py-5 lg:grid-cols-2 lg:items-start lg:gap-7 lg:py-7")}>
           <section aria-label="Live preview" className="lg:sticky lg:top-[92px]">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/38">Live preview</p>
-                <p className="mt-1 text-[11px] text-white/34">Loads independently from the programme guide.</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-foreground-intense">Live preview</p>
+                <p className="mt-1 text-[11px] text-foreground-intense">Loads independently from the programme guide.</p>
               </div>
               <Button
                 type="button"
                 onClick={() => onPlayChannel(selectedSummary.channel)}
-                variant="success"
+                variant="primary"
                 size="sm"
                 className="sm:hidden"
               >
@@ -594,10 +597,10 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
             <div className="mb-3 flex items-end justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <CalendarDays className="size-4 text-[var(--zen-signal)]" aria-hidden />
+                  <CalendarDays className="size-4 text-primary-strong" aria-hidden />
                   <h3 className="text-[17px] font-semibold">Complete EPG</h3>
                 </div>
-                <p className="mt-1 text-[11px] text-white/38">
+                <p className="mt-1 text-[11px] text-foreground-intense">
                   {detailLoading
                     ? "Loading asynchronously…"
                     : detailResult
@@ -606,7 +609,7 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
                 </p>
               </div>
               {detailResult && debouncedQuery && detailResult.matchCount > 0 ? (
-                <span className="rounded-full border border-[var(--zen-signal)]/25 bg-[var(--zen-signal)]/[0.08] px-3 py-1.5 text-[10px] font-semibold text-[var(--zen-signal)]">
+                <span className="rounded-full border border-primary bg-primary px-3 py-1.5 text-[10px] font-semibold text-primary-strong">
                   {detailResult.matchCount} {detailResult.matchCount === 1 ? "match" : "matches"}
                 </span>
               ) : null}
@@ -614,16 +617,16 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
 
             {detailLoading ? (
               <div className="space-y-2" aria-label="Loading complete EPG">
-                <div className="flex items-center gap-2 rounded-[18px] border border-white/[0.08] bg-white/[0.035] px-4 py-4 text-[12px] text-white/50">
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-background-muted px-4 py-4 text-[12px] text-foreground-intense">
                   <ZendeSpinner size="tiny" label="Loading complete EPG" />
                   Loading the full schedule for {selectedSummary.channel.name}…
                 </div>
                 {[0, 1, 2, 3].map((item) => (
-                  <div key={item} className="h-[82px] animate-pulse rounded-[18px] bg-white/[0.035]" />
+                  <div key={item} className="h-[82px] animate-pulse rounded-lg bg-background-muted" />
                 ))}
               </div>
             ) : detailError ? (
-              <p className="rounded-[18px] border border-amber-300/15 bg-amber-300/[0.06] px-4 py-4 text-[12px] text-amber-100/80">
+              <p className="rounded-lg border border-warning bg-warning-subtle px-4 py-4 text-[12px] text-warning-strong">
                 {detailError}
               </p>
             ) : detailResult?.programmes.length ? (
@@ -634,35 +637,35 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
                   return (
                     <div key={programme.id}>
                       {showDate ? (
-                        <p className="sticky top-[76px] z-10 mb-2 mt-5 bg-[rgba(7,10,14,0.94)] py-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/40 first:mt-0">
+                        <p className="sticky top-[76px] z-10 mb-2 mt-5 bg-background py-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-foreground-intense first:mt-0">
                           {dateFormatter.format(new Date(programme.startMs))}
                         </p>
                       ) : null}
                       <article
                         className={cn(
-                          "rounded-[18px] border px-4 py-3",
+                          "rounded-lg border px-4 py-3",
                           programme.matched
-                            ? "border-[var(--zen-signal)]/40 bg-[var(--zen-signal)]/[0.09]"
+                            ? "border-primary bg-primary"
                             : isCurrent
-                              ? "border-white/[0.17] bg-white/[0.075]"
-                              : "border-white/[0.07] bg-white/[0.025]",
+                              ? "border-border bg-background-muted"
+                              : "border-border bg-background-muted",
                         )}
                       >
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-                          <div className="shrink-0 text-[11px] tabular-nums text-white/42 sm:w-[125px]">
+                          <div className="shrink-0 text-[11px] tabular-nums text-foreground-intense sm:w-[125px]">
                             <p>{formatTime(programme.startMs)}–{formatTime(programme.stopMs)}</p>
-                            <p className="mt-1 flex items-center gap-1 text-[10px] text-white/28">
+                            <p className="mt-1 flex items-center gap-1 text-[10px] text-foreground-intense">
                               <Clock3 className="size-3" aria-hidden />
                               {formatDuration(programme.startMs, programme.stopMs)}
                             </p>
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
-                              <h4 className="text-[13px] font-semibold text-white/90">{programme.title}</h4>
-                              {isCurrent ? <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-red-200">Live now</span> : null}
-                              {programme.matched ? <span className="rounded-full bg-[var(--zen-signal)]/15 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--zen-signal)]">Search match</span> : null}
+                              <h4 className="text-[13px] font-semibold text-foreground-intense">{programme.title}</h4>
+                              {isCurrent ? <span className="rounded-full bg-error-subtle px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-error-strong">Live now</span> : null}
+                              {programme.matched ? <span className="rounded-full bg-primary px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-primary-strong">Search match</span> : null}
                             </div>
-                            <p className="mt-1.5 text-[11px] leading-relaxed text-white/45">
+                            <p className="mt-1.5 text-[11px] leading-relaxed text-foreground-intense">
                               {programme.description || "No programme description supplied."}
                             </p>
                           </div>
@@ -673,7 +676,7 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
                 })}
               </div>
             ) : (
-              <p className="rounded-[18px] border border-white/[0.07] bg-white/[0.025] px-4 py-4 text-[12px] text-white/45">
+              <p className="rounded-lg border border-border bg-background-muted px-4 py-4 text-[12px] text-foreground-intense">
                 No complete programme schedule is available for this channel.
               </p>
             )}

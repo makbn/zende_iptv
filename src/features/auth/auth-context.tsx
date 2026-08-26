@@ -17,7 +17,7 @@ import {
 import { clearLocalDeviceData } from "@/lib/auth/clear-local-device-data";
 import { Z_ACCESS, Z_REFRESH } from "@/lib/auth/token-storage-keys";
 import { isProtectedApiReady } from "@/lib/auth/api-readiness";
-import { ZendeLogoWave } from "@/components/loading/zende-logo-wave";
+import { Spinner } from "@appica/ui-react/spinner";
 import { clearFavoritesOnThisDevice } from "@/lib/favorites/favorites-store";
 import { clearViewingHistoryOnThisDevice } from "@/lib/watch/viewing-stats";
 import { setPersonalDataScope } from "@/lib/auth/personal-data-scope";
@@ -296,8 +296,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   if (!ready) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[var(--tv-page-bg)] text-white/50">
-        <ZendeLogoWave size="md" />
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background text-foreground-intense">
+        <Spinner className="size-10" aria-label="Loading account" />
         <p className="sr-only">Loading</p>
       </div>
     );
@@ -305,8 +305,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   if (authEnabled && !user && !isLoginPath) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[var(--tv-page-bg)] text-white/50">
-        <ZendeLogoWave size="sm" />
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background text-foreground-intense">
+        <Spinner className="size-8" aria-label="Loading account" />
         <p className="text-[15px]">Redirecting…</p>
       </div>
     );

@@ -1,5 +1,9 @@
 "use client";
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@appica/ui-react/select";
+
+import { Input } from "@appica/ui-react/input";
+
 import Link from "next/link";
 import {
   startTransition,
@@ -47,7 +51,7 @@ import {
   X,
 } from "lucide-react";
 import { ZendeSpinner } from "@/components/loading/zende-spinner";
-import { Button } from "@/components/ui/button";
+import { Button } from "@appica/ui-react/button";
 
 
 const source = BUILTIN_PLAYLIST_SOURCES[0]!;
@@ -261,24 +265,20 @@ export function TvLibraryPage() {
   }, [clearSearch]);
 
   return (
-    <div className="zen-page-bg min-h-screen text-foreground">
+    <div className="bg-background min-h-screen text-foreground">
       <main className={cn("pb-28", TV_BROWSE_TOP_PAD_CLASS)}>
         <section className={cn(BROWSE_CONTAINER_CLASS, "pb-3 pt-4")}>
-          <div className="relative grid gap-3 overflow-hidden rounded-[28px] border border-white/[0.1] bg-[linear-gradient(135deg,rgba(247,250,255,0.085),rgba(247,250,255,0.025))] p-3 shadow-[0_22px_78px_-54px_rgba(0,0,0,0.95)] ring-1 ring-white/[0.05] backdrop-blur-2xl lg:grid-cols-[auto_minmax(20rem,1fr)_auto_minmax(16rem,23rem)] lg:items-center">
-            <div
-              className="pointer-events-none absolute -right-16 -top-24 size-56 rounded-full bg-[var(--zen-signal)]/12 blur-3xl"
-              aria-hidden
-            />
+          <div className="grid gap-4 rounded-lg border border-border bg-background p-4 shadow-sm 2xl:grid-cols-[auto_minmax(24rem,1fr)_auto_minmax(20rem,28rem)] 2xl:items-center">
             <div className="relative min-w-0">
               <div className="flex items-center gap-2">
-                <span className="zen-kicker">Library</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">Library</span>
                 {activeFilterCount > 0 ? (
-                  <span className="rounded-full border border-white/[0.1] bg-black/30 px-2.5 py-1 text-[11px] font-semibold text-white/55">
+                  <span className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground-intense">
                     {activeFilterCount} tuned
                   </span>
                 ) : null}
               </div>
-              <h1 className="mt-1 text-[clamp(1.35rem,2vw,2rem)] font-semibold leading-none tracking-[-0.06em] text-white">
+              <h1 className="mt-1 text-[clamp(1.35rem,2vw,2rem)] font-semibold leading-none tracking-[-0.06em] text-foreground-intense">
                 Signal deck
               </h1>
             </div>
@@ -286,10 +286,10 @@ export function TvLibraryPage() {
             <label className="relative flex min-h-[48px] items-center">
               <span className="sr-only">Search channels</span>
               <Search
-                className="pointer-events-none absolute left-4 size-[18px] text-[var(--zen-signal)]/75"
+                className="pointer-events-none absolute left-4 size-[18px] text-primary-strong/75"
                 aria-hidden
               />
-              <input
+              <Input
                 ref={searchInputRef}
                 id="channel-search"
                 type="text"
@@ -299,34 +299,34 @@ export function TvLibraryPage() {
                 placeholder="Search channels, countries, languages…"
                 autoComplete="off"
                 value={draftQuery}
-                onChange={(e) => setDraftQuery(e.target.value)}
+                onValueChange={(value) => setDraftQuery(value)}
                 onKeyDown={onSearchKeyDown}
                 className={cn(
-                  "h-12 w-full rounded-[20px] border border-white/[0.14] bg-black/44 pl-11 pr-11",
-                  "text-[16px] font-semibold tracking-[-0.02em] text-white placeholder:text-white/32",
-                  "outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.07)]",
+                  "h-12 w-full rounded-lg border border-border bg-background pl-11 pr-11",
+                  "text-[16px] font-semibold tracking-[-0.02em] text-foreground-intense placeholder:text-foreground-intense",
+                  "outline-none shadow-lg",
                   "transition-[border-color,box-shadow] duration-200",
-                  "focus-visible:border-[var(--zen-signal)]/70 focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]/45",
+                  "focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/45",
                 )}
               />
               {draftQuery ? (
-                <button
+                <Button variant="ghost"
                   type="button"
                   onClick={() => clearSearch()}
-                  className="absolute right-2 flex size-9 items-center justify-center rounded-2xl text-white/55 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                  className="absolute right-2 flex size-9 items-center justify-center rounded-2xl text-foreground-intense outline-none transition-colors hover:bg-background-muted hover:text-foreground-intense focus-visible:ring-2 focus-visible:ring-primary"
                   aria-label="Clear search"
                 >
                   <X className="size-4" strokeWidth={2.25} />
-                </button>
+                </Button>
               ) : null}
             </label>
 
             <div className="relative grid grid-cols-3 gap-2 lg:w-[20rem]">
-              <div className="rounded-[18px] border border-white/[0.1] bg-black/28 px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/34">
+              <div className="rounded-lg border border-border bg-background px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground-intense">
                   Showing
                 </p>
-                <p className="mt-0.5 text-[17px] font-semibold tracking-[-0.045em] text-white">
+                <p className="mt-0.5 text-[17px] font-semibold tracking-[-0.045em] text-foreground-intense">
                   {resultsBusy ? (
                     <ZendeSpinner size="tiny" label="Updating results" />
                   ) : (
@@ -334,58 +334,53 @@ export function TvLibraryPage() {
                   )}
                 </p>
               </div>
-              <div className="rounded-[18px] border border-white/[0.1] bg-black/28 px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/34">
+              <div className="rounded-lg border border-border bg-background px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground-intense">
                   Mode
                 </p>
-                <p className="mt-0.5 truncate text-[17px] font-semibold capitalize tracking-[-0.045em] text-white">
+                <p className="mt-0.5 truncate text-[17px] font-semibold capitalize tracking-[-0.045em] text-foreground-intense">
                   {catalogNoun(contentTab)}
                 </p>
               </div>
-              <div className="rounded-[18px] border border-white/[0.1] bg-black/28 px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/34">
+              <div className="rounded-lg border border-border bg-background px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground-intense">
                   Facets
                 </p>
-                <p className="mt-0.5 text-[17px] font-semibold tracking-[-0.045em] text-white">
+                <p className="mt-0.5 text-[17px] font-semibold tracking-[-0.045em] text-foreground-intense">
                   {languageOptions.length + countryOptions.length + yearOptions.length}
                 </p>
               </div>
             </div>
 
-            <aside className="relative min-w-0">
+            <aside className="min-w-0">
               {spotlightChannel && spotlightLabel ? (
-                <button
+                <Button variant="ghost"
                   type="button"
                   onClick={() =>
                     contentTypeFromStreamUrl(spotlightChannel.url) === "live"
                       ? setPreviewChannel(spotlightChannel)
                       : openChannel(spotlightChannel)
                   }
-                  className="grid w-full grid-cols-[4.8rem_minmax(0,1fr)_auto] items-center gap-3 rounded-[22px] border border-white/[0.11] bg-black/32 p-2 text-left outline-none transition-colors hover:bg-white/[0.065] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                  size="lg"
+                  className="h-auto min-h-16 w-full justify-start gap-3 overflow-hidden text-left"
                 >
-                  <ChannelLogo
-                    name={spotlightLabel}
-                    logoUrl={spotlightChannel.tvgLogo}
-                    eager
-                    className="rounded-[16px] border border-white/[0.08] bg-black/55"
-                  />
                   <span className="min-w-0">
-                    <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/36">
+                    <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-foreground-intense">
                       First match
                     </span>
-                    <span className="mt-0.5 block truncate text-[14px] font-semibold text-white">
+                    <span className="mt-0.5 block truncate text-[14px] font-semibold text-foreground-intense">
                       {spotlightLabel}
                     </span>
-                    <span className="mt-0.5 block truncate text-[12px] text-white/44">
+                    <span className="mt-0.5 block truncate text-[12px] text-foreground-intense">
                       {sanitizeGroupTitle(spotlightChannel.groupTitle) ?? "Live"}
                     </span>
                   </span>
-                  <Play className="size-4 fill-current text-white/72" aria-hidden />
-                </button>
+                  <Play className="ml-auto size-4 shrink-0" aria-hidden />
+                </Button>
               ) : (
-                <div className="flex min-h-20 items-center gap-3 rounded-[22px] border border-dashed border-white/[0.12] bg-black/24 p-3">
-                  <Sparkles className="size-5 shrink-0 text-[var(--zen-signal)]/65" aria-hidden />
-                  <p className="text-[13px] font-semibold text-white/58">
+                <div className="flex min-h-20 items-center gap-3 rounded-lg border border-dashed border-border bg-background p-3">
+                  <Sparkles className="size-5 shrink-0 text-primary-strong/65" aria-hidden />
+                  <p className="text-[13px] font-semibold text-foreground-intense">
                     Search or relax filters to surface a match.
                   </p>
                 </div>
@@ -396,160 +391,164 @@ export function TvLibraryPage() {
 
         <div
           className={cn(
-            "sticky z-30 border-y border-white/[0.07] backdrop-blur-2xl",
+            "sticky z-30 border-y border-border backdrop-blur-2xl",
             TV_BROWSE_STICKY_TOP_CLASS,
-            "bg-[color-mix(in_oklab,var(--tv-page-bg)_86%,transparent)]",
+            "bg-background-subtle",
           )}
         >
           <div className={cn(BROWSE_CONTAINER_CLASS, "py-3")}>
-            <div className="grid gap-3 rounded-[30px] border border-white/[0.1] bg-white/[0.045] p-3 ring-1 ring-white/[0.045] xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-center">
-              <div className="tv-row-scroll flex gap-2 overflow-x-auto" role="tablist" aria-label="Content type">
+            <div className="grid gap-3 rounded-lg border border-border bg-background-muted p-3 ring-1 ring-border xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-center">
+              <div className="flex gap-2 overflow-x-auto" role="tablist" aria-label="Content type">
                 {([
                   ["all", "All"],
                   ["live", "Live"],
                   ["movie", "Movies"],
                   ["series", "Shows"],
                 ] as const).map(([id, label]) => (
-                  <button
+                  <Button variant="ghost"
                     key={id}
                     type="button"
                     role="tab"
                     aria-selected={contentTab === id}
                     onClick={() => setContentTab(id)}
                     className={cn(
-                      "zen-pressable min-h-12 shrink-0 rounded-[20px] px-5 text-[15px] font-semibold outline-none transition-[background-color,color,box-shadow]",
-                      "focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
+                      "transition-colors min-h-12 shrink-0 rounded-lg px-5 text-[15px] font-semibold outline-none transition-[background-color,color,box-shadow]",
+                      "focus-visible:ring-2 focus-visible:ring-primary",
                       contentTab === id
-                        ? "bg-[var(--zen-frost)] text-[var(--zen-void)] shadow-[0_16px_38px_-24px_rgba(56,217,255,0.72)]"
-                        : "border border-white/[0.1] bg-black/25 text-white/68 hover:bg-white/[0.08] hover:text-white",
+                        ? "bg-primary text-primary-foreground shadow-lg"
+                        : "border border-border bg-background text-foreground-intense hover:bg-background-muted hover:text-foreground-intense",
                     )}
                   >
                     {label}
-                  </button>
+                  </Button>
                 ))}
               </div>
 
               <div className="grid min-w-0 gap-2 md:grid-cols-2 xl:grid-cols-4">
                 <label className="min-w-0">
                   <span className="sr-only">Category</span>
-                  <select
-                    value={categoryFilter ?? ""}
-                    onChange={(event) => setCategoryFilter(event.target.value || null)}
-                    className="h-12 w-full rounded-[20px] border border-white/[0.11] bg-black/42 px-3 text-[14px] font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                  <Select
+                    value={categoryFilter ?? "all"}
+                    onValueChange={(value) => setCategoryFilter(value === "all" ? null : String(value))}
+                    size="lg"
                   >
-                    <option value="">All categories</option>
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>
+                    <SelectItem value="all">All categories</SelectItem>
                     {categoryOptions.map(({ key, label, count }) => (
-                      <option key={key} value={key}>
+                      <SelectItem key={key} value={key}>
                         {label} ({count.toLocaleString()})
-                      </option>
+                      </SelectItem>
                     ))}
-                  </select>
+                  </SelectContent></Select>
                 </label>
                 <label className="min-w-0">
                   <span className="sr-only">Language</span>
-                  <select
-                    value={languageFilter ?? ""}
-                    onChange={(event) => setLanguageFilter(event.target.value || null)}
-                    className="h-12 w-full rounded-[20px] border border-white/[0.11] bg-black/42 px-3 text-[14px] font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                  <Select
+                    value={languageFilter ?? "all"}
+                    onValueChange={(value) => setLanguageFilter(value === "all" ? null : String(value))}
+                    size="lg"
                   >
-                    <option value="">All languages</option>
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>
+                    <SelectItem value="all">All languages</SelectItem>
                     {languageOptions.map(({ key, label, count }) => (
-                      <option key={key} value={key}>
+                      <SelectItem key={key} value={key}>
                         {label} ({count.toLocaleString()})
-                      </option>
+                      </SelectItem>
                     ))}
-                  </select>
+                  </SelectContent></Select>
                 </label>
                 <label className="min-w-0">
                   <span className="sr-only">Country</span>
-                  <select
-                    value={countryFilter ?? ""}
-                    onChange={(event) => setCountryFilter(event.target.value || null)}
-                    className="h-12 w-full rounded-[20px] border border-white/[0.11] bg-black/42 px-3 text-[14px] font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                  <Select
+                    value={countryFilter ?? "all"}
+                    onValueChange={(value) => setCountryFilter(value === "all" ? null : String(value))}
+                    size="lg"
                   >
-                    <option value="">All countries</option>
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>
+                    <SelectItem value="all">All countries</SelectItem>
                     {countryOptions.map(({ key, label, count }) => (
-                      <option key={key} value={key}>
+                      <SelectItem key={key} value={key}>
                         {label} ({count.toLocaleString()})
-                      </option>
+                      </SelectItem>
                     ))}
-                  </select>
+                  </SelectContent></Select>
                 </label>
                 <label className="min-w-0">
                   <span className="sr-only">Year</span>
-                  <select
-                    value={yearFilter ?? ""}
-                    onChange={(event) => setYearFilter(event.target.value || null)}
-                    className="h-12 w-full rounded-[20px] border border-white/[0.11] bg-black/42 px-3 text-[14px] font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                  <Select
+                    value={yearFilter ?? "all"}
+                    onValueChange={(value) => setYearFilter(value === "all" ? null : String(value))}
+                    size="lg"
                   >
-                    <option value="">All years</option>
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>
+                    <SelectItem value="all">All years</SelectItem>
                     {yearOptions.map(({ key, label, count }) => (
-                      <option key={key} value={key}>
+                      <SelectItem key={key} value={key}>
                         {label} ({count.toLocaleString()})
-                      </option>
+                      </SelectItem>
                     ))}
-                  </select>
+                  </SelectContent></Select>
                 </label>
               </div>
 
               <div className="flex items-center gap-2 xl:justify-end">
-                <div className="flex rounded-[20px] border border-white/[0.1] bg-black/28 p-1" role="group" aria-label="Layout">
-                  <button
+                <div className="flex rounded-lg border border-border bg-background p-1" role="group" aria-label="Layout">
+                  <Button variant="ghost"
                     type="button"
                     onClick={() => setView("posters")}
                     className={cn(
                       "inline-flex min-h-10 items-center gap-2 rounded-2xl px-3.5 text-[14px] font-semibold outline-none transition-colors",
-                      view === "posters" ? "bg-[var(--zen-frost)] text-[var(--zen-void)]" : "text-white/56 hover:bg-white/[0.06] hover:text-white",
+                      view === "posters" ? "bg-primary text-primary-foreground" : "text-foreground-intense hover:bg-background-muted hover:text-foreground-intense",
                     )}
                     aria-pressed={view === "posters"}
                   >
                     <LayoutGrid className="size-4" aria-hidden />
                     Posters
-                  </button>
-                  <button
+                  </Button>
+                  <Button variant="ghost"
                     type="button"
                     onClick={() => setView("compact")}
                     className={cn(
                       "inline-flex min-h-10 items-center gap-2 rounded-2xl px-3.5 text-[14px] font-semibold outline-none transition-colors",
-                      view === "compact" ? "bg-[var(--zen-frost)] text-[var(--zen-void)]" : "text-white/56 hover:bg-white/[0.06] hover:text-white",
+                      view === "compact" ? "bg-primary text-primary-foreground" : "text-foreground-intense hover:bg-background-muted hover:text-foreground-intense",
                     )}
                     aria-pressed={view === "compact"}
                   >
                     <List className="size-4" aria-hidden />
                     List
-                  </button>
+                  </Button>
                 </div>
-                <p className="hidden items-center gap-2 text-[13px] tabular-nums text-white/45 2xl:flex">
+                <p className="hidden items-center gap-2 text-[13px] tabular-nums text-foreground-intense 2xl:flex">
                   <SlidersHorizontal className="size-4 shrink-0 opacity-70" aria-hidden />
                   {filteredCount.toLocaleString()} {catalogNoun(contentTab)}
                 </p>
               </div>
 
               {activeFilters ? (
-                <div className="flex flex-wrap items-center gap-2 border-t border-white/[0.06] pt-3 xl:col-span-3">
-                  <span className="text-[13px] font-semibold text-white/38">Tuned to</span>
+                <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3 xl:col-span-3">
+                  <span className="text-[13px] font-semibold text-foreground-intense">Tuned to</span>
                   {appliedQuery.trim() ? (
-                    <span className="rounded-full bg-[var(--zen-signal)]/12 px-3 py-1.5 text-[13px] font-semibold text-white/88">
+                    <span className="rounded-full bg-primary px-3 py-1.5 text-[13px] font-semibold text-foreground-intense">
                       “{truncateFacet(appliedQuery.trim(), 48)}”
                     </span>
                   ) : null}
                   {categoryLabel ? (
-                    <span className="rounded-full bg-white/[0.08] px-3 py-1.5 text-[13px] font-semibold text-white/82">
+                    <span className="rounded-full bg-background-muted px-3 py-1.5 text-[13px] font-semibold text-foreground-intense">
                       {truncateFacet(categoryLabel)}
                     </span>
                   ) : null}
                   {languageLabel ? (
-                    <span className="rounded-full bg-white/[0.08] px-3 py-1.5 text-[13px] font-semibold text-white/82">
+                    <span className="rounded-full bg-background-muted px-3 py-1.5 text-[13px] font-semibold text-foreground-intense">
                       {languageLabel}
                     </span>
                   ) : null}
                   {countryLabel ? (
-                    <span className="rounded-full bg-white/[0.08] px-3 py-1.5 text-[13px] font-semibold text-white/82">
+                    <span className="rounded-full bg-background-muted px-3 py-1.5 text-[13px] font-semibold text-foreground-intense">
                       {countryLabel}
                     </span>
                   ) : null}
                   {yearLabel ? (
-                    <span className="rounded-full bg-white/[0.08] px-3 py-1.5 text-[13px] font-semibold text-white/82">
+                    <span className="rounded-full bg-background-muted px-3 py-1.5 text-[13px] font-semibold text-foreground-intense">
                       {yearLabel}
                     </span>
                   ) : null}
@@ -562,7 +561,7 @@ export function TvLibraryPage() {
                       setCountryFilter(null);
                       setYearFilter(null);
                     }}
-                    size="xs"
+                    size="sm"
                   >
                     Clear
                   </Button>
@@ -578,16 +577,16 @@ export function TvLibraryPage() {
           className={cn(BROWSE_CONTAINER_CLASS, "mt-4 lg:mt-5")}
         >
           {!resultsBusy && catalogTotal === 0 && contentTab === "movie" ? (
-            <div className="rounded-3xl border border-dashed border-white/[0.12] bg-white/[0.03] px-8 py-16 text-center ring-1 ring-white/[0.04]">
-              <p className="text-[18px] font-semibold text-white">No movies yet</p>
-              <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-white/48">
+            <div className="rounded-3xl border border-dashed border-border bg-background-muted px-8 py-16 text-center ring-1 ring-border">
+              <p className="text-[18px] font-semibold text-foreground-intense">No movies yet</p>
+              <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-foreground-intense">
                 Movies are on-demand files from your IPTV provider (Xtream{" "}
-                <span className="font-mono text-white/55">/movie/…</span> URLs), not 24/7 live
+                <span className="font-mono text-foreground-intense">/movie/…</span> URLs), not 24/7 live
                 movie channels. Re-import your Xtream account in{" "}
                 <Link
                   href="/settings"
                   onClick={onNavigateClick("/settings")}
-                  className="font-medium text-white/90 underline-offset-4 hover:underline"
+                  className="font-medium text-foreground-intense underline-offset-4 hover:underline"
                 >
                   Settings
                 </Link>
@@ -595,14 +594,14 @@ export function TvLibraryPage() {
               </p>
             </div>
           ) : !resultsBusy && catalogTotal === 0 && contentTab === "series" ? (
-            <div className="rounded-3xl border border-dashed border-white/[0.12] bg-white/[0.03] px-8 py-16 text-center ring-1 ring-white/[0.04]">
-              <p className="text-[18px] font-semibold text-white">No shows yet</p>
-              <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-white/48">
+            <div className="rounded-3xl border border-dashed border-border bg-background-muted px-8 py-16 text-center ring-1 ring-border">
+              <p className="text-[18px] font-semibold text-foreground-intense">No shows yet</p>
+              <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-foreground-intense">
                 Shows come from your IPTV series catalog. Re-import your Xtream account in{" "}
                 <Link
                   href="/settings"
                   onClick={onNavigateClick("/settings")}
-                  className="font-medium text-white/90 underline-offset-4 hover:underline"
+                  className="font-medium text-foreground-intense underline-offset-4 hover:underline"
                 >
                   Settings
                 </Link>
@@ -610,16 +609,16 @@ export function TvLibraryPage() {
               </p>
             </div>
           ) : !resultsBusy && catalogTotal === 0 ? (
-            <div className="rounded-3xl border border-dashed border-white/[0.12] bg-white/[0.03] px-8 py-16 text-center ring-1 ring-white/[0.04]">
-              <p className="text-[18px] font-semibold text-white">
+            <div className="rounded-3xl border border-dashed border-border bg-background-muted px-8 py-16 text-center ring-1 ring-border">
+              <p className="text-[18px] font-semibold text-foreground-intense">
                 No channels yet
               </p>
-              <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-white/48">
+              <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-foreground-intense">
                 Run{" "}
                 <Link
                   href="/setup"
                   onClick={onNavigateClick("/setup")}
-                  className="font-medium text-white/90 underline-offset-4 hover:underline"
+                  className="font-medium text-foreground-intense underline-offset-4 hover:underline"
                 >
                   Set up
                 </Link>{" "}
@@ -627,7 +626,7 @@ export function TvLibraryPage() {
                 <Link
                   href="/settings"
                   onClick={onNavigateClick("/settings")}
-                  className="font-medium text-white/90 underline-offset-4 hover:underline"
+                  className="font-medium text-foreground-intense underline-offset-4 hover:underline"
                 >
                   Settings
                 </Link>{" "}
@@ -635,12 +634,12 @@ export function TvLibraryPage() {
               </p>
             </div>
           ) : !resultsBusy && filteredCount === 0 ? (
-            <div className="zen-panel flex flex-col items-center justify-center rounded-[32px] px-8 py-20 text-center">
-              <Search className="mb-4 size-10 text-[var(--zen-signal)]/60" aria-hidden />
-              <p className="text-[22px] font-semibold tracking-[-0.04em] text-white">
+            <div className="border border-border bg-background-subtle shadow-sm flex flex-col items-center justify-center rounded-lg px-8 py-20 text-center">
+              <Search className="mb-4 size-10 text-primary-strong/60" aria-hidden />
+              <p className="text-[22px] font-semibold tracking-[-0.04em] text-foreground-intense">
                 No matches
               </p>
-              <p className="zen-body-muted mt-2 max-w-sm">
+              <p className="text-sm text-foreground-muted mt-2 max-w-sm">
                 Try a shorter search, pick another category or language, or clear
                 filters.
               </p>
@@ -693,7 +692,7 @@ export function TvLibraryPage() {
                   </Button>
                 </div>
               ) : filteredCount > PAGE_STEP ? (
-                <p className="pb-4 text-center text-[13px] text-white/35">
+                <p className="pb-4 text-center text-[13px] text-foreground-intense">
                   Showing all {filteredCount.toLocaleString()} matches in this
                   view.
                 </p>
@@ -729,11 +728,11 @@ export function TvLibraryPage() {
                         }
                       }}
                       className={cn(
-                        "group flex w-full items-center gap-4 rounded-[22px] border border-white/[0.1]",
-                        "bg-white/[0.05] p-3 text-left ring-1 ring-white/[0.045]",
+                        "group flex w-full items-center gap-4 rounded-lg border border-border",
+                        "bg-background-muted p-3 text-left ring-1 ring-border",
                         "transition-[transform,background-color,box-shadow] duration-200",
-                        "hover:border-white/[0.14] hover:bg-white/[0.07]",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
+                        "hover:border-border hover:bg-background-muted",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                       )}
                     >
                       <div className="relative size-[52px] shrink-0">
@@ -753,26 +752,26 @@ export function TvLibraryPage() {
                         ) : null}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[16px] font-semibold text-white">
+                        <p className="truncate text-[16px] font-semibold text-foreground-intense">
                           {parsed.displayName || "Untitled"}
                         </p>
-                        <p className="mt-0.5 truncate text-[13px] text-white/45">
+                        <p className="mt-0.5 truncate text-[13px] text-foreground-intense">
                           {sanitizeGroupTitle(ch.groupTitle) ?? "Live"}
                         </p>
                       </div>
-                      <span className="flex shrink-0 items-center gap-1 text-[14px] font-semibold text-white/55 group-hover:text-white">
+                      <span className="flex shrink-0 items-center gap-1 text-[14px] font-semibold text-foreground-intense group-hover:text-foreground-intense">
                         {contentTypeFromStreamUrl(ch.url) === "live" ? (
-                          <button
+                          <Button variant="ghost"
                             type="button"
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
                               setPreviewChannel(ch);
                             }}
-                            className="mr-2 rounded-full border border-white/[0.16] bg-black/55 px-3 py-1 text-[12px] font-semibold text-white/88 hover:bg-white/[0.1]"
+                            className="mr-2 rounded-full border border-border bg-background px-3 py-1 text-[12px] font-semibold text-foreground-intense hover:bg-background-muted"
                           >
                             Preview
-                          </button>
+                          </Button>
                         ) : null}
                         Play
                         <ChevronRight className="size-4 opacity-70" aria-hidden />
@@ -797,8 +796,8 @@ export function TvLibraryPage() {
         </LibraryResultsShell>
       </main>
 
-      <footer className="border-t border-white/[0.06] py-10 text-center">
-        <p className="text-[13px] leading-relaxed text-white/35">
+      <footer className="border-t border-border py-10 text-center">
+        <p className="text-[13px] leading-relaxed text-foreground-intense">
           Third-party streams. You are responsible for content you access.
         </p>
       </footer>

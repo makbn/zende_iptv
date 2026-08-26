@@ -1,11 +1,12 @@
 "use client";
 
 import { FullGuideBrowser } from "@/components/guide/full-guide-browser";
+import { BROWSE_CONTAINER_CLASS } from "@/components/layout/browse-page-shell";
 import {
-  CinematicCommandPanel,
-  CinematicHero,
-  CinematicMetrics,
-} from "@/components/layout/cinematic-v2";
+  AppicaPanel,
+  AppicaHero,
+  AppicaMetrics,
+} from "@/components/layout/appica-page";
 import {
   TV_BROWSE_TOP_PAD_CLASS,
 } from "@/components/tv/tv-top-bar";
@@ -58,18 +59,18 @@ export function GuidePageView({ mobile = false }: { mobile?: boolean }) {
   const padClass = mobile ? "pb-28 pt-[5.35rem]" : cn("pb-28", TV_BROWSE_TOP_PAD_CLASS);
 
   return (
-    <div className={cn("zen-page-bg min-h-screen text-foreground", padClass)}>
+    <div className={cn("bg-background min-h-screen text-foreground", padClass)}>
       <main className={mobile ? "px-4" : undefined}>
         {!mobile ? (
-          <CinematicHero
+          <AppicaHero
             className="pb-8 pt-8"
             eyebrow="Guide"
             title="TV guide"
             description="Search every live channel and programme, preview it, and inspect the complete provider schedule."
             aside={
-              <CinematicCommandPanel>
-                <p className="zen-kicker">Guide status</p>
-                <CinematicMetrics
+              <AppicaPanel>
+                <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">Guide status</p>
+                <AppicaMetrics
                   className="mt-4"
                   metrics={[
                     {
@@ -88,19 +89,19 @@ export function GuidePageView({ mobile = false }: { mobile?: boolean }) {
                     },
                   ]}
                 />
-                <p className="mt-5 text-[14px] leading-relaxed text-white/56">
+                <p className="mt-5 text-[14px] leading-relaxed text-foreground-intense">
                   Provider schedules load automatically for channels that include an EPG ID.
                 </p>
-              </CinematicCommandPanel>
+              </AppicaPanel>
             }
           />
         ) : (
-          <section className="zen-card mb-4 rounded-[24px] px-4 py-3">
-            <p className="zen-kicker text-[10px]">
+          <section className="border border-border bg-background-subtle shadow-sm mb-4 rounded-lg px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted text-[10px]">
               Guide
             </p>
-            <h1 className="mt-1 text-[1.45rem] font-semibold tracking-[-0.055em] text-white">TV guide</h1>
-            <p className="mt-2 text-[12px] text-white/50">
+            <h1 className="mt-1 text-[1.45rem] font-semibold tracking-[-0.055em] text-foreground-intense">TV guide</h1>
+            <p className="mt-2 text-[12px] text-foreground-intense">
               Search channels and programmes, then select one for its full schedule and live preview.
             </p>
           </section>
@@ -110,7 +111,7 @@ export function GuidePageView({ mobile = false }: { mobile?: boolean }) {
           className={
             mobile
               ? "space-y-6"
-              : "mx-auto max-w-[1920px] space-y-10 px-6 sm:px-10 lg:px-14 xl:px-20"
+              : cn(BROWSE_CONTAINER_CLASS, "space-y-10")
           }
         >
           <FullGuideBrowser
@@ -122,8 +123,8 @@ export function GuidePageView({ mobile = false }: { mobile?: boolean }) {
       </main>
 
       {!mobile ? (
-        <footer className="mt-10 border-t border-white/[0.06] py-10 text-center">
-          <p className="text-[13px] text-white/35">
+        <footer className="mt-10 border-t border-border py-10 text-center">
+          <p className="text-[13px] text-foreground-intense">
             Guide data from your IPTV provider, with public XMLTV fallback when available.
           </p>
         </footer>

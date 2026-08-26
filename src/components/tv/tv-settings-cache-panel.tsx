@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 
 import { useAuth } from "@/features/auth/auth-context";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Button } from "@/components/ui/button";
+import { AppicaConfirmDialog } from "@/components/appica/confirm-dialog";
+import { Button } from "@appica/ui-react/button";
 import { ZendeSpinner } from "@/components/loading/zende-spinner";
 
 type CacheSnapshot = {
@@ -87,14 +87,14 @@ export function TvSettingsCachePanel() {
   };
 
   return (
-    <section className="rounded-[28px] border border-white/[0.1] bg-white/[0.04] p-5 ring-1 ring-white/[0.04] sm:p-6" aria-labelledby="cache-management-heading">
+    <section className="rounded-lg border border-border bg-background-muted p-5 ring-1 ring-border sm:p-6" aria-labelledby="cache-management-heading">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="zen-kicker">Administrator only</p>
-          <h2 id="cache-management-heading" className="mt-1 text-[18px] font-semibold text-white">
+          <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">Administrator only</p>
+          <h2 id="cache-management-heading" className="mt-1 text-[18px] font-semibold text-foreground-intense">
             Cache management
           </h2>
-          <p className="mt-2 max-w-3xl text-[14px] leading-relaxed text-white/50">
+          <p className="mt-2 max-w-3xl text-[14px] leading-relaxed text-foreground-intense">
             Clear one resource pool without disturbing the others. Active viewers continue normally; the next uncached request refills that pool.
           </p>
         </div>
@@ -110,16 +110,16 @@ export function TvSettingsCachePanel() {
 
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {caches.map((cache) => (
-          <article key={cache.id} className="rounded-[20px] border border-white/[0.09] bg-black/20 p-4">
+          <article key={cache.id} className="rounded-lg border border-border bg-background p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h3 className="text-[15px] font-semibold text-white">{cache.label}</h3>
-                <p className="mt-1 text-[12px] leading-relaxed text-white/42">{cache.description}</p>
+                <h3 className="text-[15px] font-semibold text-foreground-intense">{cache.label}</h3>
+                <p className="mt-1 text-[12px] leading-relaxed text-foreground-intense">{cache.description}</p>
               </div>
               <Button
                 type="button"
                 size="sm"
-                variant="danger"
+                variant="destructive"
                 disabled={clearing != null}
                 onClick={() => setPendingClear(cache)}
                 className="shrink-0"
@@ -128,20 +128,20 @@ export function TvSettingsCachePanel() {
               </Button>
             </div>
             <dl className="mt-4 grid grid-cols-3 gap-2 text-[11px]">
-              <div><dt className="text-white/35">Entries</dt><dd className="mt-0.5 font-medium text-white/80">{cache.entries.toLocaleString()}</dd></div>
-              <div><dt className="text-white/35">Stored</dt><dd className="mt-0.5 font-medium text-white/80">{formatBytes(cache.bytes)}</dd></div>
-              <div><dt className="text-white/35">Retention</dt><dd className="mt-0.5 font-medium text-white/80">{formatTtl(cache.ttlMs)}</dd></div>
+              <div><dt className="text-foreground-intense">Entries</dt><dd className="mt-0.5 font-medium text-foreground-intense">{cache.entries.toLocaleString()}</dd></div>
+              <div><dt className="text-foreground-intense">Stored</dt><dd className="mt-0.5 font-medium text-foreground-intense">{formatBytes(cache.bytes)}</dd></div>
+              <div><dt className="text-foreground-intense">Retention</dt><dd className="mt-0.5 font-medium text-foreground-intense">{formatTtl(cache.ttlMs)}</dd></div>
             </dl>
             {cache.detail || cache.inFlight > 0 ? (
-              <p className="mt-3 text-[11px] text-white/34">
+              <p className="mt-3 text-[11px] text-foreground-intense">
                 {[cache.detail, cache.inFlight > 0 ? `${cache.inFlight} loading now` : null].filter(Boolean).join(" · ")}
               </p>
             ) : null}
           </article>
         ))}
       </div>
-      {message ? <p className="mt-4 text-[13px] text-white/60" role="status">{message}</p> : null}
-      <ConfirmDialog
+      {message ? <p className="mt-4 text-[13px] text-foreground-intense" role="status">{message}</p> : null}
+      <AppicaConfirmDialog
         open={Boolean(pendingClear)}
         title={`Clear ${pendingClear?.label ?? "this cache"}?`}
         description="New requests will fetch this data again from its source. Other cache pools will not be affected."

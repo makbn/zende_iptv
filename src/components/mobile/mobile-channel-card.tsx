@@ -1,5 +1,7 @@
 "use client";
 
+import { Button } from "@appica/ui-react/button";
+
 import { Play, Tv } from "lucide-react";
 
 import { ChannelHealthBadge } from "@/components/health/channel-health-badge";
@@ -63,16 +65,16 @@ export function MobileChannelCard({
           }
         }}
         className={cn(
-          "group relative w-full overflow-hidden rounded-[22px] text-left outline-none sm:rounded-[26px]",
-          "border border-white/[0.11] bg-white/[0.055] ring-1 ring-white/[0.05]",
+          "group relative w-full overflow-hidden rounded-lg text-left outline-none sm:rounded-lg",
+          "border border-border bg-background-muted ring-1 ring-border",
           fastMode
-            ? "shadow-[0_12px_32px_-20px_rgba(0,0,0,0.8)] transition-[background-color,border-color] duration-150"
-            : "shadow-[0_20px_54px_-28px_rgba(0,0,0,0.94)] transition-[transform,box-shadow,border-color,background-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+            ? "shadow-lg transition-[background-color,border-color] duration-150"
+            : "shadow-lg transition-[transform,box-shadow,border-color,background-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
           !fastMode && "active:scale-[0.985] motion-reduce:transition-none",
-          "focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--tv-page-bg)]",
+          "focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           fastMode
-            ? "hover:border-white/[0.14] hover:bg-white/[0.055]"
-            : "motion-safe:hover:-translate-y-0.5 motion-safe:hover:border-white/[0.14] motion-safe:hover:bg-white/[0.055] motion-safe:hover:shadow-[0_22px_50px_-22px_rgba(0,0,0,0.92)]",
+            ? "hover:border-border hover:bg-background-muted"
+            : "motion-safe:hover:-translate-y-0.5 motion-safe:hover:border-border motion-safe:hover:bg-background-muted motion-safe:hover:shadow-lg",
           compact ? "min-h-[92px]" : "aspect-[2/3]",
         )}
         aria-label={`Play ${displayName}`}
@@ -96,7 +98,7 @@ export function MobileChannelCard({
                 fit={compact ? "contain" : "cover"}
                 aspect="fill"
               />
-              <div className="absolute inset-x-0 bottom-0 h-[50%] bg-gradient-to-t from-black/82 via-black/34 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 h-[50%] bg-gradient-to-t from-background via-background to-transparent" />
             </>
           ) : (
             <>
@@ -104,22 +106,17 @@ export function MobileChannelCard({
                 className="absolute inset-0"
                 style={{ background: gradientFromName(displayName) }}
               />
-              <div className="absolute inset-x-0 bottom-0 h-[50%] bg-gradient-to-t from-black/76 via-black/26 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 h-[50%] bg-gradient-to-t from-background via-background to-transparent" />
             </>
           )}
         </div>
         <div
-          className="pointer-events-none absolute inset-0 bg-[linear-gradient(110deg,transparent_0_38%,rgba(255,255,255,0.1)_48%,transparent_60%)] opacity-0 transition-opacity duration-300 group-active:opacity-100 group-hover:opacity-100"
+          className="pointer-events-none absolute inset-0 bg-background-subtle opacity-0 transition-opacity duration-300 group-active:opacity-100 group-hover:opacity-100"
           aria-hidden
         />
-        <div
-          className="pointer-events-none absolute inset-y-3 left-2.5 w-0.5 rounded-full bg-[var(--zen-signal)]/0 transition-colors duration-300 group-active:bg-[var(--zen-signal)]/70 group-hover:bg-[var(--zen-signal)]/70 sm:inset-y-4 sm:left-3 sm:w-1"
-          aria-hidden
-        />
-
         <div
           className={cn(
-            "relative z-10 flex h-full min-h-[inherit] flex-col justify-end p-3 pl-4 sm:p-4 sm:pl-5",
+            "relative z-10 flex h-full min-h-[inherit] flex-col justify-end p-3 sm:p-4",
             compact && "ml-[112px] min-h-[92px] justify-center py-3 pl-3",
           )}
         >
@@ -127,17 +124,17 @@ export function MobileChannelCard({
             {contentType === "live" ? <ChannelHealthBadge score={healthScore} /> : null}
             <ChannelArtBadge parsed={parsed} contentType={contentType} />
           </div>
-          <p className="line-clamp-2 text-[14px] font-semibold leading-tight tracking-[-0.025em] text-white sm:text-[16px]">
+          <p className="line-clamp-2 text-[14px] font-semibold leading-tight tracking-[-0.025em] text-foreground-intense sm:text-[16px]">
             {displayName}
           </p>
           {meta ? (
-            <p className="mt-0.5 truncate text-[11px] font-medium text-white/48 sm:mt-1 sm:text-[12px]">
+            <p className="mt-0.5 truncate text-[11px] font-medium text-foreground-intense sm:mt-1 sm:text-[12px]">
               {meta}
             </p>
           ) : null}
         </div>
 
-        <span className="absolute bottom-2.5 right-2.5 z-20 flex size-8 items-center justify-center rounded-full bg-white/[0.14] text-white/90 ring-1 ring-white/[0.1] backdrop-blur-xl sm:bottom-3 sm:right-3 sm:size-10">
+        <span className="absolute bottom-2.5 right-2.5 z-20 flex size-8 items-center justify-center rounded-full bg-background-muted text-foreground-intense ring-1 ring-border backdrop-blur-xl sm:bottom-3 sm:right-3 sm:size-10">
           <Play className="ml-0.5 size-3.5 fill-current sm:size-4" aria-hidden />
         </span>
       </div>
@@ -149,7 +146,7 @@ export function MobileChannelCard({
       ) : null}
       {onPreview ? (
         <div className="absolute bottom-3 left-3 z-30">
-          <button
+          <Button variant="ghost"
             type="button"
             onClick={(e) => {
               e.preventDefault();
@@ -157,14 +154,14 @@ export function MobileChannelCard({
               onPreview(channel);
             }}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border border-white/[0.16] bg-black/62 px-3 py-1.5 text-[12px] font-semibold text-white/88 outline-none backdrop-blur-xl",
-              "hover:bg-white/[0.12] focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
+              "inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-[12px] font-semibold text-foreground-intense outline-none backdrop-blur-xl",
+              "hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-primary",
             )}
             aria-label={`Preview ${displayName}`}
           >
             <Tv className="size-3.5" aria-hidden />
             Preview
-          </button>
+          </Button>
         </div>
       ) : null}
     </article>

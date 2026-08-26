@@ -69,7 +69,7 @@ export async function POST(request: Request, context: RouteContext) {
 
   if (parsed.data.type === "navigate") {
     const href = parsed.data.payload.href;
-    if (!href.startsWith("/")) {
+    if (!href.startsWith("/") || href.startsWith("//")) {
       return NextResponse.json({ error: "Only app-relative URLs are allowed." }, { status: 400 });
     }
   }

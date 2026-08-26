@@ -1,7 +1,9 @@
 "use client";
 
+import { Button } from "@appica/ui-react/button";
+
 import type { BuiltinPlaylistSource } from "@/config/builtin-playlist-sources";
-import { ZendeGlass } from "@/components/glass/zende-glass";
+import { Card } from "@appica/ui-react/card";
 import { ZendeSpinner } from "@/components/loading/zende-spinner";
 import { TvContentRow } from "@/components/tv/tv-content-row";
 
@@ -34,18 +36,18 @@ export function TvCatalogSetupStrip({
       description="Caches the public world index on this device. Add your own streams anytime in Settings, or refresh the index here."
     >
       <div className="min-w-full shrink-0 snap-start">
-        <ZendeGlass variant="panel" className="shadow-[0_24px_80px_-32px_rgba(0,0,0,0.85)]">
+        <Card frame="glass" className="shadow-lg">
           <div className="flex flex-col gap-5 px-8 py-7 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0 space-y-2">
-              <p className="text-[17px] font-semibold tracking-tight text-white">
+              <p className="text-[17px] font-semibold tracking-tight text-foreground-intense">
                 {source.label}
               </p>
-              <p className="max-w-[560px] text-[15px] leading-relaxed text-white/48">
+              <p className="max-w-[560px] text-[15px] leading-relaxed text-foreground-intense">
                 Downloads and caches channel names, groups, and stream links locally
                 so browsing stays fast — even on slower connections.
               </p>
               {channelCount != null ? (
-                <p className="text-[14px] font-medium text-emerald-400/90">
+                <p className="text-[14px] font-medium text-success-strong">
                   {channelCount.toLocaleString()} channels on this device
                   {manualChannelCount > 0
                     ? ` (${manualChannelCount.toLocaleString()} added by you)`
@@ -54,38 +56,25 @@ export function TvCatalogSetupStrip({
                 </p>
               ) : null}
               {error ? (
-                <p className="text-[14px] font-medium text-red-400/95" role="alert">
+                <p className="text-[14px] font-medium text-error-strong" role="alert">
                   {error}
                 </p>
               ) : null}
             </div>
-            <button
+            <Button variant="secondary"
+              size="lg"
               type="button"
               disabled={busy}
               onClick={onRefresh}
               aria-busy={busy}
-              className="group shrink-0 self-start border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--tv-page-bg)] disabled:pointer-events-none disabled:opacity-45"
+              className="shrink-0 self-start"
             >
-              <ZendeGlass
-                variant="heroSecondary"
-                className="inline-flex transition-transform duration-200 group-hover:scale-[1.02] group-active:scale-[0.98]"
-              >
-                <span className="inline-flex h-11 min-w-[132px] items-center justify-center gap-2 px-7 text-[15px] font-semibold text-white">
-                  {busy ? (
-                    <>
-                      <ZendeSpinner size="tiny" label="Updating catalog" />
-                      Updating…
-                    </>
-                  ) : registered ? (
-                    "Refresh catalog"
-                  ) : (
-                    "Add catalog"
-                  )}
-                </span>
-              </ZendeGlass>
-            </button>
+              {busy ? (
+                <><ZendeSpinner size="tiny" label="Updating catalog" /> Updating…</>
+              ) : registered ? "Refresh catalog" : "Add catalog"}
+            </Button>
           </div>
-        </ZendeGlass>
+        </Card>
       </div>
     </TvContentRow>
   );

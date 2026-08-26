@@ -1,5 +1,7 @@
 "use client";
 
+import { Button } from "@appica/ui-react/button";
+
 import {
   createContext,
   useCallback,
@@ -14,7 +16,8 @@ import { Gamepad2, Monitor, Tv, X } from "lucide-react";
 
 import { useAuth } from "@/features/auth/auth-context";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { AppicaConfirmDialog } from "@/components/appica/confirm-dialog";
+import { sanitizeRemoteHref } from "@/lib/navigation/remote-href";
 
 type RemoteCommand =
   | { type: "navigate"; payload: { href: string } }
@@ -99,11 +102,6 @@ function remotePathname(path: string): string {
   const raw = path.split("#")[0] ?? path;
   const queryStart = raw.indexOf("?");
   return queryStart === -1 ? raw : raw.slice(0, queryStart);
-}
-
-function sanitizeRemoteHref(href: string): string {
-  if (!href.startsWith("/")) return href;
-  return remotePathname(href);
 }
 
 function pathnameLabel(pathname: string): string {
@@ -217,6 +215,7 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
     async (href: string) => {
       if (!activeSessionId) return false;
       const targetHref = sanitizeRemoteHref(href);
+      if (!targetHref) return false;
       pendingRemotePathRef.current = remotePathname(targetHref);
       const sent = await sendCommand({ type: "navigate", payload: { href: targetHref } });
       if (!sent) pendingRemotePathRef.current = null;
@@ -306,8 +305,8 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
         typeof payload.commandSeq === "number" ? payload.commandSeq : commandCursorRef.current;
       for (const command of commands) {
         if (command.type === "navigate") {
-          const href = command.payload.href;
-          if (href.startsWith("/")) window.location.assign(href);
+          const href = sanitizeRemoteHref(command.payload.href);
+          if (href) window.location.assign(href);
           continue;
         }
         window.dispatchEvent(
@@ -389,29 +388,29 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
       {children}
       {isMobileController && sessionPickerOpen ? (
         <div
-          className="fixed inset-0 z-[120] flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[120] flex items-end justify-center bg-background p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-label="Choose device to control"
           onClick={closeSessionPicker}
         >
           <div
-            className="w-full max-w-md rounded-2xl border border-white/10 bg-[#12141a] p-4 shadow-2xl"
+            className="w-full max-w-md rounded-2xl border border-border bg-background p-4 shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-white">Control a device</h2>
-              <button
+              <h2 className="text-base font-semibold text-foreground-intense">Control a device</h2>
+              <Button variant="ghost"
                 type="button"
                 onClick={closeSessionPicker}
-                className="rounded-lg p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                className="rounded-lg p-2 text-foreground-intense transition-colors hover:bg-background-muted hover:text-foreground-intense"
                 aria-label="Close"
               >
                 <X className="size-4" aria-hidden />
-              </button>
+              </Button>
             </div>
             {sessions.length === 0 ? (
-              <p className="py-6 text-center text-sm text-white/55">
+              <p className="py-6 text-center text-sm text-foreground-intense">
                 No devices online. Open Zende on your TV (same account) and try again.
               </p>
             ) : (
@@ -419,26 +418,26 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
                 {sessions.map((session) => {
                   return (
                     <li key={session.sessionId}>
-                      <button
+                      <Button variant="ghost"
                         type="button"
                         onClick={() => {
                           setSessionPickerOpen(false);
                           setPendingEnableSessionId(session.sessionId);
                         }}
-                        className="flex w-full items-center gap-3 rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3 text-left transition-colors hover:bg-white/[0.06]"
+                        className="flex w-full items-center gap-3 rounded-xl border border-border bg-background-muted px-3 py-3 text-left transition-colors hover:bg-background-muted"
                       >
-                        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-white/70">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-background-muted text-foreground-intense">
                           <SessionKindIcon kind={session.kind} className="size-5" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-white">
+                          <p className="truncate text-sm font-medium text-foreground-intense">
                             {session.label}
                           </p>
-                          <p className="truncate text-xs text-white/50">
+                          <p className="truncate text-xs text-foreground-intense">
                             {pathnameLabel(session.pathname)} · {formatLastSeen(session.lastSeenAt)}
                           </p>
                         </div>
-                      </button>
+                      </Button>
                     </li>
                   );
                 })}
@@ -447,7 +446,7 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
           </div>
         </div>
       ) : null}
-      <ConfirmDialog
+      <AppicaConfirmDialog
         open={Boolean(isMobileController && pendingEnableSession)}
         title={`Control ${pendingEnableSession?.label ?? "this device"}?`}
         description="Navigation, search, and playback controls will be sent to this device until you disable Remote."
@@ -457,7 +456,7 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
           if (pendingEnableSession) enterRemoteMode(pendingEnableSession.sessionId);
         }}
       />
-      <ConfirmDialog
+      <AppicaConfirmDialog
         open={Boolean(isMobileController && disableConfirmOpen && activeSession)}
         title={`Stop controlling ${activeSession?.label ?? "this device"}?`}
         description="Your phone will return to normal local navigation."

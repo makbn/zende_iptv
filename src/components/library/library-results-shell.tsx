@@ -23,14 +23,14 @@ export function LibraryResultsShell({
     <div id={id} className={cn("relative scroll-mt-24", className)}>
       {busy ? (
         <div
-          className="pointer-events-none absolute inset-0 z-20 flex items-start justify-center bg-black/18 pt-20 sm:pt-28"
+          className="pointer-events-none absolute inset-0 z-20 flex items-start justify-center bg-background pt-20 sm:pt-28"
           role="status"
           aria-live="polite"
           aria-busy="true"
         >
-          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/82 px-5 py-3 shadow-xl">
+          <div className="flex items-center gap-3 rounded-2xl border border-border bg-background px-5 py-3 shadow-xl">
             <ZendeSpinner size="small" label={label} />
-            <span className="text-[14px] font-medium text-white/90">{label}</span>
+            <span className="text-[14px] font-medium text-foreground-intense">{label}</span>
           </div>
         </div>
       ) : null}

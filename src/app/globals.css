@@ -1,7 +1,7 @@
-@import "../styles/tokens.css";
-@import "../styles/palette.css";
-@import "../styles/base.css";
-@import "../styles/zen.css";
+@import "tailwindcss";
+@import "@appica/ui-react/styles.css";
+@source "../../node_modules/@appica/ui-react/dist";
+@source "../**/*.{ts,tsx}";
+
+@import "../styles/appica-app.css";
 @import "../styles/layout.css";
-@import "../styles/utilities.css";
-@import "../styles/fixes.css";

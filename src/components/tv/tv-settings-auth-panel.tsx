@@ -1,9 +1,15 @@
 "use client";
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@appica/ui-react/select";
+
+import { Input } from "@appica/ui-react/input";
+
+import { Button } from "@appica/ui-react/button";
+
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
-import { ZendeGlass } from "@/components/glass/zende-glass";
+import { Card } from "@appica/ui-react/card";
 import { ZendeSpinner } from "@/components/loading/zende-spinner";
 import { useAuth } from "@/features/auth/auth-context";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
@@ -292,36 +298,36 @@ export function TvSettingsAuthPanel() {
   }, [activityId, loadActivity, loadUsers]);
 
   return (
-    <section
-      className={cn(
-        "rounded-2xl border border-white/[0.1] bg-white/[0.04] p-6 ring-1 ring-white/[0.04]",
-      )}
-      aria-labelledby="settings-auth-heading"
+    <Card
+      frame="solid"
+      inset={false}
+      render={<section aria-labelledby="settings-auth-heading" />}
+      contentProps={{ className: "p-6" }}
     >
       <h2
         id="settings-auth-heading"
-        className="text-[18px] font-semibold text-white"
+        className="text-[18px] font-semibold text-foreground-intense"
       >
         Authentication
       </h2>
-      <p className="mt-2 text-[15px] leading-relaxed text-white/50">
+      <p className="mt-2 text-[15px] leading-relaxed text-foreground-intense">
         Optional login protects this deployment. Access and refresh tokens are stored in
         this browser until you sign out.
       </p>
 
       {!authEnabled && userCount > 0 && !user ? (
-        <div className="mt-6 rounded-xl border border-white/[0.1] bg-amber-500/10 px-5 py-4">
-          <p className="text-[15px] font-medium text-white/90">
+        <div className="mt-6 rounded-xl border border-border bg-warning-subtle px-5 py-4">
+          <p className="text-[15px] font-medium text-foreground-intense">
             Login is optional right now, but accounts already exist.
           </p>
-          <p className="mt-2 text-[14px] leading-relaxed text-white/55">
-            Sign in as an <span className="text-white/75">administrator</span> to turn on
+          <p className="mt-2 text-[14px] leading-relaxed text-foreground-intense">
+            Sign in as an <span className="text-foreground-intense">administrator</span> to turn on
             required login or manage users. In open-access mode only admins can sign in for
             management.
           </p>
           <Link
             href="/login?next=/settings"
-            className="mt-4 inline-flex rounded-xl border border-white/[0.14] bg-white/[0.08] px-4 py-2.5 text-[14px] font-semibold text-white outline-none transition-colors hover:bg-white/[0.12] focus-visible:ring-2 focus-visible:ring-white"
+            className="mt-4 inline-flex rounded-xl border border-border bg-background-muted px-4 py-2.5 text-[14px] font-semibold text-foreground-intense outline-none transition-colors hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-border"
           >
             Sign in as admin
           </Link>
@@ -330,323 +336,300 @@ export function TvSettingsAuthPanel() {
 
       {!authEnabled && userCount === 0 ? (
         <form
-          className="mt-6 space-y-4 rounded-xl border border-white/[0.08] bg-black/20 p-5"
+          className="mt-6 space-y-4 rounded-xl border border-border bg-background p-5"
           onSubmit={(e) => {
             e.preventDefault();
             void onBootstrap();
           }}
         >
-          <p className="text-[15px] font-medium text-white/85">
+          <p className="text-[15px] font-medium text-foreground-intense">
             Create the administrator
           </p>
-          <p className="text-[14px] text-white/45">
+          <p className="text-[14px] text-foreground-intense">
             This account always remains the bootstrap administrator (it cannot be
             deleted). Server recovery script can reset its password if you lock
             yourself out.
           </p>
           <label className="block">
-            <span className="text-[13px] text-white/55">Username</span>
-            <input
+            <span className="text-[13px] text-foreground-intense">Username</span>
+            <Input
               name="bootstrap-username"
               autoComplete="username"
               value={bootUser}
-              onChange={(e) => setBootUser(e.target.value)}
-              className="mt-1 h-11 w-full rounded-xl border border-white/[0.12] bg-black/40 px-3 text-[15px] text-white outline-none focus-visible:ring-2 focus-visible:ring-white"
+              onValueChange={(value) => setBootUser(value)}
+              inputSize="lg"
+              className="mt-1 w-full"
             />
           </label>
           <label className="block">
-            <span className="text-[13px] text-white/55">Password</span>
-            <input
+            <span className="text-[13px] text-foreground-intense">Password</span>
+            <Input
               name="bootstrap-password"
               type="password"
               autoComplete="new-password"
               value={bootPass}
-              onChange={(e) => setBootPass(e.target.value)}
-              className="mt-1 h-11 w-full rounded-xl border border-white/[0.12] bg-black/40 px-3 text-[15px] text-white outline-none focus-visible:ring-2 focus-visible:ring-white"
+              onValueChange={(value) => setBootPass(value)}
+              inputSize="lg"
+              className="mt-1 w-full"
             />
           </label>
           <label className="block">
-            <span className="text-[13px] text-white/55">Confirm password</span>
-            <input
+            <span className="text-[13px] text-foreground-intense">Confirm password</span>
+            <Input
               name="bootstrap-password-confirm"
               type="password"
               autoComplete="new-password"
               value={bootPass2}
-              onChange={(e) => setBootPass2(e.target.value)}
-              className="mt-1 h-11 w-full rounded-xl border border-white/[0.12] bg-black/40 px-3 text-[15px] text-white outline-none focus-visible:ring-2 focus-visible:ring-white"
+              onValueChange={(value) => setBootPass2(value)}
+              inputSize="lg"
+              className="mt-1 w-full"
             />
           </label>
-          <button
+          <Button variant="primary"
+            size="lg"
             type="submit"
-            data-button-variant="success"
             disabled={busy}
-            className="outline-none disabled:opacity-50"
           >
-            <ZendeGlass variant="ctaPill">
-              <span className="flex px-5 py-2.5 text-[15px] font-semibold text-zinc-950">
-                Enable login & create administrator
-              </span>
-            </ZendeGlass>
-          </button>
+            Enable login & create administrator
+          </Button>
         </form>
       ) : null}
 
       {user ? (
         <div className="mt-6 flex flex-wrap items-center gap-3">
-          <span className="text-[14px] text-white/55">
+          <span className="text-[14px] text-foreground-intense">
             Signed in as{" "}
-            <span className="font-medium text-white/85">{user.username}</span>
+            <span className="font-medium text-foreground-intense">{user.username}</span>
             {user.role === "ADMIN" ? " (admin)" : ""}
           </span>
-          <button type="button" onClick={() => void logout()} className="outline-none">
-            <ZendeGlass variant="heroSecondary" className="inline-block">
-              <span className="flex px-4 py-2 text-[14px] font-semibold text-white">
-                Sign out
-              </span>
-            </ZendeGlass>
-          </button>
+          <Button variant="secondary" type="button" onClick={() => void logout()}>
+            Sign out
+          </Button>
         </div>
       ) : null}
 
       {user ? (
         <form
-          className="mt-6 grid gap-3 rounded-xl border border-white/[0.08] bg-black/20 p-5 sm:grid-cols-3"
+          className="mt-6 grid gap-3 rounded-xl border border-border bg-background p-5 sm:grid-cols-3"
           onSubmit={(event) => {
             event.preventDefault();
             void changeOwnPassword();
           }}
         >
           <div className="sm:col-span-3">
-            <p className="text-[15px] font-medium text-white/90">Change my password</p>
-            <p className="mt-1 text-[13px] text-white/45">You will be signed out after the password changes.</p>
+            <p className="text-[15px] font-medium text-foreground-intense">Change my password</p>
+            <p className="mt-1 text-[13px] text-foreground-intense">You will be signed out after the password changes.</p>
           </div>
-          <input type="password" autoComplete="current-password" placeholder="Current password" value={currentPass} onChange={(event) => setCurrentPass(event.target.value)} className="h-11 rounded-xl border border-white/[0.12] bg-black/35 px-3 text-[14px] text-white" />
-          <input type="password" autoComplete="new-password" placeholder="New password" value={newPass} onChange={(event) => setNewPass(event.target.value)} className="h-11 rounded-xl border border-white/[0.12] bg-black/35 px-3 text-[14px] text-white" />
+          <Input inputSize="lg" type="password" autoComplete="current-password" placeholder="Current password" value={currentPass} onValueChange={(value) => setCurrentPass(value)} />
+          <Input inputSize="lg" type="password" autoComplete="new-password" placeholder="New password" value={newPass} onValueChange={(value) => setNewPass(value)} />
           <div className="flex gap-2">
-            <input type="password" autoComplete="new-password" placeholder="Confirm new password" value={newPass2} onChange={(event) => setNewPass2(event.target.value)} className="h-11 min-w-0 flex-1 rounded-xl border border-white/[0.12] bg-black/35 px-3 text-[14px] text-white" />
-            <button type="submit" data-button-variant="success" disabled={busy} className="rounded-xl bg-white/15 px-4 text-[13px] font-semibold text-white disabled:opacity-40">Change</button>
+            <Input inputSize="lg" type="password" autoComplete="new-password" placeholder="Confirm new password" value={newPass2} onValueChange={(value) => setNewPass2(value)} className="min-w-0 flex-1" />
+            <Button variant="primary" size="lg" type="submit" disabled={busy}>Change</Button>
           </div>
         </form>
       ) : null}
 
       {isAdmin && user && userCount > 0 ? (
-        <div className="mt-8 border-t border-white/[0.08] pt-8">
-          <p className="text-[15px] font-medium text-white/90">
+        <div className="mt-8 border-t border-border pt-8">
+          <p className="text-[15px] font-medium text-foreground-intense">
             {authEnabled ? "Login requirement" : "Require login for visitors"}
           </p>
-          <p className="mt-2 text-[14px] leading-relaxed text-white/45">
+          <p className="mt-2 text-[14px] leading-relaxed text-foreground-intense">
             {authEnabled
               ? "Visitors must sign in. You can restore open access below; user accounts are kept."
               : "The app is open to everyone. Turn this on to require a signed-in session for all pages."}
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             {!authEnabled ? (
-              <button
+              <Button variant="primary"
+                size="lg"
                 type="button"
-                data-button-variant="success"
                 disabled={busy}
                 onClick={() => void onToggleAuth(true)}
-                className="outline-none disabled:opacity-40"
               >
-                <ZendeGlass variant="ctaPill">
-                  <span className="flex px-5 py-2.5 text-[14px] font-semibold text-zinc-950">
-                    Require login for everyone
-                  </span>
-                </ZendeGlass>
-              </button>
+                Require login for everyone
+              </Button>
             ) : (
-              <button
+              <Button variant="destructive"
+                size="lg"
                 type="button"
-                data-button-variant="danger"
                 disabled={busy}
                 onClick={() => void onToggleAuth(false)}
-                className="outline-none disabled:opacity-40"
               >
-                <ZendeGlass variant="heroSecondary" className="inline-block">
-                  <span className="flex px-5 py-2.5 text-[14px] font-semibold text-white">
-                    Allow access without login
-                  </span>
-                </ZendeGlass>
-              </button>
+                Allow access without login
+              </Button>
             )}
           </div>
         </div>
       ) : null}
 
       {isAdmin && user && userCount > 0 ? (
-        <div className="mt-10 border-t border-white/[0.08] pt-10">
-          <h3 className="text-[16px] font-semibold text-white">Accounts</h3>
+        <div className="mt-10 border-t border-border pt-10">
+          <h3 className="text-[16px] font-semibold text-foreground-intense">Accounts</h3>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <input
+            <Input
               placeholder="Username"
               value={nuUser}
-              onChange={(e) => setNuUser(e.target.value)}
-              className="h-11 rounded-xl border border-white/[0.12] bg-black/35 px-3 text-[14px] text-white outline-none focus-visible:ring-2 focus-visible:ring-white"
+              onValueChange={(value) => setNuUser(value)}
+              inputSize="lg"
             />
-            <input
+            <Input
               type="password"
               placeholder="Password"
               value={nuPass}
-              onChange={(e) => setNuPass(e.target.value)}
-              className="h-11 rounded-xl border border-white/[0.12] bg-black/35 px-3 text-[14px] text-white outline-none focus-visible:ring-2 focus-visible:ring-white"
+              onValueChange={(value) => setNuPass(value)}
+              inputSize="lg"
             />
             <div className="flex gap-2">
-              <select
+              <Select
                 value={nuRole}
-                onChange={(e) =>
-                  setNuRole(e.target.value === "ADMIN" ? "ADMIN" : "USER")
+                onValueChange={(value) => setNuRole(value === "ADMIN" ? "ADMIN" : "USER")
                 }
-                className="h-11 flex-1 rounded-xl border border-white/[0.12] bg-black/35 px-3 text-[14px] text-white outline-none"
+                size="lg"
               >
-                <option value="USER">Customer</option>
-                <option value="ADMIN">Admin</option>
-              </select>
-              <button
+<SelectTrigger className="min-w-40"><SelectValue /></SelectTrigger><SelectContent>
+                <SelectItem value="USER">Customer</SelectItem>
+                <SelectItem value="ADMIN">Admin</SelectItem>
+              </SelectContent></Select>
+              <Button variant="primary"
+                size="lg"
                 type="button"
-                data-button-variant="success"
                 disabled={busy}
                 onClick={() => void onCreateUser()}
-                className="outline-none"
               >
-                <ZendeGlass variant="ctaPill">
-                  <span className="flex px-4 py-2 text-[13px] font-semibold text-zinc-950">
-                    Add user
-                  </span>
-                </ZendeGlass>
-              </button>
+                Add user
+              </Button>
             </div>
           </div>
 
           <ul className="mt-6 space-y-2">
             {users.map((u) => (
-              <li
+              <Card
                 key={u.id}
-                className="rounded-xl border border-white/[0.08] bg-black/25 px-4 py-3"
+                frame="solid"
+                inset={false}
+                render={<li />}
+                contentProps={{ className: "p-4" }}
               >
                 {editId === u.id ? (
                   <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
                     <label className="block flex-1 min-w-[140px]">
-                      <span className="text-[11px] text-white/45">Username</span>
-                      <input
+                      <span className="text-[11px] text-foreground-intense">Username</span>
+                      <Input
                         value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        className="mt-1 h-10 w-full rounded-lg border border-white/[0.12] bg-black/40 px-2 text-[14px] text-white"
+                        onValueChange={(value) => setEditName(value)}
+                        className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-2 text-[14px] text-foreground-intense"
                       />
                     </label>
                     <label className="block flex-1 min-w-[140px]">
-                      <span className="text-[11px] text-white/45">
+                      <span className="text-[11px] text-foreground-intense">
                         New password (optional)
                       </span>
-                      <input
+                      <Input
                         type="password"
                         value={editPass}
-                        onChange={(e) => setEditPass(e.target.value)}
-                        className="mt-1 h-10 w-full rounded-lg border border-white/[0.12] bg-black/40 px-2 text-[14px] text-white"
+                        onValueChange={(value) => setEditPass(value)}
+                        className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-2 text-[14px] text-foreground-intense"
                       />
                     </label>
-                    <select
+                    <Select
                       value={editRole}
-                      onChange={(e) =>
-                        setEditRole(e.target.value === "ADMIN" ? "ADMIN" : "USER")
+                      onValueChange={(value) => setEditRole(value === "ADMIN" ? "ADMIN" : "USER")
                       }
-                      className="h-10 rounded-lg border border-white/[0.12] bg-black/40 px-2 text-[13px] text-white"
                     >
-                      <option value="USER">Customer</option>
-                      <option value="ADMIN">Admin</option>
-                    </select>
+<SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
+                      <SelectItem value="USER">Customer</SelectItem>
+                      <SelectItem value="ADMIN">Admin</SelectItem>
+                    </SelectContent></Select>
                     <div className="flex gap-2">
-                      <button
+                      <Button variant="primary"
                         type="button"
-                        data-button-variant="success"
                         onClick={() => void saveEdit()}
-                        className="rounded-lg bg-white/15 px-3 py-2 text-[13px] text-white"
                       >
                         Save
-                      </button>
-                      <button
+                      </Button>
+                      <Button variant="ghost"
                         type="button"
                         onClick={() => setEditId(null)}
-                        className="rounded-lg px-3 py-2 text-[13px] text-white/55"
                       >
                         Cancel
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ) : (
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="font-medium text-white">{u.username}</p>
-                      <p className="text-[12px] text-white/38">
+                      <p className="font-medium text-foreground-intense">{u.username}</p>
+                      <p className="text-[12px] text-foreground-intense">
                         {u.role === "USER" ? "CUSTOMER" : "ADMIN"}
                         {u.isDisabled ? " · disabled" : ""}
                         {u.isBootstrapAdmin ? " · primary administrator" : ""}
                       </p>
-                      <p className="mt-1 text-[11px] text-white/32">
+                      <p className="mt-1 text-[11px] text-foreground-intense">
                         Last activity: {formatActivityDate(u.lastActivityAt)} · {u._count.favorites} favorites · {u._count.viewingHistory} watched
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={() => void loadActivity(u.id)} className="rounded-lg px-3 py-1.5 text-[13px] text-sky-200/85 hover:bg-white/10">
+                      <Button variant="ghost" size="sm" type="button" onClick={() => void loadActivity(u.id)}>
                         {activityId === u.id ? "Hide activity" : "Activity"}
-                      </button>
-                      <button
+                      </Button>
+                      <Button variant="ghost"
                         type="button"
                         onClick={() => startEdit(u)}
-                        className="rounded-lg px-3 py-1.5 text-[13px] text-white/75 hover:bg-white/10"
+                        size="sm"
                       >
                         Edit
-                      </button>
+                      </Button>
                       {!u.isBootstrapAdmin && u.id !== user.id ? (
-                        <button type="button" data-button-variant={u.isDisabled ? "success" : "danger"} onClick={() => void toggleDisabled(u)} className={cn("rounded-lg px-3 py-1.5 text-[13px] hover:bg-white/10", u.isDisabled ? "text-emerald-300" : "text-amber-300")}>
+                        <Button variant={u.isDisabled ? "primary" : "destructive"} size="sm" type="button" onClick={() => void toggleDisabled(u)}>
                           {u.isDisabled ? "Enable" : "Disable"}
-                        </button>
+                        </Button>
                       ) : null}
                       {!u.isBootstrapAdmin ? (
-                        <button
+                        <Button variant="destructive"
+                          size="sm"
                           type="button"
-                          data-button-variant="danger"
                           onClick={() => void onDeleteUser(u.id)}
-                          className="rounded-lg px-3 py-1.5 text-[13px] text-red-300/95 hover:bg-white/10"
                         >
                           Remove
-                        </button>
+                        </Button>
                       ) : null}
                     </div>
                   </div>
                 )}
                 {activityId === u.id ? (
-                  <div className="mt-4 border-t border-white/[0.08] pt-4">
+                  <div className="mt-4 border-t border-border pt-4">
                     {activityBusy || activity?.id !== u.id ? (
-                      <p className="flex items-center gap-2 text-[13px] text-white/45"><ZendeSpinner size="tiny" label="Loading account activity" /> Loading account activity…</p>
+                      <p className="flex items-center gap-2 text-[13px] text-foreground-intense"><ZendeSpinner size="tiny" label="Loading account activity" /> Loading account activity…</p>
                     ) : (
                       <>
-                        <div className="grid gap-2 text-[12px] text-white/55 sm:grid-cols-2">
-                          <p>Last login: <span className="text-white/80">{formatActivityDate(activity.lastLoginAt)}</span></p>
-                          <p>Last activity: <span className="text-white/80">{formatActivityDate(activity.lastActivityAt)}</span></p>
-                          <p>Location: <span className="text-white/80">{activity.lastLoginLocation || activity.lastLoginIp || "Unavailable"}</span></p>
-                          <p className="truncate" title={activity.lastLoginDevice ?? undefined}>Device: <span className="text-white/80">{activity.lastLoginDevice || "Unavailable"}</span></p>
+                        <div className="grid gap-2 text-[12px] text-foreground-intense sm:grid-cols-2">
+                          <p>Last login: <span className="text-foreground-intense">{formatActivityDate(activity.lastLoginAt)}</span></p>
+                          <p>Last activity: <span className="text-foreground-intense">{formatActivityDate(activity.lastActivityAt)}</span></p>
+                          <p>Location: <span className="text-foreground-intense">{activity.lastLoginLocation || activity.lastLoginIp || "Unavailable"}</span></p>
+                          <p className="truncate" title={activity.lastLoginDevice ?? undefined}>Device: <span className="text-foreground-intense">{activity.lastLoginDevice || "Unavailable"}</span></p>
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
-                          <button type="button" data-button-variant="danger" onClick={() => void clearUserData(u.id, "favorites")} className="rounded-lg border border-red-300/20 px-3 py-1.5 text-[12px] text-red-200">Clear favorites</button>
-                          <button type="button" data-button-variant="danger" onClick={() => void clearUserData(u.id, "history")} className="rounded-lg border border-red-300/20 px-3 py-1.5 text-[12px] text-red-200">Clear recently watched</button>
+                          <Button variant="destructive" size="sm" type="button" onClick={() => void clearUserData(u.id, "favorites")}>Clear favorites</Button>
+                          <Button variant="destructive" size="sm" type="button" onClick={() => void clearUserData(u.id, "history")}>Clear recently watched</Button>
                         </div>
-                        <h4 className="mt-5 text-[13px] font-semibold text-white/85">Last 50 watched channels and media</h4>
+                        <h4 className="mt-5 text-[13px] font-semibold text-foreground-intense">Last 50 watched channels and media</h4>
                         {activity.viewingHistory.length ? (
                           <ol className="mt-2 max-h-72 space-y-1 overflow-y-auto pr-1">
                             {activity.viewingHistory.map((entry, index) => (
-                              <li key={`${entry.name}-${entry.lastOpenedAt}-${index}`} className="flex items-center justify-between gap-3 rounded-lg bg-white/[0.04] px-3 py-2 text-[12px]">
-                                <span className="min-w-0 truncate text-white/75">{entry.name}{entry.groupTitle ? ` · ${entry.groupTitle}` : ""}</span>
-                                <span className="shrink-0 text-white/35">{formatActivityDate(entry.lastOpenedAt)} · {entry.openCount}×</span>
+                              <li key={`${entry.name}-${entry.lastOpenedAt}-${index}`} className="flex items-center justify-between gap-3 rounded-lg bg-background-muted px-3 py-2 text-[12px]">
+                                <span className="min-w-0 truncate text-foreground-intense">{entry.name}{entry.groupTitle ? ` · ${entry.groupTitle}` : ""}</span>
+                                <span className="shrink-0 text-foreground-intense">{formatActivityDate(entry.lastOpenedAt)} · {entry.openCount}×</span>
                               </li>
                             ))}
                           </ol>
-                        ) : <p className="mt-2 text-[12px] text-white/35">No viewing history.</p>}
+                        ) : <p className="mt-2 text-[12px] text-foreground-intense">No viewing history.</p>}
                       </>
                     )}
                   </div>
                 ) : null}
-              </li>
+              </Card>
             ))}
           </ul>
         </div>
@@ -661,14 +644,14 @@ export function TvSettingsAuthPanel() {
               hint.includes("restored") ||
               hint.includes("updated") ||
               hint.includes("Signed")
-              ? "text-emerald-400/95"
-              : "text-amber-300/95",
+              ? "text-success-strong"
+              : "text-warning-strong",
           )}
           role="status"
         >
           {hint}
         </p>
       ) : null}
-    </section>
+    </Card>
   );
 }

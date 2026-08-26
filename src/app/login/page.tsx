@@ -5,10 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useState } from "react";
 
 import { LoginQrPairing } from "@/components/auth/login-qr-pairing";
+import { ThemeToggle } from "@/components/appica/theme-toggle";
 import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@appica/ui-react/button";
+import { Input } from "@appica/ui-react/input";
 import { useAuth } from "@/features/auth/auth-context";
-import { cn } from "@/lib/utils";
 
 function LoginForm() {
   const router = useRouter();
@@ -43,25 +44,25 @@ function LoginForm() {
   }, [refresh, redirectAfterLogin]);
 
   return (
-    <div className="mx-auto flex min-h-[calc(100svh-6rem)] w-full max-w-[520px] flex-col justify-center motion-safe:animate-zen-shell-in motion-reduce:animate-none motion-reduce:opacity-100 sm:min-h-0">
-      <p className="zen-kicker">
+    <div className="mx-auto flex min-h-[calc(100svh-6rem)] w-full max-w-[520px] flex-col justify-center motion-reduce:animate-none motion-reduce:opacity-100 sm:min-h-0">
+      <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">
         Zende
       </p>
-      <h1 className="zen-page-title mt-2">
+      <h1 className="text-4xl font-semibold tracking-tight text-foreground-intense mt-2">
         Sign in
       </h1>
-      <p className="zen-body-muted mt-3">
+      <p className="text-sm text-foreground-muted mt-3">
         Enter your account details to continue, or scan the QR code with your phone.
       </p>
 
       <LoginQrPairing onComplete={() => void onQrComplete()} />
 
       <div className="relative my-8 flex items-center gap-3">
-        <div className="h-px flex-1 bg-white/10" />
-        <span className="text-[12px] font-medium uppercase tracking-[0.1em] text-white/35">
+        <div className="h-px flex-1 bg-background-muted" />
+        <span className="text-[12px] font-medium uppercase tracking-[0.1em] text-foreground-intense">
           or type here
         </span>
-        <div className="h-px flex-1 bg-white/10" />
+        <div className="h-px flex-1 bg-background-muted" />
       </div>
 
       <form
@@ -73,36 +74,32 @@ function LoginForm() {
         }}
       >
         <label className="block">
-          <span className="text-[13px] font-medium text-white/55">Username</span>
-          <input
+          <span className="text-[13px] font-medium text-foreground-intense">Username</span>
+          <Input
             name="username"
             autoComplete="username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className={cn(
-              "mt-1.5 h-[52px] w-full rounded-2xl border border-white/[0.12] bg-black/35 px-4 sm:h-12",
-              "text-[16px] text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
-            )}
+            inputSize="lg"
+            className="mt-1.5 w-full"
           />
         </label>
         <label className="block">
-          <span className="text-[13px] font-medium text-white/55">Password</span>
-          <input
+          <span className="text-[13px] font-medium text-foreground-intense">Password</span>
+          <Input
             name="password"
             type="password"
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className={cn(
-              "mt-1.5 h-[52px] w-full rounded-2xl border border-white/[0.12] bg-black/35 px-4 sm:h-12",
-              "text-[16px] text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]",
-            )}
+            inputSize="lg"
+            className="mt-1.5 w-full"
           />
         </label>
       </form>
 
       {error ? (
-        <p className="mt-4 text-[14px] text-amber-300/95" role="alert">
+        <p className="mt-4 text-[14px] text-warning-strong" role="alert">
           {error}
         </p>
       ) : null}
@@ -112,14 +109,14 @@ function LoginForm() {
           type="submit"
           form="zende-login"
           disabled={busy}
-          variant="success"
+          variant="primary"
           size="lg"
         >
           {busy ? <><ZendeSpinner size="tiny" label="Signing in" /> Signing in…</> : "Continue"}
         </Button>
         <Link
           href="/"
-          className={buttonVariants({ variant: "normal", size: "lg" })}
+          className={buttonVariants({ variant: "secondary", size: "lg" })}
         >
           Cancel
         </Link>
@@ -130,7 +127,10 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="zen-page-bg flex min-h-screen flex-col px-4 py-[max(2rem,env(safe-area-inset-top))] text-foreground sm:px-6 sm:py-16">
+    <div className="relative flex min-h-screen flex-col bg-background px-4 py-8 text-foreground sm:px-6 sm:py-16">
+      <div className="absolute right-4 top-4">
+        <ThemeToggle />
+      </div>
       <Suspense
         fallback={
           <ZendeLoadingState className="mx-auto" size="large" label="Loading sign in…" />

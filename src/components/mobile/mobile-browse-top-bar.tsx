@@ -1,11 +1,12 @@
 "use client";
 
+import { Button } from "@appica/ui-react/button";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import {
   Clapperboard,
-  Gamepad2,
   Heart,
   Home,
   LayoutGrid,
@@ -14,11 +15,13 @@ import {
   Radio,
   Search,
   Settings,
+  TvMinimal,
   User,
 } from "lucide-react";
 
-import { GlassSearchModal } from "@/components/glass/glass-search-modal";
-import { ZendeGlass } from "@/components/glass/zende-glass";
+import { AppicaSearchDialog } from "@/components/appica/search-dialog";
+import { ThemeToggle } from "@/components/appica/theme-toggle";
+import { Card } from "@appica/ui-react/card";
 import { WatchTogetherDialog } from "@/components/tv/watch-together-dialog";
 import { useAuth } from "@/features/auth/auth-context";
 import { useRemoteControl } from "@/features/remote/remote-control-context";
@@ -57,7 +60,7 @@ function MobileUserMenu() {
   if (!authEnabled) {
     return (
       <div
-        className="zen-focus-ring flex size-11 items-center justify-center rounded-full bg-white/[0.06] text-white/45 outline-none ring-1 ring-white/[0.08]"
+        className="focus-visible:ring-2 focus-visible:ring-ring flex size-11 items-center justify-center rounded-full bg-background-muted text-foreground-intense outline-none ring-1 ring-border"
         aria-hidden
         title="Sign-in disabled"
       >
@@ -70,7 +73,7 @@ function MobileUserMenu() {
     return (
       <Link
         href="/login"
-        className="zen-focus-ring flex size-11 items-center justify-center rounded-full bg-white/[0.09] text-white/78 outline-none ring-1 ring-white/[0.11] transition-colors active:bg-white/14"
+        className="focus-visible:ring-2 focus-visible:ring-ring flex size-11 items-center justify-center rounded-full bg-background-muted text-foreground-intense outline-none ring-1 ring-border transition-colors active:bg-background-muted"
         aria-label="Sign in"
       >
         <User className="size-5" aria-hidden />
@@ -80,30 +83,30 @@ function MobileUserMenu() {
 
   return (
     <div className="relative" ref={wrapRef}>
-      <button
+      <Button variant="ghost"
         type="button"
         disabled={signingOut}
         onClick={() => setOpen((value) => !value)}
-        className="zen-focus-ring flex size-11 items-center justify-center rounded-full bg-white/[0.09] text-[13px] font-semibold text-white/88 outline-none ring-1 ring-white/[0.11] transition-colors active:bg-white/14 disabled:opacity-60"
+        className="focus-visible:ring-2 focus-visible:ring-ring flex size-11 items-center justify-center rounded-full bg-background-muted text-[13px] font-semibold text-foreground-intense outline-none ring-1 ring-border transition-colors active:bg-background-muted disabled:opacity-60"
         aria-label={`Account menu (${user.username})`}
         aria-expanded={open}
         aria-haspopup="menu"
       >
         {avatarLetter(user.username)}
-      </button>
+      </Button>
       {open ? (
         <div
           role="menu"
           aria-label="Account"
           className={cn(
-            "absolute right-0 top-[calc(100%+10px)] z-[60] min-w-[12.5rem] overflow-hidden rounded-[22px]",
-            "border border-white/[0.13] bg-black/86 shadow-[0_24px_70px_-24px_rgba(0,0,0,0.9)]",
-            "backdrop-blur-2xl backdrop-saturate-150 ring-1 ring-white/[0.06]",
+            "absolute right-0 top-[calc(100%+10px)] z-[60] min-w-[12.5rem] overflow-hidden rounded-lg",
+            "border border-border bg-background shadow-lg",
+            "backdrop-blur-2xl backdrop-saturate-150 ring-1 ring-border",
           )}
         >
-          <p className="border-b border-white/[0.08] px-3.5 py-3 text-[12px] leading-relaxed text-white/48">
+          <p className="border-b border-border px-3.5 py-3 text-[12px] leading-relaxed text-foreground-intense">
             Signed in as{" "}
-            <span className="font-medium text-white/90">{user.username}</span>
+            <span className="font-medium text-foreground-intense">{user.username}</span>
           </p>
           <Link
             href="/settings"
@@ -112,12 +115,12 @@ function MobileUserMenu() {
               onNavigateClick("/settings")(event);
               setOpen(false);
             }}
-            className="flex w-full items-center gap-2 px-3.5 py-3 text-left text-[14px] font-semibold text-white/85 outline-none transition-colors hover:bg-white/[0.09] focus-visible:bg-white/[0.09]"
+            className="flex w-full items-center gap-2 px-3.5 py-3 text-left text-[14px] font-semibold text-foreground-intense outline-none transition-colors hover:bg-background-muted focus-visible:bg-background-muted"
           >
             <Settings className="size-4 shrink-0 opacity-80" aria-hidden />
             Settings
           </Link>
-          <button
+          <Button variant="ghost"
             type="button"
             role="menuitem"
             disabled={signingOut}
@@ -128,11 +131,11 @@ function MobileUserMenu() {
                 setOpen(false);
               });
             }}
-            className="flex w-full items-center gap-2 px-3.5 py-3 text-left text-[14px] font-semibold text-white/85 outline-none transition-colors hover:bg-white/[0.09] focus-visible:bg-white/[0.09] disabled:opacity-50"
+            className="flex w-full items-center gap-2 px-3.5 py-3 text-left text-[14px] font-semibold text-foreground-intense outline-none transition-colors hover:bg-background-muted focus-visible:bg-background-muted disabled:opacity-50"
           >
             <LogOut className="size-4 shrink-0 opacity-80" aria-hidden />
             {signingOut ? "Signing out…" : "Sign out"}
-          </button>
+          </Button>
         </div>
       ) : null}
     </div>
@@ -211,28 +214,16 @@ export function MobileBrowseTopBar() {
 
   return (
     <>
-      <GlassSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <AppicaSearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} />
       <WatchTogetherDialog open={boardOpen} onClose={() => setBoardOpen(false)} />
 
-      <header
-        className={cn(
-          "pointer-events-none fixed inset-x-0 top-0 z-50 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]",
-          "transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
-          headerVisible || searchOpen || boardOpen
-            ? "translate-y-0 opacity-100"
-            : "-translate-y-[calc(100%+1rem)] opacity-0",
-        )}
-      >
-        <ZendeGlass
-          variant="panelCompact"
-          className="pointer-events-auto rounded-[26px] border-white/[0.12] bg-black/54 shadow-[0_20px_64px_-26px_rgba(0,0,0,0.9)] transition-[box-shadow,transform,border-color] duration-300 ease-out hover:border-white/[0.16]"
-        >
-          <div className="flex h-[60px] items-center justify-between px-3">
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background">
+          <div className="flex h-16 items-center justify-between px-4">
             <Link
               href="/"
               onClick={onNavigateClick("/")}
               aria-label="Zende home"
-              className="zen-focus-ring flex min-w-0 items-center gap-2 rounded-full outline-none"
+              className="flex min-w-0 items-center gap-2 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- local brand SVG */}
               <img
@@ -240,45 +231,42 @@ export function MobileBrowseTopBar() {
                 alt=""
                 width={225}
                 height={82}
-                className="block aspect-[225/82] w-9 shrink-0 object-contain drop-shadow-[0_0_16px_rgba(56,217,255,0.22)]"
+                className="block aspect-[225/82] w-8 shrink-0 object-contain"
                 decoding="async"
               />
-              <span className="truncate text-[18px] font-semibold tracking-[-0.04em] text-white">
+              <span className="truncate text-lg font-semibold tracking-tight text-foreground-intense">
                 Zende
               </span>
             </Link>
 
             <div className="flex items-center gap-2">
-              <button
+              <ThemeToggle />
+              <Button variant="ghost"
+                size="icon-md"
                 type="button"
                 onClick={() => setBoardOpen(true)}
-                className="zen-focus-ring flex size-11 items-center justify-center rounded-full text-white/78 outline-none transition-colors active:bg-white/10"
                 aria-label="Multi-view"
               >
                 <LayoutGrid className="size-5" aria-hidden />
-              </button>
-              <button
+              </Button>
+              <Button variant="ghost"
+                size="icon-md"
                 type="button"
                 onClick={() => setSearchOpen(true)}
-                className="zen-focus-ring flex size-11 items-center justify-center rounded-full text-white/78 outline-none transition-colors active:bg-white/10"
                 aria-label="Search channels"
               >
                 <Search className="size-5" aria-hidden />
-              </button>
+              </Button>
               <MobileUserMenu />
             </div>
           </div>
-        </ZendeGlass>
       </header>
 
       <nav
         aria-label="Primary mobile"
         className="fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden"
       >
-        <ZendeGlass
-          variant="panelCompact"
-          className="rounded-[30px] border-white/[0.12] bg-black/62 shadow-[0_-20px_64px_-28px_rgba(0,0,0,0.95)]"
-        >
+        <Card frame="solid">
           <div className="grid grid-cols-6 gap-1 p-1.5">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -289,18 +277,18 @@ export function MobileBrowseTopBar() {
                   onClick={onNavigateClick(item.href)}
                   aria-current={item.active ? "page" : undefined}
                   className={cn(
-                    "zen-focus-ring flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-[23px] px-1 text-[11px] font-semibold outline-none transition-[color,background-color,transform]",
+                    "flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-lg px-1 text-xs font-semibold tracking-tight outline-none transition-[color,background-color,transform] focus-visible:ring-2 focus-visible:ring-ring",
                     item.active
-                      ? "bg-white/[0.14] text-white shadow-inner shadow-white/[0.05]"
-                      : "text-white/48 active:bg-white/[0.08] active:text-white/85",
+                      ? "bg-background-muted text-foreground-intense"
+                      : "text-foreground-intense active:bg-background-muted active:text-foreground-intense",
                   )}
                 >
                   <Icon className="size-5" aria-hidden />
-                  <span>{item.label}</span>
+                  <span className="max-w-full truncate">{item.label}</span>
                 </Link>
               );
             })}
-            <button
+            <Button variant="ghost"
               type="button"
               onClick={() => void remote?.requestRemoteControlToggle()}
               aria-pressed={remote?.remoteControlActive ?? false}
@@ -310,17 +298,17 @@ export function MobileBrowseTopBar() {
                   : "Enable TV remote control"
               }
               className={cn(
-                "zen-focus-ring flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-[23px] px-1 text-[11px] font-semibold outline-none transition-[color,background-color,transform]",
+                "flex min-h-14 min-w-0 w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-lg px-1 text-xs font-semibold tracking-tight outline-none transition-[color,background-color,transform] focus-visible:ring-2 focus-visible:ring-ring",
                 remote?.remoteControlActive
-                  ? "bg-[var(--zen-signal)]/18 text-[var(--zen-signal)] shadow-inner shadow-white/[0.05]"
-                  : "text-white/48 active:bg-white/[0.08] active:text-white/85",
+                  ? "bg-primary text-primary-foreground"
+                  : "text-foreground-intense active:bg-background-muted active:text-foreground-intense",
               )}
             >
-              <Gamepad2 className="size-5" aria-hidden />
-              <span>{remote?.remoteControlActive ? "Remote on" : "Remote"}</span>
-            </button>
+              <TvMinimal className="size-5" aria-hidden />
+              <span className="max-w-full truncate">{remote?.remoteControlActive ? "Remote on" : "Remote"}</span>
+            </Button>
           </div>
-        </ZendeGlass>
+        </Card>
       </nav>
     </>
   );

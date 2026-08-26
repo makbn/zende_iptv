@@ -6,7 +6,7 @@ export function BrowsePageFallback({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "zen-page-bg flex min-h-screen flex-col items-center justify-center",
+        "bg-background flex min-h-screen flex-col items-center justify-center",
         BROWSE_TOP_PAD,
         className,
       )}

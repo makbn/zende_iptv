@@ -1,9 +1,11 @@
 "use client";
 
+import { Button } from "@appica/ui-react/button";
+
 import QRCode from "react-qr-code";
 import { useEffect, useRef, useState } from "react";
 
-import { ZendeGlass } from "@/components/glass/zende-glass";
+import { Card } from "@appica/ui-react/card";
 import { ZendeSpinner } from "@/components/loading/zende-spinner";
 import { setStoredTokens } from "@/lib/auth/zende-fetch";
 
@@ -106,58 +108,59 @@ export function LoginQrPairing({ onComplete }: Props) {
   };
 
   return (
-    <ZendeGlass
-      variant="panel"
-      className="mt-8 rounded-[28px] border-white/[0.12] bg-white/[0.055] p-5 sm:p-6"
+    <Card
+      frame="solid"
+      className="mt-8"
+      contentProps={{ className: "p-6" }}
     >
-      <p className="zen-kicker">
+      <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">
         Sign in with phone
       </p>
-      <p className="zen-body-muted mt-2">
+      <p className="text-sm text-foreground-muted mt-2">
         Scan with your phone. If you’re already signed in, just approve the TV;
         otherwise enter your username and password on mobile.
       </p>
 
       <div className="mt-5 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
-        <div className="rounded-[22px] bg-white p-3 shadow-[0_20px_60px_-28px_rgba(56,217,255,0.65)] sm:p-4">
+        <div className="rounded-lg bg-background-muted p-3 shadow-lg sm:p-4">
           {pairUrl && status !== "error" ? (
             <QRCode value={pairUrl} size={240} level="M" />
           ) : (
-            <div className="flex h-[240px] w-[240px] items-center justify-center text-[13px] text-zinc-500">
+            <div className="flex h-[240px] w-[240px] items-center justify-center text-[13px] text-foreground-muted">
               {status === "loading" ? <ZendeSpinner size="large" label="Preparing QR sign in" /> : "Unavailable"}
             </div>
           )}
         </div>
         <div className="min-w-0 flex-1 text-center sm:text-left">
           {status === "waiting" ? (
-            <p className="text-[14px] text-white/60">
+            <p className="text-[14px] text-foreground-intense">
               Waiting for your phone…
             </p>
           ) : null}
           {status === "expired" ? (
             <>
-              <p className="text-[14px] text-amber-200/90">QR code expired.</p>
-              <button
+              <p className="text-[14px] text-warning-strong">QR code expired.</p>
+              <Button variant="ghost"
                 type="button"
                 onClick={refresh}
-                className="mt-2 text-[14px] font-semibold text-[var(--zen-signal)] underline underline-offset-2"
+                className="mt-2 text-[14px] font-semibold text-primary-strong underline underline-offset-2"
               >
                 Generate new code
-              </button>
+              </Button>
             </>
           ) : null}
           {error ? (
-            <p className="text-[14px] text-amber-200/90" role="alert">
+            <p className="text-[14px] text-warning-strong" role="alert">
               {error}
             </p>
           ) : null}
           {pairUrl ? (
-            <p className="mt-3 break-all text-[11px] text-white/35 sm:text-[12px]">
+            <p className="mt-3 break-all text-[11px] text-foreground-intense sm:text-[12px]">
               {pairUrl}
             </p>
           ) : null}
         </div>
       </div>
-    </ZendeGlass>
+    </Card>
   );
 }

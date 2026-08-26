@@ -1,10 +1,14 @@
 "use client";
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@appica/ui-react/select";
+
+import { Input } from "@appica/ui-react/input";
+
 import Link from "next/link";
 import { Search, Subtitles, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
-import { Button } from "@/components/ui/button";
+import { Button } from "@appica/ui-react/button";
 
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import {
@@ -270,73 +274,73 @@ export function SubtitleSearchPanel({
 
   return (
     <div
-      className="fixed inset-0 z-[140] flex items-end justify-center bg-black/70 p-3 backdrop-blur-sm sm:items-center sm:p-6"
+      className="fixed inset-0 z-[140] flex items-end justify-center bg-background p-3 backdrop-blur-sm sm:items-center sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label="Search subtitles"
     >
       <div
-        className="flex max-h-[min(88vh,760px)] w-full max-w-2xl flex-col overflow-hidden rounded-[28px] border border-white/[0.14] bg-zinc-950/96 shadow-2xl"
+        className="flex max-h-[min(88vh,760px)] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-border bg-background shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-white/[0.08] px-5 py-4">
+        <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
           <div className="min-w-0">
-            <div className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-white/42">
-              <Subtitles className="size-4 text-[var(--zen-signal)]" aria-hidden />
+            <div className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-foreground-intense">
+              <Subtitles className="size-4 text-primary-strong" aria-hidden />
               Subtitle search
             </div>
-            <h2 className="mt-1 truncate text-[20px] font-semibold tracking-[-0.03em] text-white">
+            <h2 className="mt-1 truncate text-[20px] font-semibold tracking-[-0.03em] text-foreground-intense">
               {selectedLabel}
             </h2>
-            <p className="mt-1 text-[13px] text-white/48">
+            <p className="mt-1 text-[13px] text-foreground-intense">
               Search by title or ID, refine by release/language, then load subtitles.
             </p>
           </div>
-          <button
+          <Button variant="ghost"
             type="button"
             onClick={onClose}
-            className="rounded-full p-2 text-white/55 transition-colors hover:bg-white/10 hover:text-white"
+            className="rounded-full p-2 text-foreground-intense transition-colors hover:bg-background-muted hover:text-foreground-intense"
             aria-label="Close"
           >
             <X className="size-5" aria-hidden />
-          </button>
+          </Button>
         </div>
 
-        <div className="space-y-3 border-b border-white/[0.08] px-5 py-4">
+        <div className="space-y-3 border-b border-border px-5 py-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block min-w-0">
-              <span className="text-[12px] font-medium text-white/45">Movie or show title</span>
-              <input
+              <span className="text-[12px] font-medium text-foreground-intense">Movie or show title</span>
+              <Input
                 value={titleQuery}
-                onChange={(e) => setTitleQuery(e.target.value)}
-                className="mt-1.5 h-11 w-full rounded-2xl border border-white/[0.12] bg-black/40 px-3 text-[15px] text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                onValueChange={(value) => setTitleQuery(value)}
+                className="mt-1.5 h-11 w-full rounded-2xl border border-border bg-background px-3 text-[15px] text-foreground-intense outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 placeholder="e.g. 1899, or tt1234567 / TMDB id"
               />
             </label>
             <label className="block min-w-0">
-              <span className="text-[12px] font-medium text-white/45">Release filter (optional)</span>
-              <input
+              <span className="text-[12px] font-medium text-foreground-intense">Release filter (optional)</span>
+              <Input
                 value={releaseFilter}
-                onChange={(e) => setReleaseFilter(e.target.value)}
-                className="mt-1.5 h-11 w-full rounded-2xl border border-white/[0.12] bg-black/40 px-3 text-[15px] text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                onValueChange={(value) => setReleaseFilter(value)}
+                className="mt-1.5 h-11 w-full rounded-2xl border border-border bg-background px-3 text-[15px] text-foreground-intense outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 placeholder="1080p, WEB-DL, release name…"
               />
             </label>
           </div>
           <div className="grid gap-3 sm:grid-cols-[10rem_1fr]">
             <label className="block">
-              <span className="text-[12px] font-medium text-white/45">Language</span>
-              <select
+              <span className="text-[12px] font-medium text-foreground-intense">Language</span>
+              <Select
                 value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                className="mt-1.5 h-11 w-full rounded-2xl border border-white/[0.12] bg-black/40 px-3 text-[15px] text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--zen-signal)]"
+                onValueChange={(value) =>setLanguage(String(value))}
               >
+<SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
                 {LANGUAGE_OPTIONS.map((option) => (
-                  <option key={option.code} value={option.code}>
+                  <SelectItem key={option.code} value={option.code}>
                     {option.label}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
+              </SelectContent></Select>
             </label>
             <div className="flex items-end justify-end gap-2">
               <Button
@@ -361,7 +365,7 @@ export function SubtitleSearchPanel({
                 type="button"
                 onClick={() => void searchSubtitles(null)}
                 disabled={loading || wyzieEnabled === false}
-                variant="success"
+                variant="primary"
               >
                 {loading ? (
                   <ZendeSpinner size="tiny" label="Searching subtitles" />
@@ -374,11 +378,11 @@ export function SubtitleSearchPanel({
           </div>
 
           {wyzieEnabled === false ? (
-            <p className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-3 py-2.5 text-[13px] text-amber-100/90">
+            <p className="rounded-2xl border border-warning bg-warning-subtle px-3 py-2.5 text-[13px] text-warning-strong">
               Subtitle download needs a Wyzie API key in{" "}
               <Link
                 href="/settings?tab=integrations"
-                className="font-semibold text-amber-50 underline underline-offset-2 hover:text-white"
+                className="font-semibold text-warning-strong underline underline-offset-2 hover:text-foreground-intense"
               >
                 Settings → Integrations
               </Link>
@@ -386,11 +390,11 @@ export function SubtitleSearchPanel({
             </p>
           ) : null}
           {tmdbEnabled === false ? (
-            <p className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-3 py-2.5 text-[13px] text-amber-100/90">
+            <p className="rounded-2xl border border-warning bg-warning-subtle px-3 py-2.5 text-[13px] text-warning-strong">
               Title search needs a free TMDB API key in{" "}
               <Link
                 href="/settings?tab=integrations"
-                className="font-semibold text-amber-50 underline underline-offset-2 hover:text-white"
+                className="font-semibold text-warning-strong underline underline-offset-2 hover:text-foreground-intense"
               >
                 Settings → Integrations
               </Link>{" "}
@@ -399,7 +403,7 @@ export function SubtitleSearchPanel({
                 href="https://developer.themoviedb.org/docs/getting-started"
                 target="_blank"
                 rel="noreferrer"
-                className="text-amber-50 underline underline-offset-2 hover:text-white"
+                className="text-warning-strong underline underline-offset-2 hover:text-foreground-intense"
               >
                 get one here
               </a>
@@ -407,7 +411,7 @@ export function SubtitleSearchPanel({
             </p>
           ) : null}
           {error ? (
-            <p className="rounded-2xl border border-red-400/20 bg-red-500/10 px-3 py-2.5 text-[13px] text-red-100/90">
+            <p className="rounded-2xl border border-error bg-error-subtle px-3 py-2.5 text-[13px] text-error-strong">
               {error}
             </p>
           ) : null}
@@ -417,51 +421,51 @@ export function SubtitleSearchPanel({
           {loading && mediaMatches.length === 0 && results.length === 0 ? (
             <ZendeLoadingState className="py-16" size="small" label="Searching subtitles…" />
           ) : results.length === 0 ? (
-            <p className="py-16 text-center text-[14px] text-white/45">
+            <p className="py-16 text-center text-[14px] text-foreground-intense">
               No subtitles found. Try another language or release filter.
             </p>
           ) : (
             <>
               {mediaMatches.length > 0 ? (
                 <div className="mb-4 space-y-2">
-                  <p className="px-1 text-[12px] font-semibold uppercase tracking-[0.12em] text-white/38">
+                  <p className="px-1 text-[12px] font-semibold uppercase tracking-[0.12em] text-foreground-intense">
                     Matching titles (optional)
                   </p>
                   <ul className="space-y-2">
                     {mediaMatches.map((match) => (
                       <li key={`${match.mediaType}-${match.tmdbId}`}>
-                        <button
+                        <Button variant="ghost"
                           type="button"
                           disabled={loading}
                           onClick={() => void pickMedia(match)}
                           className={cn(
-                            "flex w-full items-center gap-3 rounded-[22px] border border-white/[0.1] bg-white/[0.04] px-4 py-3 text-left transition-colors",
-                            "hover:border-white/[0.18] hover:bg-white/[0.07] disabled:opacity-50",
+                            "flex w-full items-center gap-3 rounded-lg border border-border bg-background-muted px-4 py-3 text-left transition-colors",
+                            "hover:border-border hover:bg-background-muted disabled:opacity-50",
                           )}
                         >
-                          <div className="flex h-16 w-11 shrink-0 overflow-hidden rounded-lg bg-white/8">
+                          <div className="flex h-16 w-11 shrink-0 overflow-hidden rounded-lg bg-background-muted">
                             {match.posterUrl ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img src={secureImageUrl(match.posterUrl, undefined, "poster")} alt="" className="h-full w-full object-cover" />
                             ) : null}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-[14px] font-semibold text-white">
+                            <p className="truncate text-[14px] font-semibold text-foreground-intense">
                               {match.title}
                               {match.year ? (
-                                <span className="font-normal text-white/45"> ({match.year})</span>
+                                <span className="font-normal text-foreground-intense"> ({match.year})</span>
                               ) : null}
                             </p>
-                            <p className="mt-0.5 text-[12px] uppercase tracking-wide text-white/38">
+                            <p className="mt-0.5 text-[12px] uppercase tracking-wide text-foreground-intense">
                               {match.mediaType === "tv" ? "TV show" : "Movie"}
                             </p>
                             {match.overview ? (
-                              <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-white/48">
+                              <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-foreground-intense">
                                 {match.overview}
                               </p>
                             ) : null}
                           </div>
-                        </button>
+                        </Button>
                       </li>
                     ))}
                   </ul>
@@ -472,29 +476,29 @@ export function SubtitleSearchPanel({
                   const busy = loadingSubtitleId === result.id;
                   return (
                     <li key={result.id}>
-                      <button
+                      <Button variant="ghost"
                         type="button"
                         disabled={busy}
                         onClick={() => void loadSubtitle(result)}
                         className={cn(
-                          "w-full rounded-[22px] border border-white/[0.1] bg-white/[0.04] px-4 py-3 text-left transition-colors",
-                          "hover:border-white/[0.18] hover:bg-white/[0.07] disabled:opacity-50",
+                          "w-full rounded-lg border border-border bg-background-muted px-4 py-3 text-left transition-colors",
+                          "hover:border-border hover:bg-background-muted disabled:opacity-50",
                         )}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="truncate text-[14px] font-semibold text-white">
+                            <p className="truncate text-[14px] font-semibold text-foreground-intense">
                               {result.languageName}
                               {result.hearingImpaired ? (
-                                <span className="ml-2 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/65">
+                                <span className="ml-2 rounded-full bg-background-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground-intense">
                                   CC
                                 </span>
                               ) : null}
                             </p>
-                            <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-white/58">
+                            <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-foreground-intense">
                               {result.release}
                             </p>
-                            <p className="mt-1 text-[11px] text-white/35">
+                            <p className="mt-1 text-[11px] text-foreground-intense">
                               {result.downloadCount > 0
                                 ? `${result.downloadCount.toLocaleString()} downloads`
                                 : null}
@@ -506,7 +510,7 @@ export function SubtitleSearchPanel({
                             <ZendeSpinner className="mt-1" size="tiny" label="Loading subtitle" />
                           ) : null}
                         </div>
-                      </button>
+                      </Button>
                     </li>
                   );
                 })}

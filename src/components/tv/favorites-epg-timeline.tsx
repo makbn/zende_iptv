@@ -1,8 +1,10 @@
 "use client";
 
+import { Button } from "@appica/ui-react/button";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { ZendeGlass } from "@/components/glass/zende-glass";
+import { Card } from "@appica/ui-react/card";
 import { ZendeSpinner } from "@/components/loading/zende-spinner";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
@@ -78,7 +80,7 @@ function EpgCardSkeleton({ i }: { i: number }) {
   return (
     <div
       className={cn(
-        "motion-safe:animate-fav-epg-card shrink-0 rounded-2xl border border-white/[0.06] bg-white/[0.04] p-4 ring-1 ring-white/[0.04]",
+        "motion-safe:animate-fav-epg-card shrink-0 rounded-2xl border border-border bg-background-muted p-4 ring-1 ring-border",
         "motion-reduce:animate-none motion-reduce:opacity-100",
       )}
       style={{
@@ -87,15 +89,15 @@ function EpgCardSkeleton({ i }: { i: number }) {
       }}
     >
       <div className="flex gap-3">
-        <div className="size-11 shrink-0 animate-pulse rounded-xl bg-white/[0.08]" />
+        <div className="size-11 shrink-0 animate-pulse rounded-xl bg-background-muted" />
         <div className="min-w-0 flex-1 space-y-2 pt-0.5">
-          <div className="h-3.5 w-3/4 animate-pulse rounded-md bg-white/[0.08]" />
-          <div className="h-3 w-1/2 animate-pulse rounded-md bg-white/[0.06]" />
+          <div className="h-3.5 w-3/4 animate-pulse rounded-md bg-background-muted" />
+          <div className="h-3 w-1/2 animate-pulse rounded-md bg-background-muted" />
         </div>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <div className="h-[4.5rem] animate-pulse rounded-xl bg-violet-500/10" />
-        <div className="h-[4.5rem] animate-pulse rounded-xl bg-white/[0.06]" />
+        <div className="h-[4.5rem] animate-pulse rounded-xl bg-primary-subtle" />
+        <div className="h-[4.5rem] animate-pulse rounded-xl bg-background-muted" />
       </div>
     </div>
   );
@@ -230,83 +232,83 @@ export function FavoritesEpgTimeline({
       )}
       aria-labelledby="favorites-epg-heading"
     >
-      <ZendeGlass
-        variant="panel"
+      <Card
+        frame="glass"
         className={cn(
-          "w-full overflow-hidden shadow-[0_24px_70px_-34px_rgba(0,0,0,0.88)]",
-          "ring-1 ring-white/[0.07]",
+          "w-full overflow-hidden shadow-lg",
+          "ring-1 ring-border",
           "transition-[box-shadow] duration-500 ease-out",
         )}
       >
-        <div className="border-b border-white/[0.06] px-4 py-3.5 sm:px-6 sm:py-4">
+        <div className="border-b border-border px-4 py-3.5 sm:px-6 sm:py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <button
+            <Button variant="ghost"
               type="button"
               onClick={() => setExpanded((e) => !e)}
               className={cn(
                 "group flex min-w-0 flex-1 items-start gap-3 rounded-2xl text-left outline-none",
-                "transition-colors duration-200 hover:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-white sm:items-center",
+                "transition-colors duration-200 hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-border sm:items-center",
               )}
               aria-expanded={expanded}
               aria-controls="favorites-epg-carousel"
             >
-              <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/25 to-fuchsia-500/15 ring-1 ring-white/[0.12] sm:mt-0">
-                <Radio className="size-5 text-violet-200/95" aria-hidden />
+              <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-subtle to-background-muted ring-1 ring-border sm:mt-0">
+                <Radio className="size-5 text-primary-strong" aria-hidden />
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2
                     id="favorites-epg-heading"
-                    className="text-[17px] font-semibold tracking-tight text-white sm:text-[18px]"
+                    className="text-[17px] font-semibold tracking-tight text-foreground-intense sm:text-[18px]"
                   >
                     What&apos;s on
                   </h2>
                   <ChevronDown
                     className={cn(
-                      "size-5 shrink-0 text-white/40 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                      "size-5 shrink-0 text-foreground-intense transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
                       expanded && "rotate-180",
                     )}
                     aria-hidden
                   />
                 </div>
-                <p className="mt-0.5 text-[13px] leading-snug text-white/45 sm:text-[14px]">
+                <p className="mt-0.5 text-[13px] leading-snug text-foreground-intense sm:text-[14px]">
                   {hasGuideIds ? (
                     <>
-                      <span className="tabular-nums text-white/55">
+                      <span className="tabular-nums text-foreground-intense">
                         {withGuideId.length}
                       </span>
                       {" of "}
-                      <span className="tabular-nums text-white/55">
+                      <span className="tabular-nums text-foreground-intense">
                         {rows.length}
                       </span>
                       {" channels have guide data — scroll sideways for now & next."}
                     </>
                   ) : (
                     <>
-                      No <span className="text-white/60">tvg-id</span> on these
+                      No <span className="text-foreground-intense">tvg-id</span> on these
                       channels yet — programme titles won&apos;t appear until the
                       playlist includes guide IDs.
                     </>
                   )}
                 </p>
               </div>
-            </button>
+            </Button>
             <div className="flex shrink-0 flex-wrap items-center gap-2">
               {fetchedAt ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-black/25 px-3 py-1.5 text-[11px] tabular-nums text-white/40 sm:text-[12px]">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-[11px] tabular-nums text-foreground-intense sm:text-[12px]">
                   <CalendarClock className="size-3.5 opacity-70" aria-hidden />
                   {formatClock(fetchedAt)}
                 </span>
               ) : null}
-              <button
+              <Button variant="ghost"
                 type="button"
                 onClick={() => void fetchPrograms("force")}
                 disabled={loading || idPayload.length === 0}
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-full border border-white/[0.12] bg-white/[0.06]",
-                  "px-3.5 py-2 text-[12px] font-semibold text-white/85 outline-none transition-all duration-200",
-                  "hover:bg-white/[0.1] disabled:opacity-40",
-                  "focus-visible:ring-2 focus-visible:ring-white",
+                  "inline-flex items-center gap-2 rounded-full border border-border bg-background-muted",
+                  "px-3.5 py-2 text-[12px] font-semibold text-foreground-intense outline-none transition-all duration-200",
+                  "hover:bg-background-muted disabled:opacity-40",
+                  "focus-visible:ring-2 focus-visible:ring-border",
                   "active:scale-[0.98]",
                 )}
               >
@@ -316,7 +318,7 @@ export function FavoritesEpgTimeline({
                   <RefreshCw className="size-3.5 sm:size-4" aria-hidden />
                 )}
                 Refresh
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -331,14 +333,14 @@ export function FavoritesEpgTimeline({
           <div className="min-h-0 overflow-hidden">
             <div className="px-0 pb-5 pt-1 sm:px-2 sm:pb-6 sm:pt-2">
               {!hasGuideIds ? (
-                <p className="mx-4 rounded-2xl border border-dashed border-white/[0.12] bg-black/20 px-5 py-8 text-center text-[14px] leading-relaxed text-white/48 sm:mx-6 sm:text-[15px]">
-                  When providers add <span className="text-white/70">tvg-id</span>{" "}
+                <p className="mx-4 rounded-2xl border border-dashed border-border bg-background px-5 py-8 text-center text-[14px] leading-relaxed text-foreground-intense sm:mx-6 sm:text-[15px]">
+                  When providers add <span className="text-foreground-intense">tvg-id</span>{" "}
                   metadata, a compact schedule strip appears here — no extra setup.
                 </p>
               ) : (
                 <>
                   {error ? (
-                    <p className="mx-4 mb-4 rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-[13px] text-rose-100/90 sm:mx-6 sm:text-[14px]">
+                    <p className="mx-4 mb-4 rounded-xl border border-error bg-error-subtle px-4 py-3 text-[13px] text-error-strong sm:mx-6 sm:text-[14px]">
                       {error}
                     </p>
                   ) : null}
@@ -346,13 +348,13 @@ export function FavoritesEpgTimeline({
                   <div
                     className={cn(
                       "relative",
-                      "before:pointer-events-none before:absolute before:inset-y-0 before:left-0 before:z-10 before:w-8 before:bg-gradient-to-r before:from-[var(--tv-page-bg)] before:to-transparent",
-                      "after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:z-10 after:w-10 after:bg-gradient-to-l after:from-[var(--tv-page-bg)] after:to-transparent",
+                      "before:pointer-events-none before:absolute before:inset-y-0 before:left-0 before:z-10 before:w-8 before:bg-gradient-to-r before:from-background before:to-transparent",
+                      "after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:z-10 after:w-10 after:bg-gradient-to-l after:from-background after:to-transparent",
                     )}
                   >
                     <ul
                       className={cn(
-                        "tv-row-scroll flex snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden px-4 pb-2 pt-1 sm:gap-4 sm:px-6 sm:pb-3",
+                        "flex snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden px-4 pb-2 pt-1 sm:gap-4 sm:px-6 sm:pb-3",
                         "scroll-px-4 sm:scroll-px-6",
                         "[scroll-padding-inline:1rem]",
                       )}
@@ -381,24 +383,24 @@ export function FavoritesEpgTimeline({
                                   animationDelay: `${Math.min(idx, 20) * 45}ms`,
                                 }}
                               >
-                                <button
+                                <Button variant="ghost"
                                   type="button"
                                   onClick={() => onSelectChannel(ch)}
                                   className={cn(
                                     "motion-safe:animate-fav-epg-card motion-reduce:animate-none motion-reduce:opacity-100",
                                     "group flex h-full w-[min(calc(100vw-3rem),292px)] flex-col rounded-2xl border text-left outline-none",
-                                    "border-white/[0.09] bg-gradient-to-b from-white/[0.07] to-black/30 ring-1 ring-white/[0.05]",
+                                    "border-border bg-gradient-to-b from-background-muted to-background ring-1 ring-border",
                                     "transition-[transform,box-shadow,border-color,background-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                                    "hover:border-violet-400/30 hover:from-white/[0.09] hover:shadow-[0_20px_50px_-24px_rgba(0,0,0,0.75)]",
-                                    "focus-visible:ring-2 focus-visible:ring-violet-400/80",
+                                    "hover:border-primary hover:from-background-muted hover:shadow-lg",
+                                    "focus-visible:ring-2 focus-visible:ring-border",
                                     "motion-safe:group-hover:-translate-y-0.5",
                                   )}
                                 >
-                                  <div className="flex items-center gap-3 border-b border-white/[0.06] p-3.5 sm:p-4">
+                                  <div className="flex items-center gap-3 border-b border-border p-3.5 sm:p-4">
                                     <div
                                       className={cn(
                                         "relative size-11 shrink-0 overflow-hidden rounded-xl sm:size-12",
-                                        "bg-zinc-800 ring-1 ring-white/[0.08]",
+                                        "bg-background ring-1 ring-border",
                                         "transition-transform duration-300 group-hover:scale-[1.03]",
                                       )}
                                     >
@@ -411,7 +413,7 @@ export function FavoritesEpgTimeline({
                                           loading="lazy"
                                         />
                                       ) : (
-                                        <div className="flex size-full items-center justify-center bg-gradient-to-br from-white/12 to-black/35 text-[11px] font-bold text-white/45">
+                                        <div className="flex size-full items-center justify-center bg-gradient-to-br from-background-muted to-background text-[11px] font-bold text-foreground-intense">
                                           {(parsed.displayName ?? "?")
                                             .slice(0, 2)
                                             .toUpperCase()}
@@ -419,30 +421,30 @@ export function FavoritesEpgTimeline({
                                       )}
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                      <p className="truncate text-[15px] font-semibold leading-tight text-white">
+                                      <p className="truncate text-[15px] font-semibold leading-tight text-foreground-intense">
                                         {parsed.displayName ||
                                           ch.name ||
                                           "Channel"}
                                       </p>
-                                      <p className="mt-0.5 truncate text-[12px] text-white/40">
+                                      <p className="mt-0.5 truncate text-[12px] text-foreground-intense">
                                         {ch.groupTitle ?? "Live"}
                                       </p>
                                     </div>
                                     <ChevronRight
-                                      className="size-4 shrink-0 text-white/30 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:text-violet-300/90"
+                                      className="size-4 shrink-0 text-foreground-intense transition-transform duration-300 group-hover:translate-x-0.5 group-hover:text-primary-strong"
                                       aria-hidden
                                     />
                                   </div>
 
                                   <div className="grid flex-1 grid-cols-1 gap-2 p-3 sm:grid-cols-2 sm:gap-2.5 sm:p-3.5">
                                     {!gid ? (
-                                      <p className="col-span-full py-3 text-center text-[12px] text-white/38">
+                                      <p className="col-span-full py-3 text-center text-[12px] text-foreground-intense">
                                         No guide ID
                                       </p>
                                     ) : loading && !hasLoadedOnce ? (
                                       <>
-                                        <div className="h-16 animate-pulse rounded-xl bg-violet-500/10" />
-                                        <div className="h-16 animate-pulse rounded-xl bg-white/[0.06]" />
+                                        <div className="h-16 animate-pulse rounded-xl bg-primary-subtle" />
+                                        <div className="h-16 animate-pulse rounded-xl bg-background-muted" />
                                       </>
                                     ) : (
                                       <>
@@ -450,39 +452,39 @@ export function FavoritesEpgTimeline({
                                           className={cn(
                                             "rounded-xl border px-3 py-2.5 transition-colors duration-200",
                                             prog?.current
-                                              ? "border-violet-400/28 bg-gradient-to-br from-violet-500/18 to-transparent"
-                                              : "border-white/[0.07] bg-black/25",
+                                              ? "border-primary bg-gradient-to-br from-primary-subtle to-transparent"
+                                              : "border-border bg-background",
                                           )}
                                         >
-                                          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-200/75">
+                                          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary-strong">
                                             Now
                                           </p>
-                                          <p className="mt-1 line-clamp-2 min-h-[2.5rem] text-[13px] font-semibold leading-snug text-white">
+                                          <p className="mt-1 line-clamp-2 min-h-[2.5rem] text-[13px] font-semibold leading-snug text-foreground-intense">
                                             {prog?.current?.title ?? "—"}
                                           </p>
                                           {prog?.current ? (
-                                            <p className="mt-1 text-[11px] tabular-nums text-white/42">
+                                            <p className="mt-1 text-[11px] tabular-nums text-foreground-intense">
                                               {formatWindow(prog.current)}
                                             </p>
                                           ) : (
-                                            <p className="mt-1 text-[11px] text-white/32">
+                                            <p className="mt-1 text-[11px] text-foreground-intense">
                                               No match
                                             </p>
                                           )}
                                         </div>
-                                        <div className="rounded-xl border border-white/[0.07] bg-black/22 px-3 py-2.5">
-                                          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/35">
+                                        <div className="rounded-xl border border-border bg-background px-3 py-2.5">
+                                          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground-intense">
                                             Next
                                           </p>
-                                          <p className="mt-1 line-clamp-2 min-h-[2.5rem] text-[13px] font-semibold leading-snug text-white/82">
+                                          <p className="mt-1 line-clamp-2 min-h-[2.5rem] text-[13px] font-semibold leading-snug text-foreground-intense">
                                             {prog?.next?.title ?? "—"}
                                           </p>
                                           {prog?.next ? (
-                                            <p className="mt-1 text-[11px] tabular-nums text-white/38">
+                                            <p className="mt-1 text-[11px] tabular-nums text-foreground-intense">
                                               {formatWindow(prog.next)}
                                             </p>
                                           ) : (
-                                            <p className="mt-1 text-[11px] text-white/28">
+                                            <p className="mt-1 text-[11px] text-foreground-intense">
                                               —
                                             </p>
                                           )}
@@ -490,7 +492,7 @@ export function FavoritesEpgTimeline({
                                       </>
                                     )}
                                   </div>
-                                </button>
+                                </Button>
                               </li>
                             );
                           })}
@@ -501,7 +503,7 @@ export function FavoritesEpgTimeline({
             </div>
           </div>
         </div>
-      </ZendeGlass>
+      </Card>
     </section>
   );
 }

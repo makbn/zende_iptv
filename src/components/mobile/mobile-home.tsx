@@ -6,13 +6,13 @@ import { useEffect, useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
 
 import {
-  CinematicButton,
-  CinematicCommandPanel,
-} from "@/components/layout/cinematic-v2";
+  AppicaButton,
+  AppicaPanel,
+} from "@/components/layout/appica-page";
 import { TvContinueEmpty } from "@/components/tv/tv-continue-empty";
 import { MobileChannelCard } from "@/components/mobile/mobile-channel-card";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@appica/ui-react/button";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { useChannelHealthLookup } from "@/features/health/use-channel-health";
@@ -64,18 +64,18 @@ function MobileShelf({
   return (
     <section
       id={id}
-      className="scroll-mt-24 motion-safe:animate-zen-row-lift motion-reduce:animate-none motion-reduce:opacity-100"
+      className="scroll-mt-24 motion-reduce:animate-none motion-reduce:opacity-100"
       aria-label={title}
     >
       <div className="px-4">
-        <h2 className="zen-section-title">
+        <h2 className="text-xl font-semibold tracking-tight text-foreground-intense">
           {title}
         </h2>
-        <p className="mt-1 max-w-[34ch] text-[13px] leading-snug text-white/52">
+        <p className="mt-1 max-w-[34ch] text-[13px] leading-snug text-foreground-intense">
           {description}
         </p>
       </div>
-      <div className="tv-row-scroll zen-stagger-row mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 sm:gap-3.5">
+      <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 sm:gap-3.5">
         {channels.map((channel, index) => (
           <MobileChannelCard
             key={`${title}-${channel.url}-${index}`}
@@ -246,7 +246,7 @@ export function MobileHome() {
 
   if (!catalogLoaded) {
     return (
-      <div className="zen-page-bg flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-white/45">
+      <div className="bg-background flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-foreground-intense">
         <ZendeLoadingState size="full" label="Loading home" />
       </div>
     );
@@ -254,9 +254,9 @@ export function MobileHome() {
 
   if (metaFailed) {
     return (
-      <div className="zen-page-bg flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center text-white/60">
-        <p className="zen-kicker">Catalog offline</p>
-        <p className="max-w-sm text-[21px] font-semibold tracking-[-0.04em] text-white">
+      <div className="bg-background flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center text-foreground-intense">
+        <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">Catalog offline</p>
+        <p className="max-w-sm text-[21px] font-semibold tracking-[-0.04em] text-foreground-intense">
           Could not reach the catalog server.
         </p>
         <Button
@@ -272,24 +272,24 @@ export function MobileHome() {
 
   if ((channelCount ?? 0) === 0) {
     return (
-      <div className="zen-page-bg flex min-h-screen items-center justify-center px-4 text-white/45">
+      <div className="bg-background flex min-h-screen items-center justify-center px-4 text-foreground-intense">
         <p className="text-[15px] font-medium">Opening setup…</p>
       </div>
     );
   }
 
   return (
-    <main className="zen-page-bg min-h-screen pb-28 pt-[5.35rem] text-foreground">
+    <main className="bg-background min-h-screen pb-28 pt-[5.35rem] text-foreground">
       <section className="px-4 pb-4">
-        <CinematicCommandPanel className="rounded-[24px] p-4">
-          <p className="zen-kicker">{hero.eyebrow}</p>
-          <h1 className="mt-2 text-[clamp(1.75rem,8vw,2.7rem)] font-semibold leading-[0.95] tracking-[-0.065em] text-white">
+        <AppicaPanel className="rounded-lg p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">{hero.eyebrow}</p>
+          <h1 className="mt-2 text-[clamp(1.75rem,8vw,2.7rem)] font-semibold leading-[0.95] tracking-[-0.065em] text-foreground-intense">
             {hero.title}
           </h1>
-          <p className="mt-2 text-[13px] leading-relaxed text-white/54">
+          <p className="mt-2 text-[13px] leading-relaxed text-foreground-intense">
             {hero.subtitle}
           </p>
-          <p className="mt-3 rounded-[18px] border border-white/[0.09] bg-black/25 px-3 py-2 text-[12px] font-medium leading-relaxed text-white/48">
+          <p className="mt-3 rounded-lg border border-border bg-background px-3 py-2 text-[12px] font-medium leading-relaxed text-foreground-intense">
             {continueWatching.length > 0
               ? "Pick up where you left off or jump into Library."
               : showColdStartRecommendations
@@ -297,18 +297,18 @@ export function MobileHome() {
                 : "Start from the featured item or browse by type in Library."}
           </p>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <CinematicButton onClick={handlePrimary} disabled={busy}>
+            <AppicaButton onClick={handlePrimary} disabled={busy}>
               {hero.primaryLabel}
-            </CinematicButton>
-            <CinematicButton
-              variant="normal"
+            </AppicaButton>
+            <AppicaButton
+              variant="secondary"
               onClick={handleSecondary}
               disabled={busy}
             >
               {hero.secondaryLabel}
-            </CinematicButton>
+            </AppicaButton>
           </div>
-        </CinematicCommandPanel>
+        </AppicaPanel>
       </section>
 
       <div className="relative z-10 space-y-6 px-0">
@@ -367,11 +367,11 @@ export function MobileHome() {
 
         {recentChannels.length === 0 ? (
           <section className="px-4" aria-label="Recently Watched">
-            <div className="rounded-[26px] border border-white/[0.08] bg-white/[0.04] p-5">
-              <h2 className="text-[19px] font-semibold text-white">
+            <div className="rounded-lg border border-border bg-background-muted p-5">
+              <h2 className="text-[19px] font-semibold text-foreground-intense">
                 Nothing watched yet
               </h2>
-              <p className="mt-2 text-[14px] leading-relaxed text-white/48">
+              <p className="mt-2 text-[14px] leading-relaxed text-foreground-intense">
                 Start from Library or tap Play above. Your quick-return row will
                 appear here.
               </p>
@@ -401,15 +401,15 @@ export function MobileHome() {
         />
 
         <section className="px-4">
-          <div className="flex flex-col gap-3 rounded-[26px] border border-white/[0.08] bg-white/[0.035] p-4">
-            <p className="text-[14px] leading-relaxed text-white/48">
+          <div className="flex flex-col gap-3 rounded-lg border border-border bg-background-muted p-4">
+            <p className="text-[14px] leading-relaxed text-foreground-intense">
               Search, filters, and reliability badges live in the full Library.
             </p>
             <div className="grid grid-cols-2 gap-2">
               <Link
                 href="/library"
                 onClick={onNavigateClick("/library")}
-                className={buttonVariants({ variant: "normal", className: "w-full" })}
+                className={buttonVariants({ variant: "secondary", className: "w-full" })}
               >
                 Open Library
               </Link>
@@ -427,8 +427,8 @@ export function MobileHome() {
         </section>
       </div>
 
-      <footer className="mt-8 border-t border-white/[0.06] px-4 py-8 text-center">
-        <p className="text-[12px] leading-relaxed text-white/35">
+      <footer className="mt-8 border-t border-border px-4 py-8 text-center">
+        <p className="text-[12px] leading-relaxed text-foreground-intense">
           Third-party streams. You are responsible for content you access.
         </p>
       </footer>

@@ -25,7 +25,7 @@ import {
   subscribeFavorites,
 } from "@/lib/favorites/favorites-store";
 import { useChannelHealthLookup } from "@/features/health/use-channel-health";
-import { useEnrichedFavorites } from "@/features/iptv/use-enriched-favorites";
+import { useEnrichedFavoritesState } from "@/features/iptv/use-enriched-favorites";
 import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
 import { cn } from "@/lib/utils";
@@ -48,7 +48,7 @@ export function MobileFavoritesPage() {
 
   void favEpoch;
   const rawFavorites = listFavorites();
-  const enriched = useEnrichedFavorites();
+  const { channels: enriched, loading: favoritesLoading } = useEnrichedFavoritesState();
   const { getScoreForChannel } = useChannelHealthLookup(enriched);
 
   const sorted = useMemo(() => {
@@ -189,7 +189,13 @@ export function MobileFavoritesPage() {
         </div>
       </section>
 
-      {enriched.length > 0 ? (
+      {favoritesLoading ? (
+        <section className="mt-5 px-4" aria-live="polite">
+          <div className="rounded-lg border border-border bg-background-muted p-5 text-center text-[14px] text-foreground-muted">
+            Loading favorites…
+          </div>
+        </section>
+      ) : enriched.length > 0 ? (
         <>
           <section className="sticky top-[5.35rem] z-40 mt-2 px-3" aria-label="Favorite filters">
             <Card

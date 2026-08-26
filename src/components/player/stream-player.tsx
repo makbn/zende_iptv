@@ -247,7 +247,9 @@ export function StreamPlayer(
         if (mpegtsMode && mpegtsPlayer) {
           mpegtsPlayer.attachMediaElement(video);
           mpegtsPlayer.load();
-          void mpegtsPlayer.play().catch(() => {});
+          void mpegtsPlayer.play().catch(() => {
+            video.dispatchEvent(new Event("pause"));
+          });
           onSessionChangeRef.current?.(buildSession());
           return;
         }
@@ -298,7 +300,9 @@ export function StreamPlayer(
             networkRetries = 0;
             hlsRecreateAttempt = 0;
             bumpSession();
-            void video.play().catch(() => {});
+            void video.play().catch(() => {
+              video.dispatchEvent(new Event("pause"));
+            });
           };
 
           const isAudioCodecError = (details: string | undefined, reason?: string) => {
@@ -461,7 +465,9 @@ export function StreamPlayer(
           video.addEventListener(
             "canplay",
             () => {
-              void video.play().catch(() => {});
+              void video.play().catch(() => {
+                video.dispatchEvent(new Event("pause"));
+              });
             },
             { once: true },
           );
@@ -472,7 +478,9 @@ export function StreamPlayer(
           video.addEventListener(
             "canplay",
             () => {
-              void video.play().catch(() => {});
+              void video.play().catch(() => {
+                video.dispatchEvent(new Event("pause"));
+              });
             },
             { once: true },
           );

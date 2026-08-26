@@ -431,7 +431,7 @@ export function TvLibraryPage() {
                     size="lg"
                   >
                     <SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>
-                    <SelectItem value="all">All categories</SelectItem>
+                    <SelectItem value="all">Regular channels</SelectItem>
                     {categoryOptions.map(({ key, label, count }) => (
                       <SelectItem key={key} value={key}>
                         {label} ({count.toLocaleString()})
@@ -666,6 +666,7 @@ export function TvLibraryPage() {
                   <TvChannelTile
                     key={`${ch.url}-${i}`}
                     channel={ch}
+                    className="w-full sm:w-full h-full"
                     fastMode
                     onSelect={(channel) =>
                       contentTypeFromStreamUrl(channel.url) === "live"

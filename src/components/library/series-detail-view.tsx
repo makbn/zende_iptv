@@ -209,50 +209,46 @@ export function SeriesDetailView({
 
               <div className="mt-6 flex flex-wrap items-center justify-center gap-3 sm:justify-start">
                 {continueTarget ? (
-                  <Button variant="ghost"
+                  <Button variant="primary"
                     type="button"
                     disabled={playBusy}
                     onClick={() => void playEpisode(continueTarget.ep, continueTarget.index)}
-                    className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
+                    className="h-auto rounded-full py-3 px-6 shadow-md transition-all hover:scale-[1.02]"
                   >
-                    <Card frame="solid">
-                      <span className="flex min-w-[10rem] flex-col items-start gap-0.5 px-6 py-3 text-left">
-                        <span className="flex items-center gap-2 text-[15px] font-semibold text-foreground-inverse">
-                          <Play className="h-4 w-4 fill-current" aria-hidden />
-                          Continue
-                        </span>
-                        <span className="text-[12px] font-medium text-foreground-inverse">
-                          {formatEpisodeCode(
-                            continueTarget.ep.season,
-                            continueTarget.ep.episodeNum,
-                          )}
-                          {continueTarget.ep.title ? ` · ${continueTarget.ep.title}` : ""}
-                        </span>
-                        {continueProgress != null ? (
-                          <span className="mt-1 h-1 w-full overflow-hidden rounded-full bg-background">
-                            <span
-                              className="block h-full rounded-full bg-background"
-                              style={{ width: `${continueProgress * 100}%` }}
-                            />
-                          </span>
-                        ) : null}
+                    <span className="flex min-w-[10rem] flex-col items-start gap-1 text-left">
+                      <span className="flex items-center gap-2 text-[15px] font-bold">
+                        <Play className="h-4 w-4 fill-current" aria-hidden />
+                        Continue
                       </span>
-                    </Card>
+                      <span className="text-[13px] font-medium opacity-90">
+                        {formatEpisodeCode(
+                          continueTarget.ep.season,
+                          continueTarget.ep.episodeNum,
+                        )}
+                        {continueTarget.ep.title ? ` · ${continueTarget.ep.title}` : ""}
+                      </span>
+                      {continueProgress != null ? (
+                        <span className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-black/20">
+                          <span
+                            className="block h-full rounded-full bg-white"
+                            style={{ width: `${continueProgress * 100}%` }}
+                          />
+                        </span>
+                      ) : null}
+                    </span>
                   </Button>
                 ) : episodesBySeason.flat[0] ? (
-                  <Button variant="ghost"
+                  <Button variant="primary"
                     type="button"
                     disabled={playBusy || loading}
                     onClick={() => void playEpisode(episodesBySeason.flat[0]!, 0)}
-                    className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
+                    className="h-auto rounded-full py-3 px-6 shadow-md transition-all hover:scale-[1.02]"
                   >
-                    <Card frame="solid">
-                      <span className="flex items-center gap-2 px-6 py-3 text-[15px] font-semibold text-foreground-inverse">
-                        <Play className="h-4 w-4 fill-current" aria-hidden />
-                        Play S{episodesBySeason.flat[0]!.season}E
-                        {episodesBySeason.flat[0]!.episodeNum || "1"}
-                      </span>
-                    </Card>
+                    <span className="flex items-center gap-2 text-[15px] font-bold">
+                      <Play className="h-4 w-4 fill-current" aria-hidden />
+                      Play S{episodesBySeason.flat[0]!.season}E
+                      {episodesBySeason.flat[0]!.episodeNum || "1"}
+                    </span>
                   </Button>
                 ) : null}
               </div>
@@ -280,17 +276,16 @@ export function SeriesDetailView({
           <p className="py-12 text-center text-[15px] text-foreground-intense">No episodes found.</p>
         ) : (
           <>
-            <div className="flex gap-2 overflow-x-auto pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex gap-2 overflow-x-auto pb-6 pt-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {episodesBySeason.seasons.map((season) => (
-                <Button variant="ghost"
+                <Button
+                  variant={activeSeason === season ? "primary" : "secondary"}
                   key={season}
                   type="button"
                   onClick={() => setSeasonTab(season)}
                   className={cn(
-                    "shrink-0 rounded-full px-4 py-2 text-[14px] font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary",
-                    activeSeason === season
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-background-muted text-foreground-intense hover:bg-background-muted",
+                    "shrink-0 rounded-full px-5 py-2.5 text-[14px] font-semibold transition-all",
+                    activeSeason === season ? "shadow-md scale-[1.02]" : "opacity-80 hover:opacity-100"
                   )}
                 >
                   Season {season}
@@ -298,49 +293,50 @@ export function SeriesDetailView({
               ))}
             </div>
 
-            <ul className="flex flex-col gap-2">
+            <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {(episodesBySeason.map.get(activeSeason ?? "") ?? []).map((ep) => {
                 const downloading = downloadBusyUrl === ep.playUrl;
                 return (
                   <li key={ep.playUrl}>
-                    <div className="flex items-center gap-2 rounded-lg border border-border bg-background-muted pr-2 transition-colors hover:bg-background-muted">
-                      <Button variant="ghost"
-                        type="button"
-                        disabled={playBusy || Boolean(downloadBusyUrl)}
-                        onClick={() => void playEpisode(ep, ep.index)}
-                        className="group flex min-w-0 flex-1 items-center gap-4 px-4 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
-                      >
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-background-muted text-[13px] font-semibold text-foreground-intense group-hover:bg-background-muted">
-                          {ep.episodeNum || "·"}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-[14px] font-semibold text-foreground-intense">
-                            {formatEpisodeCode(ep.season, ep.episodeNum)}
-                            {ep.title ? ` · ${ep.title}` : ""}
-                          </span>
-                          {ep.durationSeconds ? (
-                            <span className="mt-0.5 block text-[12px] text-foreground-intense">
-                              {Math.round(ep.durationSeconds / 60)} min
+                    <Card frame="solid" className="group h-full overflow-hidden transition-all hover:border-primary/50 hover:shadow-md">
+                      <div className="flex h-full items-center p-2">
+                        <Button variant="ghost"
+                          type="button"
+                          disabled={playBusy || Boolean(downloadBusyUrl)}
+                          onClick={() => void playEpisode(ep, ep.index)}
+                          className="flex min-w-0 flex-1 items-center gap-4 rounded-md px-3 py-3 text-left outline-none hover:bg-transparent"
+                        >
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-background-muted text-[15px] font-bold text-foreground-intense group-hover:bg-primary group-hover:text-primary-foreground transition-colors shadow-sm">
+                            {ep.episodeNum || "·"}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <span className="block text-[15px] font-semibold text-foreground-intense truncate">
+                              {formatEpisodeCode(ep.season, ep.episodeNum)}
+                              {ep.title ? ` · ${ep.title}` : ""}
                             </span>
-                          ) : null}
-                        </span>
-                        <Play className="h-4 w-4 shrink-0 text-foreground-intense group-hover:text-foreground-intense" />
-                      </Button>
-                      <Button variant="ghost"
-                        type="button"
-                        disabled={playBusy || Boolean(downloadBusyUrl)}
-                        aria-label={`Download ${formatEpisodeCode(ep.season, ep.episodeNum)}`}
-                        title="Download"
-                        onClick={() => void downloadEpisode(ep, ep.index)}
-                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground-intense outline-none transition-colors hover:bg-background-muted hover:text-foreground-intense focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
-                      >
-                        {downloading ? (
-                          <ZendeSpinner size="tiny" label="Preparing download" />
-                        ) : (
-                          <Download className="h-4 w-4" aria-hidden />
-                        )}
-                      </Button>
-                    </div>
+                            {ep.durationSeconds ? (
+                              <span className="mt-1 block text-[13px] font-medium text-foreground-muted">
+                                {Math.round(ep.durationSeconds / 60)} min
+                              </span>
+                            ) : null}
+                          </div>
+                        </Button>
+                        <Button variant="ghost"
+                          type="button"
+                          disabled={playBusy || Boolean(downloadBusyUrl)}
+                          aria-label={`Download ${formatEpisodeCode(ep.season, ep.episodeNum)}`}
+                          title="Download"
+                          onClick={() => void downloadEpisode(ep, ep.index)}
+                          className="mr-2 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground-muted transition-colors hover:bg-background-muted hover:text-foreground-intense"
+                        >
+                          {downloading ? (
+                            <ZendeSpinner size="tiny" label="Preparing download" />
+                          ) : (
+                            <Download className="h-5 w-5" aria-hidden />
+                          )}
+                        </Button>
+                      </div>
+                    </Card>
                   </li>
                 );
               })}

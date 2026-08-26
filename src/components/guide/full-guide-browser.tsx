@@ -232,8 +232,8 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
 
   return (
     <>
-    <section aria-label="Full TV guide" className="space-y-4">
-      <Card frame="solid" className="p-3 sm:p-4">
+    <section aria-label="Full TV guide" className="space-y-5">
+      <Card frame="solid" contentProps={{ className: "p-3 sm:p-4" }}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <label className="relative block min-w-0 flex-1">
             <Search
@@ -270,9 +270,6 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
                 : `${results.length.toLocaleString()} channels with schedules`}
           </div>
         </div>
-        <p className="mt-2 px-2 text-[11px] leading-relaxed text-foreground-intense">
-          One search checks channel names, programme titles, and programme descriptions. Select a channel to inspect it; playback only starts when you use the Play button.
-        </p>
       </Card>
 
       {error ? (
@@ -311,10 +308,10 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
       ) : null}
 
       {results.length > 0 && selected ? (
-        <div className={cn("flex flex-col gap-4 transition-opacity duration-200 lg:flex-row lg:items-start", searchPending && "opacity-45")}>
+        <div className={cn("grid gap-5 transition-opacity lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start", searchPending && "opacity-45")}>
           <Card
             frame="solid"
-            className={cn("overflow-hidden lg:w-[36%] lg:min-w-[320px]", mobile && "rounded-lg")}
+            className={cn("overflow-hidden", mobile && "rounded-lg")}
           >
             <div className="border-b border-border px-4 py-3">
               <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-foreground-intense">
@@ -324,7 +321,7 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
                 Select a row to see its complete schedule.
               </p>
             </div>
-            <div className="max-h-[740px] space-y-1 overflow-y-auto p-2">
+            <div className="max-h-[38rem] space-y-1 overflow-y-auto p-2">
               {results.map((result) => {
                 const isSelected = result.channel.url === selected.channel.url;
                 const summaries = summaryProgrammes(result, now);
@@ -334,9 +331,9 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
                     type="button"
                     onClick={() => selectChannel(result.channel.url)}
                     className={cn(
-                      "w-full rounded-lg border px-3 py-3 text-left transition-colors",
+                      "h-auto w-full justify-start rounded-lg border px-3 py-2.5 text-left transition-colors",
                       isSelected
-                        ? "border-primary bg-primary"
+                        ? "border-border-strong bg-background-subtle"
                         : "border-transparent bg-background-muted hover:border-border hover:bg-background-muted",
                     )}
                     aria-pressed={isSelected}
@@ -405,27 +402,28 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
               </Button>
             </div>
 
-            <div className="flex min-h-[180px] flex-col items-center justify-center gap-3 border-b border-border bg-background px-6 py-8 text-center sm:min-h-[220px]">
-              <div className="flex size-12 items-center justify-center rounded-full border border-border bg-background-muted">
-                <Play className="ml-0.5 size-5 fill-current text-foreground-intense" aria-hidden />
-              </div>
-              <div>
+            <div className="flex flex-col gap-3 border-b border-border bg-background-muted px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-background">
+                  <Play className="ml-0.5 size-4 fill-current text-foreground-intense" aria-hidden />
+                </div>
+                <div className="min-w-0">
                 <p className="text-[14px] font-semibold text-foreground-intense">Live preview</p>
-                <p className="mt-1 text-[11px] text-foreground-intense">
-                  Uses the same preview player as Library search.
-                </p>
                 {selectedCurrent ? (
-                  <p className="mt-2 text-[12px] text-foreground-intense">
+                  <p className="mt-1 truncate text-[12px] text-foreground-muted">
                     On now: <span className="font-semibold text-foreground-intense">{selectedCurrent.title}</span>
                   </p>
-                ) : null}
+                ) : <p className="mt-1 text-[12px] text-foreground-muted">Preview without leaving the guide.</p>}
+                </div>
               </div>
               <Button
                 type="button"
                 onClick={() => setPreviewChannel(selected.channel)}
                 size="sm"
+                variant="secondary"
+                className="shrink-0"
               >
-                Open live preview
+                Preview
               </Button>
             </div>
 

@@ -219,9 +219,15 @@ export function MobileSettingsPage() {
             <summary className="cursor-pointer list-none px-4 py-3.5 text-[16px] font-semibold text-foreground-intense marker:content-none [&::-webkit-details-marker]:hidden">
               Authentication
             </summary>
-            <div className="border-t border-border p-4 pt-3">
+            <div className="border-t border-border p-4 pt-3 space-y-4">
               <TvSettingsAuthPanel />
-              {!canManageSystem ? <div className="mt-4"><TvPersonalLibraryCard /></div> : null}
+              {!canManageSystem ? (
+                <>
+                  <TvPlaybackPrefsCard />
+                  <TvParentalControlsCard />
+                  <TvPersonalLibraryCard />
+                </>
+              ) : null}
             </div>
           </details>
         ) : null}

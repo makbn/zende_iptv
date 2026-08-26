@@ -118,7 +118,9 @@ export async function fetchEnrichedFavoritesFromApi(options?: {
 }): Promise<M3uChannel[]> {
   const fallbackToLocal = options?.fallbackToLocal !== false;
   try {
-    const res = await zendeFetch("/api/user/favorites?enrich=1");
+    // Saved rows already contain the UI presentation fields. Avoid building the
+    // complete catalog index on a cold server just to return a few favorites.
+    const res = await zendeFetch("/api/user/favorites");
     if (!res.ok) {
       return fallbackToLocal
         ? listFavorites().map((f) => enrichFavoriteWithCatalog(f, []))

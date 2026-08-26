@@ -318,6 +318,10 @@ function filterIndexedRows(
   }
   if (filters.category) {
     scoped = scoped.filter((row) => row.categoryKey === filters.category);
+  } else {
+    // Event-only/PPV placeholders are usually offline between events. Keep
+    // them out of normal browsing while retaining their dedicated facet.
+    scoped = scoped.filter((row) => row.categoryKey !== "ppv-events");
   }
   if (filters.language) {
     scoped = scoped.filter((row) => row.languageKey === filters.language);
@@ -389,6 +393,21 @@ export type HomeCatalogShelves = {
 };
 
 /** Single indexed pass for Home rails (discover + recommended movies/series). */
+function pickRandom<T>(array: T[], count: number): T[] {
+  const len = array.length;
+  const n = Math.min(count, len);
+  if (n === 0) return [];
+
+  const copy = array.slice();
+  for (let i = 0; i < n; i++) {
+    const j = i + Math.floor(Math.random() * (len - i));
+    const temp = copy[i] as T;
+    copy[i] = copy[j] as T;
+    copy[j] = temp;
+  }
+  return copy.slice(0, n);
+}
+
 export async function queryHomeCatalogShelves(input: {
   presetId: string;
   language?: string | null;
@@ -410,21 +429,21 @@ export async function queryHomeCatalogShelves(input: {
           (row) => !isChannelParentalBlocked(row.channel, hiddenPatterns),
         )
       : rows;
-  const discoverScoped = allowed(index.all);
+  const discoverScoped = filterIndexedRows(allowed(index.byContentType.live), { language });
   const movieScoped = filterIndexedRows(allowed(index.byContentType.movie), { language });
   const seriesScoped = filterIndexedRows(allowed(index.byContentType.series), { language });
 
   return {
     discover: {
-      channels: discoverScoped.slice(0, discoverLimit).map((row) => row.channel),
+      channels: pickRandom(discoverScoped, discoverLimit).map((row) => row.channel),
       total: discoverScoped.length,
     },
     movies: {
-      channels: movieScoped.slice(0, movieLimit).map((row) => row.channel),
+      channels: pickRandom(movieScoped, movieLimit).map((row) => row.channel),
       total: movieScoped.length,
     },
     series: {
-      channels: seriesScoped.slice(0, seriesLimit).map((row) => row.channel),
+      channels: pickRandom(seriesScoped, seriesLimit).map((row) => row.channel),
       total: seriesScoped.length,
     },
   };

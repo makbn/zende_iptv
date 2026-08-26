@@ -4,7 +4,6 @@ import type { M3uChannel } from "@/core/playlist/m3u-parse";
 export function buildShowPageHref(seriesId: string, channel?: Pick<M3uChannel, "name" | "tvgLogo" | "groupTitle">): string {
   const params = new URLSearchParams();
   if (channel?.name?.trim()) params.set("title", channel.name.trim());
-  if (channel?.tvgLogo?.trim()) params.set("logo", channel.tvgLogo.trim());
   if (channel?.groupTitle?.trim()) params.set("group", channel.groupTitle.trim());
   const q = params.toString();
   return `/library/show/${encodeURIComponent(seriesId)}${q ? `?${q}` : ""}`;

@@ -181,8 +181,9 @@ function hasAny(words: string, phrases: string[]): boolean {
   return phrases.some((phrase) => containsPhrase(words, phrase));
 }
 
-function categoryFor(groupTitle: string, contentType: LibraryContentType) {
+function categoryFor(groupTitle: string, contentType: LibraryContentType, channelName = "") {
   const words = normalizedWords(groupTitle);
+  const channelWords = normalizedWords(`${groupTitle} ${channelName}`);
   if (hasAny(words, ["adult", "por"+"n", "xxx", "+18"])) return category("adult", "Adult");
 
   if (contentType === "movie") {
@@ -213,7 +214,8 @@ function categoryFor(groupTitle: string, contentType: LibraryContentType) {
     return category("shows", "Shows");
   }
 
-  if (hasAny(words, ["sport", "sports", "ppv", "live events", "espn", "nba", "nfl", "nhl", "mlb", "milb", "ncaa", "fifa", "ufc", "f1", "motogp", "viaplay", "dazn", "racing", "hockey", "football", "victory+", "btn", "flo"])) return category("sports-events", "Sports & Events");
+  if (hasAny(channelWords, ["ppv", "event only", "events only", "view only", "event channel"])) return category("ppv-events", "PPV & Event-only");
+  if (hasAny(words, ["sport", "sports", "live events", "espn", "nba", "nfl", "nhl", "mlb", "milb", "ncaa", "fifa", "ufc", "f1", "motogp", "viaplay", "dazn", "racing", "hockey", "football", "victory+", "btn", "flo"])) return category("sports-events", "Sports & Events");
   if (hasAny(words, ["kids", "kidz", "family", "children", "enfants", "cocuk", "femijet", "paidika"])) return category("kids-family", "Kids & Family");
   if (hasAny(words, ["news", "information", "lajme", "haber"])) return category("news", "News");
   if (hasAny(words, ["documentary", "documentaries", "documentries", "dokumentare", "belgesel"])) return category("documentary", "Documentary");
@@ -263,7 +265,7 @@ export function deriveChannelTaxonomy(
     languageFromNamePrefix(channel.name);
 
   return {
-    ...categoryFor(groupTitle, contentType),
+    ...categoryFor(groupTitle, contentType, channel.name),
     languageKey,
     countryKey: country?.key ?? null,
   };

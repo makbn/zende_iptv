@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createServerLogger } from "@/core/logging/server";
+import { RingBuffer } from "@/lib/stream/ring-buffer";
 
 const log = createServerLogger("lib.stream.resilient-upstream");
 
@@ -17,6 +18,8 @@ export type ResilientUpstreamConfig = {
   label?: string;
   /** An already-opened stream to use for the first read loop to prevent double-fetching. */
   initialStream?: ReadableStream<Uint8Array>;
+  /** Capacity of the ring buffer for catch-up (default 4MB) */
+  ringBufferCapacity?: number;
 };
 
 const DEFAULT_MAX_CONSECUTIVE_FAILURES = 5;
@@ -33,172 +36,210 @@ const DEFAULT_MAX_BACKOFF_MS = 500;
  * Backoff schedule: initialBackoffMs → 2x → 4x → maxBackoffMs (capped), with
  * ±25% jitter. Consecutive failures reset on any successful chunk read.
  */
-export function createResilientUpstream(
-  config: ResilientUpstreamConfig,
-): ReadableStream<Uint8Array> {
-  const {
-    fetchUpstream,
-    maxConsecutiveFailures = DEFAULT_MAX_CONSECUTIVE_FAILURES,
-    initialBackoffMs = DEFAULT_INITIAL_BACKOFF_MS,
-    maxBackoffMs = DEFAULT_MAX_BACKOFF_MS,
-    label = "(unknown)",
-    initialStream,
-  } = config;
+export class ResilientUpstream {
+  private config: ResilientUpstreamConfig;
+  private ringBuffer: RingBuffer;
+  private subscribers = new Set<ReadableStreamDefaultController<Uint8Array>>();
+  private cancelled = false;
+  private consecutiveFailures = 0;
+  private currentReader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+  private backoffTimer: ReturnType<typeof setTimeout> | null = null;
+  private isFirstLoop = true;
+  private pumpPromise: Promise<void> | null = null;
 
-  let cancelled = false;
-  let consecutiveFailures = 0;
-  let currentReader: ReadableStreamDefaultReader<Uint8Array> | null = null;
-  let backoffTimer: ReturnType<typeof setTimeout> | null = null;
-  let isFirstLoop = true;
+  constructor(config: ResilientUpstreamConfig) {
+    this.config = {
+      maxConsecutiveFailures: DEFAULT_MAX_CONSECUTIVE_FAILURES,
+      initialBackoffMs: DEFAULT_INITIAL_BACKOFF_MS,
+      maxBackoffMs: DEFAULT_MAX_BACKOFF_MS,
+      label: "(unknown)",
+      ringBufferCapacity: 4 * 1024 * 1024,
+      ...config,
+    };
+    this.ringBuffer = new RingBuffer(this.config.ringBufferCapacity!);
+    this.pumpPromise = this.pumpLoop().catch((err) => {
+      this.broadcastError(err);
+    });
+  }
 
-  /** Add ±25% jitter to a delay. */
-  function jitter(ms: number): number {
+  private jitter(ms: number): number {
     return ms * (0.75 + Math.random() * 0.5);
   }
 
-  /** Compute the next backoff delay based on the current failure count. */
-  function nextBackoffMs(): number {
-    // 0 failures → initialBackoffMs, 1 → 2x, 2 → 4x, etc., capped at max.
-    const raw = initialBackoffMs * Math.pow(2, consecutiveFailures);
-    return jitter(Math.min(raw, maxBackoffMs));
+  private nextBackoffMs(): number {
+    const raw = this.config.initialBackoffMs! * Math.pow(2, this.consecutiveFailures);
+    return this.jitter(Math.min(raw, this.config.maxBackoffMs!));
   }
 
-  /** Safely release the current upstream reader. */
-  async function releaseReader(): Promise<void> {
-    const reader = currentReader;
-    currentReader = null;
+  private async releaseReader(): Promise<void> {
+    const reader = this.currentReader;
+    this.currentReader = null;
     if (reader) {
+      try { await reader.cancel(); } catch {}
+      try { reader.releaseLock(); } catch {}
+    }
+  }
+
+  public destroy(): void {
+    this.cancelled = true;
+    if (this.backoffTimer !== null) {
+      clearTimeout(this.backoffTimer);
+      this.backoffTimer = null;
+    }
+    void this.releaseReader();
+    for (const sub of this.subscribers) {
+      try { sub.close(); } catch {}
+    }
+    this.subscribers.clear();
+  }
+
+  private broadcastError(err: unknown) {
+    for (const sub of this.subscribers) {
+      try { sub.error(err); } catch {}
+    }
+    this.subscribers.clear();
+  }
+
+  private broadcastClose() {
+    for (const sub of this.subscribers) {
+      try { sub.close(); } catch {}
+    }
+    this.subscribers.clear();
+  }
+
+  private broadcastChunk(chunk: Uint8Array) {
+    this.ringBuffer.write(chunk);
+    for (const sub of this.subscribers) {
       try {
-        await reader.cancel();
+        sub.enqueue(chunk);
       } catch {
-        // Already closed or errored — ignore.
-      }
-      try {
-        reader.releaseLock();
-      } catch {
-        // Already released — ignore.
+        // If enqueue fails (e.g. consumer disconnected), we remove them
+        this.subscribers.delete(sub);
       }
     }
   }
 
-  function cleanup(): void {
-    cancelled = true;
-    if (backoffTimer !== null) {
-      clearTimeout(backoffTimer);
-      backoffTimer = null;
-    }
-    void releaseReader();
-  }
-
-  async function pumpLoop(
-    controller: ReadableStreamDefaultController<Uint8Array>,
-  ): Promise<void> {
-    while (!cancelled) {
-      // ── Connect (or reconnect) ──────────────────────────────────────────
+  private async pumpLoop(): Promise<void> {
+    while (!this.cancelled) {
       try {
         let body: ReadableStream<Uint8Array>;
-        if (isFirstLoop && initialStream) {
-          body = initialStream;
+        if (this.isFirstLoop && this.config.initialStream) {
+          body = this.config.initialStream;
         } else {
-          body = await fetchUpstream();
+          body = await this.config.fetchUpstream();
         }
-        isFirstLoop = false;
+        this.isFirstLoop = false;
         
-        currentReader = body.getReader();
-        if (consecutiveFailures > 0) {
+        this.currentReader = body.getReader();
+        if (this.consecutiveFailures > 0) {
           log.info("resilient upstream reconnected", {
-            label,
-            afterFailures: consecutiveFailures,
+            label: this.config.label,
+            afterFailures: this.consecutiveFailures,
           });
         }
       } catch (err) {
-        consecutiveFailures++;
-        if (consecutiveFailures >= maxConsecutiveFailures) {
+        this.consecutiveFailures++;
+        if (this.consecutiveFailures >= this.config.maxConsecutiveFailures!) {
           log.warn("resilient upstream giving up after max failures", {
-            label,
-            consecutiveFailures,
+            label: this.config.label,
+            consecutiveFailures: this.consecutiveFailures,
           });
-          controller.close();
+          this.broadcastClose();
           return;
         }
         log.warn("resilient upstream fetch failed, will retry", {
-          label,
-          consecutiveFailures,
+          label: this.config.label,
+          consecutiveFailures: this.consecutiveFailures,
           error: err instanceof Error ? err.message : String(err),
         });
-        const delay = nextBackoffMs();
+        const delay = this.nextBackoffMs();
         await new Promise<void>((resolve) => {
-          backoffTimer = setTimeout(() => {
-            backoffTimer = null;
+          this.backoffTimer = setTimeout(() => {
+            this.backoffTimer = null;
             resolve();
           }, delay);
         });
         continue;
       }
 
-      // ── Read loop ───────────────────────────────────────────────────────
       try {
-        // eslint-disable-next-line no-constant-condition
         while (true) {
-          if (cancelled) return;
-          const { done, value } = await currentReader!.read();
+          if (this.cancelled) return;
+          const { done, value } = await this.currentReader!.read();
           if (done) {
-            // EOF — upstream ended the connection. Reconnect.
-            log.info("resilient upstream EOF, reconnecting", { label });
+            log.info("resilient upstream EOF, reconnecting", { label: this.config.label });
             break;
           }
-          // Successful chunk — reset failure counter.
-          consecutiveFailures = 0;
-          controller.enqueue(value);
+          this.consecutiveFailures = 0;
+          this.broadcastChunk(value);
         }
       } catch (err) {
-        if (cancelled) return;
-        consecutiveFailures++;
-        if (consecutiveFailures >= maxConsecutiveFailures) {
+        if (this.cancelled) return;
+        this.consecutiveFailures++;
+        if (this.consecutiveFailures >= this.config.maxConsecutiveFailures!) {
           log.warn("resilient upstream giving up after max read failures", {
-            label,
-            consecutiveFailures,
+            label: this.config.label,
+            consecutiveFailures: this.consecutiveFailures,
           });
-          controller.close();
+          this.broadcastClose();
           return;
         }
         log.warn("resilient upstream read error, will reconnect", {
-          label,
-          consecutiveFailures,
+          label: this.config.label,
+          consecutiveFailures: this.consecutiveFailures,
           error: err instanceof Error ? err.message : String(err),
         });
       } finally {
-        await releaseReader();
+        await this.releaseReader();
       }
 
-      // ── Backoff before reconnect ────────────────────────────────────────
-      if (cancelled) return;
-      const delay = nextBackoffMs();
+      if (this.cancelled) return;
+      const delay = this.nextBackoffMs();
       await new Promise<void>((resolve) => {
-        backoffTimer = setTimeout(() => {
-          backoffTimer = null;
+        this.backoffTimer = setTimeout(() => {
+          this.backoffTimer = null;
           resolve();
         }, delay);
       });
     }
   }
 
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      // Kick off the pump loop in the background. It enqueues chunks and
-      // closes the controller when giving up or when cancelled.
-      pumpLoop(controller).catch((err) => {
-        if (!cancelled) {
-          try {
-            controller.error(err);
-          } catch {
-            // Controller already closed — ignore.
-          }
+  /** Create a new downstream subscriber that instantly receives the ring buffer catch-up payload. */
+  public createSubscriber(): ReadableStream<Uint8Array> {
+    const snapshot = this.ringBuffer.snapshot();
+    let localController: ReadableStreamDefaultController<Uint8Array> | undefined;
+    return new ReadableStream<Uint8Array>({
+      start: (controller) => {
+        localController = controller;
+        if (snapshot.length > 0) {
+          controller.enqueue(snapshot);
         }
-      });
-    },
-    cancel() {
-      cleanup();
-    },
-  });
+        if (this.cancelled) {
+          controller.close();
+        } else {
+          this.subscribers.add(controller);
+        }
+      },
+      cancel: () => {
+        if (localController) {
+          this.subscribers.delete(localController);
+        }
+      },
+    });
+  }
 }
+
+// Preserve legacy helper for test compatibility and unmodified routes
+export function createResilientUpstream(config: ResilientUpstreamConfig): ReadableStream<Uint8Array> {
+  const instance = new ResilientUpstream(config);
+  const stream = instance.createSubscriber();
+  // Override cancel to also destroy the instance if the sole stream cancels
+  const originalCancel = stream.cancel.bind(stream);
+  stream.cancel = async (reason) => {
+    instance.destroy();
+    return originalCancel(reason);
+  };
+  return stream;
+}
+
+

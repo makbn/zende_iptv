@@ -70,7 +70,6 @@ export function TvChannelTile({
     }
   };
 
-  const fillsGridCell = className?.includes("poster-grid__tile");
 
   const tileContent = (
     <div
@@ -80,9 +79,9 @@ export function TvChannelTile({
       onKeyDown={onTileKeyDown}
       aria-label={`Play ${label}`}
       className={cn(
-        "group relative flex w-full cursor-pointer flex-col overflow-hidden rounded-xl border border-border bg-background-subtle text-left snap-start",
+        "group relative flex cursor-pointer flex-col overflow-hidden rounded-xl border border-border bg-background-subtle text-left snap-start",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-        fillsGridCell ? "min-w-0" : "w-[178px] shrink-0 sm:w-[214px]",
+        !className?.includes("w-full") && "w-[178px] shrink-0 sm:w-[214px]",
         className,
       )}
     >
@@ -136,11 +135,12 @@ export function TvChannelTile({
       ) : null}
 
       {onPreview ? (
-        <div className="pointer-events-auto absolute bottom-4 right-4 z-20">
+        <div className="pointer-events-auto mt-auto border-t border-border px-2.5 py-2">
           <Button
             variant="secondary"
             size="sm"
             type="button"
+            className="w-full"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -164,7 +164,7 @@ export function TvChannelTile({
 
   return (
     <ContextMenu>
-      <ContextMenuTrigger className="block w-full outline-none">
+      <ContextMenuTrigger className="block outline-none">
         {tileContent}
       </ContextMenuTrigger>
       <ContextMenuContent className="z-[100]" sideOffset={8}>

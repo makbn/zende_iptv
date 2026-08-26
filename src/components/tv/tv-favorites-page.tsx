@@ -34,16 +34,12 @@ import {
 import { Card } from "@appica/ui-react/card";
 import { Button, buttonVariants } from "@appica/ui-react/button";
 import {
-  AppicaPanel,
-  AppicaHero,
-  AppicaMetrics,
-} from "@/components/layout/appica-page";
-import {
   listFavorites,
   subscribeFavorites,
 } from "@/lib/favorites/favorites-store";
 import { useChannelHealthLookup } from "@/features/health/use-channel-health";
-import { useEnrichedFavorites } from "@/features/iptv/use-enriched-favorites";
+import { useEnrichedFavoritesState } from "@/features/iptv/use-enriched-favorites";
+import { ZendeLoadingState } from "@/components/loading/zende-spinner";
 import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
 import { resolveLibraryContentType } from "@/lib/channels/content-type";
@@ -103,7 +99,7 @@ export function TvFavoritesPage() {
     return listFavorites();
   }, [favEpoch]);
 
-  const enriched = useEnrichedFavorites();
+  const { channels: enriched, loading: favoritesLoading } = useEnrichedFavoritesState();
   const { getScoreForChannel } = useChannelHealthLookup(enriched);
 
   const sorted = useMemo(() => {
@@ -191,36 +187,6 @@ export function TvFavoritesPage() {
   return (
     <div className="bg-background min-h-screen text-foreground">
       <main className={cn("pb-28", TV_BROWSE_TOP_PAD_CLASS)}>
-        <AppicaHero
-          className="pb-7 pt-8"
-          eyebrow="Saved"
-          title="Favorites"
-          description="Search, sort, and open saved channels."
-          aside={
-            <AppicaPanel>
-              <div className="flex items-center gap-2">
-                <Star className="size-4 fill-current text-warning-strong" aria-hidden />
-                <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">Saved channels</p>
-              </div>
-              <AppicaMetrics
-                className="mt-4"
-                metrics={[
-                  { label: "Saved", value: favCount.toLocaleString(), tone: "ember" },
-                  { label: "Groups", value: groupOptions.length.toLocaleString() },
-                  { label: "Shown", value: filtered.length.toLocaleString(), tone: "signal" },
-                ]}
-              />
-              <Link
-                href="/guide"
-                onClick={onNavigateClick("/guide")}
-                className={buttonVariants({ variant: "secondary", size: "lg", className: "mt-5" })}
-              >
-                Open TV guide
-              </Link>
-            </AppicaPanel>
-          }
-        />
-
         <div
           className={cn(
             "sticky z-30 border-b border-border transition-[background-color,backdrop-filter] duration-300",
@@ -238,6 +204,36 @@ export function TvFavoritesPage() {
               )}
             >
               <div className="flex flex-col gap-3.5 px-4 py-4 sm:px-5 sm:py-5">
+                <div className="flex flex-col gap-4 border-b border-border pb-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-sm font-medium text-foreground-muted">
+                      <Star className="size-4 fill-current text-warning-strong" aria-hidden />
+                      Saved
+                    </div>
+                    <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground-intense sm:text-3xl">
+                      Favorites
+                    </h1>
+                    <p className="mt-1 text-sm text-foreground-muted">Search, sort, and open saved channels.</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-border bg-background-muted px-3 py-1.5 text-sm text-foreground-muted">
+                      {favCount.toLocaleString()} saved
+                    </span>
+                    <span className="rounded-full border border-border bg-background-muted px-3 py-1.5 text-sm text-foreground-muted">
+                      {groupOptions.length.toLocaleString()} groups
+                    </span>
+                    <span className="rounded-full border border-border bg-background-muted px-3 py-1.5 text-sm text-foreground-muted">
+                      {filtered.length.toLocaleString()} shown
+                    </span>
+                    <Link
+                      href="/guide"
+                      onClick={onNavigateClick("/guide")}
+                      className={buttonVariants({ variant: "secondary", size: "md" })}
+                    >
+                      Open TV guide
+                    </Link>
+                  </div>
+                </div>
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:gap-5">
                   <label className="relative flex min-h-[52px] flex-1 items-center">
                     <span className="sr-only">Search favorites</span>
@@ -418,7 +414,15 @@ export function TvFavoritesPage() {
         </div>
 
         <div className={cn("mt-4 lg:mt-6", FAV_PAGE_GUTTER)}>
-          {favCount === 0 ? (
+          {favoritesLoading ? (
+            <Card frame="solid" contentProps={{ className: "py-16" }}>
+              <ZendeLoadingState
+                size="large"
+                label="Loading favorites"
+                description="Retrieving your saved channels."
+              />
+            </Card>
+          ) : favCount === 0 ? (
             <div className="relative overflow-hidden rounded-lg border border-border bg-background px-8 py-20 text-center shadow-sm sm:px-14 sm:py-24">
               <div className="pointer-events-none absolute inset-0 opacity-[0.45]" aria-hidden>
                 <div className="absolute left-1/2 top-1/2 size-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-background-subtle" />

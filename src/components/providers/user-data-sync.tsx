@@ -35,8 +35,13 @@ export function UserDataSync() {
     const key = authEnabled ? (user?.id ?? null) : "guest";
     if (key === null) return; // auth enabled but not logged in yet
     if (key === lastSyncKey.current) return;
-    clearFavoritesOnThisDevice();
-    clearViewingHistoryOnThisDevice();
+    // Personal data is already stored under an identity-scoped key. Preserve
+    // that cache on initial mount; clear only for an account change observed by
+    // this mounted provider.
+    if (lastSyncKey.current !== null && lastSyncKey.current !== key) {
+      clearFavoritesOnThisDevice();
+      clearViewingHistoryOnThisDevice();
+    }
     lastSyncKey.current = key;
     void Promise.all([
       hydrateFavoritesFromServer(),

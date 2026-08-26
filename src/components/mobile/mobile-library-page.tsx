@@ -328,7 +328,7 @@ export function MobileLibraryPage() {
               aria-label="Category"
             >
 <SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
-              <SelectItem value="">All categories</SelectItem>
+              <SelectItem value="">Regular channels</SelectItem>
               {categoryOptions.map(({ key, label, count }) => (
                 <SelectItem key={key} value={key}>
                   {label} ({count.toLocaleString()})
@@ -506,6 +506,7 @@ export function MobileLibraryPage() {
               <MobileChannelCard
                 key={`${channel.url}`}
                 channel={channel}
+                className="w-full sm:w-full h-full"
                 fastMode
                 onSelect={(ch) =>
                   contentTypeFromStreamUrl(ch.url) === "live"

@@ -254,7 +254,17 @@ export function TvSettingsPage() {
         {activeTab === "authentication" ? (
           <div className={cn(BROWSE_CONTAINER_CLASS, "mt-8")}>
             <TvSettingsAuthPanel />
-            {!canManageSystem ? <div className="mt-8"><TvPersonalLibraryCard /></div> : null}
+            {!canManageSystem ? (
+              <>
+                <div className="mt-8">
+                  <TvPlaybackPrefsCard />
+                  <TvParentalControlsCard />
+                </div>
+                <div className="mt-8">
+                  <TvPersonalLibraryCard />
+                </div>
+              </>
+            ) : null}
           </div>
         ) : null}
 

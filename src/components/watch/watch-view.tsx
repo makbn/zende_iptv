@@ -377,12 +377,7 @@ export function WatchView() {
     (sessionMeta?.playbackMode === "progressive" &&
       resolvedPlaybackKind !== "live");
 
-  const isVodPlayback = isRecordedPlayback || isVodContent;
 
-  const isLivePlayback =
-    !isRecordedPlayback &&
-    !isVodPlayback &&
-    (resolvedPlaybackKind === "live" || resolvedPlaybackKind === undefined);
 
   const { displayName: titleDisplay, resolutionLabel: titleResolutionBadge } =
     useMemo(() => parseChannelLabel(title), [title]);
@@ -416,6 +411,13 @@ export function WatchView() {
     if (expected > 0) return expected;
     return videoDur;
   }, [duration, expectedDuration]);
+
+  const isVodPlayback = isRecordedPlayback || isVodContent || (Number.isFinite(duration) && duration > 0 && resolvedPlaybackKind !== "live");
+  const isLivePlayback =
+    !isRecordedPlayback &&
+    !isVodPlayback &&
+    (resolvedPlaybackKind === "live" || resolvedPlaybackKind === undefined);
+
   const [fs, setFs] = useState(false);
   const [buffering, setBuffering] = useState(false);
   const [bufferRatio, setBufferRatio] = useState(0);
@@ -427,6 +429,13 @@ export function WatchView() {
   const [playerFatalError, setPlayerFatalError] = useState<PlayerError | null>(null);
   const [playerRetryEpoch, setPlayerRetryEpoch] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1);
+  const [remoteControlActive, setRemoteControlActive] = useState(false);
+  const [resumePrompt, setResumePrompt] = useState<{
+    saved: number;
+    url: string;
+    timeLeft: number;
+  } | null>(null);
+  const resumeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [pipActive, setPipActive] = useState(false);
   const [pipCapable, setPipCapable] = useState(false);
   const [chromeVisible, setChromeVisible] = useState(true);
@@ -436,7 +445,7 @@ export function WatchView() {
   const [recordingBusy, setRecordingBusy] = useState(false);
   const [recordingHint, setRecordingHint] = useState<string | null>(null);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
-  const remoteControlActive = Boolean(remote?.activeSession);
+  const remoteControlActiveState = Boolean(remote?.activeSession);
   /** Viewing stats read localStorage; server snapshot has no entries — defer peek until mounted. */
   const [ringPeekClientReady, setRingPeekClientReady] = useState(false);
 
@@ -667,8 +676,7 @@ export function WatchView() {
     });
   }, []);
 
-  const watchFavoriteChannel = useMemo(
-    () =>
+  const watchFavoriteChannel = useMemo(() =>
       recordingId || !canonicalUrl
         ? null
         : {
@@ -705,6 +713,7 @@ export function WatchView() {
     };
     const onTime = () => {
       setCurrentTime(v.currentTime);
+      setPlaying(!v.paused);
       positionSaverRef.current?.(v.currentTime);
     };
     const onMeta = () => {
@@ -716,14 +725,8 @@ export function WatchView() {
       ) {
         const saved = getPlaybackPosition(canonicalUrl);
         if (saved != null && saved > 5) {
-          const cap =
-            Number.isFinite(v.duration) && v.duration > 0
-              ? v.duration
-              : expectedDuration > 0
-                ? expectedDuration
-                : saved;
-          v.currentTime = Math.min(saved, cap - 1);
-          setCurrentTime(v.currentTime);
+          v.pause();
+          setResumePrompt({ saved, url: canonicalUrl, timeLeft: 10 });
         }
         resumedUrlRef.current = canonicalUrl;
       }
@@ -812,13 +815,64 @@ export function WatchView() {
     };
   }, [playbackSrc, playerRetryEpoch]);
 
+  // ─── Resume Dialog Timer ──────────────────────────────────────────
+  useEffect(() => {
+    if (!resumePrompt) {
+      if (resumeTimerRef.current) clearInterval(resumeTimerRef.current);
+      return;
+    }
+    resumeTimerRef.current = setInterval(() => {
+      setResumePrompt((prev) => {
+        if (!prev) return null;
+        if (prev.timeLeft <= 1) {
+          // Auto-continue
+          const v = videoRef.current;
+          if (v) {
+            const cap = Number.isFinite(v.duration) && v.duration > 0 ? v.duration : prev.saved;
+            v.currentTime = Math.min(prev.saved, cap - 1);
+            setCurrentTime(v.currentTime);
+            void v.play().catch(() => {
+              v.dispatchEvent(new Event("pause"));
+            });
+          }
+          return null;
+        }
+        return { ...prev, timeLeft: prev.timeLeft - 1 };
+      });
+    }, 1000);
+    return () => {
+      if (resumeTimerRef.current) clearInterval(resumeTimerRef.current);
+    };
+  }, [resumePrompt]);
+
+  const handleResumeChoice = useCallback(
+    (choice: "continue" | "start-over") => {
+      const v = videoRef.current;
+      const prompt = resumePrompt;
+      setResumePrompt(null);
+      if (!v || !prompt) return;
+
+      if (choice === "continue") {
+        const cap = Number.isFinite(v.duration) && v.duration > 0 ? v.duration : prompt.saved;
+        v.currentTime = Math.min(prompt.saved, cap - 1);
+      } else {
+        v.currentTime = 0;
+      }
+      setCurrentTime(v.currentTime);
+      void v.play().catch(() => {
+        v.dispatchEvent(new Event("pause"));
+      });
+    },
+    [resumePrompt],
+  );
+
   const togglePlay = useCallback(() => {
     const v = videoRef.current;
     if (!v) return;
     if (v.paused) {
-      void v.play()
-        .then(() => setAutoplayBlocked(false))
-        .catch(() => setAutoplayBlocked(true));
+      void v.play().catch(() => {
+        v.dispatchEvent(new Event("pause"));
+      });
     } else {
       v.pause();
     }
@@ -935,27 +989,27 @@ export function WatchView() {
   );
 
   const remoteAwareTogglePlay = useCallback(() => {
-    if (remoteControlActive) {
+    if (remoteControlActiveState) {
       void remote?.sendTogglePlay();
       return;
     }
     togglePlay();
-  }, [remoteControlActive, remote, togglePlay]);
+  }, [remoteControlActiveState, remote, togglePlay]);
 
   const remoteAwareSkipSeconds = useCallback(
     (delta: number) => {
-      if (remoteControlActive) {
+      if (remoteControlActiveState) {
         void remote?.sendSkip(delta);
         return;
       }
       skipSeconds(delta);
     },
-    [remoteControlActive, remote, skipSeconds],
+    [remoteControlActiveState, remote, skipSeconds],
   );
 
   const remoteAwareSeekTo = useCallback(
     (seconds: number) => {
-      if (remoteControlActive) {
+      if (remoteControlActiveState) {
         void remote?.sendSeekTo(seconds);
         return;
       }
@@ -968,7 +1022,7 @@ export function WatchView() {
       v.currentTime = clamped;
       setCurrentTime(clamped);
     },
-    [remoteControlActive, remote, isVodPlayback, effectiveDuration],
+    [remoteControlActiveState, remote, isVodPlayback, effectiveDuration],
   );
 
   useEffect(() => {
@@ -1214,6 +1268,20 @@ export function WatchView() {
         ref={containerRef}
         className="fixed inset-0 z-0 overflow-hidden bg-background text-foreground-intense"
       >
+        {resumePrompt ? (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm">
+            <Card frame="solid" className="max-w-xs text-center">
+              <div className="px-5 py-6">
+                <p className="text-[14px] font-semibold text-foreground-intense">Resume playback?</p>
+                <p className="mt-2 text-[13px] text-foreground-muted">Continue from {formatClock(resumePrompt.saved)}?</p>
+                <div className="mt-6 flex gap-2">
+                  <Button variant="secondary" className="flex-1" onClick={() => handleResumeChoice("start-over")}>Start over</Button>
+                  <Button className="flex-1" onClick={() => handleResumeChoice("continue")}>Continue ({resumePrompt.timeLeft}s)</Button>
+                </div>
+              </div>
+            </Card>
+          </div>
+        ) : null}
         <div className="absolute inset-0">
           <div
             className="absolute inset-0 z-0"
@@ -1554,7 +1622,7 @@ export function WatchView() {
                     ratio={seekRatio}
                     bufferRatio={bufferRatio}
                     onSeek={(clientX, rect) => {
-                      if (remoteControlActive && effectiveDuration > 0) {
+                      if (remoteControlActiveState && effectiveDuration > 0) {
                         const x = Math.min(Math.max(clientX, rect.left), rect.right);
                         const ratio = (x - rect.left) / rect.width;
                         remoteAwareSeekTo(ratio * effectiveDuration);
@@ -1984,10 +2052,10 @@ function LiveBufferBar({ bufferRatio }: { bufferRatio: number }) {
       aria-hidden
     >
       <div
-        className="absolute inset-y-0 left-0 rounded-full bg-background-muted transition-[width] duration-300"
+        className="absolute inset-y-0 left-0 rounded-full bg-white/20 transition-[width] duration-300"
         style={{ width: `${Math.min(100, bufferRatio * 100 || 8)}%` }}
       />
-      <div className="absolute inset-y-0 left-0 w-10 rounded-full bg-gradient-to-r from-primary-subtle to-background-muted" />
+      <div className="absolute inset-y-0 left-0 w-10 rounded-full bg-primary" />
     </div>
   );
 }
@@ -2037,11 +2105,11 @@ function SeekBar({
       }}
     >
       <div
-        className="absolute inset-y-0 left-0 bg-background-muted"
+        className="absolute inset-y-0 left-0 bg-white/20"
         style={{ width: `${Math.min(100, bufferRatio * 100)}%` }}
       />
       <div
-        className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary-subtle to-background-muted"
+        className="absolute inset-y-0 left-0 bg-primary"
         style={{ width: `${ratio * 100}%` }}
       />
     </div>

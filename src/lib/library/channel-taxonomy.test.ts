@@ -57,4 +57,23 @@ describe("provider channel taxonomy", () => {
       ),
     ).toMatchObject({ languageKey: "fr", countryKey: "fr" });
   });
+
+  it("separates PPV and event-only placeholders from regular live channels", () => {
+    expect(
+      deriveChannelTaxonomy(
+        { name: "S| VIX PPV 99 [EVENT ONLY]", groupTitle: "LATIN SPORTS" },
+        "live",
+      ),
+    ).toMatchObject({
+      categoryKey: "ppv-events",
+      categoryLabel: "PPV & Event-only",
+    });
+
+    expect(
+      deriveChannelTaxonomy(
+        { name: "VIEW ONLY 14", groupTitle: "Special Events" },
+        "live",
+      ),
+    ).toMatchObject({ categoryKey: "ppv-events" });
+  });
 });

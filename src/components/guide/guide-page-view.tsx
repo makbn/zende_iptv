@@ -3,9 +3,7 @@
 import { FullGuideBrowser } from "@/components/guide/full-guide-browser";
 import { BROWSE_CONTAINER_CLASS } from "@/components/layout/browse-page-shell";
 import {
-  AppicaPanel,
   AppicaHero,
-  AppicaMetrics,
 } from "@/components/layout/appica-page";
 import {
   TV_BROWSE_TOP_PAD_CLASS,
@@ -63,38 +61,23 @@ export function GuidePageView({ mobile = false }: { mobile?: boolean }) {
       <main className={mobile ? "px-4" : undefined}>
         {!mobile ? (
           <AppicaHero
-            className="pb-8 pt-8"
+            className="py-6"
             eyebrow="Guide"
             title="TV guide"
             description="Search every live channel and programme, preview it, and inspect the complete provider schedule."
-            aside={
-              <AppicaPanel>
-                <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">Guide status</p>
-                <AppicaMetrics
-                  className="mt-4"
-                  metrics={[
-                    {
-                      label: "Favorites",
-                      value: favoritesChannels.length.toLocaleString(),
-                      tone: "ember",
-                    },
-                    {
-                      label: "Discover",
-                      value: discoverLive.length.toLocaleString(),
-                      tone: "signal",
-                    },
-                    {
-                      label: "Mode",
-                      value: liveCatalog.loading ? "Syncing" : "Live",
-                    },
-                  ]}
-                />
-                <p className="mt-5 text-[14px] leading-relaxed text-foreground-intense">
-                  Provider schedules load automatically for channels that include an EPG ID.
-                </p>
-              </AppicaPanel>
-            }
-          />
+          >
+            <div className="flex flex-wrap items-center gap-2 text-sm text-foreground-muted">
+              <span className="rounded-full border border-border bg-background-muted px-3 py-1.5">
+                {favoritesChannels.length.toLocaleString()} favorites
+              </span>
+              <span className="rounded-full border border-border bg-background-muted px-3 py-1.5">
+                {discoverLive.length.toLocaleString()} discovered
+              </span>
+              <span className="rounded-full border border-border bg-background-muted px-3 py-1.5">
+                {liveCatalog.loading ? "Syncing guide" : "Guide ready"}
+              </span>
+            </div>
+          </AppicaHero>
         ) : (
           <section className="border border-border bg-background-subtle shadow-sm mb-4 rounded-lg px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted text-[10px]">
@@ -111,7 +94,7 @@ export function GuidePageView({ mobile = false }: { mobile?: boolean }) {
           className={
             mobile
               ? "space-y-6"
-              : cn(BROWSE_CONTAINER_CLASS, "space-y-10")
+              : cn(BROWSE_CONTAINER_CLASS, "space-y-6 py-6")
           }
         >
           <FullGuideBrowser
@@ -123,7 +106,7 @@ export function GuidePageView({ mobile = false }: { mobile?: boolean }) {
       </main>
 
       {!mobile ? (
-        <footer className="mt-10 border-t border-border py-10 text-center">
+        <footer className="mt-8 border-t border-border py-6 text-center">
           <p className="text-[13px] text-foreground-intense">
             Guide data from your IPTV provider, with public XMLTV fallback when available.
           </p>

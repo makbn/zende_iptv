@@ -13,9 +13,7 @@ import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spin
 import { Button, buttonVariants } from "@appica/ui-react/button";
 import { BROWSE_CONTAINER_CLASS } from "@/components/layout/browse-page-shell";
 import {
-  AppicaPanel,
   AppicaHero,
-  AppicaMetrics,
 } from "@/components/layout/appica-page";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import {
@@ -485,38 +483,32 @@ export function TvRecordingsPage() {
     <div className="bg-background min-h-screen text-foreground">
       <main className={cn("pb-28", TV_BROWSE_TOP_PAD_CLASS)}>
         <AppicaHero
-          className="pb-8 pt-8"
+          className="py-6"
           eyebrow="Recorder"
           title="Recordings"
           description="Schedule, monitor, play, and download recordings."
-          aside={
-            <AppicaPanel>
-              <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">Recorder status</p>
-              <AppicaMetrics
-                className="mt-4"
-                metrics={[
-                  {
-                    label: "Scheduled",
-                    value: (overview?.schedules.length ?? 0).toLocaleString(),
-                    tone: "signal",
-                  },
-                  {
-                    label: "Active",
-                    value: (overview?.active.length ?? 0).toLocaleString(),
-                    tone: "ember",
-                  },
-                  {
-                    label: "Library",
-                    value: (overview?.library.length ?? 0).toLocaleString(),
-                  },
-                ]}
-              />
-              <p className="mt-5 text-[14px] leading-relaxed text-foreground-intense">
-                Recording uses your catalog stream URLs.
-              </p>
-            </AppicaPanel>
-          }
-        />
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-border bg-background-muted px-3 py-1.5 text-sm text-foreground-muted">
+              {(overview?.schedules.length ?? 0).toLocaleString()} scheduled
+            </span>
+            <span className="rounded-full border border-border bg-background-muted px-3 py-1.5 text-sm text-foreground-muted">
+              {(overview?.active.length ?? 0).toLocaleString()} active
+            </span>
+            <span className="rounded-full border border-border bg-background-muted px-3 py-1.5 text-sm text-foreground-muted">
+              {(overview?.library.length ?? 0).toLocaleString()} saved
+            </span>
+            <Button
+              type="button"
+              variant="primary"
+              size="md"
+              onClick={() => setStartRecordingDialogOpen(true)}
+            >
+              <Plus className="size-4" aria-hidden />
+              Start a recording
+            </Button>
+          </div>
+        </AppicaHero>
 
         <div className={cn(BROWSE_CONTAINER_CLASS, "space-y-8")}>
           {overview && !overview.ffmpegAvailable ? (
@@ -546,35 +538,6 @@ export function TvRecordingsPage() {
               {loadError}
             </div>
           ) : null}
-
-          <section aria-labelledby="rec-start-heading">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2
-                  id="rec-start-heading"
-                  className="text-xl font-semibold tracking-tight text-foreground-intense"
-                >
-                  New recording
-                </h2>
-                <p className="text-sm text-foreground-muted mt-1 max-w-xl">
-                  Schedule a future capture or start encoding now — pick a channel
-                  and times in the recorder.
-                </p>
-              </div>
-              <Button variant="ghost"
-                type="button"
-                onClick={() => setStartRecordingDialogOpen(true)}
-                className="shrink-0 outline-none"
-              >
-                <Card frame="solid">
-                  <span className="flex items-center gap-2 px-5 py-2.5 text-[15px] font-semibold text-foreground-inverse">
-                    <Plus className="size-4" aria-hidden />
-                    Start a recording
-                  </span>
-                </Card>
-              </Button>
-            </div>
-          </section>
 
           {startRecordingDialogOpen ? (
             <div

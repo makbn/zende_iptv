@@ -7,9 +7,9 @@ import { prisma } from "@/lib/db/prisma";
 import { filterParentalChannels, loadParentalPolicy } from "@/lib/parental/parental-control-store";
 import { stableThreadfinStreamId, threadfinMaxChannels } from "@/lib/threadfin/config";
 import { createServerLogger } from "@/core/logging/server";
+import { loadEnabledProviderChannels } from "@/lib/iptv/provider-store";
 
 const log = createServerLogger("lib.threadfin.catalog");
-const MANUAL_STORE_ID = 1;
 const GUEST_USER_ID = "__guest__";
 const CACHE_TTL_MS = 60_000;
 
@@ -48,24 +48,6 @@ export function invalidateThreadfinCatalogCache(): void {
   cache = null;
 }
 
-async function loadManualChannels(): Promise<M3uChannel[]> {
-  const row = await prisma.manualChannelsStore.findUnique({ where: { id: MANUAL_STORE_ID } });
-  if (!row) return [];
-  try {
-    const parsed = JSON.parse(row.entriesJson) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.flatMap((item) => {
-      const channel =
-        item && typeof item === "object" && "channel" in item
-          ? (item as { channel?: M3uChannel }).channel
-          : undefined;
-      return channel?.name && typeof channel.url === "string" ? [channel] : [];
-    });
-  } catch {
-    return [];
-  }
-}
-
 async function loadAllChannels(): Promise<M3uChannel[]> {
   const channels: M3uChannel[] = [];
   for (const src of BUILTIN_PLAYLIST_SOURCES) {
@@ -82,7 +64,7 @@ async function loadAllChannels(): Promise<M3uChannel[]> {
       /* skip a corrupt cache entry */
     }
   }
-  channels.push(...(await loadManualChannels()));
+  channels.push(...(await loadEnabledProviderChannels()));
   return channels;
 }
 

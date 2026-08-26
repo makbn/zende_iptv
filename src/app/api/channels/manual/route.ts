@@ -9,7 +9,6 @@ import {
   effectiveOwnerForNewManualEntry,
   manualChannelsEqual,
   normalizeManualChannel,
-  parseManualEntriesLoose,
   type ManualChannelsGate,
   type StoredManualChannelEntry,
 } from "@/lib/channels/manual-channels-policy";
@@ -20,14 +19,10 @@ import {
 } from "@/lib/library/clear-all-catalog";
 import { loadManualChannelRows, saveManualChannelRows } from "@/lib/channels/manual-channels-db";
 import { persistManualChannelsBatch } from "@/lib/channels/persist-manual-channels";
-import { invalidateXtreamCatalogCache } from "@/lib/iptv/aggregated-channels";
-import { prisma } from "@/lib/db/prisma";
 
 export const runtime = "nodejs";
 
 const log = createServerLogger("api.channels.manual");
-
-const MANUAL_STORE_ID = 1;
 
 const channelSchema = z.object({
   name: z.string(),
@@ -66,15 +61,6 @@ const deleteAllSchema = z.object({
   all: z.literal(true),
   confirm: z.literal("REMOVE_ALL_IMPORTED"),
 });
-
-function parseStoredRows(entriesJson: string): StoredManualChannelEntry[] {
-  try {
-    const raw = JSON.parse(entriesJson) as unknown;
-    return parseManualEntriesLoose(raw);
-  } catch {
-    return [];
-  }
-}
 
 function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -284,10 +270,7 @@ export async function PUT(request: Request) {
     seen.add(row.id);
   }
 
-  const row = await prisma.manualChannelsStore.findUnique({
-    where: { id: MANUAL_STORE_ID },
-  });
-  const existing = row ? parseStoredRows(row.entriesJson) : [];
+  const existing = await loadExistingRows();
   const existingById = new Map(existing.map((e) => [e.id, e]));
   const incomingIds = new Set(incoming.map((e) => e.id));
 
@@ -340,17 +323,7 @@ export async function PUT(request: Request) {
     });
   }
 
-  await prisma.manualChannelsStore.upsert({
-    where: { id: MANUAL_STORE_ID },
-    create: {
-      id: MANUAL_STORE_ID,
-      entriesJson: JSON.stringify(merged),
-    },
-    update: {
-      entriesJson: JSON.stringify(merged),
-    },
-  });
-  invalidateXtreamCatalogCache();
+  await saveRows(merged);
 
   return NextResponse.json({ ok: true, entries: merged });
 }

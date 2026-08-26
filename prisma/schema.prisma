@@ -243,6 +243,48 @@ model XtreamPortalConfig {
   updatedAt DateTime @updatedAt
 }
 
+/// An upstream IPTV source. Multiple providers can coexist and may expose
+/// channels with identical display names without being merged.
+model IptvProvider {
+  id          String   @id @default(cuid())
+  name        String
+  kind        String
+  serverUrl   String?
+  username    String?
+  password    String?
+  playlistUrl String?
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  channels    IptvProviderChannel[]
+}
+
+/// A provider-owned playable source. Identity is provider + external key, not
+/// channel name, so duplicate names across providers remain distinct.
+model IptvProviderChannel {
+  id            String       @id @default(cuid())
+  providerId    String
+  provider      IptvProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  externalKey   String
+  name          String
+  url           String
+  duration      Int          @default(-1)
+  contentType   String?
+  tvgId         String?
+  tvgLogo       String?
+  tvgLanguage   String?
+  groupTitle    String?
+  description   String?
+  addedByUserId String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([providerId, externalKey])
+  @@index([providerId, name])
+  @@index([url])
+  @@index([addedByUserId])
+}
+
 /// Threadfin sidecar sync status (Plex/Jellyfin HDHomeRun via Threadfin).
 model ThreadfinSyncState {
   id             Int       @id @default(1)

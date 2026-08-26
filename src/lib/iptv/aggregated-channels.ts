@@ -1,6 +1,7 @@
 import "server-only";
 
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
+import { loadEnabledProviderChannels } from "@/lib/iptv/provider-store";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { prisma } from "@/lib/db/prisma";
 import { invalidateThreadfinCatalogCache } from "@/lib/threadfin/catalog";
@@ -10,7 +11,6 @@ import {
   loadParentalPolicy,
 } from "@/lib/parental/parental-control-store";
 
-const MANUAL_STORE_ID = 1;
 const CACHE_TTL_MS = 15_000;
 
 export type XtreamCategory = {
@@ -40,33 +40,6 @@ export function invalidateXtreamCatalogCache(options?: { scheduleThreadfin?: boo
   if (options?.scheduleThreadfin !== false) scheduleThreadfinSync();
 }
 
-async function loadManualChannels(): Promise<M3uChannel[]> {
-  const row = await prisma.manualChannelsStore.findUnique({
-    where: { id: MANUAL_STORE_ID },
-  });
-  if (!row) return [];
-
-  try {
-    const parsed = JSON.parse(row.entriesJson) as unknown;
-    if (!Array.isArray(parsed)) return [];
-
-    const out: M3uChannel[] = [];
-    for (const item of parsed) {
-      const ch =
-        item &&
-        typeof item === "object" &&
-        (item as Record<string, unknown>).channel &&
-        typeof (item as Record<string, unknown>).channel === "object"
-          ? ((item as Record<string, unknown>).channel as M3uChannel)
-          : null;
-      if (ch?.name && typeof ch.url === "string") out.push(ch);
-    }
-    return out;
-  } catch {
-    return [];
-  }
-}
-
 /** Live channels Xtream/TiviMate should see: cached built-in playlists + Settings → manual URLs. */
 export async function getAggregatedXtreamCatalog(): Promise<AggregatedXtreamCatalog> {
   if (cache && Date.now() - cache.t < CACHE_TTL_MS) {
@@ -92,10 +65,10 @@ export async function getAggregatedXtreamCatalog(): Promise<AggregatedXtreamCata
     }
   }
 
-  const manual = await loadManualChannels();
+  const providerChannels = await loadEnabledProviderChannels();
   const policy = await loadParentalPolicy();
   const liveOnly = filterParentalChannels(
-    [...fromPresets, ...manual].filter(
+    [...providerChannels, ...fromPresets].filter(
       (ch) => (ch.contentType ?? "live") === "live",
     ),
     policy.enabled ? policy.hiddenPatterns : [],

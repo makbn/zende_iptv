@@ -95,7 +95,9 @@ export function TvManualChannelsSection() {
   const [logo, setLogo] = useState("");
   const [m3uPaste, setM3uPaste] = useState("");
   const [playlistUrl, setPlaylistUrl] = useState("");
+  const [playlistProviderName, setPlaylistProviderName] = useState("");
   const [xtreamHost, setXtreamHost] = useState("");
+  const [xtreamProviderName, setXtreamProviderName] = useState("");
   const [xtreamUser, setXtreamUser] = useState("");
   const [xtreamPass, setXtreamPass] = useState("");
   const [hint, setHint] = useState<string | null>(null);
@@ -296,18 +298,22 @@ export function TvManualChannelsSection() {
   }, [loadEntries, m3uPaste, manageQuery, visibleManageCount]);
 
   const importFromUrl = useCallback(
-    async (rawUrl: string) => {
+    async (rawUrl: string, providerName: string) => {
       setHint("Importing… this can take a minute for large IPTV lists.");
       const url = rawUrl.trim();
       if (!url) {
         setHint("Enter a playlist URL first.");
         return;
       }
+      if (!providerName.trim()) {
+        setHint("Enter a provider name so imported channels keep their source identity.");
+        return;
+      }
       try {
         const res = await zendeFetch("/api/playlists/import", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url, persist: true }),
+          body: JSON.stringify({ url, persist: true, providerName: providerName.trim() }),
         });
         const body = (await res.json().catch(() => ({}))) as {
           error?: string;
@@ -340,9 +346,10 @@ export function TvManualChannelsSection() {
   );
 
   const onImportPlaylistUrl = useCallback(async () => {
-    await importFromUrl(playlistUrl);
+    await importFromUrl(playlistUrl, playlistProviderName);
     setPlaylistUrl("");
-  }, [importFromUrl, playlistUrl]);
+    setPlaylistProviderName("");
+  }, [importFromUrl, playlistProviderName, playlistUrl]);
 
   const onRemoveAllImported = useCallback(async () => {
     const ok = window.confirm(
@@ -400,8 +407,8 @@ export function TvManualChannelsSection() {
     const host = xtreamHost.trim();
     const username = xtreamUser.trim();
     const password = xtreamPass.trim();
-    if (!host || !username || !password) {
-      setHint("Enter Xtream host, username, and password.");
+    if (!xtreamProviderName.trim() || !host || !username || !password) {
+      setHint("Enter a provider name, Xtream host, username, and password.");
       return;
     }
     setHint("Importing from Xtream… large lists are saved entirely on the server.");
@@ -409,7 +416,11 @@ export function TvManualChannelsSection() {
       const res = await zendeFetch("/api/playlists/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ xtream: { host, username, password }, persist: true }),
+        body: JSON.stringify({
+          providerName: xtreamProviderName.trim(),
+          xtream: { host, username, password },
+          persist: true,
+        }),
       });
       const body = (await res.json().catch(() => ({}))) as {
         error?: string;
@@ -436,7 +447,7 @@ export function TvManualChannelsSection() {
     } catch {
       setHint("Could not import Xtream playlist.");
     }
-  }, [loadInventoryCount, xtreamHost, xtreamPass, xtreamUser]);
+  }, [loadInventoryCount, xtreamHost, xtreamPass, xtreamProviderName, xtreamUser]);
 
   useEffect(() => {
     setVisibleManageCount(ENTRY_PAGE_SIZE);
@@ -570,13 +581,20 @@ export function TvManualChannelsSection() {
         <p className="mt-1 text-[14px] leading-relaxed text-foreground-intense">
           Paste a remote M3U/M3U8 URL and Zende imports channels server-side.
         </p>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(12rem,0.35fr)_minmax(20rem,1fr)_auto]">
+          <Input
+            type="text"
+            value={playlistProviderName}
+            onChange={(e) => setPlaylistProviderName(e.target.value)}
+            placeholder="Provider name"
+            className={cn(inputClass, "mt-0")}
+          />
           <Input
             type="url"
             value={playlistUrl}
             onChange={(e) => setPlaylistUrl(e.target.value)}
             placeholder="http(s)://.../playlist.m3u8"
-            className={cn(inputClass, "mt-0 min-w-[320px] flex-1")}
+            className={cn(inputClass, "mt-0")}
           />
           <Button variant="ghost"
             type="button"
@@ -598,7 +616,14 @@ export function TvManualChannelsSection() {
           Enter server host, username, and password. Zende builds the
           <code className="mx-1 text-foreground-intense">get.php</code> URL automatically.
         </p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Input
+            type="text"
+            value={xtreamProviderName}
+            onChange={(e) => setXtreamProviderName(e.target.value)}
+            placeholder="Provider name"
+            className={cn(inputClass, "mt-0")}
+          />
           <Input
             type="text"
             value={xtreamHost}

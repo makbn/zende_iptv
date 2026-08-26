@@ -18,6 +18,10 @@ export type M3uChannel = {
   groupTitle?: string;
   /** Optional notes (manual channels / UI); not part of standard EXTINF. */
   description?: string;
+  /** Stable provider ownership; never inferred from the display name. */
+  providerId?: string;
+  providerName?: string;
+  providerChannelId?: string;
 };
 
 function parseExtInfAttributes(attrPart: string): Pick<

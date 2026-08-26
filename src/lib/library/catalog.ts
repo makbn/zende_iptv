@@ -4,9 +4,8 @@ import { isBuiltinPresetId, BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-pl
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { resolveLibraryContentType, type LibraryContentType } from "@/lib/channels/content-type";
 import { yearFromChannelName } from "@/lib/channel/channel-label";
-import { loadManualChannelRows } from "@/lib/channels/manual-channels-db";
-import { normalizeManualChannel } from "@/lib/channels/manual-channels-policy";
 import { mergeBuiltinAndManual } from "@/lib/channels/merge-catalog";
+import { loadEnabledProviderChannels } from "@/lib/iptv/provider-store";
 import { prisma } from "@/lib/db/prisma";
 import {
   countryLabel,
@@ -60,12 +59,11 @@ async function loadBuiltinChannels(presetId: string): Promise<M3uChannel[]> {
 }
 
 export async function loadMergedLibraryCatalog(presetId: string): Promise<M3uChannel[]> {
-  const [builtin, manualRows] = await Promise.all([
+  const [builtin, providerChannels] = await Promise.all([
     loadBuiltinChannels(presetId),
-    loadManualChannelRows(),
+    loadEnabledProviderChannels(),
   ]);
-  const manual = manualRows.map((row) => normalizeManualChannel(row.channel));
-  return mergeBuiltinAndManual(builtin, manual);
+  return mergeBuiltinAndManual(builtin, providerChannels);
 }
 
 type IndexedChannel = {

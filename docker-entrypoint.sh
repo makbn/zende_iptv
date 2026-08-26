@@ -63,4 +63,8 @@ else
   exit "$DEPLOY_RC"
 fi
 
+# One-time relational migration for legacy Xtream rows previously flattened
+# into ManualChannelsStore JSON. Non-provider manual URLs stay in that store.
+su-exec nextjs node scripts/migrate-legacy-provider-channels.mjs
+
 exec su-exec nextjs "$@"

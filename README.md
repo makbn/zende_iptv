@@ -1,6 +1,6 @@
 # Zende
 
-**Zende** is a self-hosted **IPTV hub**: a TV- and phone-friendly web UI with a **server-side stream relay**, **per-channel VPN / proxy routing**, **DVR recordings** (ffmpeg), **VOD subtitles**, **phone→TV remote control**, **channel health**, **EPG**, **Threadfin** for Plex/Jellyfin Live TV, and an **Xtream-compatible portal** for apps like TiviMate.
+**Zende** is a self-hosted **IPTV hub**: an Appica-based, TV- and phone-friendly web UI with a **server-side stream relay**, a relational **multi-provider catalog**, **per-channel VPN / proxy routing**, **DVR recordings** (ffmpeg), **VOD subtitles**, **phone→TV remote control**, **channel health**, **EPG**, **Threadfin** for Plex/Jellyfin Live TV, and an **Xtream-compatible portal** for apps like TiviMate.
 
 The browser does not pull raw provider URLs for playback—sessions go through **`/api/stream/proxy/...`**, where the server applies your proxy, cookies, and HLS rewrites. Zende does not host or transcode third-party streams; it orchestrates access to URLs you supply.
 
@@ -15,6 +15,9 @@ The browser does not pull raw provider URLs for playback—sessions go through *
 |------|---------|
 | **Stream relay** | Registers an upstream URL in a short-lived **stream session**; the player and tools use **`/api/stream/proxy/{id}`**. Upstream fetches use **undici** with optional **HTTP/SOCKS** or **Gluetun** VPN, cookie jars, redirects, and **M3U8 rewriting** so segments and keys stay on your origin. On **iPhone/iPad**, live HLS prefers Safari’s **native player** so Picture-in-Picture and AirPlay keep working. |
 | **Web UI** | Responsive **TV** and **mobile** layouts: **Home**, **Library** (live / movies / shows), **series detail** (seasons & episodes), **Watch**, **Favorites**, **Guide**, **Recordings** (DVR), **Board**, **Settings**, optional **Setup** / **Login**. |
+| **Appica design system** | UI chrome uses **`@appica/ui-react`**, Tailwind CSS v4, and Appica’s role-based color, spacing, radius, typography, border, and shadow tokens. Light and dark themes share the same semantic token system. |
+| **Multiple providers** | Add multiple **Xtream**, remote **M3U/M3U8**, pasted playlist, or manual URL sources. Every imported stream is a relational channel row linked to its provider. Two providers may both expose “TSN 1” without either entry overwriting the other. |
+| **Provider management** | **Settings → Channels** lists providers and their linked streams. Administrators can search, edit, enable/disable, or remove providers and edit/remove individual channels. Provider credential changes rewrite the linked playback URLs safely. |
 | **Phone remote** | Sign in on your phone and **control the TV browser** (navigate, play/pause, seek) without sharing the phone’s playback session URL with the TV. |
 | **QR login** | On the TV login screen, scan a **QR code** with your phone to approve sign-in (or enter credentials on mobile). |
 | **VPN / proxy per channel** | **Settings → VPN Proxies**: direct proxies or **Gluetun** (NordVPN, ExpressVPN, ProtonVPN, custom OpenVPN/WireGuard). Assign channels by URL hash so only those streams use that exit. |
@@ -24,7 +27,31 @@ The browser does not pull raw provider URLs for playback—sessions go through *
 | **Subtitles (VOD)** | Search and load external subtitles via **Wyzie** (+ optional **TMDB** title match) in **Settings → Integrations**. Search results and loaded VTT tracks are **cached ~7 days** on disk (`ZENDE_SUBTITLES_DIR`, default `/data/subtitles` in Docker). |
 | **Channel health** | Registry sync, probes, aggregates (tiers), optional **cron**-style jobs (`CRON_SECRET`). |
 | **EPG** | Favorites **“What’s on”** and **Guide** use merged XMLTV sources; optional **`ZENDE_EPG_GUIDE_URLS`** for self-hosted guides ([iptv-org/epg](https://github.com/iptv-org/epg)). |
-| **Auth & data** | Optional JWT auth, admin users, QR pairing, per-user **favorites** / **history** / **playback position**. **SQLite** for catalog cache, proxies, portal keys, sessions, recordings, subtitle settings. |
+| **Auth & data** | Optional JWT auth, admin users, QR pairing, per-user **favorites** / **history** / **playback position**. **SQLite** is authoritative for providers, channels, proxies, sessions, recordings, subtitle settings, and user data. |
+
+## Provider and channel data model
+
+User-added streams are not flattened into a shared JSON catalog. The runtime catalog is built from two relational tables:
+
+- **`IptvProvider`** stores a named source, source kind, connection details, enabled state, and timestamps.
+- **`IptvProviderChannel`** stores a generated channel ID, provider foreign key, provider-scoped external key, playback URL, content type, EPG metadata, artwork, language, group, description, owner, and timestamps.
+
+Channel identity is based on the database row and provider relationship—not the display name. Consequently, identical names and even identical upstream URLs can coexist when they belong to different providers. Playback, series lookup, VOD metadata, Library, Guide, Threadfin, and provider management retain this relationship.
+
+Manual URLs and pasted playlists also use this provider/channel schema through the manual-provider adapter. The former `ManualChannelsStore` JSON payload is read only by the one-time upgrade script, migrated transactionally, and emptied; application runtime paths do not read or write it.
+
+### Adding sources
+
+Open **Settings → Channels** and provide a meaningful provider name when importing a remote playlist or Xtream account. Zende stores all required connection fields with the provider and imports every discovered item as a linked channel row.
+
+Supported source shapes include:
+
+- Xtream server URL, username, and password
+- Remote M3U/M3U8 playlist URL
+- Pasted M3U content
+- Individual stream URL with channel metadata
+
+Disabling a provider removes its channels from active catalogs without deleting them. Deleting a provider cascades to only that provider’s channel rows.
 
 Legal note: default catalog presets may link to third-party streams; you are responsible for rights and local law. See iptv-org’s [legal section](https://github.com/iptv-org/iptv#legal).
 
@@ -39,7 +66,7 @@ docker compose up --build
 
 Open **http://localhost:8077** (or set `PORT` / `DOCKER_PUBLISH` in `.env` — see [Advanced setup](docs/ADVANCED.md)).
 
-On first boot the entrypoint runs **`prisma migrate deploy`** against the persisted database on the **`zende-data`** volume. Recordings and subtitle cache live under **`/data`** on that same volume so they survive image rebuilds.
+On first boot the entrypoint runs **`prisma migrate deploy`** against the persisted database on the **`zende-data`** volume. Upgrades from the former flattened channel store run a one-time relational migration before the app starts. Recordings and subtitle cache live under **`/data`** on that same volume so they survive image rebuilds.
 
 For production, set a strong **`AUTH_JWT_SECRET`** in `.env`. Behind a reverse proxy, ensure **`Host`** and **`X-Forwarded-Proto`** (or **`Forwarded`**) reach the app so HLS URLs rewrite correctly; use **`PUBLIC_APP_URL`** only if those headers are missing.
 
@@ -83,14 +110,15 @@ npm run test:recording   # recording-focused checks
 
 ## Stack
 
-* **Next.js 16** (App Router) + **React 19** + **Prisma** / **SQLite**
+* **Next.js 16** (App Router) + **React 19**
+* **Appica UI** (`@appica/ui-react`) + **Tailwind CSS v4** semantic theme tokens
+* **Prisma** / **SQLite** relational provider and channel catalog
 * **hls.js** (desktop) / **native HLS** on Apple mobile
 * **ffmpeg** for DVR, **undici** + optional **Gluetun** for upstream fetches
-* Committed CSS utilities for broad TV / older-browser compatibility
 
 ## Summary
 
-Zende is a **self-hosted IPTV control plane**: relayed playback and recordings through your server, optional per-channel VPN exits, phone remote + QR login, VOD subtitles, Threadfin for Plex/Jellyfin, and Xtream-compatible portals—without redistributing stream content.
+Zende is a **self-hosted IPTV control plane**: a relational multi-provider catalog, relayed playback and recordings through your server, optional per-channel VPN exits, phone remote + QR login, VOD subtitles, Threadfin for Plex/Jellyfin, and Xtream-compatible portals—without redistributing stream content.
 
 ## Disclaimer
 

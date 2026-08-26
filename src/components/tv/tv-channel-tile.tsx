@@ -59,6 +59,7 @@ export function TvChannelTile({
   const parsed = parseChannelLabel(channel.name?.trim() || "Untitled");
   const { displayName: label } = parsed;
   const meta = channelMetaLine(channel.groupTitle);
+  const sourceMeta = [channel.providerName, meta].filter(Boolean).join(" · ") || null;
   const contentType = resolveLibraryContentType(channel);
 
   const open = () => onSelect?.(channel);
@@ -114,8 +115,8 @@ export function TvChannelTile({
         <h3 className="line-clamp-2 text-sm font-medium leading-tight text-foreground-intense">
           {label}
         </h3>
-        {meta ? (
-          <p className="mt-1 truncate text-xs text-foreground-muted">{meta}</p>
+        {sourceMeta ? (
+          <p className="mt-1 truncate text-xs text-foreground-muted">{sourceMeta}</p>
         ) : null}
       </div>
 

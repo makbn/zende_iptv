@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { TvCatalogSetupStrip } from "@/components/tv/tv-catalog-setup-strip";
 import { TvManualChannelsSection } from "@/components/tv/tv-manual-channels-section";
+import { TvIptvProvidersSection } from "@/components/tv/tv-iptv-providers-section";
 import { TvPersonalLibraryCard } from "@/components/tv/tv-personal-library-card";
 import { TvParentalControlsCard } from "@/components/tv/tv-parental-controls-card";
 import { TvPlaybackPrefsCard } from "@/components/tv/tv-playback-prefs-card";
@@ -246,6 +247,9 @@ export function TvSettingsPage() {
             </div>
 
             <div className={cn(BROWSE_CONTAINER_CLASS, "mt-10")}>
+              <TvIptvProvidersSection />
+            </div>
+            <div className={cn(BROWSE_CONTAINER_CLASS, "mt-8")}>
               <TvManualChannelsSection />
             </div>
           </>

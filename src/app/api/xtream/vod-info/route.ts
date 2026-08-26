@@ -42,8 +42,8 @@ export async function GET(request: Request) {
     }
 
     const creds =
-      (await loadXtreamPortalCredentials()) ??
-      (parsed.data.url ? parseXtreamCredentialsFromStreamUrl(parsed.data.url) : null);
+      (parsed.data.url ? parseXtreamCredentialsFromStreamUrl(parsed.data.url) : null) ??
+      (await loadXtreamPortalCredentials());
     if (!creds) {
       return NextResponse.json(
         { error: "No Xtream portal configured. Re-import your account in Settings." },

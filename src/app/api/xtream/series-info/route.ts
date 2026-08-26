@@ -5,6 +5,7 @@ import { withApiLogging } from "@/core/logging/api-log";
 import { gateApiRequest } from "@/lib/auth/gate-api";
 import { fetchXtreamSeriesInfo } from "@/lib/iptv/xtream-client";
 import { loadXtreamPortalCredentials } from "@/lib/iptv/xtream-portal-store";
+import { prisma } from "@/lib/db/prisma";
 import { parseXtreamDurationSeconds } from "@/lib/playback/stream-session-meta";
 import type { XtreamSeriesEpisode } from "@/lib/iptv/xtream-types";
 import {
@@ -103,9 +104,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "seriesId required" }, { status: 400 });
     }
 
+    const scoped = /^([^:]+):(.+)$/.exec(seriesId);
+    const provider = scoped
+      ? await prisma.iptvProvider.findUnique({ where: { id: scoped[1] } })
+      : null;
+    if (provider && scoped) seriesId = scoped[2];
+    const providerCreds = provider?.serverUrl && provider.username && provider.password
+      ? { serverUrl: provider.serverUrl, username: provider.username, password: provider.password }
+      : null;
     const creds =
-      (await loadXtreamPortalCredentials()) ??
-      (parsed.data.url ? parseXtreamCredentialsFromStreamUrl(parsed.data.url) : null);
+      providerCreds ??
+      (parsed.data.url ? parseXtreamCredentialsFromStreamUrl(parsed.data.url) : null) ??
+      (await loadXtreamPortalCredentials());
     if (!creds) {
       log.warn("no xtream portal credentials", { seriesId });
       return NextResponse.json(

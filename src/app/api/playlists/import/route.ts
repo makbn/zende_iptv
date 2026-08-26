@@ -13,7 +13,9 @@ import {
   fetchXtreamStreams,
   xtreamCredentialsFromHostFields,
 } from "@/lib/iptv/xtream-client";
-import { saveXtreamPortalCredentials } from "@/lib/iptv/xtream-portal-store";
+import { createProviderWithChannels } from "@/lib/iptv/provider-store";
+import { invalidateLibraryCatalogCache } from "@/lib/library/catalog";
+import { invalidateXtreamCatalogCache } from "@/lib/iptv/aggregated-channels";
 import type { XtreamCredentials } from "@/lib/iptv/xtream-types";
 import type {
   XtreamLiveStream,
@@ -40,6 +42,8 @@ const bodySchema = z
       .optional(),
     /** When true (default), persist all parsed channels on the server — nothing is sent to the browser. */
     persist: z.boolean().optional(),
+    /** When supplied, persist as an independently managed provider instead of flattening into manual channels. */
+    providerName: z.string().trim().min(1).max(100).optional(),
   })
   .refine((v) => Boolean(v.url) || Boolean(v.xtream), {
     message: "Provide either url or xtream credentials.",
@@ -226,11 +230,6 @@ async function resolveImportChannels(parsedBody: z.infer<typeof bodySchema>): Pr
 
   if (creds) {
     channels = await buildChannelsFromXtreamApi(creds);
-    await saveXtreamPortalCredentials({
-      serverUrl: creds.serverUrl,
-      username: creds.username,
-      password: creds.password,
-    });
   }
 
   if (channels.length === 0 && parsedBody.url) {
@@ -319,6 +318,37 @@ export async function POST(request: Request) {
           channels,
           count: channels.length,
           importedCount: channels.length,
+          truncated: false,
+        });
+      }
+
+      if (parsedBody.data.providerName) {
+        const provider = await createProviderWithChannels(
+          parsedBody.data.xtream
+            ? {
+                name: parsedBody.data.providerName,
+                kind: "xtream",
+                serverUrl: parsedBody.data.xtream.host,
+                username: parsedBody.data.xtream.username,
+                password: parsedBody.data.xtream.password,
+              }
+            : {
+                name: parsedBody.data.providerName,
+                kind: "m3u",
+                playlistUrl: parsedBody.data.url,
+              },
+          channels,
+        );
+        invalidateLibraryCatalogCache();
+        invalidateXtreamCatalogCache();
+        return NextResponse.json({
+          ok: true,
+          persisted: true,
+          providerId: provider.id,
+          count: channels.length,
+          processed: channels.length,
+          skipped: 0,
+          storeTotal: channels.length,
           truncated: false,
         });
       }

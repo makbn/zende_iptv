@@ -57,8 +57,8 @@ export function GuidePageView({ mobile = false }: { mobile?: boolean }) {
   const padClass = mobile ? "pb-28 pt-[5.35rem]" : cn("pb-28", TV_BROWSE_TOP_PAD_CLASS);
 
   return (
-    <div className={cn("bg-background min-h-screen text-foreground", padClass)}>
-      <main className={mobile ? "px-4" : undefined}>
+    <div className={cn("bg-background min-h-screen text-foreground flex flex-col", padClass)}>
+      <main className={cn(mobile ? "px-4" : undefined, "flex-1 flex flex-col")}>
         {!mobile ? (
           <AppicaHero
             className="py-6"
@@ -93,8 +93,8 @@ export function GuidePageView({ mobile = false }: { mobile?: boolean }) {
         <div
           className={
             mobile
-              ? "space-y-6"
-              : cn(BROWSE_CONTAINER_CLASS, "space-y-6 py-6")
+              ? "space-y-6 flex-1 flex flex-col"
+              : cn(BROWSE_CONTAINER_CLASS, "space-y-6 py-6 flex-1 flex flex-col min-h-0")
           }
         >
           <FullGuideBrowser
@@ -106,7 +106,7 @@ export function GuidePageView({ mobile = false }: { mobile?: boolean }) {
       </main>
 
       {!mobile ? (
-        <footer className="mt-8 border-t border-border py-6 text-center">
+        <footer className="mt-auto shrink-0 border-t border-border py-6 text-center">
           <p className="text-[13px] text-foreground-intense">
             Guide data from your IPTV provider, with public XMLTV fallback when available.
           </p>

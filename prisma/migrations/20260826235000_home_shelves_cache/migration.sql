@@ -1,0 +1,6 @@
+CREATE TABLE "HomeShelvesCache" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "dataJson" TEXT NOT NULL,
+    "builtAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL
+);

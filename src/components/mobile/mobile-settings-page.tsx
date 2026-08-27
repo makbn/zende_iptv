@@ -4,9 +4,7 @@ import { Input } from "@appica/ui-react/input";
 
 import { useCallback, useEffect, useState } from "react";
 
-import { Card } from "@appica/ui-react/card";
-import { TvCatalogSetupStrip } from "@/components/tv/tv-catalog-setup-strip";
-import { TvManualChannelsSection } from "@/components/tv/tv-manual-channels-section";
+import { TvIptvProvidersSection } from "@/components/tv/tv-iptv-providers-section";
 import { TvPersonalLibraryCard } from "@/components/tv/tv-personal-library-card";
 import { TvParentalControlsCard } from "@/components/tv/tv-parental-controls-card";
 import { TvPlaybackPrefsCard } from "@/components/tv/tv-playback-prefs-card";
@@ -15,10 +13,9 @@ import { TvSettingsIntegrationsPanel } from "@/components/tv/tv-settings-integra
 import { TvSettingsProxiesPanel } from "@/components/tv/tv-settings-proxies-panel";
 import { TvSettingsCachePanel } from "@/components/tv/tv-settings-cache-panel";
 import { Button } from "@appica/ui-react/button";
+import { Tabs, TabsList, TabsTrigger } from "@appica/ui-react/tabs";
 import { ZendeSpinner } from "@/components/loading/zende-spinner";
-import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { createClientLogger } from "@/core/logging/client";
-import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
 import { useAuth } from "@/features/auth/auth-context";
 import { Z_ACCESS } from "@/lib/auth/token-storage-keys";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
@@ -26,7 +23,6 @@ import { cn } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
 
 const STORAGE_KEY = "zende.cronSecret";
-const source = BUILTIN_PLAYLIST_SOURCES[0]!;
 const log = createClientLogger("shell.MobileSettingsPage");
 
 type SettingsTab = "catalog" | "authentication" | "integrations" | "proxies" | "server";
@@ -36,15 +32,6 @@ export function MobileSettingsPage() {
   const canManageSystem = user?.role === "ADMIN" || userCount === 0;
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<SettingsTab>("catalog");
-  const catalog = useCatalogBootstrap(source);
-  const {
-    busy: catalogBusy,
-    error: catalogError,
-    channelCount,
-    manualChannelCount,
-    registered,
-    refreshCatalog,
-  } = catalog;
 
   const [secret, setSecret] = useState(() => {
     if (typeof window === "undefined") return "";
@@ -131,61 +118,52 @@ export function MobileSettingsPage() {
   }, [secret]);
 
   return (
-    <main className="bg-background min-h-screen w-full max-w-full overflow-x-hidden pb-28 pt-[calc(4.75rem+env(safe-area-inset-top))] text-foreground">
-      <section className="px-1.5">
+    <main className="bg-background min-h-screen w-full max-w-full overflow-x-hidden pb-28 pt-[5.35rem] text-foreground">
+      <section className="px-4">
         <div
           className={cn(
-            "rounded-lg border border-border bg-background-muted px-3 py-2.5 ring-1 ring-border",
-            "backdrop-blur-xl motion-reduce:animate-none motion-reduce:opacity-100",
+            "rounded-lg border border-border bg-background-subtle px-4 py-3 shadow-sm",
+            "motion-reduce:animate-none motion-reduce:opacity-100",
           )}
         >
-          <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted text-[10px]">
-            Zende
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">
+            Settings
           </p>
-          <h1 className="mt-1 text-[1.45rem] font-semibold leading-none tracking-[-0.055em] text-foreground-intense sm:text-[1.55rem]">
+          <h1 className="mt-1 text-[1.45rem] font-semibold tracking-[-0.055em] text-foreground-intense">
             Settings
           </h1>
-          <p className="mt-1.5 max-w-[36ch] text-[11.5px] leading-snug text-foreground-intense">
-            Catalog, security, integrations, VPN proxies, and server tools — tabs below.
+          <p className="mt-2 text-[12px] text-foreground-intense">
+            Manage providers, playback, access, integrations, VPN routing, and server tools.
           </p>
         </div>
       </section>
 
       <section className="sticky top-[5.35rem] z-40 mt-2 px-1" aria-label="Settings sections">
-        <Card
-          frame="solid"
-          className="rounded-lg border-border bg-background p-1 shadow-lg transition-shadow duration-300"
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setTab(value as SettingsTab)}
+          variant="line"
+          size="sm"
+          className="gap-0 rounded-lg border border-border bg-background px-3 shadow-lg"
         >
-          <div className="flex gap-2 overflow-x-auto" role="tablist" aria-label="Settings">
-            {(
-              (canManageSystem ? [
-                ["catalog", "Catalog"],
-                ["authentication", "Auth"],
-                ["integrations", "Apps"],
-                ["proxies", "VPN"],
-                ["server", "Server"],
-              ] : [["authentication", "My account"]]) as readonly (readonly [SettingsTab, string])[]
-            ).map(([id, label]) => (
-              <Button variant="ghost"
-                key={id}
-                type="button"
-                role="tab"
-                aria-selected={activeTab === id}
-                onClick={() => setTab(id)}
-                className={cn(
-                  "transition-colors min-h-11 shrink-0 rounded-2xl px-4 text-[13px] font-semibold outline-none",
-                  "transition-[background-color,color,transform,box-shadow] duration-200 ease-out active:scale-[0.99] motion-reduce:transform-none",
-                  "focus-visible:ring-2 focus-visible:ring-primary",
-                  activeTab === id
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "border border-border bg-background-muted text-foreground-intense hover:bg-background-muted",
-                )}
-              >
-                {label}
-              </Button>
-            ))}
+          <div className="overflow-x-auto">
+            <TabsList aria-label="Settings" className="min-w-max">
+              {(
+                (canManageSystem ? [
+                  ["catalog", "Catalog"],
+                  ["authentication", "Auth"],
+                  ["integrations", "Apps"],
+                  ["proxies", "VPN"],
+                  ["server", "Server"],
+                ] : [["authentication", "My account"]]) as readonly (readonly [SettingsTab, string])[]
+              ).map(([id, label]) => (
+                <TabsTrigger key={id} value={id}>
+                  {label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
           </div>
-        </Card>
+        </Tabs>
       </section>
 
       <div className="mt-2.5 min-w-0 max-w-full space-y-2.5 px-1.5" role="tabpanel">
@@ -196,19 +174,10 @@ export function MobileSettingsPage() {
                 Catalog & playback
               </summary>
               <div className="space-y-4 border-t border-border p-4 pt-3">
-                <TvCatalogSetupStrip
-                  source={source}
-                  busy={catalogBusy}
-                  error={catalogError}
-                  registered={registered}
-                  channelCount={channelCount}
-                  manualChannelCount={manualChannelCount}
-                  onRefresh={() => void refreshCatalog()}
-                />
+                <TvIptvProvidersSection />
                 <TvPlaybackPrefsCard />
                 <TvParentalControlsCard />
                 <TvPersonalLibraryCard />
-                <TvManualChannelsSection />
               </div>
             </details>
           </>

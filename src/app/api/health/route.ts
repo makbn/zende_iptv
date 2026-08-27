@@ -9,6 +9,20 @@ export const runtime = "nodejs";
 const log = createServerLogger("api.health");
 
 let threadfinBootstrapStarted = false;
+let homeShelvesWarmStarted = false;
+
+function kickHomeShelvesWarm(): void {
+  if (homeShelvesWarmStarted) return;
+  homeShelvesWarmStarted = true;
+  void import("@/lib/library/home-shelves-cache")
+    .then(({ warmDefaultHomeShelvesIfNeeded }) => warmDefaultHomeShelvesIfNeeded())
+    .catch((err) => {
+      homeShelvesWarmStarted = false;
+      log.warn("home shelves warm failed", {
+        message: err instanceof Error ? err.message : String(err),
+      });
+    });
+}
 
 function kickThreadfinBootstrap(): void {
   if (threadfinBootstrapStarted || !isThreadfinSyncEnabled()) return;
@@ -36,6 +50,7 @@ export function GET(request: Request) {
   const requestId = request.headers.get("x-request-id") ?? undefined;
   log.debug("Health check requested", { requestId });
   kickThreadfinBootstrap();
+  kickHomeShelvesWarm();
 
   /** Minimal payload — do not echo request IDs or internals (usable behind shared proxies). */
   return NextResponse.json({ ok: true, service: "zende" }, { status: 200 });

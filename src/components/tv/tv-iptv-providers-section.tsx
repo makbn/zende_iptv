@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Building2, ChevronDown, Pencil, Search, Trash2 } from "lucide-react";
+import { Building2, ChevronDown, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { TvAddStreamWizard } from "./tv-add-stream-wizard";
 
 import { Button } from "@appica/ui-react/button";
 import { Card } from "@appica/ui-react/card";
@@ -43,6 +44,7 @@ export function TvIptvProvidersSection() {
   const [editingChannel, setEditingChannel] = useState<ProviderChannel | null>(null);
   const [channelDraft, setChannelDraft] = useState({ name: "", url: "", groupTitle: "", tvgId: "", tvgLogo: "" });
   const [status, setStatus] = useState<string | null>(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   const loadProviders = useCallback(async () => {
     const response = await zendeFetch("/api/providers");
@@ -60,7 +62,10 @@ export function TvIptvProvidersSection() {
     }
   }, []);
 
-  useEffect(() => { void loadProviders(); }, [loadProviders]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadProviders(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadProviders]);
   useEffect(() => {
     if (!expandedId) return;
     const timer = window.setTimeout(() => void loadChannels(expandedId, query), 180);
@@ -117,17 +122,24 @@ export function TvIptvProvidersSection() {
 
   return (
     <Card frame="solid" contentProps={{ className: "p-5 sm:p-6" }}>
-      <div className="flex items-start gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-background-muted">
-          <Building2 className="size-5 text-foreground-muted" aria-hidden />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+        <div className="flex min-w-0 items-start gap-3 sm:flex-1">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-background-muted">
+            <Building2 className="size-5 text-foreground-muted" aria-hidden />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-semibold text-foreground-intense">IPTV providers</h2>
+            <p className="mt-1 text-sm leading-relaxed text-foreground-muted">
+              Providers and streams use database IDs. Duplicate channel names remain separate and retain their provider-owned playback URL.
+            </p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-lg font-semibold text-foreground-intense">IPTV providers</h2>
-          <p className="mt-1 text-sm leading-relaxed text-foreground-muted">
-            Providers and streams use database IDs. Duplicate channel names remain separate and retain their provider-owned playback URL.
-          </p>
-        </div>
+        <Button size="sm" variant="primary" className="w-full shrink-0 sm:w-auto" onClick={() => setWizardOpen(true)}>
+          <Plus className="size-4" aria-hidden /> Add Stream
+        </Button>
       </div>
+
+      <TvAddStreamWizard open={wizardOpen} onOpenChange={setWizardOpen} onAdded={() => void loadProviders()} />
 
       {status ? <p className="mt-4 text-sm text-foreground-muted" role="status">{status}</p> : null}
       {loading ? <p className="mt-5 text-sm text-foreground-muted">Loading providers…</p> : null}

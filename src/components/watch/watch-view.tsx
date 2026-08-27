@@ -428,6 +428,8 @@ export function WatchView() {
   const externalSubtitles = useExternalSubtitles(playerSession?.video ?? null);
   const [playerFatalError, setPlayerFatalError] = useState<PlayerError | null>(null);
   const [playerRetryEpoch, setPlayerRetryEpoch] = useState(0);
+  const [automaticRetries, setAutomaticRetries] = useState(0);
+  const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [remoteControlActive, setRemoteControlActive] = useState(false);
   const [resumePrompt, setResumePrompt] = useState<{
@@ -453,6 +455,49 @@ export function WatchView() {
   const chromeHoverRef = useRef(false);
 
   const [catalogMergeEpoch, setCatalogMergeEpoch] = useState(0);
+
+  const alternateSource = useMemo(() => {
+    const target = parseChannelLabel(title).displayName.trim().toLocaleLowerCase();
+    if (!target || !canonicalUrl) return null;
+    return catalogChannels.find((channel) =>
+      channel.url !== canonicalUrl &&
+      parseChannelLabel(channel.name).displayName.trim().toLocaleLowerCase() === target
+    ) ?? null;
+  }, [catalogChannels, canonicalUrl, title]);
+
+  const tryAlternateSource = useCallback(async () => {
+    if (!alternateSource) return;
+    setPlayerFatalError(null);
+    const href = await createWatchUrl(alternateSource);
+    router.replace(href);
+  }, [alternateSource, router]);
+
+  useEffect(() => {
+    setAutomaticRetries(0);
+    setRetryCountdown(null);
+  }, [playbackSrc]);
+
+  useEffect(() => {
+    if (!playerFatalError || automaticRetries >= 2) {
+      setRetryCountdown(null);
+      return;
+    }
+    setRetryCountdown(3);
+    const interval = window.setInterval(() => {
+      setRetryCountdown((current) => current == null ? null : Math.max(0, current - 1));
+    }, 1000);
+    const retry = window.setTimeout(() => {
+      window.clearInterval(interval);
+      setRetryCountdown(null);
+      setPlayerFatalError(null);
+      setAutomaticRetries((count) => count + 1);
+      setPlayerRetryEpoch((epoch) => epoch + 1);
+    }, 3000);
+    return () => {
+      window.clearInterval(interval);
+      window.clearTimeout(retry);
+    };
+  }, [playerFatalError, automaticRetries]);
 
   useEffect(() => {
     queueMicrotask(() => setZapMode(readZapMode()));
@@ -1251,12 +1296,15 @@ export function WatchView() {
   if (!playbackSrc) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-8 text-center text-foreground-intense">
-        <p className="text-[17px] text-foreground-intense">No stream was selected.</p>
+        <div>
+          <p className="text-[17px] font-semibold text-foreground-intense">This playback request is incomplete</p>
+          <p className="mt-2 text-sm text-foreground-muted">Choose the channel, movie, or episode again so Zende can create a fresh secure session.</p>
+        </div>
         <Link
-          href="/"
+          href="/library"
           className={buttonVariants({ variant: "secondary", size: "lg" })}
         >
-          Back to Home
+          Choose something to watch
         </Link>
       </div>
     );
@@ -1353,11 +1401,14 @@ export function WatchView() {
               <Card frame="solid" className="max-w-sm">
                 <div className="px-5 py-4 text-left">
                   <p className="text-[14px] font-semibold text-error-strong">
-                    Playback failed
+                    The provider stopped responding
                   </p>
                   <p className="mt-1 text-[14px] leading-relaxed text-foreground-intense">
-                    This stream could not be played. It may be offline, blocked in
-                    your browser, or use an unsupported format.
+                    {retryCountdown != null
+                      ? `Zende is reconnecting automatically in ${retryCountdown} second${retryCountdown === 1 ? "" : "s"}.`
+                      : alternateSource
+                        ? "This source is unavailable. You can retry it or switch to another provider."
+                        : "This source is unavailable. Retry it now or return to the library."}
                   </p>
                   <details className="mt-2 text-[12px] text-foreground-intense">
                     <summary className="cursor-pointer select-none">Technical details</summary>
@@ -1371,13 +1422,22 @@ export function WatchView() {
                       type="button"
                       onClick={() => {
                         setPlayerFatalError(null);
+                        setRetryCountdown(null);
                         setPlayerRetryEpoch((n) => n + 1);
                       }}
                       size="sm"
                     >
-                      Retry
+                      Retry now
                     </Button>
-                    <Button
+                    {alternateSource ? <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => void tryAlternateSource()}
+                      size="sm"
+                    >
+                      Try another source
+                    </Button> : null}
+                    <Button variant="secondary"
                       type="button"
                       onClick={() => router.replace(getWatchReturnHref())}
                       size="sm"

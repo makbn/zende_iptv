@@ -227,6 +227,14 @@ model PlaylistCatalogCache {
   updatedAt      DateTime @updatedAt
 }
 
+/// Precomputed public Home discovery rails. Personalized/parental filtering is applied on read.
+model HomeShelvesCache {
+  id        String   @id
+  dataJson  String
+  builtAt   DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 /// User-added streams from Settings — server backup for small manual entry list.
 model ManualChannelsStore {
   id          Int      @id @default(1)

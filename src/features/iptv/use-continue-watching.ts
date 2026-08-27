@@ -10,6 +10,7 @@ import {
 import type { PlaybackSessionMeta } from "@/lib/playback/stream-session-meta";
 import {
   listRecentPlayback,
+  hydrateHistoryFromServer,
   subscribeViewingStats,
   viewingEntryToChannel,
 } from "@/lib/watch/viewing-stats";
@@ -22,11 +23,28 @@ export type ContinueWatchingItem = {
 };
 
 export function useContinueWatchingItems(limit = 18): ContinueWatchingItem[] {
+  return useContinueWatchingState(limit).items;
+}
+
+export function useContinueWatchingState(limit = 18): {
+  items: ContinueWatchingItem[];
+  loading: boolean;
+} {
   const [epoch, setEpoch] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => subscribeViewingStats(() => setEpoch((n) => n + 1)), []);
+  useEffect(() => {
+    let cancelled = false;
+    void hydrateHistoryFromServer().finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  return useMemo(() => {
+  const items = useMemo(() => {
     void epoch;
     const items: ContinueWatchingItem[] = [];
     for (const entry of listRecentPlayback(80)) {
@@ -45,4 +63,5 @@ export function useContinueWatchingItems(limit = 18): ContinueWatchingItem[] {
     }
     return items;
   }, [epoch, limit]);
+  return { items, loading };
 }

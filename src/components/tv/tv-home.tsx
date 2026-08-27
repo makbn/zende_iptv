@@ -10,14 +10,15 @@ import {
   AppicaSection,
 } from "@/components/layout/appica-page";
 import { TvChannelTile } from "@/components/tv/tv-channel-tile";
-import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
+import { ZendeSpinner } from "@/components/loading/zende-spinner";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { createClientLogger } from "@/core/logging/client";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { useChannelHealthLookup } from "@/features/health/use-channel-health";
 import { useCatalogMeta } from "@/features/iptv/catalog-context";
-import { useContinueWatchingItems } from "@/features/iptv/use-continue-watching";
+import { useContinueWatchingState } from "@/features/iptv/use-continue-watching";
 import { useHomeCatalogShelves } from "@/features/iptv/use-home-catalog-shelves";
+import { HomeShelfSkeleton } from "@/components/home/home-shelf-skeleton";
 
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import { Button, buttonVariants } from "@appica/ui-react/button";
@@ -114,7 +115,7 @@ export function TvHome() {
     return () => window.removeEventListener("hashchange", scrollToHash);
   }, []);
 
-  const continueWatching = useContinueWatchingItems(18);
+  const { items: continueWatching, loading: continueWatchingLoading } = useContinueWatchingState(18);
 
   const recentChannels = useMemo(() => {
     void statsEpoch;
@@ -179,14 +180,6 @@ export function TvHome() {
   );
   const { getScoreForChannel } = useChannelHealthLookup(healthLookupChannels);
 
-  if (!catalogLoaded) {
-    return (
-      <div className="bg-background flex min-h-screen flex-col items-center justify-center gap-4 pt-20 text-foreground-intense">
-        <ZendeLoadingState size="full" label="Loading home" />
-      </div>
-    );
-  }
-
   if (metaFailed) {
     return (
       <div className="bg-background flex min-h-screen flex-col items-center justify-center gap-4 px-6 pt-20 text-center text-foreground-intense">
@@ -216,7 +209,11 @@ export function TvHome() {
   return (
     <AppicaPage className="pt-20 md:pt-24">
       <div className="space-y-8 pb-10 sm:space-y-10 sm:pb-12">
-        {continueWatching.length > 0 ? (
+        {continueWatchingLoading ? (
+          <AppicaSection id="continue" eyebrow="Resume" title="Continue watching" description="Checking your saved progress.">
+            <HomeShelfSkeleton />
+          </AppicaSection>
+        ) : continueWatching.length > 0 ? (
           <AppicaSection
             id="continue"
             eyebrow="Resume"
@@ -245,6 +242,8 @@ export function TvHome() {
             </AppicaRail>
           </AppicaSection>
         ) : null}
+
+        {homeShelves.loading ? <HomeShelfSkeleton /> : null}
 
 
 

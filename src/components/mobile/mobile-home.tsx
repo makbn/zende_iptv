@@ -16,10 +16,11 @@ import { Button, buttonVariants } from "@appica/ui-react/button";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { useChannelHealthLookup } from "@/features/health/use-channel-health";
-import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
+import { ZendeSpinner } from "@/components/loading/zende-spinner";
 import { useCatalogMeta } from "@/features/iptv/catalog-context";
-import { useContinueWatchingItems } from "@/features/iptv/use-continue-watching";
+import { useContinueWatchingState } from "@/features/iptv/use-continue-watching";
 import { useHomeCatalogShelves } from "@/features/iptv/use-home-catalog-shelves";
+import { HomeShelfSkeleton } from "@/components/home/home-shelf-skeleton";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
 import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
@@ -171,8 +172,8 @@ export function MobileHome() {
     return shelfChannels.find((channel) => channel.tvgLogo) ?? shelfChannels[0];
   }, [shelfChannels, statsEpoch]);
 
-  const continueWatching = useContinueWatchingItems(12);
-  const coldStart = continueWatching.length === 0;
+  const { items: continueWatching, loading: continueWatchingLoading } = useContinueWatchingState(12);
+  const coldStart = !continueWatchingLoading && continueWatching.length === 0;
   const recommendedMovies = useMemo(
     () => dedupeChannels(homeShelves.movies.channels).slice(0, 12),
     [homeShelves.movies.channels],
@@ -242,14 +243,6 @@ export function MobileHome() {
       ...item.channel,
       ...(item.playback ? { playback: item.playback } : {}),
     });
-  }
-
-  if (!catalogLoaded) {
-    return (
-      <div className="bg-background flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-foreground-intense">
-        <ZendeLoadingState size="full" label="Loading home" />
-      </div>
-    );
   }
 
   if (metaFailed) {
@@ -329,11 +322,17 @@ export function MobileHome() {
             }}
           />
         ) : null}
-        {continueWatching.length === 0 && !showColdStartRecommendations ? (
+        {continueWatchingLoading ? (
+          <section className="px-4" aria-label="Loading Continue Watching">
+            <HomeShelfSkeleton compact />
+          </section>
+        ) : continueWatching.length === 0 && !showColdStartRecommendations ? (
           <section className="px-4" aria-label="Continue Watching">
             <TvContinueEmpty />
           </section>
         ) : null}
+
+        {homeShelves.loading ? <HomeShelfSkeleton compact /> : null}
 
         {showColdStartRecommendations ? (
           <>

@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import {
+  enrichFavoriteWithCatalog,
   fetchEnrichedFavoritesFromApi,
+  listFavorites,
   subscribeFavorites,
 } from "@/lib/favorites/favorites-store";
 import { subscribeParentalAccessChanged } from "@/lib/parental/parental-events";
@@ -21,7 +23,9 @@ export function useEnrichedFavoritesState(options?: { serverOnly?: boolean }): {
 } {
   const serverOnly = options?.serverOnly === true;
   const [epoch, setEpoch] = useState(0);
-  const [channels, setChannels] = useState<M3uChannel[]>([]);
+  const [channels, setChannels] = useState<M3uChannel[]>(() =>
+    listFavorites().map((favorite) => enrichFavoriteWithCatalog(favorite, [])),
+  );
   const [loading, setLoading] = useState(true);
 
   useEffect(() => subscribeFavorites(() => setEpoch((n) => n + 1)), []);

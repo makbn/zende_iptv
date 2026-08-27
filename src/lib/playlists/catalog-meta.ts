@@ -1,7 +1,6 @@
 import "server-only";
 
 import { isBuiltinPresetId } from "@/config/builtin-playlist-sources";
-import { loadManualChannelRows } from "@/lib/channels/manual-channels-db";
 import { prisma } from "@/lib/db/prisma";
 
 export type PlaylistCatalogMeta = {
@@ -18,12 +17,12 @@ export async function getPlaylistCatalogMeta(
 ): Promise<PlaylistCatalogMeta | null> {
   if (!isBuiltinPresetId(presetId)) return null;
 
-  const [row, manualRows] = await Promise.all([
+  const [row, providerChannelCount] = await Promise.all([
     prisma.playlistCatalogCache.findUnique({ where: { presetId } }),
-    loadManualChannelRows(),
+    prisma.iptvProviderChannel.count({ where: { provider: { enabled: true } } }),
   ]);
 
-  const manualCount = manualRows.length;
+  const manualCount = providerChannelCount;
   const builtinCount = row?.channelCount ?? 0;
 
   return {

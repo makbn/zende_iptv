@@ -12,6 +12,7 @@ import {
   LayoutGrid,
   LibraryBig,
   LogOut,
+  MoreHorizontal,
   Radio,
   Search,
   Settings,
@@ -155,6 +156,7 @@ export function MobileBrowseTopBar() {
   const remote = useRemoteControl();
   const [searchOpen, setSearchOpen] = useState(false);
   const [boardOpen, setBoardOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [headerVisible, setHeaderVisible] = useState(true);
   const lastScrollYRef = useRef(0);
 
@@ -203,12 +205,6 @@ export function MobileBrowseTopBar() {
       href: "/guide",
       active: pathname === "/guide" || pathname.startsWith("/guide/"),
       icon: Radio,
-    },
-    {
-      label: "Recordings",
-      href: "/recordings",
-      active: pathname === "/recordings" || pathname.startsWith("/recordings/"),
-      icon: Clapperboard,
     },
   ];
 
@@ -267,7 +263,7 @@ export function MobileBrowseTopBar() {
         className="fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden"
       >
         <Card frame="solid">
-          <div className="grid grid-cols-6 gap-1 p-1.5">
+          <div className="relative grid grid-cols-5 gap-1 p-1.5">
             {navItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -290,23 +286,32 @@ export function MobileBrowseTopBar() {
             })}
             <Button variant="ghost"
               type="button"
-              onClick={() => void remote?.requestRemoteControlToggle()}
-              aria-pressed={remote?.remoteControlActive ?? false}
-              aria-label={
-                remote?.remoteControlActive
-                  ? "Disable TV remote control"
-                  : "Enable TV remote control"
-              }
+              onClick={() => setMoreOpen((value) => !value)}
+              aria-expanded={moreOpen}
+              aria-label="More navigation"
               className={cn(
                 "flex min-h-14 min-w-0 w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-lg px-1 text-xs font-semibold tracking-tight outline-none transition-[color,background-color,transform] focus-visible:ring-2 focus-visible:ring-ring",
-                remote?.remoteControlActive
-                  ? "bg-primary text-primary-foreground"
+                moreOpen || pathname === "/recordings" || pathname === "/settings"
+                  ? "bg-background-muted text-foreground-intense"
                   : "text-foreground-intense active:bg-background-muted active:text-foreground-intense",
               )}
             >
-              <TvMinimal className="size-5" aria-hidden />
-              <span className="max-w-full truncate">{remote?.remoteControlActive ? "Remote on" : "Remote"}</span>
+              <MoreHorizontal className="size-5" aria-hidden />
+              <span className="max-w-full truncate">More</span>
             </Button>
+            {moreOpen ? (
+              <Card frame="solid" className="absolute bottom-[calc(100%+0.75rem)] right-0 w-56 p-2 shadow-lg">
+                <Link href="/recordings" onClick={(event) => { onNavigateClick("/recordings")(event); setMoreOpen(false); }} className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-semibold text-foreground-intense hover:bg-background-muted">
+                  <Clapperboard className="size-5" aria-hidden /> Recordings
+                </Link>
+                <Button variant="ghost" type="button" onClick={() => { setMoreOpen(false); void remote?.requestRemoteControlToggle(); }} className="flex h-auto w-full justify-start gap-3 rounded-lg px-3 py-3 text-sm font-semibold">
+                  <TvMinimal className="size-5" aria-hidden /> {remote?.remoteControlActive ? "Disable TV remote" : "TV remote"}
+                </Button>
+                <Link href="/settings" onClick={(event) => { onNavigateClick("/settings")(event); setMoreOpen(false); }} className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-semibold text-foreground-intense hover:bg-background-muted">
+                  <Settings className="size-5" aria-hidden /> Settings
+                </Link>
+              </Card>
+            ) : null}
           </div>
         </Card>
       </nav>

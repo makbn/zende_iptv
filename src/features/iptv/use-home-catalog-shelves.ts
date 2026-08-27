@@ -13,7 +13,7 @@ export type HomeCatalogShelves = {
   series: { channels: M3uChannel[]; total: number };
 };
 
-const SHELVES_CACHE_TTL_MS = 60_000;
+const SHELVES_CACHE_TTL_MS = 30 * 60_000;
 let shelvesCache: { key: string; data: HomeCatalogShelves; cachedAt: number } | null =
   null;
 let shelvesInflight: Promise<HomeCatalogShelves> | null = null;

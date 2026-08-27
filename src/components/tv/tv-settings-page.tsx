@@ -5,8 +5,6 @@ import { Input } from "@appica/ui-react/input";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
-import { TvCatalogSetupStrip } from "@/components/tv/tv-catalog-setup-strip";
-import { TvManualChannelsSection } from "@/components/tv/tv-manual-channels-section";
 import { TvIptvProvidersSection } from "@/components/tv/tv-iptv-providers-section";
 import { TvPersonalLibraryCard } from "@/components/tv/tv-personal-library-card";
 import { TvParentalControlsCard } from "@/components/tv/tv-parental-controls-card";
@@ -17,15 +15,12 @@ import { TvSettingsProxiesPanel } from "@/components/tv/tv-settings-proxies-pane
 import { TvSettingsCachePanel } from "@/components/tv/tv-settings-cache-panel";
 import { BROWSE_CONTAINER_CLASS } from "@/components/layout/browse-page-shell";
 import { Button } from "@appica/ui-react/button";
+import { Tabs, TabsList, TabsTrigger } from "@appica/ui-react/tabs";
 import { ZendeSpinner } from "@/components/loading/zende-spinner";
 import {
-  AppicaPanel,
   AppicaHero,
-  AppicaMetrics,
 } from "@/components/layout/appica-page";
-import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { createClientLogger } from "@/core/logging/client";
-import { useCatalogBootstrap } from "@/features/iptv/use-catalog-bootstrap";
 import { useAuth } from "@/features/auth/auth-context";
 import { TV_BROWSE_TOP_PAD_CLASS } from "@/components/tv/tv-top-bar";
 import { Z_ACCESS } from "@/lib/auth/token-storage-keys";
@@ -38,8 +33,6 @@ const STORAGE_KEY = "zende.cronSecret";
 
 const log = createClientLogger("shell.TvSettingsPage");
 
-const source = BUILTIN_PLAYLIST_SOURCES[0]!;
-
 type SettingsTab = "catalog" | "authentication" | "integrations" | "proxies" | "server";
 
 export function TvSettingsPage() {
@@ -48,15 +41,6 @@ export function TvSettingsPage() {
   const { onNavigateClick } = useRemoteNavigation();
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<SettingsTab>("catalog");
-  const catalog = useCatalogBootstrap(source);
-  const {
-    busy: catalogBusy,
-    error: catalogError,
-    channelCount,
-    manualChannelCount,
-    registered,
-    refreshCatalog,
-  } = catalog;
 
   const [secret, setSecret] = useState(() => {
     if (typeof window === "undefined") return "";
@@ -155,87 +139,53 @@ export function TvSettingsPage() {
     <div className="bg-background min-h-screen overflow-x-clip text-foreground">
       <main className={cn("pb-24", TV_BROWSE_TOP_PAD_CLASS)}>
         <AppicaHero
-          className="pt-8"
+          className="py-6"
           eyebrow="Settings"
           title="Settings"
-          description="Catalog, access, integrations, VPN routing, playback, and server tools."
-          aside={
-            <AppicaPanel>
-              <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">System status</p>
-              <AppicaMetrics
-                className="mt-4"
-                metrics={[
-                  {
-                    label: "Channels",
-                    value: channelCount != null ? channelCount.toLocaleString() : "0",
-                    tone: "signal",
-                  },
-                  {
-                    label: "Manual",
-                    value: manualChannelCount.toLocaleString(),
-                  },
-                  {
-                    label: "Catalog",
-                    value: registered ? "Ready" : "Setup",
-                    tone: registered ? "signal" : "ember",
-                  },
-                ]}
-              />
-              <p className="mt-5 text-[14px] leading-relaxed text-foreground-intense">
-                Pick a section below.
-              </p>
-            </AppicaPanel>
-          }
-        />
+          description="Manage providers, playback, access, integrations, VPN routing, and server tools."
+        >
+          <div className="flex flex-wrap items-center gap-2 text-sm text-foreground-muted">
+            <span className="rounded-full border border-border bg-background-muted px-3 py-1.5">
+              {canManageSystem ? "Administrator" : "Personal settings"}
+            </span>
+            <span className="rounded-full border border-border bg-background-muted px-3 py-1.5">
+              {canManageSystem ? "5 sections" : "1 section"}
+            </span>
+          </div>
+        </AppicaHero>
 
         <div className={cn(BROWSE_CONTAINER_CLASS, "mt-5")}>
-          <div
-            className="flex flex-wrap gap-2 border-b border-border pb-px"
-            role="tablist"
-            aria-label="Settings sections"
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => setTab(value as SettingsTab)}
+            variant="line"
+            size="md"
+            className="gap-0"
           >
-            {(
-              (canManageSystem ? [
-                ["catalog", "Catalog"],
-                ["authentication", "Authentication"],
-                ["integrations", "Integrations"],
-                ["proxies", "VPN Proxies"],
-                ["server", "Server & reliability"],
-              ] : [["authentication", "My account"]]) as readonly (readonly [SettingsTab, string])[]
-            ).map(([id, label]) => (
-              <Button variant="ghost"
-                key={id}
-                type="button"
-                role="tab"
-                aria-selected={activeTab === id}
-                onClick={() => setTab(id)}
-                className={cn(
-                  "-mb-px rounded-t-[18px] px-4 py-2.5 text-[15px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                  "transition-[color,background-color,border-color,transform] duration-200 ease-out",
-                  "motion-safe:hover:-translate-y-px",
-                  activeTab === id
-                    ? "border border-b-0 border-border bg-background-muted text-foreground-intense"
-                    : "border border-transparent text-foreground-intense hover:text-foreground-intense",
-                )}
-              >
-                {label}
-              </Button>
-            ))}
-          </div>
+            <div className="overflow-x-auto border-b border-border">
+              <TabsList aria-label="Settings sections" className="min-w-max">
+                {(
+                  (canManageSystem ? [
+                    ["catalog", "Catalog"],
+                    ["authentication", "Authentication"],
+                    ["integrations", "Integrations"],
+                    ["proxies", "VPN Proxies"],
+                    ["server", "Server & reliability"],
+                  ] : [["authentication", "My account"]]) as readonly (readonly [SettingsTab, string])[]
+                ).map(([id, label]) => (
+                  <TabsTrigger key={id} value={id}>
+                    {label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+          </Tabs>
         </div>
 
         {canManageSystem && activeTab === "catalog" ? (
           <>
             <div className={cn(BROWSE_CONTAINER_CLASS, "mt-8")}>
-              <TvCatalogSetupStrip
-                source={source}
-                busy={catalogBusy}
-                error={catalogError}
-                registered={registered}
-                channelCount={channelCount}
-                manualChannelCount={manualChannelCount}
-                onRefresh={() => void refreshCatalog()}
-              />
+              <TvIptvProvidersSection />
             </div>
 
             <div className={cn(BROWSE_CONTAINER_CLASS, "mt-8")}>
@@ -246,12 +196,6 @@ export function TvSettingsPage() {
               <TvPersonalLibraryCard />
             </div>
 
-            <div className={cn(BROWSE_CONTAINER_CLASS, "mt-10")}>
-              <TvIptvProvidersSection />
-            </div>
-            <div className={cn(BROWSE_CONTAINER_CLASS, "mt-8")}>
-              <TvManualChannelsSection />
-            </div>
           </>
         ) : null}
 

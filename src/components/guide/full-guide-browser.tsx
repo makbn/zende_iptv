@@ -4,13 +4,14 @@ import { Input } from "@appica/ui-react/input";
 
 import {
   CalendarDays,
+  ChevronRight,
   Clock3,
   Play,
   Radio,
   Search,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { Card } from "@appica/ui-react/card";
@@ -101,8 +102,7 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
   const [detailResult, setDetailResult] = useState<GuideResult | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
-  const [previewChannel, setPreviewChannel] = useState<M3uChannel | null>(null);
-  const detailRef = useRef<HTMLDivElement>(null);
+  const [now, setNow] = useState(0);
 
   const preferredIds = useMemo(
     () => seedChannels.map((channel) => channel.tvgId?.trim()).filter((id): id is string => Boolean(id)),
@@ -115,9 +115,22 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
   }, [query]);
 
   useEffect(() => {
+    const updateClock = () => setNow(Date.now());
+    const initialTimer = window.setTimeout(updateClock, 0);
+    const interval = window.setInterval(updateClock, 60_000);
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
-    setError(null);
+    queueMicrotask(() => {
+      if (controller.signal.aborted) return;
+      setLoading(true);
+      setError(null);
+    });
 
     void (async () => {
       try {
@@ -164,10 +177,20 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
   useEffect(() => {
     const tvgId = selectedSummary?.channel.tvgId?.trim();
     const controller = new AbortController();
-    setDetailResult(null);
-    setDetailError(null);
-    setDetailLoading(Boolean(detailOpen && tvgId));
-    if (!detailOpen || !tvgId) return () => controller.abort();
+    if (!detailOpen || !tvgId) {
+      if (detailOpen) {
+        queueMicrotask(() => {
+          if (!controller.signal.aborted) setDetailLoading(false);
+        });
+      }
+      return () => controller.abort();
+    }
+    queueMicrotask(() => {
+      if (controller.signal.aborted) return;
+      setDetailResult(null);
+      setDetailError(null);
+      setDetailLoading(true);
+    });
 
     void (async () => {
       try {
@@ -192,18 +215,12 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
     return () => controller.abort();
   }, [debouncedQuery, detailOpen, selectedSummary?.channel.tvgId]);
 
-  const selected =
-    detailResult?.channel.url === selectedSummary?.channel.url
-      ? detailResult
-      : selectedSummary;
-
   const selectChannel = (channelUrl: string) => {
     setSelectedUrl(channelUrl);
     setDetailResult(null);
     setDetailError(null);
     setDetailLoading(true);
     setDetailOpen(true);
-    setPreviewChannel(null);
   };
 
   useEffect(() => {
@@ -223,17 +240,13 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
     };
   }, [detailOpen]);
 
-  const now = Date.now();
   const normalizedInput = query.trim();
   const searchPending = loading || normalizedInput !== debouncedQuery;
-  const selectedCurrent = selected?.programmes.find(
-    (programme) => programme.startMs <= now && programme.stopMs > now,
-  );
 
   return (
     <>
-    <section aria-label="Full TV guide" className="space-y-5">
-      <Card frame="solid" contentProps={{ className: "p-3 sm:p-4" }}>
+    <section aria-label="Full TV guide" className="flex flex-col flex-1 min-h-0 space-y-5">
+      <Card frame="solid" className="shrink-0" contentProps={{ className: "p-3 sm:p-4" }}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <label className="relative block min-w-0 flex-1">
             <Search
@@ -307,213 +320,135 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
         </Card>
       ) : null}
 
-      {results.length > 0 && selected ? (
-        <div className={cn("grid gap-5 transition-opacity lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start", searchPending && "opacity-45")}>
-          <Card
-            frame="solid"
-            className={cn("overflow-hidden", mobile && "rounded-lg")}
-          >
-            <div className="border-b border-border px-4 py-3">
+      {results.length > 0 ? (
+        <Card
+          frame="solid"
+          className={cn(
+            "flex min-h-[34rem] flex-1 flex-col overflow-hidden transition-opacity",
+            mobile && "rounded-lg",
+            searchPending && "opacity-45",
+          )}
+        >
+          <div className="flex shrink-0 flex-col gap-2 border-b border-border px-4 py-4 sm:flex-row sm:items-end sm:justify-between sm:px-5">
+            <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-foreground-intense">
                 Channels
               </p>
-              <p className="mt-1 text-[12px] text-foreground-intense">
-                Select a row to see its complete schedule.
+              <p className="mt-1 text-[12px] text-foreground-muted">
+                Now and next for every result. Open a row for the live preview and complete schedule.
               </p>
             </div>
-            <div className="max-h-[38rem] space-y-1 overflow-y-auto p-2">
-              {results.map((result) => {
-                const isSelected = result.channel.url === selected.channel.url;
-                const summaries = summaryProgrammes(result, now);
-                return (
-                  <Button variant="ghost"
-                    key={`${result.channel.tvgId ?? result.channel.url}:${result.channel.url}`}
-                    type="button"
-                    onClick={() => selectChannel(result.channel.url)}
-                    className={cn(
-                      "h-auto w-full justify-start rounded-lg border px-3 py-2.5 text-left transition-colors",
-                      isSelected
-                        ? "border-border-strong bg-background-subtle"
-                        : "border-transparent bg-background-muted hover:border-border hover:bg-background-muted",
-                    )}
-                    aria-pressed={isSelected}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-background">
+            <span className="w-fit rounded-full border border-border bg-background-muted px-3 py-1.5 text-[11px] font-medium text-foreground-muted">
+              {results.length.toLocaleString()} shown
+            </span>
+          </div>
+
+          <div className="flex-1 space-y-2 overflow-y-auto p-2 sm:p-3">
+            {results.map((result) => {
+              const summaries = summaryProgrammes(result, now);
+              const currentSummaryIndex = summaries.findIndex(
+                (programme) => programme.startMs <= now && programme.stopMs > now,
+              );
+              return (
+                <Button
+                  variant="ghost"
+                  key={`${result.channel.tvgId ?? result.channel.url}:${result.channel.url}`}
+                  type="button"
+                  onClick={() => selectChannel(result.channel.url)}
+                  className={cn(
+                    "group h-auto min-h-[7.25rem] w-full justify-start rounded-lg border border-border bg-background-muted p-4 text-left",
+                    "transition-[background-color,border-color,box-shadow,transform] duration-200 hover:-translate-y-px hover:border-border-strong hover:bg-background-subtle hover:shadow-sm",
+                    "focus-visible:ring-2 focus-visible:ring-primary",
+                  )}
+                  aria-label={`Open full guide for ${result.channel.name}`}
+                >
+                  <div className="grid w-full min-w-0 gap-3 lg:grid-cols-[minmax(14rem,0.8fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_2.5rem] lg:items-stretch">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-background">
                         {result.channel.tvgLogo ? (
-                          <img src={secureImageUrl(result.channel.tvgLogo, undefined, "logo")} alt="" className="max-h-8 max-w-8 object-contain" loading="lazy" />
+                          <img
+                            src={secureImageUrl(result.channel.tvgLogo, undefined, "logo")}
+                            alt=""
+                            className="max-h-10 max-w-10 object-contain"
+                            loading="lazy"
+                          />
                         ) : (
-                          <Radio className="size-4 text-foreground-intense" aria-hidden />
+                          <Radio className="size-5 text-foreground-muted" aria-hidden />
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[14px] font-semibold text-foreground-intense">{result.channel.name}</p>
-                        <p className="mt-0.5 truncate text-[10px] uppercase tracking-[0.1em] text-foreground-intense">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate text-[15px] font-semibold text-foreground-intense">
+                            {result.channel.name}
+                          </p>
+                          {result.matchCount > 0 ? (
+                            <span className="rounded-full border border-primary bg-primary px-2 py-0.5 text-[9px] font-semibold text-primary-strong">
+                              {result.matchCount} {result.matchCount === 1 ? "match" : "matches"}
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="mt-1 truncate text-[10px] uppercase tracking-[0.1em] text-foreground-muted">
                           {result.channel.groupTitle || result.channel.tvgId || "Live TV"}
                         </p>
-                      </div>
-                      {result.matchCount > 0 ? (
-                        <span className="rounded-full bg-primary px-2 py-1 text-[10px] font-semibold text-primary-strong">
-                          {result.matchCount} {result.matchCount === 1 ? "match" : "matches"}
-                        </span>
-                      ) : null}
-                    </div>
-                    {summaries.length > 0 ? (
-                      <div className="mt-2 space-y-1 border-t border-border pt-2">
-                        {summaries.map((programme) => (
-                          <div key={programme.id} className="flex min-w-0 gap-2 text-[11px]">
-                            <span className="shrink-0 tabular-nums text-foreground-intense">{formatTime(programme.startMs)}</span>
-                            <span className={cn("truncate text-foreground-intense", programme.matched && "font-semibold text-primary-strong")}>{programme.title}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
-                  </Button>
-                );
-              })}
-            </div>
-          </Card>
-
-          <div ref={detailRef} className="min-w-0 flex-1 scroll-mt-24">
-          <Card frame="glass" className="overflow-hidden">
-            <div className="flex flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-background">
-                  {selected.channel.tvgLogo ? (
-                    <img src={secureImageUrl(selected.channel.tvgLogo, undefined, "logo")} alt="" className="max-h-10 max-w-10 object-contain" />
-                  ) : (
-                    <Radio className="size-5 text-foreground-intense" aria-hidden />
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-[19px] font-semibold tracking-[-0.035em] text-foreground-intense">{selected.channel.name}</p>
-                  <p className="mt-0.5 truncate text-[12px] text-foreground-intense">{selected.channel.groupTitle || "Live TV"}</p>
-                </div>
-              </div>
-              <Button
-                type="button"
-                onClick={() => onPlayChannel(selected.channel)}
-                variant="primary"
-                size="sm"
-                className="shrink-0"
-              >
-                <Play className="size-4 fill-current" aria-hidden />
-                Play channel
-              </Button>
-            </div>
-
-            <div className="flex flex-col gap-3 border-b border-border bg-background-muted px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-background">
-                  <Play className="ml-0.5 size-4 fill-current text-foreground-intense" aria-hidden />
-                </div>
-                <div className="min-w-0">
-                <p className="text-[14px] font-semibold text-foreground-intense">Live preview</p>
-                {selectedCurrent ? (
-                  <p className="mt-1 truncate text-[12px] text-foreground-muted">
-                    On now: <span className="font-semibold text-foreground-intense">{selectedCurrent.title}</span>
-                  </p>
-                ) : <p className="mt-1 text-[12px] text-foreground-muted">Preview without leaving the guide.</p>}
-                </div>
-              </div>
-              <Button
-                type="button"
-                onClick={() => setPreviewChannel(selected.channel)}
-                size="sm"
-                variant="secondary"
-                className="shrink-0"
-              >
-                Preview
-              </Button>
-            </div>
-
-            <div className="border-t border-border px-4 py-4 sm:px-5">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <CalendarDays className="size-4 text-primary-strong" aria-hidden />
-                    <h2 className="text-[16px] font-semibold text-foreground-intense">Full programme guide</h2>
-                  </div>
-                  <p className="mt-1 text-[11px] text-foreground-intense">
-                    {detailLoading
-                      ? "Loading the complete schedule…"
-                      : `${selected.programmes.length.toLocaleString()} upcoming and recent listings`}
-                  </p>
-                </div>
-                {debouncedQuery && selected.matchCount > 0 ? (
-                  <span className="rounded-full border border-primary bg-primary px-3 py-1.5 text-[10px] font-semibold text-primary-strong">
-                    {selected.matchCount} programme {selected.matchCount === 1 ? "match" : "matches"}
-                  </span>
-                ) : null}
-              </div>
-
-              {detailError ? (
-                <p className="mb-3 rounded-xl border border-warning bg-warning-subtle px-3 py-2 text-[11px] text-warning-strong">
-                  {detailError}
-                </p>
-              ) : null}
-              {detailLoading ? (
-                <div className="mb-3 flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-3 text-[12px] text-foreground-intense">
-                  <ZendeSpinner size="tiny" label="Loading full EPG" />
-                  Loading full EPG for {selected.channel.name}…
-                </div>
-              ) : null}
-
-              <div className="max-h-[560px] space-y-2 overflow-y-auto pr-1">
-                {selected.programmes.map((programme, index) => {
-                  const isCurrent = programme.startMs <= now && programme.stopMs > now;
-                  const showDate = index === 0 || dayKey(programme.startMs) !== dayKey(selected.programmes[index - 1]!.startMs);
-                  return (
-                    <div key={programme.id}>
-                      {showDate ? (
-                        <p className="sticky top-0 z-10 mb-2 mt-4 bg-background py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-foreground-intense first:mt-0">
-                          {dateFormatter.format(new Date(programme.startMs))}
+                        <p className="mt-2 text-[11px] font-medium text-primary-strong">
+                          Open preview &amp; complete guide
                         </p>
-                      ) : null}
-                      <article
-                        className={cn(
-                          "rounded-lg border px-3 py-3",
-                          programme.matched
-                            ? "border-primary bg-primary"
-                            : isCurrent
-                              ? "border-border bg-background-muted"
-                              : "border-border bg-background",
-                        )}
-                      >
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-                          <div className="flex shrink-0 items-center gap-2 text-[11px] tabular-nums text-foreground-intense sm:w-[118px] sm:flex-col sm:items-start sm:gap-0.5">
-                            <span>{formatTime(programme.startMs)}–{formatTime(programme.stopMs)}</span>
-                            <span className="flex items-center gap-1 text-[10px] text-foreground-intense">
-                              <Clock3 className="size-3" aria-hidden />
-                              {formatDuration(programme.startMs, programme.stopMs)}
+                      </div>
+                    </div>
+
+                    {summaries.length > 0 ? summaries.map((programme, index) => {
+                      const isCurrent = programme.startMs <= now && programme.stopMs > now;
+                      return (
+                        <div
+                          key={programme.id}
+                          className={cn(
+                            "min-w-0 rounded-lg border px-3 py-2.5",
+                            programme.matched
+                              ? "border-primary bg-primary"
+                              : isCurrent
+                                ? "border-border-strong bg-background-subtle"
+                                : "border-border bg-background",
+                          )}
+                        >
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-foreground-muted">
+                              {programme.matched
+                                ? "Search match"
+                                : isCurrent
+                                  ? "Live now"
+                                  : index === 0 || index === currentSummaryIndex + 1
+                                    ? "Up next"
+                                    : "Later"}
+                            </span>
+                            <span className="text-[10px] tabular-nums text-foreground-muted">
+                              {formatTime(programme.startMs)}–{formatTime(programme.stopMs)}
                             </span>
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="text-[13px] font-semibold text-foreground-intense">{programme.title}</h3>
-                              {isCurrent ? (
-                                <span className="rounded-full bg-error-subtle px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-error-strong">Live now</span>
-                              ) : null}
-                              {programme.matched ? (
-                                <span className="rounded-full bg-primary px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-primary-strong">Search match</span>
-                              ) : null}
-                            </div>
-                            {programme.description ? (
-                              <p className="mt-1.5 text-[11px] leading-relaxed text-foreground-intense">{programme.description}</p>
-                            ) : (
-                              <p className="mt-1 text-[11px] text-foreground-intense">No programme description supplied.</p>
-                            )}
-                          </div>
+                          <p className={cn("mt-1 truncate text-[13px] font-semibold text-foreground-intense", programme.matched && "text-primary-strong")}>
+                            {programme.title}
+                          </p>
+                          <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-foreground-muted">
+                            {programme.description || `${formatDuration(programme.startMs, programme.stopMs)} programme`}
+                          </p>
                         </div>
-                      </article>
+                      );
+                    }) : (
+                      <div className="rounded-lg border border-border bg-background px-3 py-3 lg:col-span-2">
+                        <p className="text-[11px] font-medium text-foreground-muted">
+                          No compact schedule is available. Open the channel for its full guide and live preview.
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="hidden items-center justify-center lg:flex">
+                      <ChevronRight className="size-5 text-foreground-muted transition-transform group-hover:translate-x-0.5 group-hover:text-foreground-intense" aria-hidden />
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          </Card>
+                  </div>
+                </Button>
+              );
+            })}
           </div>
-        </div>
+        </Card>
       ) : null}
     </section>
     {detailOpen && selectedSummary && typeof document !== "undefined" ? createPortal((
@@ -682,7 +617,6 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
         </main>
       </div>
     ), document.body) : null}
-    <LivePreviewDialog channel={previewChannel} onClose={() => setPreviewChannel(null)} />
     </>
   );
 }

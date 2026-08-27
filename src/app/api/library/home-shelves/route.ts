@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { BUILTIN_PLAYLIST_SOURCES, isBuiltinPresetId } from "@/config/builtin-playlist-sources";
 import { withApiLogging } from "@/core/logging/api-log";
 import { gateApiRequest } from "@/lib/auth/gate-api";
-import { queryHomeCatalogShelves } from "@/lib/library/catalog";
+import { getCachedHomeShelves } from "@/lib/library/home-shelves-cache";
 import { resolveParentalAccess } from "@/lib/parental/parental-control-store";
 
 export const runtime = "nodejs";
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
 
     const started = Date.now();
     try {
-      const shelves = await queryHomeCatalogShelves({
+      const shelves = await getCachedHomeShelves({
         presetId,
         language: language?.trim() ? language.trim().toLowerCase() : null,
         hiddenPatterns: parental.blockedPatterns,
@@ -56,7 +56,7 @@ export async function GET(request: Request) {
       });
       return NextResponse.json(shelves, {
         headers: {
-          "Cache-Control": "private, no-store",
+          "Cache-Control": "private, max-age=30, stale-while-revalidate=1800",
           Vary: "Cookie, Authorization",
         },
       });

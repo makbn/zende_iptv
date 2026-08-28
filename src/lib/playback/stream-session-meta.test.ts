@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { parseXtreamDurationSeconds } from "@/lib/playback/stream-session-meta";
+import {
+  parsePlaybackSessionMeta,
+  parseXtreamDurationSeconds,
+  serializePlaybackSessionMeta,
+} from "@/lib/playback/stream-session-meta";
 
 describe("parseXtreamDurationSeconds", () => {
   it("parses seconds as number", () => {
@@ -13,5 +17,23 @@ describe("parseXtreamDurationSeconds", () => {
 
   it("parses MM:SS", () => {
     expect(parseXtreamDurationSeconds({ runtime: "45:30" })).toBe(2730);
+  });
+});
+
+describe("playback guide identity", () => {
+  it("persists provider-scoped EPG identity with a stream session", () => {
+    const restored = parsePlaybackSessionMeta(
+      serializePlaybackSessionMeta({
+        contentKind: "live",
+        guideProviderId: " provider-a ",
+        guideTvgId: " TSN.ca@feed ",
+      }),
+    );
+
+    expect(restored).toMatchObject({
+      contentKind: "live",
+      guideProviderId: "provider-a",
+      guideTvgId: "TSN.ca@feed",
+    });
   });
 });

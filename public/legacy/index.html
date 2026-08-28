@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Zende</title>
     <link rel="icon" href="/zende-logo.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/legacy/legacy.css" />
+    <link rel="stylesheet" href="/legacy/legacy.css?v=2" />
   </head>
   <body>
     <div class="legacy-root">
@@ -16,6 +16,11 @@
       <div id="legacy-screen-login" class="legacy-screen">
         <div class="legacy-login">
           <h2>Sign in</h2>
+          <div id="legacy-pair-code-container" style="display: none; margin-bottom: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">
+            <img id="legacy-pair-qr" src="" alt="QR Code" style="width: 150px; height: 150px; margin: 0 auto 10px; display: block; border-radius: 4px; background: white; padding: 4px;" />
+            <p style="margin: 0 0 10px; color: #9aa8b8; font-size: 14px;">Or go to <strong id="legacy-pair-uri" style="color:#f7faff"></strong></p>
+            <p style="margin: 0; color: #9aa8b8; font-size: 14px;">And enter code: <strong id="legacy-pair-code" style="font-size: 24px; color:#38d9ff; display:block; margin-top:8px"></strong></p>
+          </div>
           <form id="legacy-login-form">
             <div class="legacy-field">
               <label for="legacy-username">Username</label>
@@ -51,6 +56,9 @@
             <button type="button" class="legacy-nav-btn" data-tab="favorites">Favorites</button>
             <button type="button" class="legacy-nav-btn" data-tab="search">Search</button>
           </nav>
+          <button id="legacy-logout-btn" type="button" class="legacy-btn legacy-btn-secondary" style="margin-right: 8px;">
+            Log out
+          </button>
           <button id="legacy-modern-btn" type="button" class="legacy-btn legacy-btn-secondary">
             Full app
           </button>
@@ -63,6 +71,8 @@
             placeholder="Search live TV, movies, and shows"
             autocomplete="off"
           />
+          <button id="legacy-search-prev" type="button" class="legacy-btn legacy-btn-secondary" style="display:none; margin-right:8px;">Prev</button>
+          <button id="legacy-search-next" type="button" class="legacy-btn legacy-btn-secondary" style="display:none; margin-right:8px;">Next</button>
           <button id="legacy-search-go" type="button" class="legacy-btn">Search</button>
         </div>
 
@@ -101,6 +111,6 @@
       </div>
     </div>
     <script src="/legacy/hls.min.js"></script>
-    <script src="/legacy/legacy.js"></script>
+    <script src="/legacy/legacy.js?v=8"></script>
   </body>
 </html>

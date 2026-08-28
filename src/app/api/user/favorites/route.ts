@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { gateApiRequest } from "@/lib/auth/gate-api";
-import { lookupChannelsByUrls } from "@/lib/library/catalog";
+import { lookupEnabledProviderChannelsByUrls } from "@/lib/iptv/provider-store";
 import { prisma } from "@/lib/db/prisma";
 import {
   filterParentalChannels,
@@ -50,14 +49,7 @@ export async function GET(request: Request) {
     return NextResponse.json(rows);
   }
 
-  const presetId = BUILTIN_PLAYLIST_SOURCES[0]?.presetId;
-  const catalogByUrl =
-    presetId != null
-      ? await lookupChannelsByUrls(
-          presetId,
-          rows.map((r) => r.url),
-        )
-      : new Map();
+  const catalogByUrl = await lookupEnabledProviderChannelsByUrls(rows.map((row) => row.url));
 
   return NextResponse.json(
     rows.map((row) => {

@@ -225,6 +225,7 @@ input {
   right: 0;
   padding: 24px 32px;
   background: rgba(0, 0, 0, 0.55);
+  z-index: 10;
 }
 
 .legacy-back {
@@ -235,6 +236,11 @@ input {
   background: rgba(255, 255, 255, 0.14);
   color: #f7faff;
   cursor: pointer;
+}
+
+.legacy-wrap-row {
+  white-space: normal;
+  padding: 0 48px 8px;
 }
 
 .legacy-player-title {

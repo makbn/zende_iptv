@@ -5,11 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
 
-import {
-  AppicaButton,
-  AppicaPanel,
-} from "@/components/layout/appica-page";
-import { TvContinueEmpty } from "@/components/tv/tv-continue-empty";
 import { MobileChannelCard } from "@/components/mobile/mobile-channel-card";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import { Button, buttonVariants } from "@appica/ui-react/button";
@@ -21,7 +16,6 @@ import { useCatalogMeta } from "@/features/iptv/catalog-context";
 import { useContinueWatchingState } from "@/features/iptv/use-continue-watching";
 import { useHomeCatalogShelves } from "@/features/iptv/use-home-catalog-shelves";
 import { HomeShelfSkeleton } from "@/components/home/home-shelf-skeleton";
-import { parseChannelLabel } from "@/lib/channel/channel-label";
 import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
 import {
@@ -93,15 +87,15 @@ function MobileShelf({
 
 export function MobileHome() {
   const router = useRouter();
-  const { navigate, onNavigateClick } = useRemoteNavigation();
+  const { onNavigateClick } = useRemoteNavigation();
   const { openChannel, navError, clearNavError } = useWatchNavigation();
   const catalog = useCatalogMeta();
   const homeShelves = useHomeCatalogShelves({
     presetId: source.presetId,
     language: DEFAULT_RECOMMENDATION_LANGUAGE,
     discoverLimit: 18,
-    movieLimit: 12,
-    seriesLimit: 12,
+    movieLimit: 18,
+    seriesLimit: 18,
   });
   const {
     busy,
@@ -153,7 +147,7 @@ export function MobileHome() {
     );
   }, [shelfChannels, recentChannels, statsEpoch]);
 
-  const discoverSlice = useMemo(() => {
+  const discoverLiveSlice = useMemo(() => {
     const skip = new Set([
       ...recentChannels.map((channel) => channel.url),
       ...frequentChannels.map((channel) => channel.url),
@@ -163,80 +157,35 @@ export function MobileHome() {
       .slice(0, 18);
   }, [homeShelves.discover.channels, frequentChannels, recentChannels]);
 
-  const featured = useMemo(() => {
-    void statsEpoch;
-    const recentFirst = listRecentPlayback(1)[0];
-    if (recentFirst) return viewingEntryToChannel(recentFirst, shelfChannels);
-    const top = listTopByPlayCount(1)[0];
-    if (top) return viewingEntryToChannel(top, shelfChannels);
-    return shelfChannels.find((channel) => channel.tvgLogo) ?? shelfChannels[0];
-  }, [shelfChannels, statsEpoch]);
-
   const { items: continueWatching, loading: continueWatchingLoading } = useContinueWatchingState(12);
-  const coldStart = !continueWatchingLoading && continueWatching.length === 0;
-  const recommendedMovies = useMemo(
-    () => dedupeChannels(homeShelves.movies.channels).slice(0, 12),
-    [homeShelves.movies.channels],
-  );
-  const recommendedSeries = useMemo(
-    () => dedupeChannels(homeShelves.series.channels).slice(0, 12),
-    [homeShelves.series.channels],
-  );
-  const hasColdStartRecommendations =
-    recommendedMovies.length > 0 || recommendedSeries.length > 0;
-  const showColdStartRecommendations =
-    coldStart &&
-    recentChannels.length === 0 &&
-    frequentChannels.length === 0 &&
-    hasColdStartRecommendations;
+  const discoverMoviesSlice = useMemo(() => {
+    const skip = new Set([
+      ...recentChannels.map((channel) => channel.url),
+      ...frequentChannels.map((channel) => channel.url),
+    ]);
+    return dedupeChannels(homeShelves.movies.channels)
+      .filter((channel) => !skip.has(channel.url))
+      .slice(0, 18);
+  }, [homeShelves.movies.channels, frequentChannels, recentChannels]);
+  const discoverSeriesSlice = useMemo(() => {
+    const skip = new Set([
+      ...recentChannels.map((channel) => channel.url),
+      ...frequentChannels.map((channel) => channel.url),
+    ]);
+    return dedupeChannels(homeShelves.series.channels)
+      .filter((channel) => !skip.has(channel.url))
+      .slice(0, 18);
+  }, [homeShelves.series.channels, frequentChannels, recentChannels]);
   const healthLookupChannels = useMemo(
     () => [
       ...shelfChannels,
-      ...recommendedMovies,
-      ...recommendedSeries,
+      ...discoverLiveSlice,
+      ...discoverMoviesSlice,
+      ...discoverSeriesSlice,
     ],
-    [shelfChannels, recommendedMovies, recommendedSeries],
+    [shelfChannels, discoverLiveSlice, discoverMoviesSlice, discoverSeriesSlice],
   );
   const { getScoreForChannel } = useChannelHealthLookup(healthLookupChannels);
-
-  const hero = useMemo(() => {
-    if (!featured) {
-      return {
-        eyebrow: "Zende",
-        title: "Live TV",
-        subtitle: "Your recently watched channels surface here after setup.",
-        backdropUrl: null as string | null,
-        primaryLabel: "Open Library",
-        secondaryLabel: "Settings",
-      };
-    }
-    return {
-      eyebrow: featured.groupTitle ?? "Live TV",
-      title: parseChannelLabel(featured.name?.trim() || "Channel").displayName,
-      subtitle:
-        "Jump back in, browse what you watch often, or explore something new.",
-      backdropUrl: featured.tvgLogo ?? null,
-      primaryLabel: "Play",
-      secondaryLabel: "Library",
-    };
-  }, [featured]);
-
-  function handlePrimary() {
-    if (busy) return;
-    if (!featured) {
-      navigate("/library");
-      return;
-    }
-    openChannel(featured);
-  }
-
-  function handleSecondary() {
-    if (!featured) {
-      navigate("/settings");
-      return;
-    }
-    navigate("/library");
-  }
 
   function openContinueItem(item: (typeof continueWatching)[number]) {
     openChannel({
@@ -273,38 +222,7 @@ export function MobileHome() {
 
   return (
     <main className="bg-background min-h-screen pb-28 pt-[5.35rem] text-foreground">
-      <section className="px-4 pb-4">
-        <AppicaPanel className="rounded-lg p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">{hero.eyebrow}</p>
-          <h1 className="mt-2 text-[clamp(1.75rem,8vw,2.7rem)] font-semibold leading-[0.95] tracking-[-0.065em] text-foreground-intense">
-            {hero.title}
-          </h1>
-          <p className="mt-2 text-[13px] leading-relaxed text-foreground-intense">
-            {hero.subtitle}
-          </p>
-          <p className="mt-3 rounded-lg border border-border bg-background px-3 py-2 text-[12px] font-medium leading-relaxed text-foreground-intense">
-            {continueWatching.length > 0
-              ? "Pick up where you left off or jump into Library."
-              : showColdStartRecommendations
-                ? "No history yet, so we’re starting with English movies and shows."
-                : "Start from the featured item or browse by type in Library."}
-          </p>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <AppicaButton onClick={handlePrimary} disabled={busy}>
-              {hero.primaryLabel}
-            </AppicaButton>
-            <AppicaButton
-              variant="secondary"
-              onClick={handleSecondary}
-              disabled={busy}
-            >
-              {hero.secondaryLabel}
-            </AppicaButton>
-          </div>
-        </AppicaPanel>
-      </section>
-
-      <div className="relative z-10 space-y-6 px-0">
+      <div className="relative z-10 space-y-6 px-0 pt-4">
         {continueWatching.length > 0 ? (
           <MobileShelf
             id="continue"
@@ -326,34 +244,9 @@ export function MobileHome() {
           <section className="px-4" aria-label="Loading Continue Watching">
             <HomeShelfSkeleton compact />
           </section>
-        ) : continueWatching.length === 0 && !showColdStartRecommendations ? (
-          <section className="px-4" aria-label="Continue Watching">
-            <TvContinueEmpty />
-          </section>
         ) : null}
 
         {homeShelves.loading ? <HomeShelfSkeleton compact /> : null}
-
-        {showColdStartRecommendations ? (
-          <>
-            <MobileShelf
-              id="recommended-movies"
-              title="English movies to try"
-              description="A first row from your English on-demand catalog."
-              channels={recommendedMovies}
-              getScoreForChannel={getScoreForChannel}
-              onSelect={openChannel}
-            />
-            <MobileShelf
-              id="recommended-series"
-              title="English shows to sample"
-              description="Series suggestions before your watch history exists."
-              channels={recommendedSeries}
-              getScoreForChannel={getScoreForChannel}
-              onSelect={openChannel}
-            />
-          </>
-        ) : null}
 
         <MobileShelf
           id="recent"
@@ -364,20 +257,6 @@ export function MobileHome() {
           onSelect={openChannel}
         />
 
-        {recentChannels.length === 0 ? (
-          <section className="px-4" aria-label="Recently Watched">
-            <div className="rounded-lg border border-border bg-background-muted p-5">
-              <h2 className="text-[19px] font-semibold text-foreground-intense">
-                Nothing watched yet
-              </h2>
-              <p className="mt-2 text-[14px] leading-relaxed text-foreground-intense">
-                Start from Library or tap Play above. Your quick-return row will
-                appear here.
-              </p>
-            </div>
-          </section>
-        ) : null}
-
         <MobileShelf
           title="Because You Watch"
           description="A quick row for channels you return to often."
@@ -387,14 +266,28 @@ export function MobileHome() {
         />
 
         <MobileShelf
-          id="live"
-          title="Discover"
-          description={
-            channelCount != null
-              ? `${channelCount.toLocaleString()} channels in your catalog.`
-              : "Explore live channels from your catalog."
-          }
-          channels={discoverSlice}
+          id="discover-live"
+          title="Discover Live TV"
+          description="Explore live channels from your catalog."
+          channels={discoverLiveSlice}
+          getScoreForChannel={getScoreForChannel}
+          onSelect={openChannel}
+        />
+
+        <MobileShelf
+          id="discover-movies"
+          title="Discover Movies"
+          description="Explore movies from your catalog."
+          channels={discoverMoviesSlice}
+          getScoreForChannel={getScoreForChannel}
+          onSelect={openChannel}
+        />
+
+        <MobileShelf
+          id="discover-series"
+          title="Discover Series"
+          description="Explore series from your catalog."
+          channels={discoverSeriesSlice}
           getScoreForChannel={getScoreForChannel}
           onSelect={openChannel}
         />

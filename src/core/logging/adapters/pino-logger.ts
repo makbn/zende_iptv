@@ -19,6 +19,7 @@ export class PinoLoggerAdapter implements ILogger {
     private readonly pino: PinoRootLogger,
     readonly scope: string,
     private readonly baseContext?: LogContext,
+    private readonly errorPino?: PinoRootLogger,
   ) {}
 
   trace(message: string, context?: LogContext): void {
@@ -38,17 +39,26 @@ export class PinoLoggerAdapter implements ILogger {
   }
 
   error(message: string, context?: LogContext): void {
-    this.pino.error(mergeContext(this.scope, this.baseContext, context), message);
+    const merged = mergeContext(this.scope, this.baseContext, context);
+    this.pino.error(merged, message);
+    this.errorPino?.error(merged, message);
   }
 
   fatal(message: string, context?: LogContext): void {
-    this.pino.fatal(mergeContext(this.scope, this.baseContext, context), message);
+    const merged = mergeContext(this.scope, this.baseContext, context);
+    this.pino.fatal(merged, message);
+    this.errorPino?.fatal(merged, message);
   }
 
   child(bindings: LogContext): ILogger {
-    return new PinoLoggerAdapter(this.pino, this.scope, {
-      ...this.baseContext,
-      ...bindings,
-    });
+    return new PinoLoggerAdapter(
+      this.pino,
+      this.scope,
+      {
+        ...this.baseContext,
+        ...bindings,
+      },
+      this.errorPino,
+    );
   }
 }

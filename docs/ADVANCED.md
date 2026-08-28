@@ -75,6 +75,9 @@ By default Compose maps the container port to **all** interfaces (`0.0.0.0`). To
 | `AUTH_JWT_SECRET` | Strongly recommended | insecure default | Signs JWT tokens when authentication is enabled. |
 | `CRON_SECRET` | No | — | `Authorization: Bearer` guard for cron and registry APIs. |
 | `LOG_LEVEL` | No | `info` | Server log verbosity. |
+| `LOG_ERROR_FILE` | No | `logs/errors.ndjson` (`/logs/errors.ndjson` in Compose) | JSON Lines file containing only `error` and `fatal` events. Set an empty value to disable. |
+| `LOG_ERROR_MAX_BYTES` | No | `10485760` (10 MiB) | Rotate the dedicated error log before the next event exceeds this size. |
+| `LOG_ERROR_MAX_FILES` | No | `5` | Total dedicated error files retained, including the active file. |
 | `GLUETUN_HOST_WORKDIR` | No | `./gluetun-work` (relative to project dir) | **Host** path where Gluetun OpenVPN/WireGuard config dirs are stored. Must be an absolute host path when running inside Docker — set it in `.env`, e.g. `GLUETUN_HOST_WORKDIR=/your/host/path/gluetun-work`. See [VPN Proxies](#vpn-proxies). |
 | `GLUETUN_CONTAINER_WORKDIR` | No | `/gluetun-work` | Path inside the Zende container where the same directory is mounted. Do not change unless you edit `docker-compose.yml`. |
 | `ZENDE_THREADFIN_URL` | No | `http://threadfin:34400` | Internal Threadfin base URL for sync/API. |
@@ -106,6 +109,7 @@ Do not commit secrets; inject them via the host environment or your orchestrator
 | Mount | Purpose |
 |-------|---------|
 | `zende-data:/data` | Named volume — persists SQLite (`zende.db`) and recordings (`recordings/` when `ZENDE_RECORDINGS_DIR` is under `/data`). Remove with `docker compose down -v`. |
+| `./logs:/logs` | Host-visible, rotating JSON Lines logs containing only server `error` and `fatal` events. Read `logs/errors.ndjson` first, then numbered files from newest to oldest. |
 | `/var/run/docker.sock` | Docker socket — lets Zende start/stop Gluetun sibling containers. Required for VPN proxy feature. |
 | `GLUETUN_HOST_WORKDIR:/gluetun-work` | Shared config directory — Zende writes OpenVPN/WireGuard files here; Gluetun containers mount sub-directories from the **host** side of this path. |
 
@@ -119,6 +123,34 @@ docker compose down -v       # stop + wipe SQLite and recordings on the named vo
 ```
 
 Compose includes a **healthcheck** on `GET /api/health`; wait until the service is **healthy** before routing traffic.
+
+### Serialized HLS capacity probe
+
+Use the adaptive probe to test whether an authorized Xtream account can time-slice
+multiple HLS channels while keeping at most one HTTP request active. Run it
+interactively so credentials are not stored in shell history:
+
+```bash
+npm run probe:hls-timeslicing
+```
+
+The probe individually validates candidate channels, then tests n=1, 2, 4, 8,
+and increments of four through `PROBE_MAX_CHANNELS` (default `64`). It stops after
+two consecutive stages fail the quality thresholds. Redacted Markdown and JSON
+reports are written under `docs/`; authenticated URLs and tokens are never
+included.
+
+Useful overrides include `PROBE_STAGE_SECONDS`, `PROBE_WARMUP_SECONDS`,
+`PROBE_MAX_CHANNELS`, `PROBE_MAX_REQUEST_ERROR_RATE`,
+`PROBE_MAX_SEGMENT_ERROR_RATE`, and `PROBE_MAX_UNDERRUN_RATIO`.
+
+To test four channels with fresh-token, deep-buffer batching rather than the
+default round-robin scheduler:
+
+```bash
+PROBE_STRATEGY=batch PROBE_N_VALUES=4 PROBE_WARMUP_SECONDS=60 \
+  PROBE_STAGE_SECONDS=180 npm run probe:hls-timeslicing
+```
 
 ## VPN proxies (deep dive)
 

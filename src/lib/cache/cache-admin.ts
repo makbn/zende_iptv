@@ -122,7 +122,7 @@ export async function getAdminCacheSnapshots(): Promise<AdminCacheSnapshot[]> {
       bytes: null,
       inFlight: epg.inFlight + xmltv.inFlight,
       ttlMs: Math.min(epg.ttlMs, xmltv.ttlMs),
-      detail: `${epg.programmes + xmltv.programmes} programmes, provider refresh every 30 min`,
+      detail: `${epg.programmes + xmltv.programmes} programmes, provider refresh every hour`,
     },
   ];
 }
@@ -148,6 +148,6 @@ export async function clearAdminCache(id: CacheId): Promise<void> {
       return;
     case "epg":
       clearEpgResponseCache();
-      clearProviderXmltvCache();
+      await clearProviderXmltvCache();
   }
 }

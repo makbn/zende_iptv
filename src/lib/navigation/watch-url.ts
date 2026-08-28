@@ -19,7 +19,7 @@ export type WatchSessionMeta = {
 };
 
 export type CreateWatchInput = Pick<M3uChannel, "url" | "name"> &
-  Partial<Pick<M3uChannel, "tvgLogo" | "groupTitle">> & {
+  Partial<Pick<M3uChannel, "tvgLogo" | "groupTitle" | "providerId" | "tvgId">> & {
     playback?: PlaybackSessionMeta;
   };
 
@@ -56,6 +56,11 @@ async function createStreamSessionId(
   },
   failureMessage = "Could not start playback.",
 ): Promise<string> {
+  const playback: PlaybackSessionMeta = {
+    ...channel.playback,
+    ...(channel.providerId?.trim() ? { guideProviderId: channel.providerId.trim() } : {}),
+    ...(channel.tvgId?.trim() ? { guideTvgId: channel.tvgId.trim() } : {}),
+  };
   const res = await zendeFetch("/api/stream/session", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -64,7 +69,7 @@ async function createStreamSessionId(
       title: channel.name?.trim() || "Live",
       logo: channel.tvgLogo,
       group: channel.groupTitle,
-      meta: channel.playback,
+      meta: playback,
       unwrapPublicCorsProxyUrls: readUnwrapPublicCorsProxyUrlsPref(),
       ...(opts?.cookies ? { cookies: opts.cookies } : {}),
     }),

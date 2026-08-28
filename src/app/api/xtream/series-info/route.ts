@@ -6,12 +6,15 @@ import { gateApiRequest } from "@/lib/auth/gate-api";
 import { fetchXtreamSeriesInfo } from "@/lib/iptv/xtream-client";
 import { loadXtreamPortalCredentials } from "@/lib/iptv/xtream-portal-store";
 import { prisma } from "@/lib/db/prisma";
+import { parseChannelLabel } from "@/lib/channel/channel-label";
+import { getCachedMediaMetadata } from "@/lib/media/media-metadata-service";
 import { parseXtreamDurationSeconds } from "@/lib/playback/stream-session-meta";
 import type { XtreamSeriesEpisode } from "@/lib/iptv/xtream-types";
 import {
   buildXtreamEpisodeUrl,
   parseXtreamCredentialsFromStreamUrl,
   parseXtreamSeriesIdFromContainerUrl,
+  buildXtreamSeriesContainerUrl,
 } from "@/lib/iptv/xtream-url";
 
 export const runtime = "nodejs";
@@ -20,6 +23,8 @@ const querySchema = z.object({
   seriesId: z.string().min(1).optional(),
   url: z.string().min(1).optional(),
   tvgId: z.string().min(1).optional(),
+  channelId: z.string().min(1).optional(),
+  title: z.string().min(1).max(300).optional(),
 });
 
 export type SeriesEpisodeRow = {
@@ -81,6 +86,8 @@ export async function GET(request: Request) {
       seriesId: url.searchParams.get("seriesId") ?? undefined,
       url: url.searchParams.get("url") ?? undefined,
       tvgId: url.searchParams.get("tvgId") ?? undefined,
+      channelId: url.searchParams.get("channelId") ?? undefined,
+      title: url.searchParams.get("title") ?? undefined,
     });
     if (!parsed.success) {
       log.warn("invalid query");
@@ -104,11 +111,27 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "seriesId required" }, { status: 400 });
     }
 
+    const requestedSeriesId = seriesId;
     const scoped = /^([^:]+):(.+)$/.exec(seriesId);
+    let providerChannel = parsed.data.channelId
+      ? await prisma.iptvProviderChannel.findUnique({
+          where: { id: parsed.data.channelId },
+          include: { provider: true },
+        })
+      : null;
     const provider = scoped
       ? await prisma.iptvProvider.findUnique({ where: { id: scoped[1] } })
-      : null;
+      : providerChannel?.provider ?? null;
     if (provider && scoped) seriesId = scoped[2];
+    if (!providerChannel && provider) {
+      providerChannel = await prisma.iptvProviderChannel.findFirst({
+        where: {
+          providerId: provider.id,
+          url: buildXtreamSeriesContainerUrl(seriesId),
+        },
+        include: { provider: true },
+      });
+    }
     const providerCreds = provider?.serverUrl && provider.username && provider.password
       ? { serverUrl: provider.serverUrl, username: provider.username, password: provider.password }
       : null;
@@ -132,6 +155,28 @@ export async function GET(request: Request) {
     }
 
     const episodes = flattenEpisodes(info.episodes, creds);
+    const portalInfo = (info.info ?? {}) as Record<string, unknown>;
+    const providerTitle =
+      typeof portalInfo.name === "string" && portalInfo.name.trim()
+        ? portalInfo.name.trim()
+        : providerChannel?.name ?? parsed.data.title ?? "Untitled show";
+    const parsedTitle = parseChannelLabel(providerTitle);
+    const metadata = await getCachedMediaMetadata({
+      mediaKey: providerChannel
+        ? `channel:${providerChannel.id}`
+        : `series:${requestedSeriesId}`,
+      providerChannelId: providerChannel?.id,
+      mediaType: "tv",
+      title: parsedTitle.displayName,
+      year: parsedTitle.yearLabel,
+      portalInfo,
+    }).catch((error) => {
+      log.error("series metadata cache failed", {
+        seriesId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    });
     log.info("series info loaded", {
       seriesId,
       episodeCount: episodes.length,
@@ -142,6 +187,7 @@ export async function GET(request: Request) {
       info: info.info ?? {},
       seasons: info.seasons ?? [],
       episodes,
+      metadata,
     });
   });
 }

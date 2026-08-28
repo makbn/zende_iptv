@@ -48,8 +48,8 @@ COPY --chown=nextjs:nodejs --from=prod-deps /app/node_modules ./node_modules
 COPY --chown=nextjs:nodejs --from=builder /app/.next ./.next
 COPY --chown=nextjs:nodejs --from=builder /app/public ./public
 
-RUN mkdir -p /data \
-  && chown nextjs:nodejs /data
+RUN mkdir -p /data /logs \
+  && chown nextjs:nodejs /data /logs
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh

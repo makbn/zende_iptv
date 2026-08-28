@@ -2,6 +2,7 @@
 
 import { Input } from "@appica/ui-react/input";
 import { Slider } from "@appica/ui-react/slider";
+import { useToastManager } from "@appica/ui-react/toast";
 
 import dynamic from "next/dynamic";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuGroupLabel, DropdownMenuItem, DropdownMenuTrigger } from "@appica/ui-react/dropdown-menu";
@@ -15,6 +16,8 @@ import {
   Subtitles,
   Languages,
   Info,
+  BellRing,
+  CalendarClock,
   Pause,
   PictureInPicture,
   Play,
@@ -83,6 +86,7 @@ import {
   FrequentChannelPeek,
 } from "@/components/watch/frequent-channel-peek";
 import { FavoriteStarButton } from "@/components/tv/favorite-star-button";
+import { MovieDownloadButton } from "@/components/library/movie-download-button";
 import { ChannelResolutionBadge } from "@/components/tv/channel-resolution-badge";
 import { EpisodePlaybackControls } from "@/components/watch/episode-playback-controls";
 import { SubtitleSearchPanel } from "@/components/watch/subtitle-search-panel";
@@ -104,6 +108,8 @@ import {
   REMOTE_COMMAND_EVENT,
   useRemoteControl,
 } from "@/features/remote/remote-control-context";
+import { useLiveChannelEpg } from "@/features/epg/use-live-channel-epg";
+import type { RemotePlaybackState } from "@/lib/remote/remote-control-types";
 
 const FREQUENT_RING = 15;
 const ZAP_MODE_STORAGE = "zende.zapMode";
@@ -130,6 +136,15 @@ function favoritesRingEntries(): ViewingEntry[] {
 const CHROME_IDLE_MS = 3000;
 
 const PLAYBACK_SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2] as const;
+
+const programmeClockFormatter = new Intl.DateTimeFormat(undefined, {
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+function formatProgrammeWindow(startMs: number, stopMs: number): string {
+  return `${programmeClockFormatter.format(new Date(startMs))}–${programmeClockFormatter.format(new Date(stopMs))}`;
+}
 
 function formatClock(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
@@ -396,6 +411,7 @@ export function WatchView() {
   const [volume, setVolume] = useState(1);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [buffering, setBuffering] = useState(false);
   const effectiveDuration = useMemo(() => {
     const videoDur = duration;
     const expected = expectedDuration;
@@ -418,8 +434,62 @@ export function WatchView() {
     !isVodPlayback &&
     (resolvedPlaybackKind === "live" || resolvedPlaybackKind === undefined);
 
+  useEffect(() => {
+    if (!remote?.isTvTarget) return;
+    if (!playbackSrc || (!sessionId && !recordingId && !canonicalUrl)) {
+      remote.reportTargetPlayback(null);
+      return;
+    }
+    const contentKind: RemotePlaybackState["contentKind"] = isRecordedPlayback
+      ? "recording"
+      : resolvedPlaybackKind === "movie"
+        ? "movie"
+        : resolvedPlaybackKind === "episode"
+          ? "episode"
+          : "live";
+    const seekable = isVodPlayback && Number.isFinite(effectiveDuration) && effectiveDuration > 0;
+    remote.reportTargetPlayback({
+      playbackId: sessionId
+        ? `stream:${sessionId}`
+        : recordingId
+          ? `recording:${recordingId}`
+          : `legacy:${title}`,
+      active: true,
+      title,
+      logo: logo ?? null,
+      group: group ?? null,
+      contentKind,
+      currentTime: Number.isFinite(currentTime) ? Math.max(0, currentTime) : 0,
+      duration: seekable ? effectiveDuration : null,
+      playing,
+      buffering,
+      seekable,
+    });
+  }, [
+    buffering,
+    canonicalUrl,
+    currentTime,
+    effectiveDuration,
+    group,
+    isRecordedPlayback,
+    isVodPlayback,
+    logo,
+    playbackSrc,
+    playing,
+    recordingId,
+    remote,
+    resolvedPlaybackKind,
+    sessionId,
+    title,
+  ]);
+
+  useEffect(() => {
+    if (!remote?.isTvTarget) return;
+    const report = remote.reportTargetPlayback;
+    return () => report(null);
+  }, [remote?.isTvTarget, remote?.reportTargetPlayback]);
+
   const [fs, setFs] = useState(false);
-  const [buffering, setBuffering] = useState(false);
   const [bufferRatio, setBufferRatio] = useState(0);
   const [playerSession, setPlayerSession] = useState<PlayerSession | null>(
     null,
@@ -450,6 +520,50 @@ export function WatchView() {
   const remoteControlActiveState = Boolean(remote?.activeSession);
   /** Viewing stats read localStorage; server snapshot has no entries — defer peek until mounted. */
   const [ringPeekClientReady, setRingPeekClientReady] = useState(false);
+  const toast = useToastManager<{ icon?: ReactNode }>();
+
+  const liveGuideIdentity = useMemo(() => {
+    const sessionProviderId = playbackMeta?.guideProviderId?.trim();
+    const sessionTvgId = playbackMeta?.guideTvgId?.trim();
+    if (sessionProviderId && sessionTvgId) {
+      return { providerId: sessionProviderId, tvgId: sessionTvgId };
+    }
+    const catalogMatch = canonicalUrl
+      ? catalogChannels.find((channel) => channel.url === canonicalUrl)
+      : null;
+    const providerId = catalogMatch?.providerId?.trim();
+    const tvgId = catalogMatch?.tvgId?.trim();
+    return providerId && tvgId ? { providerId, tvgId } : null;
+  }, [canonicalUrl, catalogChannels, playbackMeta?.guideProviderId, playbackMeta?.guideTvgId]);
+
+  const liveEpg = useLiveChannelEpg({
+    enabled: isLivePlayback,
+    providerId: liveGuideIdentity?.providerId,
+    tvgId: liveGuideIdentity?.tvgId,
+    channelUrl: canonicalUrl,
+  });
+  const notifiedProgrammesRef = useRef(new Set<string>());
+
+  useEffect(() => {
+    const next = liveEpg.next;
+    if (!isLivePlayback || !next) return;
+    const remainingMs = next.startMs - liveEpg.nowMs;
+    if (remainingMs <= 0 || remainingMs > 5 * 60_000) return;
+    const notificationKey = `${liveGuideIdentity?.providerId ?? ""}:${next.id}`;
+    if (notifiedProgrammesRef.current.has(notificationKey)) return;
+    notifiedProgrammesRef.current.add(notificationKey);
+    const minutes = Math.max(1, Math.ceil(remainingMs / 60_000));
+    toast.add({
+      title: `Up next in about ${minutes} minute${minutes === 1 ? "" : "s"}`,
+      description: next.title,
+      data: { icon: <BellRing className="size-4" aria-hidden /> },
+      actionProps: {
+        children: "View guide",
+        onClick: () => setInfoOpen(true),
+      },
+      timeout: 12_000,
+    });
+  }, [isLivePlayback, liveEpg.next, liveEpg.nowMs, liveGuideIdentity?.providerId, toast]);
 
   const chromeIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chromeHoverRef = useRef(false);
@@ -1452,7 +1566,7 @@ export function WatchView() {
 
           {infoOpen ? (
             <div className="absolute inset-0 z-[35] flex items-center justify-center bg-background px-4">
-              <Card frame="solid" className="max-w-md w-full">
+              <Card frame="solid" className="max-h-[90dvh] max-w-md w-full overflow-y-auto">
                 <div className="px-5 py-4 text-left">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -1474,6 +1588,70 @@ export function WatchView() {
                       Esc
                     </Button>
                   </div>
+
+                  {isLivePlayback ? (
+                    <div className="mt-4 rounded-xl border border-border bg-background px-3 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-foreground-intense">
+                          <CalendarClock className="size-4 text-primary-strong" aria-hidden />
+                          Live programme guide
+                        </p>
+                        {liveEpg.loading ? <ZendeSpinner size="tiny" label="Loading live guide" /> : null}
+                      </div>
+
+                      {liveEpg.current ? (
+                        <div className="mt-3 rounded-lg border border-primary bg-primary-subtle px-3 py-2.5">
+                          <div className="flex items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-wide text-primary-strong">
+                            <span>On now</span>
+                            <span>{formatProgrammeWindow(liveEpg.current.startMs, liveEpg.current.stopMs)}</span>
+                          </div>
+                          <p className="mt-1 text-[14px] font-semibold text-foreground-intense">
+                            {liveEpg.current.title}
+                          </p>
+                          {liveEpg.current.description ? (
+                            <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-foreground-muted">
+                              {liveEpg.current.description}
+                            </p>
+                          ) : null}
+                          <div className="mt-2 h-1 overflow-hidden rounded-full bg-background-muted">
+                            <div
+                              className="h-full rounded-full bg-primary"
+                              style={{
+                                width: `${Math.min(100, Math.max(0, ((liveEpg.nowMs - liveEpg.current.startMs) / (liveEpg.current.stopMs - liveEpg.current.startMs)) * 100))}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {liveEpg.next ? (
+                        <div className="mt-2 rounded-lg border border-border bg-background-muted px-3 py-2.5">
+                          <div className="flex items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">
+                            <span>Up next</span>
+                            <span>{formatProgrammeWindow(liveEpg.next.startMs, liveEpg.next.stopMs)}</span>
+                          </div>
+                          <p className="mt-1 text-[13px] font-semibold text-foreground-intense">
+                            {liveEpg.next.title}
+                          </p>
+                          {liveEpg.next.description ? (
+                            <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-foreground-muted">
+                              {liveEpg.next.description}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
+
+                      {!liveEpg.loading && !liveEpg.available ? (
+                        <p className="mt-3 text-[12px] text-foreground-muted">
+                          {liveEpg.error
+                            ? "Programme information is temporarily unavailable."
+                            : liveEpg.identityAvailable
+                              ? "No current programme data is available for this channel."
+                              : "This channel does not include a provider EPG identifier."}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
 
                   <div className="mt-4 rounded-xl border border-border bg-background px-3 py-2.5">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground-intense">
@@ -1570,6 +1748,16 @@ export function WatchView() {
               {watchFavoriteChannel ? (
                 <FavoriteStarButton
                   channel={watchFavoriteChannel}
+                  size="md"
+                  className="shrink-0"
+                />
+              ) : null}
+              {resolvedPlaybackKind === "movie" && watchFavoriteChannel ? (
+                <MovieDownloadButton
+                  channel={{
+                    ...watchFavoriteChannel,
+                    ...(playbackMeta ? { playback: playbackMeta } : {}),
+                  }}
                   size="md"
                   className="shrink-0"
                 />

@@ -4,11 +4,12 @@ set -e
 # Persisted SQLite on the mounted volume (see docker-compose.yml).
 export DATABASE_URL="${DATABASE_URL:-file:/data/zende.db}"
 
-mkdir -p /data /data/recordings
+mkdir -p /data /data/recordings /logs
 
 if [ "$(id -u)" -eq 0 ]; then
   # Named volumes are often root-owned on first mount — chown so Prisma can write zende.db.
   chown -R nextjs:nodejs /data
+  chown -R nextjs:nodejs /logs
 
   # ── Docker socket access (required for VPN proxy containers) ────────────────
   # When /var/run/docker.sock is mounted the nextjs process must be able to

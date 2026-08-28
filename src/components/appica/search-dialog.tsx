@@ -49,7 +49,6 @@ export function AppicaSearchDialog({ open, onClose }: Props) {
     onClose();
     if (remote?.activeSession) {
       void remote.sendNavigate(href);
-      return;
     }
     router.push(href);
   }
@@ -155,6 +154,7 @@ export function AppicaSearchDialog({ open, onClose }: Props) {
                     event.preventDefault();
                     onClose();
                     void remote.sendNavigate("/library#grid");
+                    router.push("/library#grid");
                   }}
                   className={buttonVariants({ variant: "secondary", size: "lg" })}
                 >

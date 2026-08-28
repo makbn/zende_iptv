@@ -4,16 +4,23 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import type { SeriesEpisodeRow } from "@/app/api/xtream/series-info/route";
+import type { MediaMetadata } from "@/lib/media/media-metadata";
 
 export type SeriesInfoResponse = {
   seriesId: string;
   info: Record<string, unknown>;
   seasons: Array<{ season_number?: number | string; name?: string }>;
   episodes: SeriesEpisodeRow[];
+  metadata: MediaMetadata | null;
   error?: string;
 };
 
-export function useSeriesInfo(seriesId: string | null) {
+export function useSeriesInfo(
+  seriesId: string | null,
+  options?: { providerChannelId?: string; title?: string },
+) {
+  const providerChannelId = options?.providerChannelId;
+  const fallbackTitle = options?.title;
   const [data, setData] = useState<SeriesInfoResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +35,10 @@ export function useSeriesInfo(seriesId: string | null) {
     setError(null);
     try {
       const params = new URLSearchParams({ seriesId });
+      if (providerChannelId?.trim()) {
+        params.set("channelId", providerChannelId.trim());
+      }
+      if (fallbackTitle?.trim()) params.set("title", fallbackTitle.trim());
       const res = await zendeFetch(`/api/xtream/series-info?${params.toString()}`);
       const body = (await res.json().catch(() => ({}))) as SeriesInfoResponse & {
         error?: string;
@@ -40,10 +51,11 @@ export function useSeriesInfo(seriesId: string | null) {
     } finally {
       setLoading(false);
     }
-  }, [seriesId]);
+  }, [fallbackTitle, providerChannelId, seriesId]);
 
   useEffect(() => {
-    void reload();
+    const timer = window.setTimeout(() => void reload(), 0);
+    return () => window.clearTimeout(timer);
   }, [reload]);
 
   const episodesBySeason = useMemo(() => {

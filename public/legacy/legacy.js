@@ -28,7 +28,9 @@
     seriesContainer: null,
     seriesTitle: "",
     seriesId: "",
-    returnScreen: "home",
+    searchOffset: 0,
+    searchTotal: 0,
+    currentScreen: null,
   };
 
   function destroyHls() {
@@ -149,7 +151,15 @@
     if (el) el.textContent = message || "";
   }
 
-  function showScreen(name) {
+  function showScreen(name, skipHistory) {
+    if (!skipHistory && window.history && window.history.pushState) {
+      if (state.currentScreen !== name) {
+        var url = "/legacy/";
+        if (name !== "home") url += name + "/";
+        window.history.pushState({ screen: name }, "", url);
+      }
+    }
+    state.currentScreen = name;
     var screens = document.querySelectorAll(".legacy-screen");
     for (var i = 0; i < screens.length; i++) {
       screens[i].className = screens[i].className.replace(" is-active", "");
@@ -423,12 +433,16 @@
   }
 
   function closeSeries() {
-    state.seriesContainer = null;
-    state.seriesTitle = "";
-    state.seriesId = "";
-    setSeriesStatus("");
-    showScreen("home");
-    focusTile(state.focusIndex);
+    if (window.history && window.history.back) {
+      window.history.back();
+    } else {
+      state.seriesContainer = null;
+      state.seriesTitle = "";
+      state.seriesId = "";
+      setSeriesStatus("");
+      showScreen("home");
+      focusTile(state.focusIndex);
+    }
   }
 
   function selectTile(index) {
@@ -495,7 +509,7 @@
     }
   }
 
-  function renderFlatChannels(channels, emptyMessage) {
+  function renderFlatChannels(channels, emptyMessage, isSearch) {
     var container = byId("legacy-shelves");
     if (!container) return;
 
@@ -506,13 +520,15 @@
       return;
     }
 
-    var html = '<div class="legacy-grid"><div class="legacy-row">';
+    var html = '<div class="legacy-grid"><div class="' + (isSearch ? 'legacy-wrap-row' : 'legacy-row') + '">';
     for (var i = 0; i < state.tiles.length; i++) {
       html += channelTileHtml(state.tiles[i], i);
     }
     html += "</div></div>";
     container.innerHTML = html;
     bindTileEvents();
+    
+    updateBrowseChrome();
     focusTile(0);
   }
 
@@ -604,22 +620,26 @@
   }
 
   function stopPlayback() {
-    destroyHls();
-    var video = byId("legacy-video");
-    if (video) {
-      video.pause();
-      video.removeAttribute("src");
-      while (video.firstChild) video.removeChild(video.firstChild);
-      video.load();
-    }
-    state.playing = null;
-    if (state.seriesContainer) {
-      showScreen("series");
+    if (window.history && window.history.back) {
+      window.history.back();
+    } else {
+      destroyHls();
+      var video = byId("legacy-video");
+      if (video) {
+        video.pause();
+        video.removeAttribute("src");
+        while (video.firstChild) video.removeChild(video.firstChild);
+        video.load();
+      }
+      state.playing = null;
+      if (state.seriesContainer) {
+        showScreen("series");
+        focusTile(state.focusIndex);
+        return;
+      }
+      showScreen("home");
       focusTile(state.focusIndex);
-      return;
     }
-    showScreen("home");
-    focusTile(state.focusIndex);
   }
 
   function showLoading(message) {
@@ -633,62 +653,82 @@
 
   function updateBrowseChrome() {
     setActiveButtons(".legacy-nav-btn", "data-tab", state.tab);
-    showPanel("legacy-search-bar", state.tab === "search");
+    showPanel("legacy-search-bar", state.tab === "search" || state.tab === "library");
     showPanel("legacy-library-filters", state.tab === "library");
     setActiveButtons(".legacy-filter-btn", "data-filter", state.libraryFilter);
+    
+    var btnPrev = byId("legacy-search-prev");
+    var btnNext = byId("legacy-search-next");
+    if (btnPrev && btnNext) {
+       if ((state.tab === "search" || state.tab === "library") && state.searchTotal > SEARCH_LIMIT) {
+          btnPrev.style.display = state.searchOffset > 0 ? "inline-block" : "none";
+          btnNext.style.display = (state.searchOffset + SEARCH_LIMIT < state.searchTotal) ? "inline-block" : "none";
+       } else {
+          btnPrev.style.display = "none";
+          btnNext.style.display = "none";
+       }
+    }
   }
 
   function loadHome() {
     state.tab = "home";
     updateBrowseChrome();
     showScreen("home");
-    showLoading("Loading home…");
+    var container = byId("legacy-shelves");
+    if (!container) return Promise.resolve();
 
-    return apiFetch(
-      "/api/library/home-shelves?presetId=" +
-        encodeURIComponent(PRESET_ID) +
-        "&discoverLimit=48&movieLimit=36&seriesLimit=36&language=en",
-    )
+    if (state.shelvesCache) {
+      renderShelves(state.shelvesCache);
+      return Promise.resolve();
+    }
+    showLoading("Loading…");
+    return apiFetch("/api/library/home-shelves")
       .then(function (res) {
         return res.text().then(function (text) {
           var body = parseJson(text) || {};
-          if (!res.ok) throw new Error(body.error || "Could not load home.");
-          state.shelves = body;
+          if (!res.ok) throw new Error(body.error || "Failed to load shelves.");
+          state.shelvesCache = body;
           renderShelves(body);
         });
       })
       .catch(function (err) {
-        byId("legacy-shelves").innerHTML = "";
-        setStatus(err && err.message ? err.message : "Could not load home.");
+        container.innerHTML = "";
+        setStatus(err && err.message ? err.message : "Failed to load shelves.");
       });
   }
 
-  function loadLibrary() {
+  function loadLibrary(isPaging) {
+    if (!isPaging) state.searchOffset = 0;
     state.tab = "library";
     updateBrowseChrome();
     showScreen("home");
-    showLoading("Loading library…");
+    var container = byId("legacy-shelves");
+    if (!container) return Promise.resolve();
 
-    var contentType = state.libraryFilter === "all" ? "all" : state.libraryFilter;
-    return apiFetch(
-      "/api/library/catalog?presetId=" +
-        encodeURIComponent(PRESET_ID) +
-        "&contentType=" +
-        encodeURIComponent(contentType) +
-        "&limit=" +
-        String(CATALOG_LIMIT) +
-        "&language=en",
-    )
+    showLoading("Loading library…");
+    var url = "/api/library/catalog?limit=" + String(SEARCH_LIMIT) + "&offset=" + String(state.searchOffset);
+    if (state.libraryFilter !== "all") {
+      url += "&contentType=" + state.libraryFilter;
+    } else {
+      url += "&contentType=all";
+    }
+    if (state.searchQuery && state.searchQuery.replace(/\s/g, "")) {
+      url += "&q=" + encodeURIComponent(state.searchQuery);
+    }
+
+    return apiFetch(url)
       .then(function (res) {
         return res.text().then(function (text) {
           var body = parseJson(text) || {};
-          if (!res.ok) throw new Error(body.error || "Could not load library.");
-          renderFlatChannels(body.channels || [], "No items in this library section.");
+          if (!res.ok) throw new Error(body.error || "Failed to load library.");
+          var total = body.total != null ? body.total : (body.channels || []).length;
+          state.searchTotal = total;
+          renderFlatChannels(body.channels || [], "Library is empty.", true);
         });
       })
       .catch(function (err) {
-        byId("legacy-shelves").innerHTML = "";
-        setStatus(err && err.message ? err.message : "Could not load library.");
+        container.innerHTML = "";
+        setStatus(err && err.message ? err.message : "Failed to load library.");
       });
   }
 
@@ -696,8 +736,10 @@
     state.tab = "favorites";
     updateBrowseChrome();
     showScreen("home");
-    showLoading("Loading favorites…");
+    var container = byId("legacy-shelves");
+    if (!container) return Promise.resolve();
 
+    showLoading("Loading favorites…");
     return apiFetch("/api/user/favorites?enrich=1")
       .then(function (res) {
         return res.text().then(function (text) {
@@ -723,43 +765,53 @@
         });
       })
       .catch(function (err) {
-        byId("legacy-shelves").innerHTML = "";
-        setStatus(err && err.message ? err.message : "Could not load favorites.");
+        container.innerHTML = "";
+        setStatus(err && err.message ? err.message : "Failed to load favorites.");
       });
   }
 
-  function runSearch(query) {
+  function runSearch(query, append, isPaging) {
+    if (!append && !isPaging) state.searchOffset = 0;
+    
     state.tab = "search";
     state.searchQuery = query || "";
     updateBrowseChrome();
-    showScreen("home");
+    if (!append) showScreen("home");
 
     var input = byId("legacy-search-input");
-    if (input) input.value = state.searchQuery;
+    if (input && !append) input.value = state.searchQuery;
 
     if (!state.searchQuery.replace(/\s/g, "")) {
-      renderFlatChannels([], "Type a title and press Search.");
+      renderFlatChannels([], "Type a title and press Search.", true);
       return Promise.resolve();
     }
 
-    showLoading("Searching…");
+    if (!append) showLoading("Searching…");
 
     return apiFetch(
-      "/api/library/catalog?presetId=" +
-        encodeURIComponent(PRESET_ID) +
-        "&contentType=all&q=" +
+      "/api/library/catalog?contentType=all&q=" +
         encodeURIComponent(state.searchQuery) +
         "&limit=" +
         String(SEARCH_LIMIT) +
-        "&language=en",
+        "&offset=" +
+        String(state.searchOffset)
     )
       .then(function (res) {
         return res.text().then(function (text) {
           var body = parseJson(text) || {};
           if (!res.ok) throw new Error(body.error || "Search failed.");
           var total = body.total != null ? body.total : (body.channels || []).length;
+          state.searchTotal = total;
+          
+          var newTiles = body.channels || [];
+          if (append) {
+            state.tiles = state.tiles.concat(newTiles);
+          } else {
+            state.tiles = newTiles;
+          }
+          
           var emptyMsg = total ? "" : "No results for \"" + state.searchQuery + "\".";
-          renderFlatChannels(body.channels || [], emptyMsg || "No results.");
+          renderFlatChannels(state.tiles, emptyMsg || "No results.", true);
         });
       })
       .catch(function (err) {
@@ -774,14 +826,49 @@
     if (tab === "favorites") return loadFavorites();
     if (tab === "search") {
       state.tab = "search";
+      state.searchOffset = 0;
       updateBrowseChrome();
       showScreen("home");
-      renderFlatChannels([], "Type a title and press Search.");
+      renderFlatChannels([], "Type a title and press Search.", true);
       var input = byId("legacy-search-input");
       if (input) input.focus();
       return Promise.resolve();
     }
     return loadHome();
+  }
+
+  var pairInterval = null;
+  function startPairing() {
+    var pairContainer = byId("legacy-pair-code-container");
+    var pairUri = byId("legacy-pair-uri");
+    var pairCode = byId("legacy-pair-code");
+    var pairQr = byId("legacy-pair-qr");
+    if (!pairContainer) return;
+    
+    apiFetch("/api/auth/login/pair", { method: "POST" })
+      .then(function(res) { return res.text(); })
+      .then(function(text) {
+        var data = parseJson(text);
+        if (!data || !data.verificationUri) return;
+        pairUri.textContent = data.verificationUri;
+        pairCode.textContent = data.userCode;
+        pairQr.src = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" + encodeURIComponent(data.verificationUri);
+        pairContainer.style.display = "block";
+        
+        if (pairInterval) clearInterval(pairInterval);
+        pairInterval = setInterval(function() {
+          apiFetch("/api/auth/login/pair/" + encodeURIComponent(data.sessionId))
+            .then(function(r) { return r.text(); })
+            .then(function(t) {
+               var d = parseJson(t);
+               if (d && d.tokens) {
+                 clearInterval(pairInterval);
+                 storeTokens(d.tokens.accessToken, d.tokens.refreshToken);
+                 loadHome();
+               }
+            }).catch(function(){});
+        }, 3000);
+      }).catch(function(){});
   }
 
   function checkAuth() {
@@ -804,11 +891,13 @@
               state.user = me.user;
               return loadHome();
             }
+            startPairing();
             showScreen("login");
           });
       })
       .catch(function () {
         setStatus("Could not reach the server.");
+        startPairing();
         showScreen("login");
       });
   }
@@ -895,7 +984,26 @@
     if (modernLogin) modernLogin.addEventListener("click", openModernApp);
 
     var modernBtn = byId("legacy-modern-btn");
-    if (modernBtn) modernBtn.addEventListener("click", openModernApp);
+    if (modernBtn) {
+      modernBtn.addEventListener("click", function () {
+        window.location.href = "/";
+      });
+    }
+
+    var logoutBtn = byId("legacy-logout-btn");
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", function () {
+        apiFetch("/api/auth/logout", { method: "POST" })
+          .then(function () {
+            state.user = null;
+            clearTokens();
+            showScreen("login");
+          })
+          .catch(function () {
+            showScreen("login");
+          });
+      });
+    }
 
     var backBtn = byId("legacy-back");
     if (backBtn) backBtn.addEventListener("click", stopPlayback);
@@ -929,7 +1037,34 @@
     if (searchGo) {
       searchGo.addEventListener("click", function () {
         var input = byId("legacy-search-input");
-        runSearch(input ? input.value : "");
+        state.searchQuery = input ? input.value : "";
+        if (state.tab === "library") {
+          loadLibrary();
+        } else {
+          runSearch(state.searchQuery, false);
+        }
+      });
+    }
+
+    var searchPrev = byId("legacy-search-prev");
+    if (searchPrev) {
+      searchPrev.addEventListener("click", function() {
+         if (state.searchOffset >= SEARCH_LIMIT) {
+            state.searchOffset -= SEARCH_LIMIT;
+            if (state.tab === "library") loadLibrary(true);
+            else runSearch(state.searchQuery, false, true);
+         }
+      });
+    }
+
+    var searchNext = byId("legacy-search-next");
+    if (searchNext) {
+      searchNext.addEventListener("click", function() {
+         if (state.searchOffset + SEARCH_LIMIT < state.searchTotal) {
+            state.searchOffset += SEARCH_LIMIT;
+            if (state.tab === "library") loadLibrary(true);
+            else runSearch(state.searchQuery, false, true);
+         }
       });
     }
 
@@ -945,6 +1080,33 @@
     }
 
     document.addEventListener("keydown", onKeyDown);
+
+    window.addEventListener("popstate", function(e) {
+      var s = (e.state && e.state.screen) || "home";
+      
+      if (state.playing && s !== "player") {
+        destroyHls();
+        var video = byId("legacy-video");
+        if (video) {
+          video.pause();
+          video.removeAttribute("src");
+          while (video.firstChild) video.removeChild(video.firstChild);
+          video.load();
+        }
+        state.playing = null;
+      }
+      
+      if (state.seriesContainer && s !== "series" && s !== "player") {
+        state.seriesContainer = null;
+        state.seriesTitle = "";
+        state.seriesId = "";
+        setSeriesStatus("");
+      }
+      
+      showScreen(s, true);
+      if (s === "home") focusTile(state.focusIndex);
+      if (s === "series") focusTile(state.focusIndex);
+    });
   }
 
   bindUi();

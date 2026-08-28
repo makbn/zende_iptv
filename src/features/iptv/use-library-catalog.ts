@@ -80,7 +80,6 @@ async function fetchLibraryCatalogPage(
 }
 
 export function useLibraryCatalog(input: {
-  presetId: string;
   contentTab: LibraryContentTab;
   query: string;
   groupFilter: string | null;
@@ -115,7 +114,7 @@ export function useLibraryCatalog(input: {
     countries: [],
     years: [],
   });
-  const filterKey = `${input.presetId}|${input.contentTab}|${input.query}|${input.groupFilter}|${input.categoryFilter ?? null}|${input.languageFilter}|${input.countryFilter ?? null}|${input.yearFilter ?? null}`;
+  const filterKey = `${input.contentTab}|${input.query}|${input.groupFilter}|${input.categoryFilter ?? null}|${input.languageFilter}|${input.countryFilter ?? null}|${input.yearFilter ?? null}`;
   const pageKey = `${filterKey}|${input.offset}|${input.pageSize}`;
   const lastFilterKey = useRef(filterKey);
 
@@ -162,21 +161,27 @@ export function useLibraryCatalog(input: {
     const cacheFresh =
       cached && Date.now() - cached.cachedAt < LIBRARY_CACHE_TTL_MS;
     if (cacheFresh) {
-      setChannels(cached.channels);
-      setTotal(cached.total);
-      setFacets(cached.facets);
       hasLoadedOnce.current = true;
-      setLoading(false);
-      setRefreshing(false);
-      return;
+      queueMicrotask(() => {
+        if (controller.signal.aborted || seq !== requestSeq.current) return;
+        setChannels(cached.channels);
+        setTotal(cached.total);
+        setFacets(cached.facets);
+        setLoading(false);
+        setRefreshing(false);
+      });
+      return () => controller.abort();
     }
 
-    if (hasLoadedOnce.current && !appendFromFreshMount) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-    setError(null);
+    queueMicrotask(() => {
+      if (controller.signal.aborted || seq !== requestSeq.current) return;
+      if (hasLoadedOnce.current && !appendFromFreshMount) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+    });
 
     void (async () => {
       try {
@@ -186,7 +191,6 @@ export function useLibraryCatalog(input: {
           : input.pageSize;
 
         const params = new URLSearchParams({
-          presetId: input.presetId,
           contentType: input.contentTab,
           offset: String(effectiveOffset),
           limit: String(effectiveLimit),
@@ -252,7 +256,6 @@ export function useLibraryCatalog(input: {
     filterKey,
     input.offset,
     input.pageSize,
-    input.presetId,
     input.contentTab,
     input.groupFilter,
     input.categoryFilter,

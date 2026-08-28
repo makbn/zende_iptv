@@ -10,7 +10,9 @@ function rewriteLegacyIndex(request: NextRequest): NextResponse {
 }
 
 function isLegacyEntryPath(pathname: string): boolean {
-  return pathname === "/legacy" || pathname === "/legacy/";
+  if (pathname === "/legacy" || pathname === "/legacy/") return true;
+  if (pathname.startsWith("/legacy/") && !/\.[a-z0-9]+$/i.test(pathname)) return true;
+  return false;
 }
 
 function shouldServeLegacyClient(request: NextRequest): boolean {

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 
-import { BUILTIN_PLAYLIST_SOURCES, isBuiltinPresetId } from "@/config/builtin-playlist-sources";
 import { withApiLogging } from "@/core/logging/api-log";
 import { gateApiRequest } from "@/lib/auth/gate-api";
 import type { LibraryContentType } from "@/lib/channels/content-type";
@@ -8,8 +7,6 @@ import { queryLibraryCatalog, warmLibraryCatalogIndexIfNeeded } from "@/lib/libr
 import { resolveParentalAccess } from "@/lib/parental/parental-control-store";
 
 export const runtime = "nodejs";
-
-const DEFAULT_PRESET_ID = BUILTIN_PLAYLIST_SOURCES[0]!.presetId;
 
 function parseContentType(raw: string | null): "all" | LibraryContentType {
   if (raw === "live" || raw === "movie" || raw === "series") return raw;
@@ -24,12 +21,6 @@ export async function GET(request: Request) {
     const parental = await resolveParentalAccess(request, gate);
 
     const url = new URL(request.url);
-    const presetId = url.searchParams.get("presetId") ?? DEFAULT_PRESET_ID;
-    if (!isBuiltinPresetId(presetId)) {
-      log.warn("unknown preset", { presetId });
-      return NextResponse.json({ error: "Unknown preset" }, { status: 404 });
-    }
-
     const contentType = parseContentType(url.searchParams.get("contentType"));
     const q = url.searchParams.get("q") ?? undefined;
     const group = url.searchParams.get("group");
@@ -45,9 +36,8 @@ export async function GET(request: Request) {
 
     const started = Date.now();
     try {
-      await warmLibraryCatalogIndexIfNeeded(presetId);
+      await warmLibraryCatalogIndexIfNeeded();
       const result = await queryLibraryCatalog({
-        presetId,
         contentType,
         q,
         group: group?.trim() ? group.trim() : null,

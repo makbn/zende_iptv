@@ -30,38 +30,38 @@ enum UserRole {
 }
 
 model User {
-  id               String         @id @default(cuid())
-  username         String         @unique
-  passwordHash     String
-  role             UserRole       @default(USER)
-  isDisabled       Boolean        @default(false)
+  id                String                 @id @default(cuid())
+  username          String                 @unique
+  passwordHash      String
+  role              UserRole               @default(USER)
+  isDisabled        Boolean                @default(false)
   /// The original administrator created at bootstrap — cannot be deleted; password/username can be reset via API or server script.
-  isBootstrapAdmin Boolean        @default(false)
-  lastLoginAt      DateTime?
-  lastActivityAt   DateTime?
-  lastLoginIp      String?
+  isBootstrapAdmin  Boolean                @default(false)
+  lastLoginAt       DateTime?
+  lastActivityAt    DateTime?
+  lastLoginIp       String?
   lastLoginLocation String?
-  lastLoginDevice  String?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  refreshTokens    RefreshToken[]
-  proxyConfigs     ProxyConfig[]
-  favorites        UserFavorite[]
-  viewingHistory   UserViewingHistory[]
-  iptvCredentials IptvClientCredential[]
+  lastLoginDevice   String?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  refreshTokens     RefreshToken[]
+  proxyConfigs      ProxyConfig[]
+  favorites         UserFavorite[]
+  viewingHistory    UserViewingHistory[]
+  iptvCredentials   IptvClientCredential[]
 }
 
 /// Long-lived portal login for Xtream-compatible IPTV apps (e.g. TiviMate): `portalUsername` + secret map to Xtream username/password.
 model IptvClientCredential {
-  id             String   @id @default(cuid())
-  label          String   @default("")
-  portalUsername String   @unique
+  id             String    @id @default(cuid())
+  label          String    @default("")
+  portalUsername String    @unique
   passwordHash   String
   /// When app auth is enabled, the signed-in user who created this credential. Null when auth is off (single-household mode).
   ownerUserId    String?
-  owner          User?    @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  owner          User?     @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
   lastUsedAt     DateTime?
 
   @@index([ownerUserId])
@@ -93,10 +93,10 @@ model ChannelRegistryEntry {
 }
 
 model HealthProbe {
-  id         String   @id @default(cuid())
+  id         String               @id @default(cuid())
   urlHash    String
   channel    ChannelRegistryEntry @relation(fields: [urlHash], references: [urlHash], onDelete: Cascade)
-  checkedAt  DateTime @default(now())
+  checkedAt  DateTime             @default(now())
   ok         Boolean
   latencyMs  Int?
   httpStatus Int?
@@ -106,54 +106,54 @@ model HealthProbe {
 }
 
 model HealthAggregate {
-  urlHash     String   @id
+  urlHash     String               @id
   channel     ChannelRegistryEntry @relation(fields: [urlHash], references: [urlHash], onDelete: Cascade)
   tier        String
   successRate Float
   sampleCount Int
-  windowDays  Int      @default(7)
-  updatedAt   DateTime @updatedAt
+  windowDays  Int                  @default(7)
+  updatedAt   DateTime             @updatedAt
 }
 
 /// Ephemeral HLS proxy session: maps opaque `id` → upstream URL + rewrite aliases (survives dev HMR).
 model StreamProxySession {
-  id              String   @id
-  upstreamRootUrl String
-  title           String
-  logo            String?
-  groupTitle      String?
+  id                String   @id
+  upstreamRootUrl   String
+  title             String
+  logo              String?
+  groupTitle        String?
   /// JSON object: short hash → absolute upstream URL (for overlong `?u=`).
-  urlAliasesJson  String   @default("{}")
+  urlAliasesJson    String   @default("{}")
   /// JSON: hash → upstream playlist URL that referenced this resource — used as `Referer` for that hash (avoids racing `lastRefererUrl`).
-  aliasReferersJson String @default("{}")
+  aliasReferersJson String   @default("{}")
   /// JSON: `{ origin: { cookieName: cookieValue } }` — forwarded on segment requests (many CDNs require playlist cookies).
-  cookieJarJson   String   @default("{}")
+  cookieJarJson     String   @default("{}")
   /// Last upstream playlist URL fetched through this session — segments should use this `Referer` (not only the master URL).
-  lastRefererUrl  String?
+  lastRefererUrl    String?
   /// Serialized StoredProxyConfig — proxy is read once at session creation; the proxy route never needs a second DB query.
-  proxyConfigJson String?
+  proxyConfigJson   String?
   /// JSON: duration, series/episode context for VOD seek bar and next/prev controls.
-  metaJson        String   @default("{}")
-  expiresAt       DateTime
-  createdAt       DateTime @default(now())
+  metaJson          String   @default("{}")
+  expiresAt         DateTime
+  createdAt         DateTime @default(now())
 
   @@index([expiresAt])
 }
 
 model ProxyConfig {
-  id        String   @id @default(cuid())
-  name      String
+  id                 String   @id @default(cuid())
+  name               String
   /// "direct" | "gluetun"
-  vpnType   String   @default("direct")
-  protocol  String   @default("http")
-  host      String   @default("")
-  port      Int      @default(0)
-  username  String?
-  password  String?
+  vpnType            String   @default("direct")
+  protocol           String   @default("http")
+  host               String   @default("")
+  port               Int      @default(0)
+  username           String?
+  password           String?
   /// "nordvpn" | "expressvpn" | "protonvpn" | "custom_openvpn" | "custom_wireguard"
-  vpnProvider    String?
+  vpnProvider        String?
   /// JSON blob with provider-specific credentials / config
-  vpnConfigJson  String?
+  vpnConfigJson      String?
   /// Docker container ID for the running Gluetun container
   gluetunContainerId String?
   /// Host port mapped to Gluetun's internal HTTP proxy (8888)
@@ -163,18 +163,18 @@ model ProxyConfig {
   /// User who created this proxy — null when auth is disabled or row was created before this field was added.
   createdByUserId    String?
   createdBy          User?    @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   assignments ChannelProxyAssignment[]
 }
 
 model ChannelProxyAssignment {
-  urlHash   String      @id
+  urlHash   String               @id
   proxyId   String
   proxy     ProxyConfig          @relation(fields: [proxyId], references: [id], onDelete: Cascade)
   channel   ChannelRegistryEntry @relation(fields: [urlHash], references: [urlHash], onDelete: Cascade)
-  createdAt DateTime    @default(now())
+  createdAt DateTime             @default(now())
 
   @@index([proxyId])
 }
@@ -200,19 +200,19 @@ model UserFavorite {
 /// Per-user playback history — recency + play counts.
 /// userId = "__guest__" when auth is disabled (single-user mode).
 model UserViewingHistory {
-  id           String   @id @default(cuid())
-  userId       String
-  user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  url          String
-  name         String
-  tvgLogo      String?
-  groupTitle   String?
+  id              String   @id @default(cuid())
+  userId          String
+  user            User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  url             String
+  name            String
+  tvgLogo         String?
+  groupTitle      String?
   /// Serialized PlaybackSessionMeta for VOD resume (series/movie context).
-  playbackJson String?
+  playbackJson    String?
   /// Last saved position in seconds for this canonical URL.
   positionSeconds Int?
-  lastOpenedAt DateTime @default(now())
-  openCount    Int      @default(1)
+  lastOpenedAt    DateTime @default(now())
+  openCount       Int      @default(1)
 
   @@unique([userId, url])
   @@index([userId, lastOpenedAt])
@@ -221,10 +221,10 @@ model UserViewingHistory {
 
 /// Parsed built-in playlist (iptv-org index, etc.) — survives browser clears / new devices.
 model PlaylistCatalogCache {
-  presetId       String   @id
-  channelsJson   String
-  channelCount   Int      @default(0)
-  updatedAt      DateTime @updatedAt
+  presetId     String   @id
+  channelsJson String
+  channelCount Int      @default(0)
+  updatedAt    DateTime @updatedAt
 }
 
 /// Precomputed public Home discovery rails. Personalized/parental filtering is applied on read.
@@ -233,6 +233,20 @@ model HomeShelvesCache {
   dataJson  String
   builtAt   DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/// Durable active EPG search snapshot. The BLOB preserves provider-scoped Maps,
+/// programme postings, and schedules so cold workers never fetch provider XMLTV.
+model EpgGuideSnapshot {
+  id             Int      @id @default(1)
+  formatVersion  Int
+  version        String
+  fetchedAt      DateTime
+  providerCount  Int
+  channelCount   Int
+  programmeCount Int
+  data           Bytes
+  updatedAt      DateTime @updatedAt
 }
 
 /// User-added streams from Settings — server backup for small manual entry list.
@@ -254,29 +268,29 @@ model XtreamPortalConfig {
 /// An upstream IPTV source. Multiple providers can coexist and may expose
 /// channels with identical display names without being merged.
 model IptvProvider {
-  id          String   @id @default(cuid())
+  id          String                @id @default(cuid())
   name        String
   kind        String
   serverUrl   String?
   username    String?
   password    String?
   playlistUrl String?
-  enabled     Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  enabled     Boolean               @default(true)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
   channels    IptvProviderChannel[]
 }
 
 /// A provider-owned playable source. Identity is provider + external key, not
 /// channel name, so duplicate names across providers remain distinct.
 model IptvProviderChannel {
-  id            String       @id @default(cuid())
+  id            String              @id @default(cuid())
   providerId    String
-  provider      IptvProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  provider      IptvProvider        @relation(fields: [providerId], references: [id], onDelete: Cascade)
   externalKey   String
   name          String
   url           String
-  duration      Int          @default(-1)
+  duration      Int                 @default(-1)
   contentType   String?
   tvgId         String?
   tvgLogo       String?
@@ -284,13 +298,35 @@ model IptvProviderChannel {
   groupTitle    String?
   description   String?
   addedByUserId String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  mediaMetadata MediaMetadataCache?
 
   @@unique([providerId, externalKey])
   @@index([providerId, name])
   @@index([url])
   @@index([addedByUserId])
+}
+
+/// Weekly-refreshed public movie/show metadata. `mediaKey` also supports
+/// legacy catalog rows, while providerChannelId gives imported titles a
+/// durable relational link to their playable source.
+model MediaMetadataCache {
+  id                String               @id @default(cuid())
+  mediaKey          String               @unique
+  providerChannelId String?              @unique
+  providerChannel   IptvProviderChannel? @relation(fields: [providerChannelId], references: [id], onDelete: Cascade)
+  mediaType         String
+  title             String
+  tmdbId            String?
+  imdbId            String?
+  payloadJson       String
+  fetchedAt         DateTime
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([mediaType, tmdbId])
+  @@index([fetchedAt])
 }
 
 /// Threadfin sidecar sync status (Plex/Jellyfin HDHomeRun via Threadfin).
@@ -347,7 +383,7 @@ model RecordingSchedule {
 
 /// One MP4 capture attempt (manual start or dispatched from a schedule).
 model Recording {
-  id             String           @id @default(cuid())
+  id             String             @id @default(cuid())
   ownerUserId    String
   scheduleId     String?
   schedule       RecordingSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
@@ -363,7 +399,7 @@ model Recording {
   endedAt        DateTime?
   plannedSeconds Int?
   sizeBytes      BigInt?
-  createdAt      DateTime         @default(now())
+  createdAt      DateTime           @default(now())
 
   @@index([ownerUserId, createdAt(sort: Desc)])
   @@index([ownerUserId, status])

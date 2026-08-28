@@ -10,6 +10,28 @@ const log = createServerLogger("api.health");
 
 let threadfinBootstrapStarted = false;
 let homeShelvesWarmStarted = false;
+let providerEpgWarmStarted = false;
+
+function kickProviderEpgWarm(): void {
+  if (providerEpgWarmStarted) return;
+  providerEpgWarmStarted = true;
+  void import("@/lib/epg/provider-xmltv-index")
+    .then(({ getProviderXmltvIndex }) => getProviderXmltvIndex())
+    .then((index) => {
+      log.info("provider EPG startup index ready", {
+        version: index.version,
+        providers: index.providerCount,
+        channels: index.guideChannels.size,
+        programmes: index.programmeCount,
+      });
+    })
+    .catch((err) => {
+      providerEpgWarmStarted = false;
+      log.warn("provider EPG startup index failed", {
+        message: err instanceof Error ? err.message : String(err),
+      });
+    });
+}
 
 function kickHomeShelvesWarm(): void {
   if (homeShelvesWarmStarted) return;
@@ -51,6 +73,7 @@ export function GET(request: Request) {
   log.debug("Health check requested", { requestId });
   kickThreadfinBootstrap();
   kickHomeShelvesWarm();
+  kickProviderEpgWarm();
 
   /** Minimal payload — do not echo request IDs or internals (usable behind shared proxies). */
   return NextResponse.json({ ok: true, service: "zende" }, { status: 200 });

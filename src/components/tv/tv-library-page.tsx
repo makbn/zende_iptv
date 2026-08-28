@@ -24,7 +24,6 @@ import {
   TV_BROWSE_STICKY_TOP_CLASS,
   TV_BROWSE_TOP_PAD_CLASS,
 } from "@/components/tv/tv-top-bar";
-import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { useLibraryCatalog } from "@/features/iptv/use-library-catalog";
 import { useLibraryContentTab } from "@/features/iptv/use-library-content-tab";
 import { useLibrarySearch } from "@/features/iptv/use-library-search";
@@ -51,8 +50,6 @@ import {
 import { ZendeSpinner } from "@/components/loading/zende-spinner";
 import { Button } from "@appica/ui-react/button";
 
-
-const source = BUILTIN_PLAYLIST_SOURCES[0]!;
 
 const VIEW_STORAGE = "zende.libraryView";
 const LIBRARY_STATE_STORAGE = "zende.library.state.tv";
@@ -189,7 +186,6 @@ export function TvLibraryPage() {
   }, [categoryFilter, languageFilter, countryFilter, yearFilter, offset, view]);
 
   const { channels, total, facets, loading, refreshing, error: catalogError, hasMore } = useLibraryCatalog({
-    presetId: source.presetId,
     contentTab,
     query: appliedQuery,
     groupFilter: null,

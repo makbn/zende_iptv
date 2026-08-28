@@ -1,32 +1,11 @@
 import "server-only";
 
 import { randomBytes } from "node:crypto";
-
-export type RemoteCommand =
-  | {
-      id: string;
-      type: "navigate";
-      payload: { href: string };
-      createdAt: number;
-    }
-  | {
-      id: string;
-      type: "togglePlay" | "play" | "pause";
-      payload?: Record<string, never>;
-      createdAt: number;
-    }
-  | {
-      id: string;
-      type: "skip";
-      payload: { seconds: number };
-      createdAt: number;
-    }
-  | {
-      id: string;
-      type: "seekTo";
-      payload: { seconds: number };
-      createdAt: number;
-    };
+import type {
+  RemoteCommand,
+  RemoteCommandInput,
+  RemotePlaybackState,
+} from "@/lib/remote/remote-control-types";
 
 export type RemoteTvSession = {
   sessionId: string;
@@ -34,6 +13,7 @@ export type RemoteTvSession = {
   label: string;
   kind: "tv" | "desktop" | "other";
   pathname: string;
+  playback: RemotePlaybackState | null;
   createdAt: number;
   lastSeenAt: number;
   commandSeq: number;
@@ -42,7 +22,16 @@ export type RemoteTvSession = {
 
 const SESSION_TTL_MS = 45_000;
 const COMMAND_TTL_MS = 2 * 60_000;
-const sessions = new Map<string, RemoteTvSession>();
+
+// Next route handlers are emitted as separate server bundles. Keep the live
+// remote registry on the process global so session registration, command
+// enqueueing, and TV polling all see the same Map in the single Docker process.
+const remoteGlobal = globalThis as typeof globalThis & {
+  __zendeRemoteTvSessions?: Map<string, RemoteTvSession>;
+};
+const sessions =
+  remoteGlobal.__zendeRemoteTvSessions ??
+  (remoteGlobal.__zendeRemoteTvSessions = new Map<string, RemoteTvSession>());
 
 function now() {
   return Date.now();
@@ -68,6 +57,7 @@ export function upsertRemoteTvSession(input: {
   label?: string | null;
   kind?: "tv" | "desktop" | "other" | null;
   pathname?: string | null;
+  playback?: RemotePlaybackState | null;
 }): RemoteTvSession {
   purge();
   const existing = input.sessionId ? sessions.get(input.sessionId) : null;
@@ -76,6 +66,7 @@ export function upsertRemoteTvSession(input: {
     if (input.label?.trim()) existing.label = input.label.trim();
     if (input.kind) existing.kind = input.kind;
     if (input.pathname?.trim()) existing.pathname = input.pathname.trim();
+    if (input.playback !== undefined) existing.playback = input.playback;
     return existing;
   }
 
@@ -86,6 +77,7 @@ export function upsertRemoteTvSession(input: {
     label: input.label?.trim() || "TV browser",
     kind: input.kind ?? "other",
     pathname: input.pathname?.trim() || "/",
+    playback: input.playback ?? null,
     createdAt: now(),
     lastSeenAt: now(),
     commandSeq: 0,
@@ -115,16 +107,17 @@ export function getRemoteTvSession(
 export function enqueueRemoteCommand(
   sessionId: string,
   userId: string,
-  command: Omit<RemoteCommand, "id" | "createdAt">,
+  command: RemoteCommandInput,
 ): RemoteCommand | null {
   const session = getRemoteTvSession(sessionId, userId);
   if (!session) return null;
+  session.commandSeq += 1;
   const queued = {
     ...command,
     id: randomBytes(12).toString("hex"),
+    seq: session.commandSeq,
     createdAt: now(),
   } as RemoteCommand;
-  session.commandSeq += 1;
   session.commands.push(queued);
   session.lastSeenAt = now();
   return queued;

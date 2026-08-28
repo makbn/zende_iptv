@@ -68,6 +68,8 @@ export function LivePreviewDialog({ channel, onClose, presentation = "dialog" }:
           name: channel.name,
           ...(channel.tvgLogo ? { tvgLogo: channel.tvgLogo } : {}),
           ...(channel.groupTitle ? { groupTitle: channel.groupTitle } : {}),
+          ...(channel.providerId ? { providerId: channel.providerId } : {}),
+          ...(channel.tvgId ? { tvgId: channel.tvgId } : {}),
           playback: { contentKind: "live" },
         });
         if (!cancelled) setWatchHref(href);

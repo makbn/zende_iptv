@@ -48,6 +48,7 @@ type GuideResponse = {
 
 type Props = {
   seedChannels: M3uChannel[];
+  seedReady?: boolean;
   mobile?: boolean;
   onPlayChannel: (channel: M3uChannel) => void;
 };
@@ -90,7 +91,12 @@ function summaryProgrammes(result: GuideResult, now: number) {
   return result.programmes.filter((programme) => programme.startMs > now).slice(0, 2);
 }
 
-export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }: Props) {
+export function FullGuideBrowser({
+  seedChannels,
+  seedReady = true,
+  mobile = false,
+  onPlayChannel,
+}: Props) {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [results, setResults] = useState<GuideResult[]>([]);
@@ -104,13 +110,17 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
   const [detailError, setDetailError] = useState<string | null>(null);
   const [now, setNow] = useState(0);
 
-  const preferredIds = useMemo(
-    () => seedChannels.map((channel) => channel.tvgId?.trim()).filter((id): id is string => Boolean(id)),
+  const preferred = useMemo(
+    () => seedChannels.flatMap((channel) => {
+      const providerId = channel.providerId?.trim();
+      const tvgId = channel.tvgId?.trim();
+      return providerId && tvgId ? [{ providerId, tvgId }] : [];
+    }),
     [seedChannels],
   );
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 300);
+    const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 150);
     return () => window.clearTimeout(timer);
   }, [query]);
 
@@ -126,6 +136,7 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
 
   useEffect(() => {
     const controller = new AbortController();
+    if (!seedReady) return () => controller.abort();
     queueMicrotask(() => {
       if (controller.signal.aborted) return;
       setLoading(true);
@@ -139,7 +150,7 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             query: debouncedQuery,
-            preferredIds,
+            preferred,
             limit: debouncedQuery ? 60 : mobile ? 36 : 48,
           }),
           signal: controller.signal,
@@ -157,9 +168,6 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
         );
       } catch (cause) {
         if (controller.signal.aborted) return;
-        setResults([]);
-        setTotal(0);
-        setSelectedUrl(null);
         setError(cause instanceof Error ? cause.message : "Could not load the programme guide.");
       } finally {
         if (!controller.signal.aborted) setLoading(false);
@@ -167,7 +175,7 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
     })();
 
     return () => controller.abort();
-  }, [debouncedQuery, mobile, preferredIds]);
+  }, [debouncedQuery, mobile, preferred, seedReady]);
 
   const selectedSummary = useMemo(
     () => results.find((result) => result.channel.url === selectedUrl) ?? results[0] ?? null,
@@ -197,7 +205,12 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
         const response = await zendeFetch("/api/epg/guide", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ detailId: tvgId, query: debouncedQuery, limit: 1 }),
+          body: JSON.stringify({
+            detailId: tvgId,
+            detailProviderId: selectedSummary?.channel.providerId,
+            query: debouncedQuery,
+            limit: 1,
+          }),
           signal: controller.signal,
         });
         const payload = (await response.json().catch(() => ({}))) as GuideResponse;
@@ -213,7 +226,7 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
     })();
 
     return () => controller.abort();
-  }, [debouncedQuery, detailOpen, selectedSummary?.channel.tvgId]);
+  }, [debouncedQuery, detailOpen, selectedSummary?.channel.providerId, selectedSummary?.channel.tvgId]);
 
   const selectChannel = (channelUrl: string) => {
     setSelectedUrl(channelUrl);
@@ -301,7 +314,7 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
             <ZendeLoadingState
               size="large"
               label={normalizedInput ? `Searching for “${normalizedInput}”` : "Building your live guide"}
-              description="Checking channel names, programme titles, and descriptions. The first provider lookup after a restart can take a few seconds."
+              description="Checking the active provider guide index for channel and programme matches."
             />
             <div className="mt-5 h-1.5 w-full max-w-[360px] overflow-hidden rounded-full bg-background-muted">
               <div className="h-full w-1/2 animate-pulse rounded-full bg-gradient-to-r from-transparent via-primary to-transparent" />
@@ -382,7 +395,7 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
                             {result.channel.name}
                           </p>
                           {result.matchCount > 0 ? (
-                            <span className="rounded-full border border-primary bg-primary px-2 py-0.5 text-[9px] font-semibold text-primary-strong">
+                            <span className="rounded-full border border-primary bg-primary px-2 py-0.5 text-[9px] font-semibold text-primary-foreground">
                               {result.matchCount} {result.matchCount === 1 ? "match" : "matches"}
                             </span>
                           ) : null}
@@ -404,7 +417,7 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
                           className={cn(
                             "min-w-0 rounded-lg border px-3 py-2.5",
                             programme.matched
-                              ? "border-primary bg-primary"
+                              ? "border-border-strong bg-primary-subtle ring-1 ring-primary/15"
                               : isCurrent
                                 ? "border-border-strong bg-background-subtle"
                                 : "border-border bg-background",
@@ -542,7 +555,7 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
                 </p>
               </div>
               {detailResult && debouncedQuery && detailResult.matchCount > 0 ? (
-                <span className="rounded-full border border-primary bg-primary px-3 py-1.5 text-[10px] font-semibold text-primary-strong">
+                <span className="rounded-full border border-primary bg-primary px-3 py-1.5 text-[10px] font-semibold text-primary-foreground">
                   {detailResult.matchCount} {detailResult.matchCount === 1 ? "match" : "matches"}
                 </span>
               ) : null}
@@ -578,7 +591,7 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
                         className={cn(
                           "rounded-lg border px-4 py-3",
                           programme.matched
-                            ? "border-primary bg-primary"
+                            ? "border-border-strong bg-primary-subtle ring-1 ring-primary/15"
                             : isCurrent
                               ? "border-border bg-background-muted"
                               : "border-border bg-background-muted",
@@ -596,7 +609,7 @@ export function FullGuideBrowser({ seedChannels, mobile = false, onPlayChannel }
                             <div className="flex flex-wrap items-center gap-2">
                               <h4 className="text-[13px] font-semibold text-foreground-intense">{programme.title}</h4>
                               {isCurrent ? <span className="rounded-full bg-error-subtle px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-error-strong">Live now</span> : null}
-                              {programme.matched ? <span className="rounded-full bg-primary px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-primary-strong">Search match</span> : null}
+                              {programme.matched ? <span className="rounded-full bg-primary px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-primary-foreground">Search match</span> : null}
                             </div>
                             <p className="mt-1.5 text-[11px] leading-relaxed text-foreground-intense">
                               {programme.description || "No programme description supplied."}

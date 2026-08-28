@@ -13,14 +13,11 @@ import { cn } from "@/lib/utils";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { createWatchUrl } from "@/lib/navigation/watch-url";
 import { secureImageUrl } from "@/lib/media/secure-image-url";
-import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import {
   useLibraryCatalog,
 } from "@/features/iptv/use-library-catalog";
 
 const MAX = 6;
-const source = BUILTIN_PLAYLIST_SOURCES[0]!;
-
 type Props = { open: boolean; onClose: () => void };
 
 export function WatchTogetherDialog({ open, onClose }: Props) {
@@ -33,7 +30,6 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
   const [launching, setLaunching] = useState(false);
   const [offset, setOffset] = useState(0);
   const { channels, loading, refreshing, hasMore } = useLibraryCatalog({
-    presetId: source.presetId,
     contentTab: "live",
     query: q,
     groupFilter: null,
@@ -52,10 +48,6 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
       inputRef.current?.focus();
     });
   }, [open]);
-
-  useEffect(() => {
-    setOffset(0);
-  }, [q]);
 
   // Escape to close
   useEffect(() => {
@@ -153,7 +145,10 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
               type="search"
               placeholder="Search channels…"
               value={q}
-              onChange={(e) => setQ(e.target.value)}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setOffset(0);
+              }}
               className={cn(
                 "w-full rounded-xl bg-background-muted px-4 py-2.5 text-[15px] text-foreground-intense placeholder:text-foreground-intense",
                 "border border-border outline-none transition-colors",

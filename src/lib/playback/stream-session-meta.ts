@@ -5,6 +5,9 @@ export type PlaybackContentKind = "live" | "movie" | "episode";
 /** Stored in StreamProxySession.metaJson and returned to the watch UI. */
 export type PlaybackSessionMeta = {
   contentKind?: PlaybackContentKind;
+  /** Provider-scoped guide identity for fast player EPG lookups. */
+  guideProviderId?: string;
+  guideTvgId?: string;
   durationSeconds?: number;
   seriesId?: string;
   seriesTitle?: string;
@@ -33,6 +36,8 @@ export function parsePlaybackSessionMeta(raw: string | null | undefined): Playba
 export function serializePlaybackSessionMeta(meta: PlaybackSessionMeta): string {
   const clean: PlaybackSessionMeta = {};
   if (meta.contentKind) clean.contentKind = meta.contentKind;
+  if (meta.guideProviderId?.trim()) clean.guideProviderId = meta.guideProviderId.trim();
+  if (meta.guideTvgId?.trim()) clean.guideTvgId = meta.guideTvgId.trim();
   if (meta.durationSeconds != null && Number.isFinite(meta.durationSeconds) && meta.durationSeconds > 0) {
     clean.durationSeconds = Math.round(meta.durationSeconds);
   }

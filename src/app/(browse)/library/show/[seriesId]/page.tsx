@@ -6,7 +6,7 @@ import { BrowsePageFallback } from "@/components/states/browse-page-fallback";
 
 type Props = {
   params: Promise<{ seriesId: string }>;
-  searchParams: Promise<{ title?: string; logo?: string; group?: string }>;
+  searchParams: Promise<{ title?: string; logo?: string; group?: string; channelId?: string }>;
 };
 
 export default async function ShowPage({ params, searchParams }: Props) {
@@ -22,6 +22,7 @@ export default async function ShowPage({ params, searchParams }: Props) {
             fallbackTitle={q.title}
             fallbackLogo={q.logo}
             fallbackGroup={q.group}
+            providerChannelId={q.channelId}
           />
         }
         desktop={
@@ -30,6 +31,7 @@ export default async function ShowPage({ params, searchParams }: Props) {
             fallbackTitle={q.title}
             fallbackLogo={q.logo}
             fallbackGroup={q.group}
+            providerChannelId={q.channelId}
           />
         }
       />

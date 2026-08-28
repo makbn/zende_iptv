@@ -28,7 +28,6 @@ import { VirtualChannelList, VirtualChannelGrid } from "@/components/library/vir
 import { LibraryResultsShell } from "@/components/library/library-results-shell";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import { Card } from "@appica/ui-react/card";
-import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { useLibraryCatalog } from "@/features/iptv/use-library-catalog";
 import { useLibraryContentTab } from "@/features/iptv/use-library-content-tab";
 import { useLibrarySearch } from "@/features/iptv/use-library-search";
@@ -38,7 +37,6 @@ import { contentTypeFromStreamUrl } from "@/lib/channels/content-type";
 import { cn } from "@/lib/utils";
 import { LivePreviewDialog } from "@/components/library/live-preview-dialog";
 
-const source = BUILTIN_PLAYLIST_SOURCES[0]!;
 const PAGE_STEP = 60;
 const VIEW_STORAGE = "zende.mobileLibraryView";
 const LIBRARY_STATE_STORAGE = "zende.library.state.mobile";
@@ -173,7 +171,6 @@ export function MobileLibraryPage() {
   }, [categoryFilter, languageFilter, countryFilter, yearFilter, offset, view]);
 
   const { channels, total, facets, loading, refreshing, error: catalogError, hasMore } = useLibraryCatalog({
-    presetId: source.presetId,
     contentTab,
     query: appliedQuery,
     groupFilter: null,

@@ -8,6 +8,7 @@ import { ListMinus, Play, Star, Tv } from "lucide-react";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 
 import { FavoriteStarButton } from "@/components/tv/favorite-star-button";
+import { MovieDownloadButton } from "@/components/library/movie-download-button";
 import { ChannelHealthBadge } from "@/components/health/channel-health-badge";
 import {
   ChannelArtBadge,
@@ -120,18 +121,17 @@ export function TvChannelTile({
         ) : null}
       </div>
 
-      {(channelArtBadgeLabel(parsed, contentType) || showFavoriteStar) ? (
+      {(channelArtBadgeLabel(parsed, contentType) || showFavoriteStar || contentType === "movie") ? (
         <div className="pointer-events-none absolute right-2 top-2 z-20 flex flex-col items-end gap-1">
           {channelArtBadgeLabel(parsed, contentType) ? (
             <div className="pointer-events-auto">
               <ChannelArtBadge parsed={parsed} contentType={contentType} />
             </div>
           ) : null}
-          {showFavoriteStar ? (
-            <div className="pointer-events-auto">
-              <FavoriteStarButton channel={channel} />
-            </div>
-          ) : null}
+          <div className="pointer-events-auto flex items-center gap-1">
+            {contentType === "movie" ? <MovieDownloadButton channel={channel} /> : null}
+            {showFavoriteStar ? <FavoriteStarButton channel={channel} /> : null}
+          </div>
         </div>
       ) : null}
 

@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createServerLogger } from "@/core/logging/server";
-import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { gateApiRequest } from "@/lib/auth/gate-api";
 import { PUBLIC_INTERNAL_ERROR } from "@/lib/http/public-error";
 import { hashStreamUrl } from "@/lib/health/url-hash";
+import { lookupEnabledProviderChannelsByUrls } from "@/lib/iptv/provider-store";
 import { getProxyForChannel, ProxyNotReadyError } from "@/lib/proxies/proxy-store";
 import { applyPublicCorsProxyUnwrap } from "@/lib/stream/public-cors-proxy-url";
 import { normalizeXtreamLivePlaybackUrl } from "@/lib/stream/playback-url";
@@ -17,7 +17,6 @@ import {
 } from "@/lib/playback/resolve-duration";
 import type { PlaybackSessionMeta } from "@/lib/playback/stream-session-meta";
 import { createStreamSession } from "@/lib/stream/stream-session-store";
-import { lookupChannelsByUrls } from "@/lib/library/catalog";
 import {
   isChannelParentalBlocked,
   resolveParentalAccess,
@@ -45,6 +44,8 @@ const bodySchema = z.object({
   meta: z
     .object({
       contentKind: z.enum(["live", "movie", "episode"]).optional(),
+      guideProviderId: z.string().max(128).optional(),
+      guideTvgId: z.string().max(512).optional(),
       durationSeconds: z.number().positive().optional(),
       seriesId: z.string().max(64).optional(),
       seriesTitle: z.string().max(512).optional(),
@@ -104,27 +105,24 @@ export async function POST(request: Request) {
     parsed.data.unwrapPublicCorsProxyUrls !== false;
   const resolvedUrl = applyPublicCorsProxyUnwrap(rawUrl, unwrapPublicCorsProxyUrls);
   const normalizedUrl = normalizeXtreamLivePlaybackUrl(resolvedUrl);
+  const providerMatches = await lookupEnabledProviderChannelsByUrls([
+    rawUrl,
+    resolvedUrl,
+    normalizedUrl,
+  ]);
+  const providerChannel =
+    providerMatches.get(rawUrl) ??
+    providerMatches.get(resolvedUrl) ??
+    providerMatches.get(normalizedUrl);
   if (parental.blockedPatterns.length > 0) {
-    const presetId = BUILTIN_PLAYLIST_SOURCES[0]?.presetId;
-    if (presetId) {
-      const catalogMatches = await lookupChannelsByUrls(presetId, [
-        rawUrl,
-        resolvedUrl,
-        normalizedUrl,
-      ]);
-      const catalogChannel =
-        catalogMatches.get(rawUrl) ??
-        catalogMatches.get(resolvedUrl) ??
-        catalogMatches.get(normalizedUrl);
-      if (
-        catalogChannel &&
-        isChannelParentalBlocked(catalogChannel, parental.blockedPatterns)
-      ) {
-        return NextResponse.json(
-          { error: "Channel is locked by parental controls." },
-          { status: 403 },
-        );
-      }
+    if (
+      providerChannel &&
+      isChannelParentalBlocked(providerChannel, parental.blockedPatterns)
+    ) {
+      return NextResponse.json(
+        { error: "Channel is locked by parental controls." },
+        { status: 403 },
+      );
     }
   }
   if (normalizedUrl !== resolvedUrl) {
@@ -173,6 +171,13 @@ export async function POST(request: Request) {
   try {
     const started = Date.now();
     let meta: PlaybackSessionMeta = parsed.data.meta ?? {};
+    if (providerChannel?.providerId?.trim() && providerChannel.tvgId?.trim()) {
+      meta = {
+        ...meta,
+        guideProviderId: meta.guideProviderId?.trim() || providerChannel.providerId.trim(),
+        guideTvgId: meta.guideTvgId?.trim() || providerChannel.tvgId.trim(),
+      };
+    }
     const inferred = inferContentKindFromUrl(upstream.href);
     if (inferred) {
       if (!meta.contentKind || (meta.contentKind === "live" && inferred !== "live")) {

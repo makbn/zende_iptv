@@ -6,6 +6,7 @@ import { Play, Tv } from "lucide-react";
 
 import { ChannelHealthBadge } from "@/components/health/channel-health-badge";
 import { FavoriteStarButton } from "@/components/tv/favorite-star-button";
+import { MovieDownloadButton } from "@/components/library/movie-download-button";
 import {
   ChannelArtBadge,
   ChannelLogo,
@@ -139,9 +140,10 @@ export function MobileChannelCard({
         </span>
       </div>
 
-      {showFavoriteStar ? (
-        <div className="absolute right-2.5 top-2.5 z-30 sm:right-3 sm:top-3">
-          <FavoriteStarButton channel={channel} />
+      {showFavoriteStar || contentType === "movie" ? (
+        <div className="absolute right-2.5 top-2.5 z-30 flex items-center gap-1 sm:right-3 sm:top-3">
+          {contentType === "movie" ? <MovieDownloadButton channel={channel} /> : null}
+          {showFavoriteStar ? <FavoriteStarButton channel={channel} /> : null}
         </div>
       ) : null}
       {onPreview ? (

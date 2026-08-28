@@ -83,7 +83,7 @@ export async function POST(
     invalidateXtreamCatalogCache();
     invalidateLibraryCatalogCache();
 
-    const warmed = await warmLibraryCatalogIndex(presetId);
+    const warmed = await warmLibraryCatalogIndex();
 
     const row = await prisma.playlistCatalogCache.findUniqueOrThrow({
       where: { presetId },

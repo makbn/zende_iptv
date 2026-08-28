@@ -2,11 +2,8 @@
 
 import { useEffect, useState } from "react";
 
-import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
-
-const DEFAULT_PRESET = BUILTIN_PLAYLIST_SOURCES[0]!.presetId;
 
 /** Server-side channel search for recordings picker (no full catalog download). */
 export function useChannelSearch(query: string, limit = 24) {
@@ -22,7 +19,6 @@ export function useChannelSearch(query: string, limit = 24) {
         setLoading(true);
         try {
           const params = new URLSearchParams({
-            presetId: DEFAULT_PRESET,
             contentType: "live",
             offset: "0",
             limit: String(limit),

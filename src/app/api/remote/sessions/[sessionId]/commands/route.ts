@@ -17,6 +17,37 @@ const commandSchema = z.discriminatedUnion("type", [
     payload: z.object({ href: z.string().min(1).max(2048) }),
   }),
   z.object({
+    type: z.literal("playMedia"),
+    payload: z.object({
+      channel: z.object({
+        url: z.string().min(4).max(8192),
+        name: z.string().min(1).max(512),
+        tvgLogo: z.string().max(8192).optional(),
+        groupTitle: z.string().max(512).optional(),
+        tvgId: z.string().max(512).optional(),
+        providerId: z.string().max(128).optional(),
+        contentType: z.enum(["live", "movie", "series"]).optional(),
+        playback: z
+          .object({
+            contentKind: z.enum(["live", "movie", "episode"]).optional(),
+            guideProviderId: z.string().max(128).optional(),
+            guideTvgId: z.string().max(512).optional(),
+            durationSeconds: z.number().finite().positive().optional(),
+            seriesId: z.string().max(128).optional(),
+            seriesTitle: z.string().max(512).optional(),
+            season: z.string().max(32).optional(),
+            episodeNum: z.string().max(32).optional(),
+            episodeTitle: z.string().max(512).optional(),
+            episodeIndex: z.number().int().min(0).optional(),
+            searchTitle: z.string().max(512).optional(),
+            year: z.string().max(8).optional(),
+            imdbId: z.string().max(32).optional(),
+          })
+          .optional(),
+      }),
+    }),
+  }),
+  z.object({
     type: z.enum(["togglePlay", "play", "pause"]),
     payload: z.object({}).optional(),
   }),
@@ -43,9 +74,10 @@ export async function GET(request: Request, context: RouteContext) {
 
   const url = new URL(request.url);
   const after = Number(url.searchParams.get("after") ?? 0);
-  const commands = session.commands.slice(Math.max(0, Number.isFinite(after) ? after : 0));
+  const cursor = Math.max(0, Number.isFinite(after) ? after : 0);
+  const commands = session.commands.filter((command) => command.seq > cursor);
   return NextResponse.json({
-    commandSeq: session.commands.length,
+    commandSeq: session.commandSeq,
     commands,
   });
 }

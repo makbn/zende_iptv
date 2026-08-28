@@ -10,6 +10,7 @@
     "analyze:xtream": "node scripts/analyze-xtream-provider.mjs",
     "lint": "eslint",
     "test": "vitest run",
+    "probe:hls-timeslicing": "node scripts/probe-hls-timeslicing.mjs",
     "probe:xtream-concurrency": "node scripts/probe-xtream-concurrency.mjs",
     "test:recording": "node scripts/run-recording-tests.mjs"
   },

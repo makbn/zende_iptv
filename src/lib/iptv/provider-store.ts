@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createHash } from "node:crypto";
+import type { IptvProvider, IptvProviderChannel } from "@prisma/client";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { prisma } from "@/lib/db/prisma";
 import { buildXtreamSeriesContainerUrl, parseXtreamSeriesIdFromContainerUrl } from "@/lib/iptv/xtream-url";
@@ -17,6 +18,35 @@ export type ProviderInput = {
 
 const externalKey = (channel: M3uChannel) =>
   createHash("sha256").update(channel.url.trim()).digest("hex");
+
+type ProviderChannelRow = IptvProviderChannel & {
+  provider: Pick<IptvProvider, "id" | "name">;
+};
+
+function providerChannelFromRow(row: ProviderChannelRow): M3uChannel {
+  const rawSeriesId = row.contentType === "series" ? parseXtreamSeriesIdFromContainerUrl(row.url) : null;
+  const scopedSeriesId = rawSeriesId ? `${row.provider.id}:${rawSeriesId}` : null;
+  return {
+    name: row.name,
+    url: scopedSeriesId ? buildXtreamSeriesContainerUrl(scopedSeriesId) : row.url,
+    duration: row.duration,
+    ...(row.contentType === "live" || row.contentType === "movie" || row.contentType === "series"
+      ? { contentType: row.contentType }
+      : {}),
+    ...(scopedSeriesId
+      ? { tvgId: `xtream-series:${scopedSeriesId}` }
+      : row.tvgId
+        ? { tvgId: row.tvgId }
+        : {}),
+    ...(row.tvgLogo ? { tvgLogo: row.tvgLogo } : {}),
+    ...(row.tvgLanguage ? { tvgLanguage: row.tvgLanguage } : {}),
+    ...(row.groupTitle ? { groupTitle: row.groupTitle } : {}),
+    ...(row.description ? { description: row.description } : {}),
+    providerId: row.provider.id,
+    providerName: row.provider.name,
+    providerChannelId: row.id,
+  };
+}
 
 export async function createProviderWithChannels(input: ProviderInput, channels: M3uChannel[]) {
   const uniqueChannels = [...new Map(channels.map((channel) => [externalKey(channel), channel])).values()];
@@ -59,22 +89,27 @@ export async function loadEnabledProviderChannels(): Promise<M3uChannel[]> {
     include: { provider: { select: { id: true, name: true } } },
     orderBy: { name: "asc" },
   });
-  return rows.map((row) => {
-    const rawSeriesId = row.contentType === "series" ? parseXtreamSeriesIdFromContainerUrl(row.url) : null;
-    const scopedSeriesId = rawSeriesId ? `${row.provider.id}:${rawSeriesId}` : null;
-    return ({
-    name: row.name,
-    url: scopedSeriesId ? buildXtreamSeriesContainerUrl(scopedSeriesId) : row.url,
-    duration: row.duration,
-    ...(row.contentType === "live" || row.contentType === "movie" || row.contentType === "series" ? { contentType: row.contentType } : {}),
-    ...(scopedSeriesId ? { tvgId: `xtream-series:${scopedSeriesId}` } : row.tvgId ? { tvgId: row.tvgId } : {}),
-    ...(row.tvgLogo ? { tvgLogo: row.tvgLogo } : {}),
-    ...(row.tvgLanguage ? { tvgLanguage: row.tvgLanguage } : {}),
-    ...(row.groupTitle ? { groupTitle: row.groupTitle } : {}),
-    ...(row.description ? { description: row.description } : {}),
-    providerId: row.provider.id,
-    providerName: row.provider.name,
-    providerChannelId: row.id,
+  return rows.map(providerChannelFromRow);
+}
+
+/** Enrich a small URL set directly from enabled provider rows without loading a catalog. */
+export async function lookupEnabledProviderChannelsByUrls(
+  urls: string[],
+): Promise<Map<string, M3uChannel>> {
+  const requested = [...new Set(urls.map((url) => url.trim()).filter(Boolean))];
+  if (requested.length === 0) return new Map();
+  const rows = await prisma.iptvProviderChannel.findMany({
+    where: {
+      url: { in: requested },
+      provider: { enabled: true },
+    },
+    include: { provider: { select: { id: true, name: true } } },
   });
-  });
+  const byStoredUrl = new Map(rows.map((row) => [row.url, providerChannelFromRow(row)]));
+  return new Map(
+    requested.flatMap((url) => {
+      const channel = byStoredUrl.get(url);
+      return channel ? [[url, channel] as const] : [];
+    }),
+  );
 }

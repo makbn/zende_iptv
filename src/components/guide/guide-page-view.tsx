@@ -8,51 +8,23 @@ import {
 import {
   TV_BROWSE_TOP_PAD_CLASS,
 } from "@/components/tv/tv-top-bar";
-import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
-import { useEnrichedFavorites } from "@/features/iptv/use-enriched-favorites";
-import { useLibraryCatalog } from "@/features/iptv/use-library-catalog";
+import { useEnrichedFavoritesState } from "@/features/iptv/use-enriched-favorites";
 import { resolveLibraryContentType } from "@/lib/channels/content-type";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
 
-const source = BUILTIN_PLAYLIST_SOURCES[0]!;
-
 export function GuidePageView({ mobile = false }: { mobile?: boolean }) {
   const { openChannel } = useWatchNavigation();
-  const enrichedFavorites = useEnrichedFavorites({ serverOnly: true });
+  const { channels: enrichedFavorites, loading: favoritesLoading } =
+    useEnrichedFavoritesState({ serverOnly: true });
 
   const favoritesChannels = useMemo(
     () => enrichedFavorites.filter((channel) => resolveLibraryContentType(channel) === "live"),
     [enrichedFavorites],
   );
 
-  const liveCatalog = useLibraryCatalog({
-    presetId: source.presetId,
-    contentTab: "live",
-    query: "",
-    groupFilter: null,
-    languageFilter: null,
-    offset: 0,
-    pageSize: 48,
-  });
-
-  const favUrls = useMemo(
-    () => new Set(favoritesChannels.map((c) => c.url)),
-    [favoritesChannels],
-  );
-
-  const discoverLive = useMemo(
-    () => liveCatalog.channels.filter((c) => !favUrls.has(c.url)).slice(0, 24),
-    [liveCatalog.channels, favUrls],
-  );
-
-  const shelf = useMemo(
-    () => [...favoritesChannels, ...discoverLive],
-    [favoritesChannels, discoverLive],
-  );
-
-  const guideChannels = useMemo(() => shelf.slice(0, 48), [shelf]);
+  const guideChannels = useMemo(() => favoritesChannels.slice(0, 60), [favoritesChannels]);
 
   const padClass = mobile ? "pb-28 pt-[5.35rem]" : cn("pb-28", TV_BROWSE_TOP_PAD_CLASS);
 
@@ -71,10 +43,7 @@ export function GuidePageView({ mobile = false }: { mobile?: boolean }) {
                 {favoritesChannels.length.toLocaleString()} favorites
               </span>
               <span className="rounded-full border border-border bg-background-muted px-3 py-1.5">
-                {discoverLive.length.toLocaleString()} discovered
-              </span>
-              <span className="rounded-full border border-border bg-background-muted px-3 py-1.5">
-                {liveCatalog.loading ? "Syncing guide" : "Guide ready"}
+                {favoritesLoading ? "Loading favorites" : "Guide ready"}
               </span>
             </div>
           </AppicaHero>
@@ -99,6 +68,7 @@ export function GuidePageView({ mobile = false }: { mobile?: boolean }) {
         >
           <FullGuideBrowser
             seedChannels={guideChannels}
+            seedReady={!favoritesLoading}
             mobile={mobile}
             onPlayChannel={openChannel}
           />

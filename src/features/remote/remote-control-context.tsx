@@ -13,26 +13,20 @@ import {
   type ReactNode,
 } from "react";
 import { Gamepad2, Monitor, Tv, X } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
 
 import { useAuth } from "@/features/auth/auth-context";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { AppicaConfirmDialog } from "@/components/appica/confirm-dialog";
+import { MobileRemotePlayerController } from "@/components/remote/mobile-remote-player-controller";
 import { sanitizeRemoteHref } from "@/lib/navigation/remote-href";
-
-type RemoteCommand =
-  | { type: "navigate"; payload: { href: string } }
-  | { type: "togglePlay" | "play" | "pause"; payload?: Record<string, never> }
-  | { type: "skip"; payload: { seconds: number } }
-  | { type: "seekTo"; payload: { seconds: number } };
-
-type RemoteSessionSummary = {
-  sessionId: string;
-  label: string;
-  kind: "tv" | "desktop" | "other";
-  pathname: string;
-  lastSeenAt: number;
-  createdAt: number;
-};
+import { createWatchUrl } from "@/lib/navigation/watch-url";
+import type {
+  RemoteCommandInput,
+  RemotePlayableChannel,
+  RemotePlaybackState,
+  RemoteSessionSummary,
+} from "@/lib/remote/remote-control-types";
 
 type RemoteControlContextValue = {
   isMobileController: boolean;
@@ -40,10 +34,13 @@ type RemoteControlContextValue = {
   activeSession: RemoteSessionSummary | null;
   remoteControlActive: boolean;
   requestRemoteControlToggle: () => Promise<void>;
+  showRemoteController: () => void;
   sendNavigate: (href: string) => Promise<boolean>;
+  sendPlayChannel: (channel: RemotePlayableChannel) => Promise<boolean>;
   sendTogglePlay: () => Promise<boolean>;
   sendSkip: (seconds: number) => Promise<boolean>;
   sendSeekTo: (seconds: number) => Promise<boolean>;
+  reportTargetPlayback: (playback: RemotePlaybackState | null) => void;
 };
 
 const RemoteControlContext = createContext<RemoteControlContextValue | null>(null);
@@ -158,6 +155,8 @@ function SessionKindIcon({
 }
 
 export function RemoteControlProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const mobilePathname = usePathname();
   const { user, authEnabled, ready } = useAuth();
   const [sessions, setSessions] = useState<RemoteSessionSummary[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -166,8 +165,12 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
   const [disableConfirmOpen, setDisableConfirmOpen] = useState(false);
   const [isMobileController, setIsMobileController] = useState(false);
   const [isTvTarget, setIsTvTarget] = useState(false);
+  const [controllerOpen, setControllerOpen] = useState(false);
+  const [pendingPlaybackTitle, setPendingPlaybackTitle] = useState<string | null>(null);
   const commandCursorRef = useRef(0);
   const pendingRemotePathRef = useRef<string | null>(null);
+  const targetPlaybackRef = useRef<RemotePlaybackState | null>(null);
+  const lastControllerPlaybackIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const updateSurface = () => {
@@ -199,7 +202,7 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
   }, [authEnabled, ready, user]);
 
   const sendCommand = useCallback(
-    async (command: RemoteCommand) => {
+    async (command: RemoteCommandInput) => {
       if (!activeSessionId) return false;
       const response = await zendeFetch(`/api/remote/sessions/${activeSessionId}/commands`, {
         method: "POST",
@@ -224,12 +227,25 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
     [activeSessionId, sendCommand],
   );
 
+  const sendPlayChannel = useCallback(
+    async (channel: RemotePlayableChannel) => {
+      if (!activeSessionId) return false;
+      setPendingPlaybackTitle(channel.name);
+      setControllerOpen(true);
+      const sent = await sendCommand({ type: "playMedia", payload: { channel } });
+      if (!sent) setPendingPlaybackTitle(null);
+      return sent;
+    },
+    [activeSessionId, sendCommand],
+  );
+
   const enterRemoteMode = useCallback(
     (sessionId: string) => {
       const target =
         sessions.find((session) => session.sessionId === sessionId) ?? null;
       if (!target) return;
       setActiveSessionId(target.sessionId);
+      setControllerOpen(true);
       setSessionPickerOpen(false);
       setPendingEnableSessionId(null);
     },
@@ -245,11 +261,13 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
     setActiveSessionId(null);
     setSessionPickerOpen(false);
     setDisableConfirmOpen(false);
+    setControllerOpen(false);
+    setPendingPlaybackTitle(null);
   }, []);
 
   const requestRemoteControlToggle = useCallback(async () => {
     if (activeSessionId) {
-      setDisableConfirmOpen(true);
+      setControllerOpen(true);
       return;
     }
 
@@ -269,8 +287,12 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
     let sessionId = readStoredSessionId(TV_SESSION_KEY);
 
     const heartbeat = async () => {
-      const currentPath =
-        typeof window !== "undefined" ? window.location.pathname : "/";
+      const currentPath = typeof window !== "undefined"
+        ? `${window.location.pathname}${window.location.search}`
+        : "/";
+      if (!remotePathname(currentPath).startsWith("/watch")) {
+        targetPlaybackRef.current = null;
+      }
       const response = await zendeFetch("/api/remote/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -279,11 +301,13 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
           label: buildSessionLabel(),
           kind: detectSessionKind(),
           pathname: currentPath,
+          playback: targetPlaybackRef.current,
         }),
       });
       if (!response.ok || cancelled) return;
       const payload = (await response.json()) as { sessionId?: string };
       if (payload.sessionId) {
+        if (payload.sessionId !== sessionId) commandCursorRef.current = 0;
         sessionId = payload.sessionId;
         writeStoredSessionId(TV_SESSION_KEY, payload.sessionId);
       }
@@ -298,7 +322,7 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
       if (!response.ok || cancelled) return;
       const payload = (await response.json()) as {
         commandSeq?: number;
-        commands?: RemoteCommand[];
+        commands?: RemoteCommandInput[];
       };
       const commands = Array.isArray(payload.commands) ? payload.commands : [];
       commandCursorRef.current =
@@ -309,6 +333,15 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
           if (href) window.location.assign(href);
           continue;
         }
+        if (command.type === "playMedia") {
+          try {
+            const href = await createWatchUrl(command.payload.channel);
+            window.location.assign(href);
+          } catch {
+            // The controller will keep the pending state and can retry by selecting again.
+          }
+          continue;
+        }
         window.dispatchEvent(
           new CustomEvent(REMOTE_COMMAND_EVENT, { detail: command }),
         );
@@ -316,8 +349,8 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
     };
 
     void heartbeat();
-    const heartbeatTimer = window.setInterval(() => void heartbeat(), 12_000);
-    const commandTimer = window.setInterval(() => void pollCommands(), 1_500);
+    const heartbeatTimer = window.setInterval(() => void heartbeat(), 1_500);
+    const commandTimer = window.setInterval(() => void pollCommands(), 750);
     return () => {
       cancelled = true;
       window.clearInterval(heartbeatTimer);
@@ -328,7 +361,7 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
   // Mobile controller: poll available sessions (faster while controlling)
   useEffect(() => {
     if (!ready || !authEnabled || !user || !isMobileController) return;
-    void refreshSessions();
+    queueMicrotask(() => void refreshSessions());
     const interval = activeSessionId ? 2_000 : 5_000;
     const timer = window.setInterval(() => void refreshSessions(), interval);
     return () => window.clearInterval(timer);
@@ -338,24 +371,46 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!activeSessionId) return;
     if (sessions.some((s) => s.sessionId === activeSessionId)) return;
-    setActiveSessionId(null);
+    queueMicrotask(() => setActiveSessionId(null));
   }, [activeSessionId, sessions]);
 
-  // Sync mobile UI when TV navigates independently (e.g. TV remote)
+  // Keep phone and TV browsing in sync, but keep playback on the TV and show
+  // the controller on the phone instead of navigating the phone to /watch.
   useEffect(() => {
     if (!isMobileController || !activeSessionId || !activeSession?.pathname) return;
-    const tvPath = activeSession.pathname;
-    if (
-      pendingRemotePathRef.current &&
-      remotePathname(tvPath) === pendingRemotePathRef.current
-    ) {
-      pendingRemotePathRef.current = null;
+    const tvHref = sanitizeRemoteHref(activeSession.pathname);
+    if (!tvHref) return;
+    const tvPath = remotePathname(tvHref);
+    if (pendingRemotePathRef.current) {
+      if (tvPath === pendingRemotePathRef.current) {
+        pendingRemotePathRef.current = null;
+      } else {
+        return;
+      }
+    }
+    if (tvPath.startsWith("/watch")) {
+      const playbackId = activeSession.playback?.playbackId ?? null;
+      if (playbackId && playbackId !== lastControllerPlaybackIdRef.current) {
+        lastControllerPlaybackIdRef.current = playbackId;
+        queueMicrotask(() => setControllerOpen(true));
+      }
+      return;
+    }
+    if (remotePathname(mobilePathname) !== tvPath) {
+      router.push(tvHref);
     }
   }, [
+    activeSession?.playback,
     activeSession?.pathname,
     activeSessionId,
     isMobileController,
+    mobilePathname,
+    router,
   ]);
+
+  const reportTargetPlayback = useCallback((playback: RemotePlaybackState | null) => {
+    targetPlaybackRef.current = playback;
+  }, []);
 
   const value = useMemo<RemoteControlContextValue>(
     () => ({
@@ -364,10 +419,13 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
       activeSession,
       remoteControlActive: Boolean(activeSessionId),
       requestRemoteControlToggle,
+      showRemoteController: () => setControllerOpen(true),
       sendNavigate,
+      sendPlayChannel,
       sendTogglePlay: () => sendCommand({ type: "togglePlay" }),
       sendSkip: (seconds) => sendCommand({ type: "skip", payload: { seconds } }),
       sendSeekTo: (seconds) => sendCommand({ type: "seekTo", payload: { seconds } }),
+      reportTargetPlayback,
     }),
     [
       activeSession,
@@ -375,8 +433,10 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
       isMobileController,
       isTvTarget,
       requestRemoteControlToggle,
+      reportTargetPlayback,
       sendCommand,
       sendNavigate,
+      sendPlayChannel,
     ],
   );
   const pendingEnableSession = pendingEnableSessionId
@@ -386,6 +446,23 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
   return (
     <RemoteControlContext.Provider value={value}>
       {children}
+      {isMobileController && activeSession ? (
+        <MobileRemotePlayerController
+          open={controllerOpen}
+          deviceLabel={activeSession.label}
+          devicePath={pathnameLabel(activeSession.pathname)}
+          playback={activeSession.playback}
+          pendingTitle={pendingPlaybackTitle}
+          onClose={() => setControllerOpen(false)}
+          onTogglePlay={() => void sendCommand({ type: "togglePlay" })}
+          onSkip={(seconds) => void sendCommand({ type: "skip", payload: { seconds } })}
+          onSeek={(seconds) => void sendCommand({ type: "seekTo", payload: { seconds } })}
+          onDisconnect={() => {
+            setControllerOpen(false);
+            setDisableConfirmOpen(true);
+          }}
+        />
+      ) : null}
       {isMobileController && sessionPickerOpen ? (
         <div
           className="fixed inset-0 z-[120] flex items-end justify-center bg-background p-4 backdrop-blur-sm"

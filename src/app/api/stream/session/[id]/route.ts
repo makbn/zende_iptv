@@ -35,13 +35,19 @@ export async function GET(
     elapsedMs: Date.now() - started,
   });
 
+  const mode = inferPlaybackModeFromUrl(session.upstreamRootUrl);
+  let ext = "";
+  if (mode === "progressive") ext = ".mp4";
+  else if (mode === "hls") ext = ".m3u8";
+  else if (mode === "mpegts") ext = ".ts";
+
   return NextResponse.json({
     title: session.title,
     logo: session.logo ?? null,
     group: session.group ?? null,
-    playbackUrl: `/api/stream/proxy/${id}`,
+    playbackUrl: `/api/stream/proxy/${id}${ext}`,
     canonicalUrl: session.upstreamRootUrl,
-    playbackMode: inferPlaybackModeFromUrl(session.upstreamRootUrl),
+    playbackMode: mode,
     playback: session.meta,
   });
 }

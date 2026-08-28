@@ -32,3 +32,12 @@ export function tmdbPosterUrl(posterPath: string | null | undefined, width = "w9
   const path = posterPath.startsWith("/") ? posterPath : `/${posterPath}`;
   return `https://image.tmdb.org/t/p/${width}${path}`;
 }
+
+export function tmdbImageUrl(
+  imagePath: string | null | undefined,
+  width: "w185" | "w342" | "w500" | "w780" | "original" = "w500",
+): string | null {
+  if (!imagePath?.trim()) return null;
+  const path = imagePath.startsWith("/") ? imagePath : `/${imagePath}`;
+  return `https://image.tmdb.org/t/p/${width}${path}`;
+}

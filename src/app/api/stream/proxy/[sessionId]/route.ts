@@ -506,7 +506,8 @@ export async function GET(
   request: Request,
   context: { params: Promise<{ sessionId: string }> },
 ) {
-  const { sessionId } = await context.params;
+  let { sessionId } = await context.params;
+  sessionId = sessionId.replace(/\.(mp4|mkv|m3u8|ts)$/i, "");
 
   const session = await touchSession(sessionId);
   if (!session) {

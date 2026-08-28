@@ -13,7 +13,6 @@ export function useRemoteNavigation() {
     (href: string) => {
       if (remote?.activeSession) {
         void remote.sendNavigate(href);
-        return;
       }
       router.push(href);
     },

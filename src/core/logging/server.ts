@@ -5,6 +5,7 @@ import pino, { type Logger } from "pino";
 import { getServerEnv } from "@/config/env.server";
 
 import { PinoLoggerAdapter } from "./adapters/pino-logger";
+import { RotatingFileDestination } from "./rotating-file-destination";
 import type { ILogger } from "./types";
 
 const LEVEL_NAMES: Record<number, string> = {
@@ -50,13 +51,19 @@ function shouldUsePrettyTransport(env: ReturnType<typeof getServerEnv>): boolean
   return env.NODE_ENV === "development" && env.LOG_LEVEL !== "silent";
 }
 
-function createRootLogger(): Logger {
+type RootLoggers = {
+  main: Logger;
+  errors?: Logger;
+};
+
+function createRootLoggers(): RootLoggers {
   const env = getServerEnv();
   const isDev = env.NODE_ENV === "development";
+  let main: Logger | undefined;
 
   if (shouldUsePrettyTransport(env)) {
     try {
-      return pino({
+      main = pino({
         level: env.LOG_LEVEL,
         base: { service: "zende" },
         transport: {
@@ -73,20 +80,42 @@ function createRootLogger(): Logger {
     }
   }
 
-  return pino(
+  main ??= pino(
     { level: env.LOG_LEVEL, base: { service: "zende" } },
     createDockerLogDestination(),
   );
+
+  if (env.LOG_LEVEL === "silent" || !env.LOG_ERROR_FILE) return { main };
+
+  try {
+    const destination = new RotatingFileDestination({
+      filePath: env.LOG_ERROR_FILE,
+      maxBytes: env.LOG_ERROR_MAX_BYTES,
+      maxFiles: env.LOG_ERROR_MAX_FILES,
+    });
+    const errors = pino(
+      { level: "error", base: { service: "zende" } },
+      destination,
+    );
+    return { main, errors };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(
+      `Unable to initialize dedicated error log ${env.LOG_ERROR_FILE}: ${message}\n`,
+    );
+    return { main };
+  }
 }
 
-let root: Logger | null = null;
+let roots: RootLoggers | null = null;
 
-function getRootLogger(): Logger {
-  if (!root) root = createRootLogger();
-  return root;
+function getRootLoggers(): RootLoggers {
+  if (!roots) roots = createRootLoggers();
+  return roots;
 }
 
 /** Server-only factory: use in Route Handlers, Server Actions, and Server Components. */
 export function createServerLogger(scope: string): ILogger {
-  return new PinoLoggerAdapter(getRootLogger(), scope);
+  const { main, errors } = getRootLoggers();
+  return new PinoLoggerAdapter(main, scope, undefined, errors);
 }

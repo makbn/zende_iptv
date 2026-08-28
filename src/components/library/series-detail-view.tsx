@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, Download, Play } from "lucide-react";
 
 import { Card } from "@appica/ui-react/card";
+import { MediaCastRail, MediaMetadataFacts } from "@/components/library/media-metadata-sections";
 import {
   BROWSE_BOTTOM_PAD_MOBILE,
   BROWSE_CONTAINER_CLASS,
@@ -36,12 +37,14 @@ type Props = {
   fallbackTitle?: string;
   fallbackLogo?: string;
   fallbackGroup?: string;
+  providerChannelId?: string;
 };
 
 function useViewingHistory(): ViewingEntry[] {
   const [epoch, setEpoch] = useState(0);
   useEffect(() => subscribeViewingStats(() => setEpoch((n) => n + 1)), []);
-  return useMemo(() => listTopFrequentChannels(200), [epoch]);
+  void epoch;
+  return listTopFrequentChannels(200);
 }
 
 export function SeriesDetailView({
@@ -49,10 +52,11 @@ export function SeriesDetailView({
   fallbackTitle,
   fallbackLogo,
   fallbackGroup,
+  providerChannelId,
 }: Props) {
   const { openChannel, navError: watchNavError, clearNavError } = useWatchNavigation();
-  const { loading, error, episodesBySeason, showTitle, showPlot, showCover, showBackdrop } =
-    useSeriesInfo(seriesId);
+  const { data, loading, error, episodesBySeason, showTitle, showPlot, showCover, showBackdrop } =
+    useSeriesInfo(seriesId, { providerChannelId, title: fallbackTitle });
   const history = useViewingHistory();
   const [seasonTab, setSeasonTab] = useState<string | null>(null);
   const [playBusy, setPlayBusy] = useState(false);
@@ -60,9 +64,11 @@ export function SeriesDetailView({
   const [playError, setPlayError] = useState<string | null>(null);
   const displayPlayError = playError ?? watchNavError;
 
-  const title = showTitle ?? fallbackTitle ?? "Show";
-  const cover = showCover || fallbackLogo || "";
-  const heroArt = showBackdrop || cover;
+  const metadata = data?.metadata;
+  const title = metadata?.title ?? showTitle ?? fallbackTitle ?? "Show";
+  const cover = metadata?.posterUrl || showCover || fallbackLogo || "";
+  const heroArt = metadata?.backdropUrl || showBackdrop || cover;
+  const overview = metadata?.overview || showPlot;
   const groupTitle = fallbackGroup;
 
   const activeSeason = seasonTab ?? episodesBySeason.seasons[0] ?? null;
@@ -81,7 +87,7 @@ export function SeriesDetailView({
       }
     }
     return best;
-  }, [episodesBySeason.flat, history]);
+  }, [episodesBySeason, history]);
 
   const playEpisode = useCallback(
     (episode: (typeof episodesBySeason.flat)[0], episodeIndex: number) => {
@@ -104,7 +110,7 @@ export function SeriesDetailView({
         setPlayBusy(false);
       }
     },
-    [clearNavError, cover, groupTitle, openChannel, seriesId, title],
+    [clearNavError, cover, episodesBySeason, groupTitle, openChannel, seriesId, title],
   );
 
   const downloadEpisode = useCallback(
@@ -134,7 +140,7 @@ export function SeriesDetailView({
         setDownloadBusyUrl(null);
       }
     },
-    [clearNavError, cover, groupTitle, seriesId, title],
+    [clearNavError, cover, episodesBySeason, groupTitle, seriesId, title],
   );
 
   const continueProgress = continueTarget
@@ -171,13 +177,14 @@ export function SeriesDetailView({
         <div className="absolute inset-0 bg-gradient-to-b from-background via-background to-background" />
 
         <div className={cn(BROWSE_CONTAINER_CLASS, "relative pb-8 pt-4 sm:pt-8")}>
-          <Link
-            href="/library?tab=series"
-            className="mb-6 inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 py-2 text-[14px] font-semibold text-foreground-intense outline-none hover:bg-background-muted hover:text-foreground-intense focus-visible:ring-2 focus-visible:ring-primary"
+          <Button
+            variant="ghost"
+            render={<Link href="/library?tab=series" />}
+            className="mb-6 rounded-full"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden />
             Library
-          </Link>
+          </Button>
 
           <div className="flex flex-col gap-6 sm:flex-row sm:items-end">
             <div className="mx-auto w-40 shrink-0 overflow-hidden rounded-lg border border-border bg-background shadow-lg sm:mx-0 sm:w-52">
@@ -201,9 +208,12 @@ export function SeriesDetailView({
               {groupTitle ? (
                 <p className="mt-2 text-[14px] text-foreground-intense">{groupTitle}</p>
               ) : null}
-              {showPlot ? (
+              {metadata ? (
+                <div className="mt-4"><MediaMetadataFacts metadata={metadata} /></div>
+              ) : null}
+              {overview ? (
                 <p className="text-sm text-foreground-muted mt-4 max-w-3xl">
-                  {showPlot}
+                  {overview}
                 </p>
               ) : null}
 
@@ -267,6 +277,8 @@ export function SeriesDetailView({
             }}
           />
         ) : null}
+
+        {metadata ? <MediaCastRail metadata={metadata} /> : null}
 
         {loading ? (
           <ZendeLoadingState className="py-12" size="large" label="Loading seasons…" />

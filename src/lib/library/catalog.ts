@@ -1,12 +1,9 @@
 import "server-only";
 
-import { isBuiltinPresetId, BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { resolveLibraryContentType, type LibraryContentType } from "@/lib/channels/content-type";
 import { yearFromChannelName } from "@/lib/channel/channel-label";
-import { mergeBuiltinAndManual } from "@/lib/channels/merge-catalog";
 import { loadEnabledProviderChannels } from "@/lib/iptv/provider-store";
-import { prisma } from "@/lib/db/prisma";
 import {
   countryLabel,
   deriveChannelTaxonomy,
@@ -16,7 +13,6 @@ import {
 import { isChannelParentalBlocked } from "@/lib/parental/parental-control-store";
 
 export type LibraryCatalogQuery = {
-  presetId: string;
   contentType: "all" | LibraryContentType;
   q?: string;
   group?: string | null;
@@ -46,24 +42,8 @@ export type LibraryCatalogResult = {
   facets: LibraryCatalogFacets;
 };
 
-async function loadBuiltinChannels(presetId: string): Promise<M3uChannel[]> {
-  if (!isBuiltinPresetId(presetId)) return [];
-  const row = await prisma.playlistCatalogCache.findUnique({ where: { presetId } });
-  if (!row) return [];
-  try {
-    const parsed = JSON.parse(row.channelsJson) as M3uChannel[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-export async function loadMergedLibraryCatalog(presetId: string): Promise<M3uChannel[]> {
-  const [builtin, providerChannels] = await Promise.all([
-    loadBuiltinChannels(presetId),
-    loadEnabledProviderChannels(),
-  ]);
-  return mergeBuiltinAndManual(builtin, providerChannels);
+export async function loadMergedLibraryCatalog(): Promise<M3uChannel[]> {
+  return loadEnabledProviderChannels();
 }
 
 type IndexedChannel = {
@@ -81,7 +61,6 @@ type IndexedChannel = {
 type ContentScope = "all" | LibraryContentType;
 
 type CatalogIndex = {
-  presetId: string;
   builtAt: number;
   channelCount: number;
   byUrl: Map<string, M3uChannel>;
@@ -90,17 +69,13 @@ type CatalogIndex = {
   facets: Record<ContentScope, LibraryCatalogFacets>;
 };
 
-const DEFAULT_PRESET_ID = BUILTIN_PLAYLIST_SOURCES[0]?.presetId ?? "iptv-org-world-index";
-
 let catalogIndex: CatalogIndex | null = null;
 let indexInflight: Promise<CatalogIndex> | null = null;
-let indexInflightPresetId: string | null = null;
 
 /** Drop cached index after catalog import / manual channel edits (server process). */
 export function invalidateLibraryCatalogCache(): void {
   catalogIndex = null;
   indexInflight = null;
-  indexInflightPresetId = null;
 }
 
 function buildSearchText(channel: M3uChannel): string {
@@ -222,8 +197,8 @@ function buildFacetsFromIndexed(rows: IndexedChannel[]): LibraryCatalogFacets {
   return { groups, categories, languages, countries, years };
 }
 
-async function buildCatalogIndex(presetId: string): Promise<CatalogIndex> {
-  const channels = await loadMergedLibraryCatalog(presetId);
+async function buildCatalogIndex(): Promise<CatalogIndex> {
+  const channels = await loadMergedLibraryCatalog();
   const all: IndexedChannel[] = [];
   const byContentType: Record<LibraryContentType, IndexedChannel[]> = {
     live: [],
@@ -240,7 +215,6 @@ async function buildCatalogIndex(presetId: string): Promise<CatalogIndex> {
   }
 
   return {
-    presetId,
     builtAt: Date.now(),
     channelCount: channels.length,
     byUrl,
@@ -256,15 +230,13 @@ async function buildCatalogIndex(presetId: string): Promise<CatalogIndex> {
 }
 
 /** In-memory catalog index — survives until invalidation (no short TTL). */
-export async function getCatalogIndex(presetId: string): Promise<CatalogIndex> {
-  if (catalogIndex?.presetId === presetId) return catalogIndex;
+export async function getCatalogIndex(): Promise<CatalogIndex> {
+  if (catalogIndex) return catalogIndex;
 
-  if (!indexInflight || indexInflightPresetId !== presetId) {
-    indexInflightPresetId = presetId;
-    indexInflight = buildCatalogIndex(presetId).then((index) => {
+  if (!indexInflight) {
+    indexInflight = buildCatalogIndex().then((index) => {
       catalogIndex = index;
       indexInflight = null;
-      indexInflightPresetId = null;
       return index;
     });
   }
@@ -273,23 +245,19 @@ export async function getCatalogIndex(presetId: string): Promise<CatalogIndex> {
 }
 
 /** Build catalog index on server start or after playlist changes. */
-export async function warmLibraryCatalogIndex(
-  presetId: string = DEFAULT_PRESET_ID,
-): Promise<{ channelCount: number; elapsedMs: number }> {
+export async function warmLibraryCatalogIndex(): Promise<{ channelCount: number; elapsedMs: number }> {
   const started = Date.now();
   invalidateLibraryCatalogCache();
-  const index = await getCatalogIndex(presetId);
+  const index = await getCatalogIndex();
   return {
     channelCount: index.channelCount,
     elapsedMs: Date.now() - started,
   };
 }
 
-export async function warmLibraryCatalogIndexIfNeeded(
-  presetId: string = DEFAULT_PRESET_ID,
-): Promise<void> {
-  if (catalogIndex?.presetId === presetId) return;
-  await getCatalogIndex(presetId);
+export async function warmLibraryCatalogIndexIfNeeded(): Promise<void> {
+  if (catalogIndex) return;
+  await getCatalogIndex();
 }
 
 function scopeRows(
@@ -348,7 +316,7 @@ function yearFacetFor(channel: M3uChannel) {
 export async function queryLibraryCatalog(
   query: LibraryCatalogQuery,
 ): Promise<LibraryCatalogResult> {
-  const index = await getCatalogIndex(query.presetId);
+  const index = await getCatalogIndex();
   const scope: ContentScope =
     query.contentType === "all" ? "all" : query.contentType;
   const hiddenPatterns = query.hiddenPatterns ?? [];
@@ -414,7 +382,7 @@ export async function queryHomeCatalogShelves(input: {
   movieLimit?: number;
   seriesLimit?: number;
 }): Promise<HomeCatalogShelves> {
-  const index = await getCatalogIndex(input.presetId);
+  const index = await getCatalogIndex();
   const language = input.language?.trim() ? input.language.trim().toLowerCase() : null;
   const discoverLimit = input.discoverLimit ?? 36;
   const movieLimit = input.movieLimit ?? 18;
@@ -455,7 +423,7 @@ export async function lookupChannelsByUrls(
   const wanted = urls.filter(Boolean);
   if (wanted.length === 0) return new Map();
 
-  const index = await getCatalogIndex(presetId);
+  const index = await getCatalogIndex();
   const out = new Map<string, M3uChannel>();
   for (const url of wanted) {
     const hit = index.byUrl.get(url);

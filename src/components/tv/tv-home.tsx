@@ -24,7 +24,6 @@ import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import { Button, buttonVariants } from "@appica/ui-react/button";
 import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
-import { addFavorite } from "@/lib/favorites/favorites-store";
 import {
   listRecentPlayback,
   listTopByPlayCount,
@@ -265,11 +264,6 @@ export function TvHome() {
                   openChannel(c);
                 }}
                 contextMenu={{
-                  onPlay: () => {
-                    log.debug("Play from recent menu", { name: ch.name });
-                    openChannel(ch);
-                  },
-                  onAddFavorite: () => addFavorite(ch),
                   onRemoveFromRecent: () => removeViewingEntry(ch.url),
                 }}
               />

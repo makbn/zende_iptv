@@ -187,6 +187,7 @@ export function MovieDetailView({ movieId, fallbackTitle, fallbackLogo, fallback
                   {progress != null ? "Continue" : "Start movie"}
                 </Button>
                 <Button
+                  data-tv-download
                   size="lg"
                   variant="secondary"
                   onClick={() => void downloadMovie()}

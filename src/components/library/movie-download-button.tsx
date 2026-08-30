@@ -50,6 +50,7 @@ export function MovieDownloadButton({ channel, className, size = "sm" }: Props) 
 
   return (
     <Button
+      data-tv-download
       variant="ghost"
       type="button"
       disabled={busy}

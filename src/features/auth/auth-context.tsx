@@ -291,7 +291,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
     if (user) return;
     if (isLoginPath) return;
     const next = pathname + (searchParams?.toString() ? `?${searchParams}` : "");
-    router.replace(`/login?next=${encodeURIComponent(next || "/")}`);
+    const loginParams = new URLSearchParams({ next: next || "/" });
+    if (searchParams.get("tv") === "1") loginParams.set("tv", "1");
+    router.replace(`/login?${loginParams.toString()}`);
   }, [ready, authEnabled, user, isLoginPath, pathname, router, searchParams]);
 
   if (!ready) {

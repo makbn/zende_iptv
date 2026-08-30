@@ -37,8 +37,10 @@ export function isLegacyTvBrowser(userAgent: string | null | undefined): boolean
   if (!userAgent) return false;
 
   const tizenMajor = parseTizenMajorVersion(userAgent);
-  if (tizenMajor != null && tizenMajor <= LEGACY_TIZEN_MAX_MAJOR) {
-    return true;
+  if (tizenMajor != null) {
+    // Tizen's version is authoritative. New Samsung TV user agents can omit
+    // the Chrome token even though their web runtime supports the full app.
+    return tizenMajor <= LEGACY_TIZEN_MAX_MAJOR;
   }
 
   if (!isTvUserAgent(userAgent)) return false;

@@ -13,6 +13,15 @@ type Props = {
   onComplete: (tokens: { accessToken: string; refreshToken: string }) => void;
 };
 
+function isLoopbackUrl(value: string): boolean {
+  try {
+    const hostname = new URL(value).hostname.toLowerCase();
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1" || hostname === "0.0.0.0";
+  } catch {
+    return true;
+  }
+}
+
 export function LoginQrPairing({ onComplete }: Props) {
   const [pairUrl, setPairUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<"loading" | "waiting" | "expired" | "error">(
@@ -35,6 +44,7 @@ export function LoginQrPairing({ onComplete }: Props) {
         const res = await fetch("/api/auth/login/pair", { method: "POST" });
         const data = (await res.json().catch(() => ({}))) as {
           sessionId?: string;
+          verificationUri?: string;
           error?: string;
         };
         if (!res.ok || !data.sessionId) {
@@ -45,9 +55,17 @@ export function LoginQrPairing({ onComplete }: Props) {
         if (cancelled) return;
 
         sessionIdRef.current = data.sessionId;
-        const origin = window.location.origin;
         const next = new URLSearchParams(window.location.search).get("next");
-        const pair = new URL(`/login/pair`, origin);
+        const browserOrigin = window.location.origin;
+        const verificationUri = !isLoopbackUrl(browserOrigin)
+          ? new URL("/login/pair", browserOrigin).href
+          : data.verificationUri;
+        if (!verificationUri || isLoopbackUrl(verificationUri)) {
+          throw new Error(
+            "QR sign-in needs a server address your phone can reach. Set PUBLIC_APP_URL or open Zende on its network address.",
+          );
+        }
+        const pair = new URL(verificationUri);
         pair.searchParams.set("s", data.sessionId);
         if (next?.startsWith("/")) {
           pair.searchParams.set("next", next);
@@ -117,8 +135,7 @@ export function LoginQrPairing({ onComplete }: Props) {
         Sign in with phone
       </p>
       <p className="text-sm text-foreground-muted mt-2">
-        Scan with your phone. If you’re already signed in, just approve the TV;
-        otherwise enter your username and password on mobile.
+        Scan with a phone already signed in to Zende, then approve this TV.
       </p>
 
       <div className="mt-5 flex flex-col items-center gap-4 sm:flex-row sm:items-start">

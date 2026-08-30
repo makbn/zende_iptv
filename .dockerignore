@@ -13,3 +13,8 @@ prisma/*.db
 .env.*.local
 npm-debug.log*
 .DS_Store
+tv/android/.gradle
+tv/android/app/build
+tv/android/build
+tv/tizen/.buildResult
+tv/dist

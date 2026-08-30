@@ -27,9 +27,11 @@ import {
 import {
   isOpenEndedLiveMpegTsUrl,
   isProgressiveMediaUrl,
+  progressiveMediaContentType,
   shouldStreamProxyPassthrough,
 } from "@/lib/stream/playback-url";
 import { redactStreamUrlForLog } from "@/lib/stream/redact-stream-url";
+import { withResponseHeaderTimeout } from "@/lib/stream/response-header-timeout";
 import {
   acquireSharedStreamResponse,
   readSharedCacheBody,
@@ -358,7 +360,7 @@ type FetchAttemptLogger = {
  * Fetches `startUrl` following redirects manually so that:
  * - Set-Cookie headers on every 3xx response are captured into `jar`
  * - Each hop sends cookies from `jar` scoped to that hop's origin
- * - A dead upstream is aborted by `signal` (AbortSignal.timeout)
+ * - A dead upstream is aborted by `signal` while response headers are pending
  * - When `proxyAgent` is set, ALL hops use the proxy — no direct connections.
  *
  * This mirrors what a real browser does and is necessary for streams
@@ -427,12 +429,14 @@ async function fetchUpstreamWithRecordingRetries(
     attemptLogger?.onAttemptStart?.(attempt, RECORDING_UPSTREAM_MAX_ATTEMPTS);
     const startedAt = Date.now();
     try {
-      const result = await fetchFollowingRedirects(
-        fetchUrl,
-        baseHeaders,
-        cookieJar,
-        AbortSignal.timeout(timeoutMs),
-        proxyAgent,
+      const result = await withResponseHeaderTimeout(timeoutMs, (signal) =>
+        fetchFollowingRedirects(
+          fetchUrl,
+          baseHeaders,
+          cookieJar,
+          signal,
+          proxyAgent,
+        ),
       );
       attemptLogger?.onAttemptSuccess?.(
         attempt,
@@ -473,12 +477,14 @@ async function fetchUpstreamWithRetries(
     attemptLogger?.onAttemptStart?.(attempt, maxAttempts);
     const startedAt = Date.now();
     try {
-      const result = await fetchFollowingRedirects(
-        fetchUrl,
-        baseHeaders,
-        cookieJar,
-        AbortSignal.timeout(timeoutMs),
-        proxyAgent,
+      const result = await withResponseHeaderTimeout(timeoutMs, (signal) =>
+        fetchFollowingRedirects(
+          fetchUrl,
+          baseHeaders,
+          cookieJar,
+          signal,
+          proxyAgent,
+        ),
       );
       attemptLogger?.onAttemptSuccess?.(
         attempt,
@@ -1120,7 +1126,9 @@ export async function GET(
     const h = forwardPassthroughHeaders(upstream);
     if (!h.get("content-type")) {
       if (isOpenEndedLiveMpegTsUrl(fetchUrl)) h.set("content-type", "video/mp2t");
-      else if (isProgressiveMediaUrl(fetchUrl)) h.set("content-type", "video/mp4");
+      else if (isProgressiveMediaUrl(fetchUrl)) {
+        h.set("content-type", progressiveMediaContentType(fetchUrl));
+      }
     }
     if (asDownload) {
       const filename = attachmentFilename(session.title, fetchUrl);
@@ -1133,12 +1141,14 @@ export async function GET(
     if (isLiveTsResilience) {
       log.info("wrapping mpeg-ts passthrough with resilient upstream", { sessionId, fetchUrl: safeUrl(fetchUrl) });
       const resilientFetch = async () => {
-        const result = await fetchFollowingRedirects(
-          fetchUrl,
-          baseHeaders,
-          cookieJar,
-          AbortSignal.timeout(fetchTimeoutMs),
-          proxyAgent
+        const result = await withResponseHeaderTimeout(fetchTimeoutMs, (signal) =>
+          fetchFollowingRedirects(
+            fetchUrl,
+            baseHeaders,
+            cookieJar,
+            signal,
+            proxyAgent,
+          ),
         );
         if (!result.response.ok || !result.response.body) {
           result.response.body?.cancel().catch(() => {});

@@ -12,7 +12,9 @@
     "test": "vitest run",
     "probe:hls-timeslicing": "node scripts/probe-hls-timeslicing.mjs",
     "probe:xtream-concurrency": "node scripts/probe-xtream-concurrency.mjs",
-    "test:recording": "node scripts/run-recording-tests.mjs"
+    "test:recording": "node scripts/run-recording-tests.mjs",
+    "tv:verify": "npm --prefix tv run verify",
+    "tv:android": "npm --prefix tv run android:build"
   },
   "dependencies": {
     "@appica/ui-react": "^1.1.0",

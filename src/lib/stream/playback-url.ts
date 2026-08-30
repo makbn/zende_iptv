@@ -38,6 +38,21 @@ export function isProgressiveMediaUrl(url: string): boolean {
   }
 }
 
+/** Preserve MKV identity on the browser-facing proxy URL and MIME fallback. */
+export function progressivePlaybackExtension(url: string): ".mp4" | ".mkv" {
+  try {
+    return /\.mkv$/i.test(new URL(url.trim()).pathname) ? ".mkv" : ".mp4";
+  } catch {
+    return /\.mkv(?:\?|#|$)/i.test(url) ? ".mkv" : ".mp4";
+  }
+}
+
+export function progressiveMediaContentType(url: string): string {
+  return progressivePlaybackExtension(url) === ".mkv"
+    ? "video/x-matroska"
+    : "video/mp4";
+}
+
 export function shouldStreamProxyPassthrough(input: {
   request: Request;
   fetchUrl: string;

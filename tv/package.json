@@ -1,0 +1,15 @@
+{
+  "name": "zende-tv-shells",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "verify": "node scripts/verify.mjs",
+    "android:build": "node scripts/android-build.mjs",
+    "android:install": "node scripts/android-install.mjs",
+    "tizen:configure": "node scripts/tizen-configure.mjs",
+    "tizen:build": "tizen build-web -- tizen",
+    "tizen:package": "node scripts/tizen-package.mjs"
+  }
+}
+

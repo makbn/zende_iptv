@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widget xmlns="http://www.w3.org/ns/widgets"
+    xmlns:tizen="http://tizen.org/ns/widgets"
+    id="https://zende.app/tv"
+    version="0.1.0"
+    viewmodes="maximized">
+    <tizen:application id="ZendeTV001.ZendeTV" package="ZendeTV001" required_version="3.0" />
+    <content src="index.html" />
+    <feature name="http://tizen.org/feature/screen.size.normal.1080.1920" />
+    <icon src="icon.png" />
+    <name>Zende</name>
+    <access origin="*" subdomains="true" />
+    <tizen:privilege name="http://tizen.org/privilege/internet" />
+    <tizen:profile name="tv-samsung" />
+    <tizen:setting
+        background-support="disable"
+        context-menu="disable"
+        encryption="disable"
+        hwkey-event="enable"
+        install-location="auto"
+        pointing-device-support="disable"
+        screen-orientation="landscape" />
+</widget>
+

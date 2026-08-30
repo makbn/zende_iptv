@@ -1,13 +1,13 @@
 "use client";
 
 import { Button } from "@appica/ui-react/button";
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@appica/ui-react/context-menu";
-import type { KeyboardEvent } from "react";
-import { ListMinus, Play, Star, Tv } from "lucide-react";
+import { useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { Tv } from "lucide-react";
 
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 
 import { FavoriteStarButton } from "@/components/tv/favorite-star-button";
+import { TvCardActionMenu } from "@/components/tv/tv-card-action-menu";
 import { MovieDownloadButton } from "@/components/library/movie-download-button";
 import { ChannelHealthBadge } from "@/components/health/channel-health-badge";
 import {
@@ -22,8 +22,6 @@ import { resolveLibraryContentType } from "@/lib/channels/content-type";
 import { cn } from "@/lib/utils";
 
 export type TvChannelTileContextMenu = {
-  onPlay: () => void;
-  onAddFavorite: () => void;
   onRemoveFromRecent: () => void;
 };
 
@@ -36,7 +34,7 @@ type Props = {
   className?: string;
   /** Star overlay to add/remove favorites (default on). */
   showFavoriteStar?: boolean;
-  /** Right-click / long-press menu (e.g. Recently Watched on home). */
+  /** Optional actions added to the remote OK / right-click menu. */
   contextMenu?: TvChannelTileContextMenu;
 };
 
@@ -62,27 +60,44 @@ export function TvChannelTile({
   const meta = channelMetaLine(channel.groupTitle);
   const sourceMeta = [channel.providerName, meta].filter(Boolean).join(" · ") || null;
   const contentType = resolveLibraryContentType(channel);
+  const [actionMenuOpen, setActionMenuOpen] = useState(false);
+  const tileRef = useRef<HTMLDivElement>(null);
 
   const open = () => onSelect?.(channel);
+  const setMenuOpen = (next: boolean) => {
+    setActionMenuOpen(next);
+    if (!next) window.requestAnimationFrame(() => tileRef.current?.focus());
+  };
 
   const onTileKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === "Enter" || e.key === " ") {
+    if (e.key === "Enter" || e.key === " " || e.keyCode === 23 || e.keyCode === 66) {
       e.preventDefault();
-      open();
+      e.stopPropagation();
+      setMenuOpen(true);
     }
+  };
+
+  const onTileContextMenu = (event: MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setMenuOpen(true);
   };
 
 
   const tileContent = (
     <div
+      ref={tileRef}
+      data-tv-card
       role="button"
       tabIndex={0}
       onClick={open}
       onKeyDown={onTileKeyDown}
+      onContextMenu={onTileContextMenu}
       aria-label={`Play ${label}`}
+      aria-haspopup="menu"
+      aria-expanded={actionMenuOpen}
       className={cn(
         "group relative flex cursor-pointer flex-col overflow-hidden rounded-xl border border-border bg-background-subtle text-left snap-start",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+        "focus-visible:z-20 focus-visible:outline-none",
         !className?.includes("w-full") && "w-[178px] shrink-0 sm:w-[214px]",
         className,
       )}
@@ -157,53 +172,17 @@ export function TvChannelTile({
     </div>
   );
 
-  if (!contextMenu) {
-    return tileContent;
-  }
-
-  const { onPlay, onAddFavorite, onRemoveFromRecent } = contextMenu;
-
   return (
-    <ContextMenu>
-      <ContextMenuTrigger className="block outline-none">
-        {tileContent}
-      </ContextMenuTrigger>
-      <ContextMenuContent className="z-[100]" sideOffset={8}>
-        <div>
-          <div>
-            <ContextMenuItem
-              className={cn(
-                "flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground-intense outline-none",
-                "data-[highlighted]:bg-background-muted",
-              )}
-              onClick={onPlay}
-            >
-              <Play className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
-              Play
-            </ContextMenuItem>
-            <ContextMenuItem
-              className={cn(
-                "flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground-intense outline-none",
-                "data-[highlighted]:bg-background-muted",
-              )}
-              onClick={onAddFavorite}
-            >
-              <Star className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
-              Add to favorites
-            </ContextMenuItem>
-            <ContextMenuItem
-              className={cn(
-                "flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground-intense outline-none",
-                "data-[highlighted]:bg-background-muted",
-              )}
-              onClick={onRemoveFromRecent}
-            >
-              <ListMinus className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
-              Remove from recently watched
-            </ContextMenuItem>
-          </div>
-        </div>
-      </ContextMenuContent>
-    </ContextMenu>
+    <>
+      {tileContent}
+      <TvCardActionMenu
+        channel={channel}
+        contentType={contentType}
+        open={actionMenuOpen}
+        onOpenChange={setMenuOpen}
+        onPrimaryAction={open}
+        onRemoveFromRecent={contextMenu?.onRemoveFromRecent}
+      />
+    </>
   );
 }

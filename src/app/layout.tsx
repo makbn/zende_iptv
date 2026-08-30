@@ -6,6 +6,7 @@ import { AppProviders } from "@/components/providers/app-providers";
 import { FullPageLoadOverlay } from "@/components/loading/full-page-load-overlay";
 import { ZendeLoadingState } from "@/components/loading/zende-spinner";
 import { WatchBrowseOriginTracker } from "@/lib/navigation/watch-browse-origin";
+import { TvSpatialNavigation } from "@/components/tv/tv-spatial-navigation";
 import { ThemeProvider } from "@appica/ui-react/providers/theme-provider";
 
 export const metadata: Metadata = {
@@ -35,6 +36,7 @@ export default function RootLayout({
           }
         >
           <AppProviders>
+            <TvSpatialNavigation />
             <WatchBrowseOriginTracker />
             {children}
           </AppProviders>

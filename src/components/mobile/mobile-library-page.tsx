@@ -497,6 +497,7 @@ export function MobileLibraryPage() {
             items={visible}
             columnWidth={160}
             rowHeight={280}
+            itemAspectRatio={1.5}
             gap={12}
             getKey={(channel, index) => `${channel.url}-${index}`}
             renderItem={(channel) => (

@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 
 import { createServerLogger } from "@/core/logging/server";
 import { touchSession } from "@/lib/stream/stream-session-store";
-import { inferPlaybackModeFromUrl } from "@/lib/stream/playback-url";
+import {
+  inferPlaybackModeFromUrl,
+  progressivePlaybackExtension,
+} from "@/lib/stream/playback-url";
 
 export const runtime = "nodejs";
 const log = createServerLogger("api.stream.session.meta");
@@ -37,17 +40,21 @@ export async function GET(
 
   const mode = inferPlaybackModeFromUrl(session.upstreamRootUrl);
   let ext = "";
-  if (mode === "progressive") ext = ".mp4";
+  if (mode === "progressive") ext = progressivePlaybackExtension(session.upstreamRootUrl);
   else if (mode === "hls") ext = ".m3u8";
   else if (mode === "mpegts") ext = ".ts";
+  const needsBrowserTranscode = mode === "progressive" && ext === ".mkv";
 
   return NextResponse.json({
     title: session.title,
     logo: session.logo ?? null,
     group: session.group ?? null,
-    playbackUrl: `/api/stream/proxy/${id}${ext}`,
+    playbackUrl: needsBrowserTranscode
+      ? `/api/stream/transcode/${id}.mp4`
+      : `/api/stream/proxy/${id}${ext}`,
     canonicalUrl: session.upstreamRootUrl,
     playbackMode: mode,
+    transcoded: needsBrowserTranscode,
     playback: session.meta,
   });
 }

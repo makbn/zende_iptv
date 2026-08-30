@@ -1,6 +1,5 @@
 "use client";
 
-import { Input } from "@appica/ui-react/input";
 import { Slider } from "@appica/ui-react/slider";
 import { useToastManager } from "@appica/ui-react/toast";
 
@@ -82,9 +81,6 @@ import {
   type WatchSessionMeta,
 } from "@/lib/navigation/watch-url";
 import { cn } from "@/lib/utils";
-import {
-  FrequentChannelPeek,
-} from "@/components/watch/frequent-channel-peek";
 import { FavoriteStarButton } from "@/components/tv/favorite-star-button";
 import { MovieDownloadButton } from "@/components/library/movie-download-button";
 import { ChannelResolutionBadge } from "@/components/tv/channel-resolution-badge";
@@ -134,6 +130,9 @@ function favoritesRingEntries(): ViewingEntry[] {
 
 /** Hide top/bottom chrome after this many ms with no pointer activity (unless hovering chrome). */
 const CHROME_IDLE_MS = 3000;
+/** Keep the large player tree from re-rendering on every native `timeupdate`. */
+const CHROME_PROGRESS_UPDATE_MS = 1000;
+const REMOTE_SEEK_SECONDS = 15;
 
 const PLAYBACK_SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2] as const;
 
@@ -501,7 +500,6 @@ export function WatchView() {
   const [automaticRetries, setAutomaticRetries] = useState(0);
   const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
   const [playbackRate, setPlaybackRate] = useState(1);
-  const [remoteControlActive, setRemoteControlActive] = useState(false);
   const [resumePrompt, setResumePrompt] = useState<{
     saved: number;
     url: string;
@@ -518,8 +516,6 @@ export function WatchView() {
   const [recordingHint, setRecordingHint] = useState<string | null>(null);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const remoteControlActiveState = Boolean(remote?.activeSession);
-  /** Viewing stats read localStorage; server snapshot has no entries — defer peek until mounted. */
-  const [ringPeekClientReady, setRingPeekClientReady] = useState(false);
   const toast = useToastManager<{ icon?: ReactNode }>();
 
   const liveGuideIdentity = useMemo(() => {
@@ -567,6 +563,8 @@ export function WatchView() {
 
   const chromeIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chromeHoverRef = useRef(false);
+  const chromeVisibleRef = useRef(true);
+  const lastChromeProgressSyncRef = useRef(0);
 
   const [catalogMergeEpoch, setCatalogMergeEpoch] = useState(0);
 
@@ -640,10 +638,6 @@ export function WatchView() {
     return subscribeViewingStats(() =>
       setStatsEpoch((n) => n + 1),
     );
-  }, []);
-
-  useEffect(() => {
-    queueMicrotask(() => setRingPeekClientReady(true));
   }, []);
 
   useEffect(() => {
@@ -755,6 +749,40 @@ export function WatchView() {
     setSubtitleSearchOpen(false);
   }, [playbackSrc, externalSubtitles.clearTracks]);
 
+  const syncChromeProgress = useCallback((force = false) => {
+    const v = videoRef.current;
+    if (!v || (!force && !chromeVisibleRef.current)) return;
+
+    const now = performance.now();
+    if (
+      !force &&
+      now - lastChromeProgressSyncRef.current < CHROME_PROGRESS_UPDATE_MS
+    ) {
+      return;
+    }
+    lastChromeProgressSyncRef.current = now;
+
+    const nextTime = Number.isFinite(v.currentTime) ? Math.max(0, v.currentTime) : 0;
+    const nextDuration = v.duration;
+    const durationForBuffer =
+      Number.isFinite(effectiveDuration) && effectiveDuration > 0
+        ? effectiveDuration
+        : nextDuration;
+    const nextBufferRatio =
+      Number.isFinite(durationForBuffer) && durationForBuffer > 0
+        ? bufferedAheadRatio(v, durationForBuffer, nextTime)
+        : 0;
+
+    setCurrentTime((previous) =>
+      Math.abs(previous - nextTime) >= 0.1 ? nextTime : previous,
+    );
+    setBufferRatio((previous) =>
+      Math.abs(previous - nextBufferRatio) >= 0.001
+        ? nextBufferRatio
+        : previous,
+    );
+  }, [effectiveDuration]);
+
   const clearChromeIdleTimer = useCallback(() => {
     if (chromeIdleTimerRef.current) {
       clearTimeout(chromeIdleTimerRef.current);
@@ -765,20 +793,29 @@ export function WatchView() {
   const scheduleChromeHide = useCallback(() => {
     clearChromeIdleTimer();
     chromeIdleTimerRef.current = setTimeout(() => {
-      if (!chromeHoverRef.current) setChromeVisible(false);
+      if (!chromeHoverRef.current) {
+        chromeVisibleRef.current = false;
+        setChromeVisible(false);
+      }
     }, CHROME_IDLE_MS);
   }, [clearChromeIdleTimer]);
 
   const revealChrome = useCallback(() => {
+    const wasHidden = !chromeVisibleRef.current;
+    chromeVisibleRef.current = true;
+    if (wasHidden) syncChromeProgress(true);
     setChromeVisible(true);
     scheduleChromeHide();
-  }, [scheduleChromeHide]);
+  }, [scheduleChromeHide, syncChromeProgress]);
 
   const onChromePointerEnter = useCallback(() => {
+    const wasHidden = !chromeVisibleRef.current;
     chromeHoverRef.current = true;
+    chromeVisibleRef.current = true;
     clearChromeIdleTimer();
+    if (wasHidden) syncChromeProgress(true);
     setChromeVisible(true);
-  }, [clearChromeIdleTimer]);
+  }, [clearChromeIdleTimer, syncChromeProgress]);
 
   const onChromePointerLeave = useCallback(() => {
     chromeHoverRef.current = false;
@@ -857,30 +894,17 @@ export function WatchView() {
   const bindVideo = useCallback(() => {
     const v = videoRef.current;
     if (!v) return;
-    const syncBuffer = () => {
-      const nextDuration = v.duration;
-      const nextTime = v.currentTime;
-      const durForBuffer =
-        Number.isFinite(effectiveDuration) && effectiveDuration > 0
-          ? effectiveDuration
-          : nextDuration;
-      setBufferRatio(
-        Number.isFinite(durForBuffer) && durForBuffer > 0
-          ? bufferedAheadRatio(v, durForBuffer, nextTime)
-          : 0,
-      );
-    };
     const onTime = () => {
-      setCurrentTime(v.currentTime);
-      setPlaying(!v.paused);
       positionSaverRef.current?.(v.currentTime);
+      syncChromeProgress();
     };
     const onMeta = () => {
       setDuration(v.duration);
       if (
         canonicalUrl &&
         resumedUrlRef.current !== canonicalUrl &&
-        isVodContent
+        isVodContent &&
+        !sessionMeta?.transcoded
       ) {
         const saved = getPlaybackPosition(canonicalUrl);
         if (saved != null && saved > 5) {
@@ -889,7 +913,7 @@ export function WatchView() {
         }
         resumedUrlRef.current = canonicalUrl;
       }
-      syncBuffer();
+      if (chromeVisibleRef.current) syncChromeProgress(true);
     };
     const onPlay = () => setPlaying(true);
     const onPause = () => setPlaying(false);
@@ -901,7 +925,7 @@ export function WatchView() {
     const onPlaying = () => setBuffering(false);
     const onCanPlay = () => setBuffering(false);
     const onRate = () => setPlaybackRate(v.playbackRate);
-    const onProgress = () => syncBuffer();
+    const onProgress = () => syncChromeProgress();
     v.addEventListener("timeupdate", onTime);
     v.addEventListener("loadedmetadata", onMeta);
     v.addEventListener("durationchange", onMeta);
@@ -918,9 +942,8 @@ export function WatchView() {
     setVolume(v.volume);
     setPlaying(!v.paused);
     setDuration(v.duration);
-    setCurrentTime(v.currentTime);
+    if (chromeVisibleRef.current) syncChromeProgress(true);
     setPlaybackRate(v.playbackRate);
-    syncBuffer();
     return () => {
       v.removeEventListener("timeupdate", onTime);
       v.removeEventListener("loadedmetadata", onMeta);
@@ -935,7 +958,7 @@ export function WatchView() {
       v.removeEventListener("ratechange", onRate);
       v.removeEventListener("progress", onProgress);
     };
-  }, [canonicalUrl, effectiveDuration, expectedDuration, isVodContent]);
+  }, [canonicalUrl, isVodContent, sessionMeta?.transcoded, syncChromeProgress]);
 
   useEffect(() => {
     positionSaverRef.current = createPlaybackPositionSaver(
@@ -1240,6 +1263,10 @@ export function WatchView() {
         e.target instanceof HTMLTextAreaElement
       )
         return;
+      if (e.defaultPrevented) {
+        revealChrome();
+        return;
+      }
       revealChrome();
       if (e.code === "Space") {
         e.preventDefault();
@@ -1708,6 +1735,7 @@ export function WatchView() {
             )}
             onMouseEnter={onChromePointerEnter}
             onMouseLeave={onChromePointerLeave}
+            onFocusCapture={revealChrome}
           >
             <div className="pointer-events-auto flex min-w-0 flex-1 items-center gap-2">
               <GlassTextButton
@@ -1789,25 +1817,9 @@ export function WatchView() {
           )}
           onMouseEnter={onChromePointerEnter}
           onMouseLeave={onChromePointerLeave}
+          onFocusCapture={revealChrome}
         >
           <div className="mx-auto flex w-full max-w-[min(100vw,1920px)] flex-col gap-1.5 px-2 sm:px-3">
-            {isLivePlayback &&
-            ringPeekClientReady &&
-            ringNavAvailable &&
-            prevEntry &&
-            nextEntry ? (
-              <div className="pointer-events-auto relative z-[1]">
-                <FrequentChannelPeek
-                  ring={channelRing}
-                  streamUrl={canonicalUrl}
-                  nowTitle={title}
-                  nowLogo={logo}
-                  nowGroup={group}
-                  onJumpChannel={jumpToRingChannel}
-                />
-              </div>
-            ) : null}
-
             <div
               className={cn(
                 "relative w-full overflow-hidden rounded-t-[20px] rounded-b-none border-x-0 border-b-0",
@@ -1868,7 +1880,11 @@ export function WatchView() {
                 {seekRatio !== null ? (
                   <SeekBar
                     ratio={seekRatio}
+                    currentSeconds={currentTime}
+                    durationSeconds={effectiveDuration}
                     bufferRatio={bufferRatio}
+                    onActivity={revealChrome}
+                    onSeekTo={remoteAwareSeekTo}
                     onSeek={(clientX, rect) => {
                       if (remoteControlActiveState && effectiveDuration > 0) {
                         const x = Math.min(Math.max(clientX, rect.left), rect.right);
@@ -1884,7 +1900,10 @@ export function WatchView() {
                   <LiveBufferBar bufferRatio={bufferRatio} />
                 )}
 
-                <div className="mt-1.5 flex items-center gap-1.5">
+                <div
+                  data-tv-layout="horizontal"
+                  className="mt-1.5 flex items-center gap-1.5"
+                >
                   <div className="flex shrink-0 items-center gap-1">
                     {isVodPlayback ? (
                       <GlassIconButton
@@ -1917,6 +1936,18 @@ export function WatchView() {
                   </div>
 
                   <div className="ml-auto flex min-w-0 items-center gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <GlassIconButton
+                    aria-label={fs ? "Exit fullscreen" : "Fullscreen"}
+                    onClick={toggleFullscreen}
+                    className="shrink-0"
+                  >
+                    {fs ? (
+                      <Minimize2 className="h-4 w-4" />
+                    ) : (
+                      <Maximize2 className="h-4 w-4" />
+                    )}
+                  </GlassIconButton>
+
                   <DropdownMenu modal={false}>
                     <GlassIconMenuTrigger
                       aria-label="Playback speed"
@@ -2116,7 +2147,10 @@ export function WatchView() {
                     </DropdownMenu>
                   ) : null}
 
-                  <div className="hidden items-center gap-1.5 sm:flex">
+                  <div
+                    data-tv-hide-control
+                    className="hidden items-center gap-1.5 sm:flex"
+                  >
                     <span className="text-[11px] text-foreground-intense">Vol</span>
                     <Slider
                       aria-label="Volume"
@@ -2155,16 +2189,6 @@ export function WatchView() {
                     </GlassIconButton>
                   ) : null}
 
-                  <GlassIconButton
-                    aria-label={fs ? "Exit fullscreen" : "Fullscreen"}
-                    onClick={toggleFullscreen}
-                  >
-                    {fs ? (
-                      <Minimize2 className="h-4 w-4" />
-                    ) : (
-                      <Maximize2 className="h-4 w-4" />
-                    )}
-                  </GlassIconButton>
                   </div>
                 </div>
               </div>
@@ -2308,18 +2332,45 @@ function LiveBufferBar({ bufferRatio }: { bufferRatio: number }) {
   );
 }
 
+function remoteSeekStepSeconds(heldForMs: number): number {
+  if (heldForMs >= 4000) return REMOTE_SEEK_SECONDS * 8;
+  if (heldForMs >= 2000) return REMOTE_SEEK_SECONDS * 4;
+  if (heldForMs >= 800) return REMOTE_SEEK_SECONDS * 2;
+  return REMOTE_SEEK_SECONDS;
+}
+
 function SeekBar({
   ratio,
+  currentSeconds,
+  durationSeconds,
   bufferRatio,
   disabled,
+  onActivity,
   onSeek,
+  onSeekTo,
 }: {
   ratio: number;
+  currentSeconds: number;
+  durationSeconds: number;
   bufferRatio: number;
   disabled: boolean;
+  onActivity: () => void;
   onSeek: (clientX: number, rect: DOMRect) => void;
+  onSeekTo: (seconds: number) => void;
 }) {
   const barRef = useRef<HTMLDivElement>(null);
+  const keyboardPreviewRef = useRef<number | null>(null);
+  const seekHoldRef = useRef<{
+    direction: -1 | 1;
+    startedAt: number;
+  } | null>(null);
+  const [keyboardPreview, setKeyboardPreview] = useState<number | null>(null);
+
+  const displayedSeconds = keyboardPreview ?? currentSeconds;
+  const displayedRatio =
+    Number.isFinite(durationSeconds) && durationSeconds > 0
+      ? Math.min(1, Math.max(0, displayedSeconds / durationSeconds))
+      : ratio;
 
   const seekFromPointer = useCallback(
     (clientX: number) => {
@@ -2330,36 +2381,96 @@ function SeekBar({
     [disabled, onSeek],
   );
 
+  const commitKeyboardSeek = useCallback(() => {
+    const target = keyboardPreviewRef.current;
+    keyboardPreviewRef.current = null;
+    seekHoldRef.current = null;
+    setKeyboardPreview(null);
+    if (target !== null) onSeekTo(target);
+  }, [onSeekTo]);
+
   return (
     <div
       ref={barRef}
       role="slider"
-      tabIndex={0}
+      tabIndex={disabled ? -1 : 0}
+      aria-disabled={disabled}
       aria-valuemin={0}
       aria-valuemax={100}
-      aria-valuenow={Math.round(ratio * 100)}
+      aria-valuenow={Math.round(displayedRatio * 100)}
+      aria-valuetext={`${formatClock(displayedSeconds)} of ${formatClock(durationSeconds)}`}
       className={cn(
-        "group relative mb-2 h-2 w-full cursor-pointer overflow-hidden rounded-full border border-border bg-background-muted",
+        "group relative mb-1 h-5 w-full cursor-pointer rounded-full outline-none",
+        "focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         disabled && "cursor-default opacity-50",
       )}
       onPointerDown={(e) => {
         if (disabled) return;
+        onActivity();
         seekFromPointer(e.clientX);
-        (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+        e.currentTarget.setPointerCapture?.(e.pointerId);
       }}
       onPointerMove={(e) => {
         if (disabled || e.buttons !== 1) return;
         seekFromPointer(e.clientX);
       }}
+      onKeyDown={(e) => {
+        const direction =
+          e.key === "ArrowLeft" || e.keyCode === 21 || e.keyCode === 37
+            ? -1
+            : e.key === "ArrowRight" || e.keyCode === 22 || e.keyCode === 39
+              ? 1
+              : null;
+        if (direction === null) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (disabled || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+          return;
+        }
+        onActivity();
+
+        const now = performance.now();
+        if (!seekHoldRef.current || seekHoldRef.current.direction !== direction) {
+          seekHoldRef.current = { direction, startedAt: now };
+        }
+        const step = remoteSeekStepSeconds(
+          now - seekHoldRef.current.startedAt,
+        );
+        const base = keyboardPreviewRef.current ?? currentSeconds;
+        const target = Math.min(
+          durationSeconds,
+          Math.max(0, base + direction * step),
+        );
+        keyboardPreviewRef.current = target;
+        setKeyboardPreview(target);
+      }}
+      onKeyUp={(e) => {
+        if (
+          e.key !== "ArrowLeft" &&
+          e.key !== "ArrowRight" &&
+          e.keyCode !== 21 &&
+          e.keyCode !== 22 &&
+          e.keyCode !== 37 &&
+          e.keyCode !== 39
+        ) {
+          return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        commitKeyboardSeek();
+      }}
+      onBlur={commitKeyboardSeek}
     >
-      <div
-        className="absolute inset-y-0 left-0 bg-white/20"
-        style={{ width: `${Math.min(100, bufferRatio * 100)}%` }}
-      />
-      <div
-        className="absolute inset-y-0 left-0 bg-primary"
-        style={{ width: `${ratio * 100}%` }}
-      />
+      <div className="pointer-events-none absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 overflow-hidden rounded-full border border-border bg-background-muted">
+        <div
+          className="absolute inset-y-0 left-0 bg-white/20"
+          style={{ width: `${Math.min(100, bufferRatio * 100)}%` }}
+        />
+        <div
+          className="absolute inset-y-0 left-0 bg-primary"
+          style={{ width: `${displayedRatio * 100}%` }}
+        />
+      </div>
     </div>
   );
 }

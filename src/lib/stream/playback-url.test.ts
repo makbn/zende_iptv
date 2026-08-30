@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   isXtreamLiveStreamUrl,
   normalizeXtreamLivePlaybackUrl,
+  progressiveMediaContentType,
+  progressivePlaybackExtension,
 } from "@/lib/stream/playback-url";
 
 describe("Xtream live playback URLs", () => {
@@ -19,5 +21,11 @@ describe("Xtream live playback URLs", () => {
   it("normalizes Xtream MPEG-TS live URLs to browser HLS", () => {
     expect(normalizeXtreamLivePlaybackUrl("http://provider.test/live/u/p/42.ts"))
       .toBe("http://provider.test/live/u/p/42.ts");
+  });
+
+  it("preserves MKV identity for progressive episode playback", () => {
+    const url = "http://provider.test/series/user/pass/1024661.mkv?token=x";
+    expect(progressivePlaybackExtension(url)).toBe(".mkv");
+    expect(progressiveMediaContentType(url)).toBe("video/x-matroska");
   });
 });

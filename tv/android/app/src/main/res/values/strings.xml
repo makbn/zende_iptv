@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">Zende</string>
+    <string name="connect">Connect</string>
+    <string name="exit">Exit</string>
+    <string name="server_dialog_title">Zende server</string>
+    <string name="server_dialog_message">Enter the address of the Zende server on your network. Press Menu later to change it.</string>
+    <string name="invalid_server_url">Enter a valid HTTP or HTTPS URL without embedded credentials.</string>
+    <string name="server_unavailable">The Zende server could not be reached.</string>
+    <string name="no_external_browser">No browser is available for this link.</string>
+    <string name="back_at_home">You are at Zende Home. Use the Home button to leave.</string>
+</resources>

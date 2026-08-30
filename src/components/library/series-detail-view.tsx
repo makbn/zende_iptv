@@ -313,6 +313,7 @@ export function SeriesDetailView({
                     <Card frame="solid" className="group h-full overflow-hidden transition-all hover:border-primary/50 hover:shadow-md">
                       <div className="flex h-full items-center p-2">
                         <Button variant="ghost"
+                          data-tv-download
                           type="button"
                           disabled={playBusy || Boolean(downloadBusyUrl)}
                           onClick={() => void playEpisode(ep, ep.index)}

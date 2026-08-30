@@ -2,7 +2,7 @@
 
 import { Button } from "@appica/ui-react/button";
 
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuGroupLabel, DropdownMenuItem, DropdownMenuTrigger } from "@appica/ui-react/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@appica/ui-react/dropdown-menu";
 import { ChevronLeft, ChevronRight, ListVideo } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -138,7 +138,10 @@ export function EpisodePlaybackControls({ playback, logo, group, disabled }: Pro
           </p>
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center justify-center gap-2 sm:justify-end">
+        <div
+          data-tv-layout="horizontal"
+          className="flex shrink-0 flex-wrap items-center justify-center gap-2 sm:justify-end"
+        >
         <GlassIconButton
           aria-label="Previous episode"
           disabled={disabled || busy || !prevEp || loading}

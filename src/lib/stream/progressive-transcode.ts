@@ -1,0 +1,67 @@
+const TRANSCODE_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+
+/**
+ * Convert browser-hostile progressive media (notably HEVC Main 10 in MKV) to
+ * a fragmented H.264/AAC MP4 that HTML video can begin playing immediately.
+ */
+export function buildProgressiveTranscodeArgs(
+  inputUrl: string,
+  internalHeaders: string,
+): string[] {
+  return [
+    "-hide_banner",
+    "-loglevel",
+    "warning",
+    "-nostats",
+    "-probesize",
+    "32M",
+    "-analyzeduration",
+    "10M",
+    "-fflags",
+    "+genpts+discardcorrupt",
+    "-rw_timeout",
+    "180000000",
+    "-user_agent",
+    TRANSCODE_USER_AGENT,
+    "-headers",
+    internalHeaders,
+    "-i",
+    inputUrl,
+    "-map",
+    "0:v:0",
+    "-map",
+    "0:a:0?",
+    "-sn",
+    "-dn",
+    "-c:v",
+    "libx264",
+    "-preset",
+    "veryfast",
+    "-crf",
+    "23",
+    "-pix_fmt",
+    "yuv420p",
+    "-g",
+    "48",
+    "-keyint_min",
+    "48",
+    "-sc_threshold",
+    "0",
+    "-c:a",
+    "aac",
+    "-b:a",
+    "160k",
+    "-ac",
+    "2",
+    "-movflags",
+    "+frag_keyframe+empty_moov+default_base_moof",
+    "-frag_duration",
+    "1000000",
+    "-max_muxing_queue_size",
+    "4096",
+    "-f",
+    "mp4",
+    "pipe:1",
+  ];
+}

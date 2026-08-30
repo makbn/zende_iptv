@@ -1,0 +1,115 @@
+:root {
+  color-scheme: dark;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #070a12;
+  color: #f7faff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  align-items: center;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(253, 54, 126, 0.18), transparent 42%),
+    #070a12;
+  display: flex;
+  justify-content: center;
+  margin: 0;
+  min-height: 100vh;
+}
+
+.setup-card {
+  background: rgba(21, 27, 43, 0.96);
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-radius: 28px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  padding: 54px 64px 58px;
+  width: 720px;
+}
+
+.logo {
+  height: 82px;
+  object-fit: contain;
+  width: 225px;
+}
+
+.eyebrow {
+  color: #fd367e;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  margin: 34px 0 10px;
+  text-transform: uppercase;
+}
+
+h1 {
+  font-size: 46px;
+  line-height: 1.08;
+  margin: 0;
+}
+
+.description,
+.hint {
+  color: #aeb8cb;
+  font-size: 21px;
+  line-height: 1.5;
+}
+
+form {
+  margin-top: 34px;
+}
+
+label {
+  display: block;
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+input,
+button {
+  border-radius: 14px;
+  font: inherit;
+  min-height: 64px;
+  outline: none;
+  width: 100%;
+}
+
+input {
+  background: #0b1020;
+  border: 2px solid #3a455e;
+  color: #f7faff;
+  font-size: 22px;
+  padding: 0 20px;
+}
+
+button {
+  background: #fd367e;
+  border: 0;
+  color: #13030a;
+  cursor: pointer;
+  font-size: 22px;
+  font-weight: 800;
+  margin-top: 12px;
+  padding: 0 28px;
+}
+
+input:focus,
+button:focus {
+  box-shadow: 0 0 0 5px #f7faff;
+}
+
+.error {
+  color: #ff9bbf;
+  font-size: 17px;
+  min-height: 24px;
+}
+
+.hint {
+  font-size: 16px;
+  margin-bottom: 0;
+  margin-top: 24px;
+}
+

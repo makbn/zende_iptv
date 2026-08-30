@@ -11,6 +11,7 @@ import { useEffect, useId, useState } from "react";
 import { Card } from "@appica/ui-react/card";
 import type { IntegrationKind, StoredIntegration } from "@/lib/integrations/types";
 import { cn } from "@/lib/utils";
+import { createClientId } from "@/lib/browser/client-id";
 
 const STEPS = 3;
 
@@ -107,7 +108,7 @@ export function TvIntegrationWizardModal({
       };
     }
     return {
-      id: crypto.randomUUID(),
+      id: createClientId("tv-client"),
       ...base,
       createdAt: now,
       updatedAt: now,

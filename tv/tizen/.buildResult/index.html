@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self'; script-src 'self'"
+    />
+    <title>Zende</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="setup-card">
+      <img src="icon.png" alt="" class="logo" />
+      <p class="eyebrow">Zende for TV</p>
+      <h1>Connect to your server</h1>
+      <p class="description">
+        Enter the address of the Zende server running on your network.
+      </p>
+      <form id="server-form">
+        <label for="server-url">Server URL</label>
+        <input
+          id="server-url"
+          name="server-url"
+          type="url"
+          inputmode="url"
+          placeholder="http://192.168.1.10:8077"
+          autocomplete="url"
+          required
+        />
+        <p id="error" class="error" role="alert"></p>
+        <button type="submit">Open Zende</button>
+      </form>
+      <p class="hint">Press Back from Zende to return here and change the address.</p>
+    </main>
+    <script src="configured-server.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

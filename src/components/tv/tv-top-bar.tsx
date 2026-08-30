@@ -216,11 +216,13 @@ export function TvTopBar() {
             )}
           >
             <div
+              data-tv-layout="horizontal"
               className={cn(
                 "flex h-16 w-full items-center justify-between",
               )}
             >
               <Link
+                data-tv-initial-focus
                 href="/"
                 onClick={onNavigateClick("/")}
                 aria-label="Zende home"

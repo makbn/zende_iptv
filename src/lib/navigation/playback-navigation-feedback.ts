@@ -1,3 +1,5 @@
+import { createClientId } from "@/lib/browser/client-id";
+
 export const PLAYBACK_NAVIGATION_START_EVENT =
   "zende:playback-navigation-start";
 export const PLAYBACK_NAVIGATION_END_EVENT = "zende:playback-navigation-end";
@@ -16,7 +18,7 @@ export function beginPlaybackNavigation({
   title,
   message,
 }: Omit<PlaybackNavigationStartDetail, "token">) {
-  const token = crypto.randomUUID();
+  const token = createClientId("playback");
 
   if (typeof window !== "undefined") {
     window.dispatchEvent(

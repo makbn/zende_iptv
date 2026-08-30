@@ -33,6 +33,14 @@ describe("legacy-tv detection", () => {
     expect(isLegacyTvBrowser(ua)).toBe(false);
   });
 
+  it("allows modern Tizen without a Chrome token", () => {
+    const ua =
+      "Mozilla/5.0 (SMART-TV; LINUX; Tizen 9.0) AppleWebKit/537.36 (KHTML, like Gecko) Version/9.0 TV Safari/537.36";
+    expect(parseTizenMajorVersion(ua)).toBe(9);
+    expect(parseChromeMajorVersion(ua)).toBeNull();
+    expect(isLegacyTvBrowser(ua)).toBe(false);
+  });
+
   it("flags LG webOS without Chrome token", () => {
     const ua =
       "Mozilla/5.0 (Web0S; Linux/SmartTV) AppleWebKit/537.31 (KHTML, like Gecko) Safari/537.31";

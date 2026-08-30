@@ -218,8 +218,9 @@ export function AppicaRail({
 }) {
   return (
     <div
+      data-tv-layout="horizontal"
       className={cn(
-            "flex snap-x snap-mandatory gap-3 overflow-x-auto pb-4",
+        "-mx-2 -mt-2 flex snap-x snap-mandatory gap-3 overflow-x-auto px-2 pb-6 pt-2",
         className,
       )}
     >

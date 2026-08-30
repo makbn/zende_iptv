@@ -262,7 +262,11 @@ export function TvLibraryPage() {
     <div className="bg-background min-h-screen text-foreground">
       <main className={cn("pb-28", TV_BROWSE_TOP_PAD_CLASS)}>
         <section className={cn(BROWSE_CONTAINER_CLASS, "pb-3 pt-4")}>
-          <div className="grid gap-4 rounded-lg border border-border bg-background p-4 shadow-sm 2xl:grid-cols-[auto_minmax(24rem,1fr)_auto_minmax(20rem,28rem)] 2xl:items-center">
+          <div
+            data-tv-layout="horizontal"
+            data-tv-skip-initial
+            className="grid gap-4 rounded-lg border border-border bg-background p-4 shadow-sm 2xl:grid-cols-[auto_minmax(24rem,1fr)_auto_minmax(20rem,28rem)] 2xl:items-center"
+          >
             <div className="relative min-w-0">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">Library</span>
@@ -656,6 +660,8 @@ export function TvLibraryPage() {
                 items={visible}
                 columnWidth={195}
                 rowHeight={340}
+                itemAspectRatio={1.5}
+                itemChromeHeight={128}
                 gap={16}
                 getKey={(ch, i) => `${ch.url}-${i}`}
                 renderItem={(ch, i) => (

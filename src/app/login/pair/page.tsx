@@ -1,7 +1,5 @@
 "use client";
 
-import { Input } from "@appica/ui-react/input";
-
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useState } from "react";
@@ -12,14 +10,11 @@ import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spin
 import { Button } from "@appica/ui-react/button";
 import { useAuth } from "@/features/auth/auth-context";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
-import { cn } from "@/lib/utils";
 
 function PairLoginForm() {
   const searchParams = useSearchParams();
   const { ready, user, logout } = useAuth();
   const sessionId = searchParams.get("s")?.trim() ?? "";
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -50,30 +45,6 @@ function PairLoginForm() {
       setBusy(false);
     }
   }, [sessionId]);
-
-  const submit = useCallback(async () => {
-    if (!sessionId) return;
-    setError(null);
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/auth/login/pair/${encodeURIComponent(sessionId)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: username.trim(), password }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) {
-        throw new Error(
-          typeof data.error === "string" ? data.error : "Sign-in failed.",
-        );
-      }
-      setDone(true);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Sign-in failed.");
-    } finally {
-      setBusy(false);
-    }
-  }, [sessionId, username, password]);
 
   if (!sessionId) {
     return (
@@ -158,63 +129,26 @@ function PairLoginForm() {
     );
   }
 
+  const pairPath = `/login/pair?s=${encodeURIComponent(sessionId)}`;
+
   return (
     <div className="mx-auto w-full max-w-[420px]">
       <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">
         TV sign-in
       </p>
       <h1 className="text-4xl font-semibold tracking-tight text-foreground-intense mt-2">
-        Enter on your phone
+        Sign in on your phone
       </h1>
       <p className="text-sm text-foreground-muted mt-3">
-        Type your username and password here — easier than using a TV remote.
+        Sign in to your Zende account first. You’ll return here to explicitly approve the TV.
       </p>
 
-      <form
-        className="mt-8 space-y-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void submit();
-        }}
+      <Link
+        href={`/login?next=${encodeURIComponent(pairPath)}`}
+        className="mt-8 inline-flex min-h-[48px] w-full items-center justify-center rounded-full bg-primary px-6 text-[15px] font-semibold text-primary-foreground outline-none transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary"
       >
-        <label className="block">
-          <span className="text-[13px] font-medium text-foreground-intense">Username</span>
-          <Input
-            name="username"
-            autoComplete="username"
-            autoFocus
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className={cn(
-              "mt-1.5 h-[52px] w-full rounded-2xl border border-border bg-background px-4",
-              "text-[16px] text-foreground-intense outline-none focus-visible:ring-2 focus-visible:ring-primary",
-            )}
-          />
-        </label>
-        <label className="block">
-          <span className="text-[13px] font-medium text-foreground-intense">Password</span>
-          <Input
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={cn(
-              "mt-1.5 h-[52px] w-full rounded-2xl border border-border bg-background px-4",
-              "text-[16px] text-foreground-intense outline-none focus-visible:ring-2 focus-visible:ring-primary",
-            )}
-          />
-        </label>
-        <Button
-          type="submit"
-          disabled={busy}
-          variant="primary"
-          size="lg"
-          className="w-full"
-        >
-          {busy ? <><ZendeSpinner size="tiny" label="Signing in" /> Signing in…</> : "Sign in on TV"}
-        </Button>
-      </form>
+        Sign in to Zende
+      </Link>
 
       {error ? (
         <p className="mt-4 text-[14px] text-warning-strong" role="alert">

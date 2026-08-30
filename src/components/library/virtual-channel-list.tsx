@@ -32,7 +32,11 @@ export function VirtualChannelList<T>({
   });
 
   return (
-    <div ref={parentRef} className={cn("max-h-[min(70vh,720px)] overflow-y-auto", className)}>
+    <div
+      ref={parentRef}
+      data-tv-layout="vertical"
+      className={cn("max-h-[min(70vh,720px)] overflow-y-auto p-2", className)}
+    >
       <div
         className="relative w-full"
         style={{ height: `${virtualizer.getTotalSize()}px` }}
@@ -42,6 +46,7 @@ export function VirtualChannelList<T>({
           return (
             <div
               key={getKey(item, row.index)}
+              data-tv-index={row.index}
               className="absolute left-0 top-0 w-full"
               style={{
                 height: `${estimateSize}px`,
@@ -61,6 +66,10 @@ type VirtualGridProps<T> = {
   items: T[];
   /** Minimum column width in px — used to auto-compute column count. */
   columnWidth?: number;
+  /** Poster height divided by width. Used to keep virtual rows from overlapping. */
+  itemAspectRatio?: number;
+  /** Fixed card chrome below/around the poster, in px. */
+  itemChromeHeight?: number;
   rowHeight: number;
   gap?: number;
   className?: string;
@@ -72,6 +81,8 @@ type VirtualGridProps<T> = {
 export function VirtualChannelGrid<T>({
   items,
   columnWidth = 195,
+  itemAspectRatio,
+  itemChromeHeight = 0,
   rowHeight,
   gap = 12,
   className,
@@ -80,6 +91,8 @@ export function VirtualChannelGrid<T>({
 }: VirtualGridProps<T>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [columnCount, setColumnCount] = useState(1);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [scrollMargin, setScrollMargin] = useState(0);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -88,7 +101,9 @@ export function VirtualChannelGrid<T>({
     const updateCols = () => {
       const width = el.offsetWidth;
       const cols = Math.max(1, Math.floor((width + gap) / (columnWidth + gap)));
+      setContainerWidth(width);
       setColumnCount(cols);
+      setScrollMargin(el.offsetTop);
     };
 
     updateCols();
@@ -99,16 +114,31 @@ export function VirtualChannelGrid<T>({
   }, [columnWidth, gap]);
 
   const rowCount = Math.ceil(items.length / columnCount);
+  const cellWidth =
+    containerWidth > 0
+      ? (containerWidth - gap * Math.max(0, columnCount - 1)) / columnCount
+      : columnWidth;
+  const effectiveRowHeight = itemAspectRatio
+    ? Math.max(rowHeight, Math.ceil(cellWidth * itemAspectRatio + itemChromeHeight))
+    : rowHeight;
 
   const virtualizer = useWindowVirtualizer({
     count: rowCount,
-    estimateSize: useCallback(() => rowHeight + gap, [rowHeight, gap]),
+    estimateSize: useCallback(
+      () => effectiveRowHeight + gap,
+      [effectiveRowHeight, gap],
+    ),
     overscan: 3,
-    scrollMargin: containerRef.current?.offsetTop ?? 0,
+    scrollMargin,
   });
 
   return (
-    <div ref={containerRef} className={className}>
+    <div
+      ref={containerRef}
+      data-tv-layout="grid"
+      data-tv-columns={columnCount}
+      className={cn("p-2", className)}
+    >
       <div
         className="relative w-full"
         style={{ height: `${virtualizer.getTotalSize()}px` }}
@@ -121,15 +151,21 @@ export function VirtualChannelGrid<T>({
               key={`row-${row.index}`}
               className="absolute left-0 top-0 grid w-full"
               style={{
-                height: `${rowHeight}px`,
+                height: `${effectiveRowHeight}px`,
                 transform: `translateY(${row.start - virtualizer.options.scrollMargin}px)`,
                 gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
                 gap: `${gap}px`,
               }}
             >
-              {rowItems.map((item, col) =>
-                renderItem(item, startIndex + col),
-              )}
+              {rowItems.map((item, col) => (
+                <div
+                  key={getKey(item, startIndex + col)}
+                  data-tv-index={startIndex + col}
+                  className="h-full min-w-0"
+                >
+                  {renderItem(item, startIndex + col)}
+                </div>
+              ))}
             </div>
           );
         })}

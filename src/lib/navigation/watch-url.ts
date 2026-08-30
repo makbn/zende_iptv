@@ -14,6 +14,8 @@ export type WatchSessionMeta = {
   canonicalUrl: string;
   /** How the player should attach (HLS vs direct file). */
   playbackMode?: PlaybackMode;
+  /** Server is converting an incompatible source to a sequential browser-safe stream. */
+  transcoded?: boolean;
   /** VOD duration + episode navigation context. */
   playback?: PlaybackSessionMeta;
 };
@@ -108,6 +110,7 @@ export async function fetchWatchSessionMeta(
     playbackUrl: body.playbackUrl,
     canonicalUrl: body.canonicalUrl,
     playbackMode: body.playbackMode,
+    transcoded: body.transcoded,
     playback: body.playback,
   };
 }
@@ -133,6 +136,7 @@ export async function fetchRecordingWatchMeta(
     playbackUrl: body.playbackUrl,
     canonicalUrl: body.canonicalUrl,
     playbackMode: body.playbackMode,
+    transcoded: body.transcoded,
     playback: body.playback,
   };
 }

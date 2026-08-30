@@ -851,7 +851,7 @@
         var data = parseJson(text);
         if (!data || !data.verificationUri) return;
         pairUri.textContent = data.verificationUri;
-        pairCode.textContent = data.userCode;
+        if (pairCode) pairCode.textContent = "Approve on your signed-in phone";
         pairQr.src = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" + encodeURIComponent(data.verificationUri);
         pairContainer.style.display = "block";
         
@@ -861,9 +861,9 @@
             .then(function(r) { return r.text(); })
             .then(function(t) {
                var d = parseJson(t);
-               if (d && d.tokens) {
+               if (d && d.status === "complete" && d.accessToken && d.refreshToken) {
                  clearInterval(pairInterval);
-                 storeTokens(d.tokens.accessToken, d.tokens.refreshToken);
+                 storeTokens(d.accessToken, d.refreshToken);
                  loadHome();
                }
             }).catch(function(){});

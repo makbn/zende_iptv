@@ -495,10 +495,11 @@ export function TvFavoritesPage() {
                   </p>
                 </div>
               </div>
-              <div className={POSTER_GRID_CLASS}>
+              <div data-tv-layout="grid" className={POSTER_GRID_CLASS}>
                 {visible.map((ch, i) => (
                   <div
                     key={`${ch.url}-${i}`}
+                    data-tv-index={i}
                     className={cn(
                       "motion-safe:animate-fav-page-tile motion-reduce:animate-none motion-reduce:opacity-100",
                     )}

@@ -3,6 +3,8 @@
 This directory packages the existing hosted Zende React/Next.js application for TV platforms. It
 does not copy the frontend or run the Node.js backend on the television.
 
+![TV Demo](../public/tv_demo.png)
+
 ```text
 Android TV / Tizen shell  ->  hosted Zende URL  ->  existing Next.js UI and APIs
 ```

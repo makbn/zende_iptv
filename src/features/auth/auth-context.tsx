@@ -274,6 +274,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   const isLoginPath =
     pathname === "/login" || pathname === "/login/pair";
+  const isPublicPath = pathname.startsWith("/share/");
 
   useEffect(() => {
     if (!ready) return;
@@ -289,12 +290,12 @@ export function AuthGate({ children }: { children: ReactNode }) {
     if (!ready) return;
     if (!authEnabled) return;
     if (user) return;
-    if (isLoginPath) return;
+    if (isLoginPath || isPublicPath) return;
     const next = pathname + (searchParams?.toString() ? `?${searchParams}` : "");
     const loginParams = new URLSearchParams({ next: next || "/" });
     if (searchParams.get("tv") === "1") loginParams.set("tv", "1");
     router.replace(`/login?${loginParams.toString()}`);
-  }, [ready, authEnabled, user, isLoginPath, pathname, router, searchParams]);
+  }, [ready, authEnabled, user, isLoginPath, isPublicPath, pathname, router, searchParams]);
 
   if (!ready) {
     return (
@@ -305,7 +306,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     );
   }
 
-  if (authEnabled && !user && !isLoginPath) {
+  if (authEnabled && !user && !isLoginPath && !isPublicPath) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background text-foreground-intense">
         <Spinner className="size-8" aria-label="Loading account" />

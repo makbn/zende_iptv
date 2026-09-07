@@ -10,6 +10,10 @@ import {
   languageLabel,
   languageSortRank,
 } from "@/lib/library/channel-taxonomy";
+import {
+  buildImdbRatingFacets,
+  type ImdbRatingThreshold,
+} from "@/lib/library/imdb-rating";
 import { isChannelParentalBlocked } from "@/lib/parental/parental-control-store";
 
 export type LibraryCatalogQuery = {
@@ -20,6 +24,7 @@ export type LibraryCatalogQuery = {
   language?: string | null;
   country?: string | null;
   year?: string | null;
+  minImdbRating?: ImdbRatingThreshold | null;
   /** Empty when this request has a valid session unlock. */
   hiddenPatterns?: string[];
   offset: number;
@@ -32,6 +37,7 @@ export type LibraryCatalogFacets = {
   languages: Array<{ key: string; label: string; count: number }>;
   countries: Array<{ key: string; label: string; count: number }>;
   years: Array<{ key: string; label: string; count: number }>;
+  ratings: Array<{ min: ImdbRatingThreshold; count: number }>;
 };
 
 export type LibraryCatalogResult = {
@@ -55,6 +61,7 @@ type IndexedChannel = {
   languageKey: string | null;
   countryKey: string | null;
   yearKey: string | null;
+  imdbRating: number | null;
   searchText: string;
 };
 
@@ -101,6 +108,7 @@ function indexChannel(channel: M3uChannel): IndexedChannel {
     languageKey: taxonomy.languageKey,
     countryKey: taxonomy.countryKey,
     yearKey: yearFacetFor(channel)?.key ?? null,
+    imdbRating: channel.imdbRating ?? null,
     searchText: buildSearchText(channel),
   };
 }
@@ -194,7 +202,13 @@ function buildFacetsFromIndexed(rows: IndexedChannel[]): LibraryCatalogFacets {
     .slice(0, 48)
     .map(([key, value]) => ({ key, label: value.label, count: value.count }));
 
-  return { groups, categories, languages, countries, years };
+  const ratings = buildImdbRatingFacets(
+    rows
+      .filter((row) => row.contentType === "movie" || row.contentType === "series")
+      .map((row) => row.imdbRating),
+  );
+
+  return { groups, categories, languages, countries, years, ratings };
 }
 
 async function buildCatalogIndex(): Promise<CatalogIndex> {
@@ -275,6 +289,7 @@ function filterIndexedRows(
     language?: string | null;
     country?: string | null;
     year?: string | null;
+    minImdbRating?: ImdbRatingThreshold | null;
     q?: string;
   },
 ): IndexedChannel[] {
@@ -297,6 +312,11 @@ function filterIndexedRows(
   }
   if (filters.year) {
     scoped = scoped.filter((row) => row.yearKey === filters.year);
+  }
+  if (filters.minImdbRating) {
+    scoped = scoped.filter(
+      (row) => row.imdbRating != null && row.imdbRating >= filters.minImdbRating!,
+    );
   }
   if (filters.q) {
     const needle = filters.q.trim().toLowerCase();
@@ -335,6 +355,7 @@ export async function queryLibraryCatalog(
     language: query.language,
     country: query.country,
     year: query.year,
+    minImdbRating: query.minImdbRating,
     q: query.q,
   });
 

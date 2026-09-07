@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  dequeueRemoteCommands,
   enqueueRemoteCommand,
   getRemoteTvSession,
   upsertRemoteTvSession,
@@ -59,5 +60,68 @@ describe("remote control store", () => {
     expect(updated?.commands.map((command) => command.seq)).toEqual([1, 2]);
     expect(updated?.playback?.title).toBe("Sports One");
     expect(updated?.pathname).toBe("/watch?id=opaque");
+  });
+
+  it("does not replay a route-changing command after a TV page reload", () => {
+    const userId = `remote-reload-test-${Date.now()}`;
+    const session = upsertRemoteTvSession({
+      userId,
+      label: "Samsung TV",
+      kind: "tv",
+      pathname: "/library",
+    });
+
+    const navigation = enqueueRemoteCommand(session.sessionId, userId, {
+      type: "navigate",
+      payload: { href: "/library/movie/42" },
+    });
+    enqueueRemoteCommand(session.sessionId, userId, {
+      type: "play",
+    });
+
+    const firstPage = dequeueRemoteCommands(session.sessionId, userId, 0);
+    expect(firstPage?.commands.map((command) => command.id)).toEqual([
+      navigation?.id,
+    ]);
+
+    // A legacy client reloads with cursor zero. The navigation was consumed,
+    // while the command queued after it is still delivered to the new page.
+    const reloadedPage = dequeueRemoteCommands(session.sessionId, userId, 0);
+    expect(reloadedPage?.commands.map((command) => command.type)).toEqual([
+      "play",
+    ]);
+    expect(dequeueRemoteCommands(session.sessionId, userId, 0)?.commands).toEqual([]);
+  });
+
+  it("delivers remote subtitle selection and hide commands to the TV", () => {
+    const userId = `remote-subtitle-test-${Date.now()}`;
+    const session = upsertRemoteTvSession({
+      userId,
+      label: "Samsung TV",
+      kind: "tv",
+      pathname: "/watch?id=opaque",
+    });
+
+    enqueueRemoteCommand(session.sessionId, userId, {
+      type: "subtitleTrack",
+      payload: {
+        track: {
+          id: "subtitle-1",
+          label: "English · WEB-DL",
+          language: "en",
+          vttUrl: "/api/subtitles/vtt/subtitle-1",
+        },
+      },
+    });
+    enqueueRemoteCommand(session.sessionId, userId, { type: "subtitleOff" });
+
+    const delivery = dequeueRemoteCommands(session.sessionId, userId, 0);
+    expect(delivery?.commands.map((command) => command.type)).toEqual([
+      "subtitleTrack",
+      "subtitleOff",
+    ]);
+    expect(delivery?.commands[0]).toMatchObject({
+      payload: { track: { vttUrl: "/api/subtitles/vtt/subtitle-1" } },
+    });
   });
 });

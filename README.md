@@ -75,7 +75,12 @@ For production, set a strong **`AUTH_JWT_SECRET`** in `.env`. Behind a reverse p
 | Variable | Purpose |
 |----------|---------|
 | `AUTH_JWT_SECRET` | Signs access/refresh tokens when login is enabled (required in production). |
-| `CRON_SECRET` | Optional Bearer token for cron / health / registry APIs. |
+| `CRON_SECRET` | Bearer token for cron APIs; Docker generates a private persisted token when omitted. |
+| `TZ` | Time zone for nightly work (default `UTC`). |
+| `ZENDE_IMDB_NIGHTLY_ENABLED` | Enable the built-in nightly IMDb rating refresh (default `1`). |
+| `ZENDE_IMDB_NIGHTLY_HOUR` / `ZENDE_IMDB_NIGHTLY_MINUTE` | Local time for the IMDb refresh (default `03:15`). |
+| `IMDB_BASICS_DATASET_URL` / `IMDB_RATINGS_DATASET_URL` | Optional mirrors for IMDb's official daily title and ratings datasets. |
+| `ZENDE_IMDB_NIGHTLY_HOUR` / `ZENDE_IMDB_NIGHTLY_MINUTE` | Local scheduled time (default `03:15`). |
 | `ZENDE_RECORDINGS_DIR` | DVR MP4 root (Compose default: `/data/recordings`). |
 | `ZENDE_SUBTITLES_DIR` | Subtitle search + VTT cache (Compose default: `/data/subtitles`, ~7-day TTL). |
 | `WYZIE_API_KEY` / `TMDB_API_KEY` | Optional env fallbacks for subtitle search (or set keys in Settings → Integrations). |

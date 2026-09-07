@@ -4,17 +4,24 @@ import { Button } from "@appica/ui-react/button";
 import { Card } from "@appica/ui-react/card";
 import { Slider } from "@appica/ui-react/slider";
 import {
+  EyeOff,
   FastForward,
   Pause,
   Play,
   Rewind,
+  Search,
+  Subtitles,
   TvMinimal,
   Unplug,
   X,
 } from "lucide-react";
 import { useState } from "react";
 
-import type { RemotePlaybackState } from "@/lib/remote/remote-control-types";
+import { SubtitleSearchPanel } from "@/components/watch/subtitle-search-panel";
+import type {
+  RemotePlaybackState,
+  RemoteSubtitleTrack,
+} from "@/lib/remote/remote-control-types";
 
 function formatClock(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
@@ -37,6 +44,8 @@ export function MobileRemotePlayerController({
   onTogglePlay,
   onSkip,
   onSeek,
+  onSubtitleTrack,
+  onSubtitleOff,
   onDisconnect,
 }: {
   open: boolean;
@@ -48,9 +57,15 @@ export function MobileRemotePlayerController({
   onTogglePlay: () => void;
   onSkip: (seconds: number) => void;
   onSeek: (seconds: number) => void;
+  onSubtitleTrack: (track: RemoteSubtitleTrack) => void;
+  onSubtitleOff: () => void;
   onDisconnect: () => void;
 }) {
   const [seekPreview, setSeekPreview] = useState<number | null>(null);
+  const [subtitleSearchOpen, setSubtitleSearchOpen] = useState(false);
+  const [remoteSubtitleTrack, setRemoteSubtitleTrack] = useState<RemoteSubtitleTrack | null>(null);
+  const [subtitleVisible, setSubtitleVisible] = useState(false);
+
   if (!open) return null;
 
   const duration = playback?.duration ?? 0;
@@ -60,8 +75,13 @@ export function MobileRemotePlayerController({
     seekPreview ?? playback?.currentTime ?? 0,
   ));
   const title = playback?.title || pendingTitle;
+  const canSearchSubtitles = Boolean(
+    playback?.active &&
+      (playback.contentKind === "movie" || playback.contentKind === "episode"),
+  );
 
   return (
+    <>
     <div
       className="fixed inset-0 z-[140] flex items-end justify-center bg-background/80 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md"
       role="dialog"
@@ -178,6 +198,43 @@ export function MobileRemotePlayerController({
                   <FastForward className="size-5" aria-hidden />
                 </Button>
               </div>
+
+              {canSearchSubtitles ? (
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    type="button"
+                    onClick={() => setSubtitleSearchOpen(true)}
+                  >
+                    <Search className="size-5" aria-hidden />
+                    Find subtitles
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    type="button"
+                    disabled={!remoteSubtitleTrack}
+                    onClick={() => {
+                      if (!remoteSubtitleTrack) return;
+                      if (subtitleVisible) {
+                        onSubtitleOff();
+                        setSubtitleVisible(false);
+                      } else {
+                        onSubtitleTrack(remoteSubtitleTrack);
+                        setSubtitleVisible(true);
+                      }
+                    }}
+                  >
+                    {subtitleVisible ? (
+                      <EyeOff className="size-5" aria-hidden />
+                    ) : (
+                      <Subtitles className="size-5" aria-hidden />
+                    )}
+                    {subtitleVisible ? "Hide subtitles" : "Show subtitles"}
+                  </Button>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -193,5 +250,19 @@ export function MobileRemotePlayerController({
         </div>
       </Card>
     </div>
+    {canSearchSubtitles && title ? (
+      <SubtitleSearchPanel
+        open={subtitleSearchOpen}
+        onClose={() => setSubtitleSearchOpen(false)}
+        title={title}
+        playback={playback?.subtitleSearch}
+        onSelect={(track) => {
+          setRemoteSubtitleTrack(track);
+          setSubtitleVisible(true);
+          onSubtitleTrack(track);
+        }}
+      />
+    ) : null}
+    </>
   );
 }

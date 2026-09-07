@@ -136,8 +136,8 @@ export function TvSettingsPage() {
   }, [secret]);
 
   return (
-    <div className="bg-background min-h-screen overflow-x-clip text-foreground">
-      <main className={cn("pb-24", TV_BROWSE_TOP_PAD_CLASS)}>
+    <div className="tv-settings-page bg-background min-h-screen overflow-x-clip text-foreground">
+      <main className={cn("tv-browse-main pb-24", TV_BROWSE_TOP_PAD_CLASS)}>
         <AppicaHero
           className="py-6"
           eyebrow="Settings"

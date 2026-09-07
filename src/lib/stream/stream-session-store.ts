@@ -59,6 +59,10 @@ export function evictSessionCache(id: string): void {
 export type CookieJar = Record<string, Record<string, string>>;
 
 export type StreamSessionRecord = {
+  /** Signed-in owner for browser playback; null for explicit public/integration relays. */
+  ownerUserId: string | null;
+  /** Hash of a cookie-only grant for an intentionally shared session. */
+  accessGrantHash: string | null;
   upstreamRootUrl: string;
   title: string;
   logo?: string;
@@ -71,6 +75,8 @@ export type StreamSessionRecord = {
   /** Latest upstream `.m3u8` URL — fallback `Referer` when no per-hash entry exists. */
   lastRefererUrl: string | null;
   lastAccessAt: number;
+  /** Hard expiry for public-share sessions; never extended by playback traffic. */
+  absoluteExpiresAt?: number;
   /** Proxy config for this session — every upstream fetch MUST go through this proxy when set. */
   proxyConfig: StoredProxyConfig | null;
 };
@@ -277,6 +283,10 @@ async function warmupCookies(url: string, proxyAgent?: ProxyAgent): Promise<Cook
 }
 
 export async function createStreamSession(input: {
+  /** Bind browser playback to this authenticated user. */
+  ownerUserId?: string;
+  /** Raw one-time grant; only its SHA-256 hash is persisted. */
+  accessGrant?: string;
   upstreamRootUrl: string;
   title: string;
   logo?: string;
@@ -295,10 +305,18 @@ export async function createStreamSession(input: {
   cookies?: Record<string, string>;
   /** When set, ALL upstream fetches for this session go through this proxy — no direct connections. */
   proxyConfig?: StoredProxyConfig;
+  /** Optional hard stop. Used by public share links and never extended. */
+  absoluteExpiresAt?: Date;
 }): Promise<string> {
   const started = Date.now();
   const id = randomBytes(18).toString("base64url");
-  const expiresAt = new Date(Date.now() + SESSION_IDLE_MS);
+  const absoluteExpiresAt = input.absoluteExpiresAt;
+  const expiresAt = new Date(
+    Math.min(
+      Date.now() + SESSION_IDLE_MS,
+      absoluteExpiresAt?.getTime() ?? Number.POSITIVE_INFINITY,
+    ),
+  );
   const upstreamRootUrl =
     input.normalizeXtreamLiveUrl === false
       ? input.upstreamRootUrl.trim()
@@ -342,6 +360,10 @@ export async function createStreamSession(input: {
     await prisma.streamProxySession.create({
       data: {
         id,
+        ownerUserId: input.ownerUserId ?? null,
+        accessGrantHash: input.accessGrant
+          ? createHash("sha256").update(input.accessGrant).digest("hex")
+          : null,
         upstreamRootUrl: upstreamRootUrl,
         title: input.title,
         logo: input.logo ?? null,
@@ -352,6 +374,7 @@ export async function createStreamSession(input: {
         cookieJarJson: JSON.stringify(jar),
         proxyConfigJson: input.proxyConfig ? JSON.stringify(input.proxyConfig) : null,
         expiresAt,
+        absoluteExpiresAt: absoluteExpiresAt ?? null,
       },
     });
   });
@@ -359,6 +382,10 @@ export async function createStreamSession(input: {
   sessionReadCache.set(id, {
     fetchedAt: createdAt,
     record: {
+      ownerUserId: input.ownerUserId ?? null,
+      accessGrantHash: input.accessGrant
+        ? createHash("sha256").update(input.accessGrant).digest("hex")
+        : null,
       upstreamRootUrl,
       title: input.title,
       logo: input.logo,
@@ -369,6 +396,7 @@ export async function createStreamSession(input: {
       cookieJar: jar,
       lastRefererUrl: null,
       lastAccessAt: createdAt,
+      absoluteExpiresAt: absoluteExpiresAt?.getTime(),
       proxyConfig: input.proxyConfig ?? null,
     },
   });
@@ -411,6 +439,14 @@ export async function touchSession(
   // Serve from cache when it's fresh — skips both the findUnique and update.
   const cached = sessionReadCache.get(id);
   if (cached && now - cached.fetchedAt < SESSION_READ_CACHE_TTL_MS) {
+    if (cached.record.absoluteExpiresAt != null && cached.record.absoluteExpiresAt <= now) {
+      sessionReadCache.delete(id);
+      sessionLastTouchWrite.delete(id);
+      enqueueStreamSessionWrite(async () => {
+        await prisma.streamProxySession.deleteMany({ where: { id } });
+      }).catch(() => {});
+      return null;
+    }
     // Still schedule a fire-and-forget write if the interval has elapsed,
     // so the session stays alive even while the cache absorbs all reads.
     const lastWrite = sessionLastTouchWrite.get(id) ?? 0;
@@ -419,7 +455,14 @@ export async function touchSession(
       enqueueStreamSessionWrite(async () => {
         await prisma.streamProxySession.update({
           where: { id },
-          data: { expiresAt: new Date(now + SESSION_IDLE_MS) },
+          data: {
+            expiresAt: new Date(
+              Math.min(
+                now + SESSION_IDLE_MS,
+                cached.record.absoluteExpiresAt ?? Number.POSITIVE_INFINITY,
+              ),
+            ),
+          },
         });
       })
         .catch((err) => {
@@ -439,7 +482,10 @@ export async function touchSession(
     return null;
   }
 
-  if (row.expiresAt.getTime() < now) {
+  if (
+    row.expiresAt.getTime() < now ||
+    (row.absoluteExpiresAt != null && row.absoluteExpiresAt.getTime() <= now)
+  ) {
     enqueueStreamSessionWrite(async () => {
       await prisma.streamProxySession.delete({ where: { id } });
     }).catch((err) => {
@@ -454,6 +500,8 @@ export async function touchSession(
   }
 
   const record: StreamSessionRecord = {
+    ownerUserId: row.ownerUserId ?? null,
+    accessGrantHash: row.accessGrantHash ?? null,
     upstreamRootUrl: row.upstreamRootUrl,
     title: row.title,
     logo: row.logo ?? undefined,
@@ -464,6 +512,7 @@ export async function touchSession(
     cookieJar: parseCookieJarJson(row.cookieJarJson),
     lastRefererUrl: row.lastRefererUrl ?? null,
     lastAccessAt: now,
+    absoluteExpiresAt: row.absoluteExpiresAt?.getTime(),
     proxyConfig: parseProxyConfigJson(row.proxyConfigJson ?? null),
   };
 
@@ -475,7 +524,14 @@ export async function touchSession(
     enqueueStreamSessionWrite(async () => {
       await prisma.streamProxySession.update({
         where: { id },
-        data: { expiresAt: new Date(now + SESSION_IDLE_MS) },
+        data: {
+          expiresAt: new Date(
+            Math.min(
+              now + SESSION_IDLE_MS,
+              row.absoluteExpiresAt?.getTime() ?? Number.POSITIVE_INFINITY,
+            ),
+          ),
+        },
       });
     })
       .catch((err) => {

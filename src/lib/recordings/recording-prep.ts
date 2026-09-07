@@ -10,7 +10,7 @@ import {
 import { applyPublicCorsProxyUnwrap } from "@/lib/stream/public-cors-proxy-url";
 import {
   ZENDE_INTERNAL_RELAY_HEADER,
-  ZENDE_INTERNAL_RELAY_HEADER_VALUE,
+  internalRelayHeaderValue,
 } from "@/lib/stream/internal-relay-request";
 import { createStreamSession } from "@/lib/stream/stream-session-store";
 import { looksLikeHlsPlaylist } from "@/lib/stream/m3u8-rewrite";
@@ -68,7 +68,7 @@ async function verifyRecordingRelayBootstrap(
   try {
     res = await fetch(relayUrl, {
       headers: {
-        [ZENDE_INTERNAL_RELAY_HEADER]: ZENDE_INTERNAL_RELAY_HEADER_VALUE,
+        [ZENDE_INTERNAL_RELAY_HEADER]: internalRelayHeaderValue(),
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         Accept: "*/*",

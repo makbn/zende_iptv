@@ -121,6 +121,18 @@ export function MobileLibraryPage() {
       return null;
     }
   });
+  const [minImdbRating, setMinImdbRating] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = sessionStorage.getItem(LIBRARY_STATE_STORAGE);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { minImdbRating?: number | null };
+      const rating = parsed.minImdbRating;
+      return Number.isInteger(rating) && rating! >= 1 && rating! <= 9 ? rating! : null;
+    } catch {
+      return null;
+    }
+  });
   const { contentTab, setContentTab } = useLibraryContentTab();
   const [offset, setOffset] = useState(() => {
     if (typeof window === "undefined") return 0;
@@ -161,6 +173,7 @@ export function MobileLibraryPage() {
           languageFilter,
           countryFilter,
           yearFilter,
+          minImdbRating,
           offset,
           view,
         }),
@@ -168,7 +181,7 @@ export function MobileLibraryPage() {
     } catch {
       /* ignore */
     }
-  }, [categoryFilter, languageFilter, countryFilter, yearFilter, offset, view]);
+  }, [categoryFilter, languageFilter, countryFilter, yearFilter, minImdbRating, offset, view]);
 
   const { channels, total, facets, loading, refreshing, error: catalogError, hasMore } = useLibraryCatalog({
     contentTab,
@@ -178,6 +191,7 @@ export function MobileLibraryPage() {
     languageFilter,
     countryFilter,
     yearFilter,
+    minImdbRating,
     offset,
     pageSize: PAGE_STEP,
   });
@@ -190,6 +204,7 @@ export function MobileLibraryPage() {
   );
   const countryOptions = facets.countries;
   const yearOptions = facets.years;
+  const ratingOptions = facets.ratings;
 
   useEffect(() => {
     startTransition(() => {
@@ -197,18 +212,19 @@ export function MobileLibraryPage() {
       setLanguageFilter(null);
       setCountryFilter(null);
       setYearFilter(null);
+      setMinImdbRating(null);
       setOffset(0);
     });
   }, [contentTab]);
 
   useEffect(() => {
     startTransition(() => setOffset(0));
-  }, [appliedQuery, categoryFilter, languageFilter, countryFilter, yearFilter]);
+  }, [appliedQuery, categoryFilter, languageFilter, countryFilter, yearFilter, minImdbRating]);
 
   const visible = channels;
   const filteredCount = total;
   const activeFilters = Boolean(
-    appliedQuery.trim() || categoryFilter || languageFilter || countryFilter || yearFilter,
+    appliedQuery.trim() || categoryFilter || languageFilter || countryFilter || yearFilter || minImdbRating,
   );
   const categoryLabel = categoryFilter
     ? categoryOptions.find((option) => option.key === categoryFilter)?.label ?? categoryFilter
@@ -222,12 +238,14 @@ export function MobileLibraryPage() {
   const yearLabel = yearFilter
     ? yearOptions.find((option) => option.key === yearFilter)?.label ?? yearFilter
     : null;
+  const ratingLabel = minImdbRating ? `IMDb ${minImdbRating}+` : null;
   const activeFilterCount = [
     appliedQuery.trim(),
     categoryFilter,
     languageFilter,
     countryFilter,
     yearFilter,
+    minImdbRating,
   ].filter(Boolean).length;
 
   const onSearchKeyDown = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
@@ -324,8 +342,8 @@ export function MobileLibraryPage() {
               onValueChange={(value) =>setCategoryFilter(value ? String(value) : null)}
               aria-label="Category"
             >
-<SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
-              <SelectItem value="">Regular channels</SelectItem>
+<SelectTrigger><SelectValue>{() => `Category, ${categoryLabel ?? "All"}`}</SelectValue></SelectTrigger><SelectContent>
+              <SelectItem value="">Category, All</SelectItem>
               {categoryOptions.map(({ key, label, count }) => (
                 <SelectItem key={key} value={key}>
                   {label} ({count.toLocaleString()})
@@ -338,8 +356,8 @@ export function MobileLibraryPage() {
                 onValueChange={(value) =>setLanguageFilter(value ? String(value) : null)}
                 aria-label="Language"
               >
-<SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
-                <SelectItem value="">All languages</SelectItem>
+<SelectTrigger><SelectValue>{() => `Language, ${languageLabel ?? "All"}`}</SelectValue></SelectTrigger><SelectContent>
+                <SelectItem value="">Language, All</SelectItem>
                 {languageOptions.map((language) => (
                   <SelectItem key={language.key} value={language.key}>
                     {language.label} ({language.count.toLocaleString()})
@@ -351,8 +369,8 @@ export function MobileLibraryPage() {
                 onValueChange={(value) =>setCountryFilter(value ? String(value) : null)}
                 aria-label="Country"
               >
-<SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
-                <SelectItem value="">All countries</SelectItem>
+<SelectTrigger><SelectValue>{() => `Country, ${countryLabel ?? "All"}`}</SelectValue></SelectTrigger><SelectContent>
+                <SelectItem value="">Country, All</SelectItem>
                 {countryOptions.map((country) => (
                   <SelectItem key={country.key} value={country.key}>
                     {country.label} ({country.count.toLocaleString()})
@@ -365,14 +383,30 @@ export function MobileLibraryPage() {
               onValueChange={(value) =>setYearFilter(value ? String(value) : null)}
               aria-label="Year"
             >
-<SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
-              <SelectItem value="">All years</SelectItem>
+<SelectTrigger><SelectValue>{() => `Year, ${yearLabel ?? "All"}`}</SelectValue></SelectTrigger><SelectContent>
+              <SelectItem value="">Year, All</SelectItem>
               {yearOptions.map((year) => (
                 <SelectItem key={year.key} value={year.key}>
                   {year.label} ({year.count.toLocaleString()})
                 </SelectItem>
               ))}
             </SelectContent></Select>
+            {contentTab === "movie" || contentTab === "series" ? (
+              <Select
+                value={minImdbRating ? String(minImdbRating) : ""}
+                onValueChange={(value) => setMinImdbRating(value ? Number(value) : null)}
+                aria-label="Minimum IMDb score"
+              >
+                <SelectTrigger><SelectValue>{() => `Score, ${ratingLabel ?? "All"}`}</SelectValue></SelectTrigger><SelectContent>
+                  <SelectItem value="">Score, All</SelectItem>
+                  {ratingOptions.map(({ min, count }) => (
+                    <SelectItem key={min} value={String(min)}>
+                      IMDb {min}+ ({count.toLocaleString()})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
           </div>
 
           <div className="mt-3 flex items-center gap-2">
@@ -438,6 +472,11 @@ export function MobileLibraryPage() {
                   {yearLabel}
                 </span>
               ) : null}
+              {ratingLabel ? (
+                <span className="shrink-0 rounded-full bg-background-muted px-3 py-1.5 text-[12px] font-semibold text-foreground-intense">
+                  {ratingLabel}
+                </span>
+              ) : null}
               <Button
                 type="button"
                 onClick={() => {
@@ -446,6 +485,7 @@ export function MobileLibraryPage() {
                   setLanguageFilter(null);
                   setCountryFilter(null);
                   setYearFilter(null);
+                  setMinImdbRating(null);
                 }}
                 size="sm"
                 className="shrink-0"
@@ -484,6 +524,7 @@ export function MobileLibraryPage() {
                 setLanguageFilter(null);
                 setCountryFilter(null);
                 setYearFilter(null);
+                setMinImdbRating(null);
               }}
               size="sm"
             >

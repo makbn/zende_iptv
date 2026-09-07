@@ -22,7 +22,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </a>
       <div
         ref={shellRef}
-        className="relative min-h-screen overflow-x-hidden bg-background-subtle selection:bg-primary-soft"
+        className="tv-app-shell relative min-h-screen overflow-x-hidden bg-background-subtle selection:bg-primary-soft"
       >
         <div className="min-h-screen">
           {children}

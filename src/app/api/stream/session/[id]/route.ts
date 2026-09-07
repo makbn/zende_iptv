@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { createServerLogger } from "@/core/logging/server";
 import { touchSession } from "@/lib/stream/stream-session-store";
+import { authorizeStreamSession } from "@/lib/stream/stream-session-auth";
 import {
   inferPlaybackModeFromUrl,
   progressivePlaybackExtension,
@@ -10,9 +11,9 @@ import {
 export const runtime = "nodejs";
 const log = createServerLogger("api.stream.session.meta");
 
-/** Metadata + canonical upstream URL for stats / ring matching (not shown in address bar). */
+/** Client-safe playback metadata. Provider URLs and credentials must never be serialized. */
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
@@ -22,6 +23,9 @@ export async function GET(
     log.warn("Session metadata requested for missing/expired session", { sessionId: id });
     return NextResponse.json({ error: "Unknown or expired session." }, { status: 404 });
   }
+
+  const authorizationFailure = await authorizeStreamSession(request, session, id);
+  if (authorizationFailure) return authorizationFailure;
 
   log.info("Session metadata served", {
     sessionId: id,
@@ -50,11 +54,10 @@ export async function GET(
     logo: session.logo ?? null,
     group: session.group ?? null,
     playbackUrl: needsBrowserTranscode
-      ? `/api/stream/transcode/${id}.mp4`
+      ? `/api/stream/transcode/${id}.m3u8`
       : `/api/stream/proxy/${id}${ext}`,
-    canonicalUrl: session.upstreamRootUrl,
-    playbackMode: mode,
+    playbackMode: needsBrowserTranscode ? "hls" : mode,
     transcoded: needsBrowserTranscode,
     playback: session.meta,
-  });
+  }, { headers: { "Cache-Control": "private, no-store" } });
 }

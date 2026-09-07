@@ -1,1 +1,1 @@
-localStorage.setItem("zende.tv.serverUrl", "https://live.makbn.com");
+// The Tizen build replaces this file in .buildResult using ZENDE_TV_URL from .env.

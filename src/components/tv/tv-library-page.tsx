@@ -137,6 +137,18 @@ export function TvLibraryPage() {
       return null;
     }
   });
+  const [minImdbRating, setMinImdbRating] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = sessionStorage.getItem(LIBRARY_STATE_STORAGE);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { minImdbRating?: number | null };
+      const rating = parsed.minImdbRating;
+      return Number.isInteger(rating) && rating! >= 1 && rating! <= 9 ? rating! : null;
+    } catch {
+      return null;
+    }
+  });
   const { contentTab, setContentTab } = useLibraryContentTab();
   const [offset, setOffset] = useState(() => {
     if (typeof window === "undefined") return 0;
@@ -176,6 +188,7 @@ export function TvLibraryPage() {
           languageFilter,
           countryFilter,
           yearFilter,
+          minImdbRating,
           offset,
           view,
         }),
@@ -183,7 +196,7 @@ export function TvLibraryPage() {
     } catch {
       /* ignore */
     }
-  }, [categoryFilter, languageFilter, countryFilter, yearFilter, offset, view]);
+  }, [categoryFilter, languageFilter, countryFilter, yearFilter, minImdbRating, offset, view]);
 
   const { channels, total, facets, loading, refreshing, error: catalogError, hasMore } = useLibraryCatalog({
     contentTab,
@@ -193,6 +206,7 @@ export function TvLibraryPage() {
     languageFilter,
     countryFilter,
     yearFilter,
+    minImdbRating,
     offset,
     pageSize: PAGE_STEP,
   });
@@ -206,6 +220,7 @@ export function TvLibraryPage() {
   );
   const countryOptions = facets.countries;
   const yearOptions = facets.years;
+  const ratingOptions = facets.ratings;
 
   useEffect(() => {
     startTransition(() => {
@@ -213,19 +228,20 @@ export function TvLibraryPage() {
       setLanguageFilter(null);
       setCountryFilter(null);
       setYearFilter(null);
+      setMinImdbRating(null);
       setOffset(0);
     });
   }, [contentTab]);
 
   useEffect(() => {
     startTransition(() => setOffset(0));
-  }, [appliedQuery, categoryFilter, languageFilter, countryFilter, yearFilter]);
+  }, [appliedQuery, categoryFilter, languageFilter, countryFilter, yearFilter, minImdbRating]);
 
   const visible = channels;
   const filteredCount = total;
   const catalogTotal = total;
   const activeFilters = Boolean(
-    appliedQuery.trim() || categoryFilter || languageFilter || countryFilter || yearFilter,
+    appliedQuery.trim() || categoryFilter || languageFilter || countryFilter || yearFilter || minImdbRating,
   );
   const spotlightChannel = visible[0] ?? null;
   const spotlightLabel = spotlightChannel
@@ -243,12 +259,14 @@ export function TvLibraryPage() {
   const yearLabel = yearFilter
     ? yearOptions.find((option) => option.key === yearFilter)?.label ?? yearFilter
     : null;
+  const ratingLabel = minImdbRating ? `IMDb ${minImdbRating}+` : null;
   const activeFilterCount = [
     appliedQuery.trim(),
     categoryFilter,
     languageFilter,
     countryFilter,
     yearFilter,
+    minImdbRating,
   ].filter(Boolean).length;
 
   const onSearchKeyDown = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
@@ -259,13 +277,14 @@ export function TvLibraryPage() {
   }, [clearSearch]);
 
   return (
-    <div className="bg-background min-h-screen text-foreground">
-      <main className={cn("pb-28", TV_BROWSE_TOP_PAD_CLASS)}>
-        <section className={cn(BROWSE_CONTAINER_CLASS, "pb-3 pt-4")}>
+    <div className="tv-library-page bg-background min-h-screen text-foreground">
+      <main className={cn("tv-library-main pb-28", TV_BROWSE_TOP_PAD_CLASS)}>
+        <section className={cn(BROWSE_CONTAINER_CLASS, "tv-library-header pb-3 pt-4")}>
           <div
             data-tv-layout="horizontal"
             data-tv-skip-initial
-            className="grid gap-4 rounded-lg border border-border bg-background p-4 shadow-sm 2xl:grid-cols-[auto_minmax(24rem,1fr)_auto_minmax(20rem,28rem)] 2xl:items-center"
+            data-tv-nav-down="#library-filter-deck"
+            className="tv-library-header-inner grid gap-4 rounded-lg border border-border bg-background p-4 shadow-sm 2xl:grid-cols-[auto_minmax(24rem,1fr)_auto_minmax(20rem,28rem)] 2xl:items-center"
           >
             <div className="relative min-w-0">
               <div className="flex items-center gap-2">
@@ -281,7 +300,7 @@ export function TvLibraryPage() {
               </h1>
             </div>
 
-            <label className="relative flex min-h-[48px] items-center">
+            <label className="tv-library-search relative flex min-h-[48px] items-center">
               <span className="sr-only">Search channels</span>
               <Search
                 className="pointer-events-none absolute left-4 size-[18px] text-primary-strong/75"
@@ -319,7 +338,7 @@ export function TvLibraryPage() {
               ) : null}
             </label>
 
-            <div className="relative grid grid-cols-3 gap-2 lg:w-[20rem]">
+            <div className="tv-library-metrics relative grid grid-cols-3 gap-2 lg:w-[20rem]">
               <div className="rounded-lg border border-border bg-background px-3 py-2">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground-intense">
                   Showing
@@ -350,7 +369,7 @@ export function TvLibraryPage() {
               </div>
             </div>
 
-            <aside className="min-w-0">
+            <aside className="tv-library-spotlight min-w-0">
               {spotlightChannel && spotlightLabel ? (
                 <Button variant="ghost"
                   type="button"
@@ -389,14 +408,21 @@ export function TvLibraryPage() {
 
         <div
           className={cn(
-            "sticky z-30 border-y border-border backdrop-blur-2xl",
+            "tv-library-filter-sticky sticky z-30 border-y border-border backdrop-blur-2xl",
             TV_BROWSE_STICKY_TOP_CLASS,
             "bg-background-subtle",
           )}
         >
           <div className={cn(BROWSE_CONTAINER_CLASS, "py-3")}>
-            <div className="grid gap-3 rounded-lg border border-border bg-background-muted p-3 ring-1 ring-border xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-center">
-              <div className="flex gap-2 overflow-x-auto" role="tablist" aria-label="Content type">
+            <div
+              id="library-filter-deck"
+              data-tv-layout="horizontal"
+              data-tv-skip-initial
+              data-tv-nav-up="#channel-search"
+              data-tv-nav-down="#library-results"
+              className="tv-library-filter-deck grid gap-3 rounded-lg border border-border bg-background-muted p-3 ring-1 ring-border xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-center"
+            >
+              <div className="tv-library-tabs flex gap-2 overflow-x-auto" role="tablist" aria-label="Content type">
                 {([
                   ["all", "All"],
                   ["live", "Live"],
@@ -422,7 +448,12 @@ export function TvLibraryPage() {
                 ))}
               </div>
 
-              <div className="grid min-w-0 gap-2 md:grid-cols-2 xl:grid-cols-4">
+              <div className={cn(
+                "tv-library-facets grid min-w-0 gap-2 md:grid-cols-2",
+                contentTab === "movie" || contentTab === "series"
+                  ? "xl:grid-cols-5"
+                  : "xl:grid-cols-4",
+              )}>
                 <label className="min-w-0">
                   <span className="sr-only">Category</span>
                   <Select
@@ -430,8 +461,10 @@ export function TvLibraryPage() {
                     onValueChange={(value) => setCategoryFilter(value === "all" ? null : String(value))}
                     size="lg"
                   >
-                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>
-                    <SelectItem value="all">Regular channels</SelectItem>
+                    <SelectTrigger className="w-full">
+                      <SelectValue>{() => `Category, ${categoryLabel ?? "All"}`}</SelectValue>
+                    </SelectTrigger><SelectContent>
+                    <SelectItem value="all">Category, All</SelectItem>
                     {categoryOptions.map(({ key, label, count }) => (
                       <SelectItem key={key} value={key}>
                         {label} ({count.toLocaleString()})
@@ -446,8 +479,10 @@ export function TvLibraryPage() {
                     onValueChange={(value) => setLanguageFilter(value === "all" ? null : String(value))}
                     size="lg"
                   >
-                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>
-                    <SelectItem value="all">All languages</SelectItem>
+                    <SelectTrigger className="w-full">
+                      <SelectValue>{() => `Language, ${languageLabel ?? "All"}`}</SelectValue>
+                    </SelectTrigger><SelectContent>
+                    <SelectItem value="all">Language, All</SelectItem>
                     {languageOptions.map(({ key, label, count }) => (
                       <SelectItem key={key} value={key}>
                         {label} ({count.toLocaleString()})
@@ -462,8 +497,10 @@ export function TvLibraryPage() {
                     onValueChange={(value) => setCountryFilter(value === "all" ? null : String(value))}
                     size="lg"
                   >
-                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>
-                    <SelectItem value="all">All countries</SelectItem>
+                    <SelectTrigger className="w-full">
+                      <SelectValue>{() => `Country, ${countryLabel ?? "All"}`}</SelectValue>
+                    </SelectTrigger><SelectContent>
+                    <SelectItem value="all">Country, All</SelectItem>
                     {countryOptions.map(({ key, label, count }) => (
                       <SelectItem key={key} value={key}>
                         {label} ({count.toLocaleString()})
@@ -478,8 +515,10 @@ export function TvLibraryPage() {
                     onValueChange={(value) => setYearFilter(value === "all" ? null : String(value))}
                     size="lg"
                   >
-                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>
-                    <SelectItem value="all">All years</SelectItem>
+                    <SelectTrigger className="w-full">
+                      <SelectValue>{() => `Year, ${yearLabel ?? "All"}`}</SelectValue>
+                    </SelectTrigger><SelectContent>
+                    <SelectItem value="all">Year, All</SelectItem>
                     {yearOptions.map(({ key, label, count }) => (
                       <SelectItem key={key} value={key}>
                         {label} ({count.toLocaleString()})
@@ -487,6 +526,26 @@ export function TvLibraryPage() {
                     ))}
                   </SelectContent></Select>
                 </label>
+                {contentTab === "movie" || contentTab === "series" ? (
+                  <label className="min-w-0">
+                    <span className="sr-only">Minimum IMDb score</span>
+                    <Select
+                      value={minImdbRating ? String(minImdbRating) : "all"}
+                      onValueChange={(value) => setMinImdbRating(value === "all" ? null : Number(value))}
+                      size="lg"
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue>{() => `Score, ${ratingLabel ?? "All"}`}</SelectValue>
+                      </SelectTrigger><SelectContent>
+                        <SelectItem value="all">Score, All</SelectItem>
+                        {ratingOptions.map(({ min, count }) => (
+                          <SelectItem key={min} value={String(min)}>
+                            IMDb {min}+ ({count.toLocaleString()})
+                          </SelectItem>
+                        ))}
+                      </SelectContent></Select>
+                  </label>
+                ) : null}
               </div>
 
               <div className="flex items-center gap-2 xl:justify-end">
@@ -550,6 +609,11 @@ export function TvLibraryPage() {
                       {yearLabel}
                     </span>
                   ) : null}
+                  {ratingLabel ? (
+                    <span className="rounded-full bg-background-muted px-3 py-1.5 text-[13px] font-semibold text-foreground-intense">
+                      {ratingLabel}
+                    </span>
+                  ) : null}
                   <Button
                     type="button"
                     onClick={() => {
@@ -558,6 +622,7 @@ export function TvLibraryPage() {
                       setLanguageFilter(null);
                       setCountryFilter(null);
                       setYearFilter(null);
+                      setMinImdbRating(null);
                     }}
                     size="sm"
                   >
@@ -570,11 +635,13 @@ export function TvLibraryPage() {
         </div>
 
         <LibraryResultsShell
+          id="library-results"
           busy={resultsBusy}
           label={isSearchPending ? "Searching…" : "Updating results…"}
-          className={cn(BROWSE_CONTAINER_CLASS, "mt-4 lg:mt-5")}
+          className={cn(BROWSE_CONTAINER_CLASS, "tv-library-results mt-4 lg:mt-5")}
         >
-          {!resultsBusy && catalogTotal === 0 && contentTab === "movie" ? (
+          <div data-tv-nav-up="#library-filter-deck">
+            {!resultsBusy && catalogTotal === 0 && contentTab === "movie" ? (
             <div className="rounded-3xl border border-dashed border-border bg-background-muted px-8 py-16 text-center ring-1 ring-border">
               <p className="text-[18px] font-semibold text-foreground-intense">No movies yet</p>
               <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-foreground-intense">
@@ -647,6 +714,9 @@ export function TvLibraryPage() {
                   clearSearch();
                   setCategoryFilter(null);
                   setLanguageFilter(null);
+                  setCountryFilter(null);
+                  setYearFilter(null);
+                  setMinImdbRating(null);
                 }}
                 size="lg"
                 className="mt-6"
@@ -797,7 +867,8 @@ export function TvLibraryPage() {
                 </div>
               ) : null}
             </div>
-          )}
+            )}
+          </div>
         </LibraryResultsShell>
       </main>
 

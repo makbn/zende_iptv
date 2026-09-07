@@ -122,3 +122,36 @@ export function enqueueRemoteCommand(
   session.lastSeenAt = now();
   return queued;
 }
+
+/**
+ * Deliver commands at most once, stopping the batch at the first command that
+ * changes routes. Older TV clients use a full document navigation and lose
+ * their in-memory cursor; draining the delivered prefix prevents that command
+ * from replaying forever after the reload. Commands queued after the route
+ * change remain available to the next page.
+ */
+export function dequeueRemoteCommands(
+  sessionId: string,
+  userId: string,
+  after: number,
+): { commandSeq: number; commands: RemoteCommand[] } | null {
+  const session = getRemoteTvSession(sessionId, userId);
+  if (!session) return null;
+
+  const pending = session.commands.filter((command) => command.seq > after);
+  const routeChangeIndex = pending.findIndex(
+    (command) => command.type === "navigate" || command.type === "playMedia",
+  );
+  const commands = routeChangeIndex >= 0
+    ? pending.slice(0, routeChangeIndex + 1)
+    : pending;
+
+  if (commands.length > 0) {
+    const delivered = new Set(commands.map((command) => command.id));
+    session.commands = session.commands.filter(
+      (command) => !delivered.has(command.id),
+    );
+  }
+
+  return { commandSeq: session.commandSeq, commands };
+}

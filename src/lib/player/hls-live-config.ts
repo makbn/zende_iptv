@@ -1,5 +1,22 @@
 import type { HlsConfig } from "hls.js";
 
+import { Z_ACCESS } from "@/lib/auth/token-storage-keys";
+
+function storedAccessToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(Z_ACCESS);
+  } catch {
+    return null;
+  }
+}
+
+function addStreamAuthorization(headers: Headers): Headers {
+  const accessToken = storedAccessToken();
+  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  return headers;
+}
+
 /**
  * Tuned for typical IPTV / sports HLS (often **not** LL-HLS).
  * `lowLatencyMode: true` keeps the playhead glued to the live edge with tiny buffers,
@@ -8,6 +25,21 @@ import type { HlsConfig } from "hls.js";
  */
 export function getStreamHlsConfig(): Partial<HlsConfig> {
   return {
+    // Native media elements cannot add headers, but hls.js can. This is required
+    // for TV codec fallbacks, whose manifest and segment routes are owner-gated.
+    xhrSetup(xhr) {
+      const accessToken = storedAccessToken();
+      if (accessToken) xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
+      xhr.withCredentials = true;
+    },
+    fetchSetup(context, initParams) {
+      return new Request(context.url, {
+        ...initParams,
+        credentials: "same-origin",
+        headers: addStreamAuthorization(new Headers(initParams.headers)),
+      });
+    },
+
     enableWorker: true,
     lowLatencyMode: false,
 

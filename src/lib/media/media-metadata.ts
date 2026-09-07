@@ -8,7 +8,7 @@ export type MediaCastMember = {
 };
 
 export type MediaScore = {
-  source: "TMDB" | "Provider";
+  source: "IMDb" | "TMDB" | "Provider";
   value: number;
   max: number;
   votes?: number;
@@ -36,6 +36,8 @@ export type MediaMetadata = {
   scores: MediaScore[];
   cast: MediaCastMember[];
   fetchedAt: string;
+  /** Last attempt to add TMDB artwork, credits, and extended facts. */
+  enrichmentAttemptedAt?: string;
 };
 
 export function parseMediaMetadataPayload(payloadJson: string): MediaMetadata | null {

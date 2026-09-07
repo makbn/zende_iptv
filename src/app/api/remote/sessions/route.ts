@@ -27,6 +27,17 @@ const postBodySchema = z.object({
       playing: z.boolean(),
       buffering: z.boolean(),
       seekable: z.boolean(),
+      subtitleSearch: z
+        .object({
+          contentKind: z.enum(["live", "movie", "episode"]).optional(),
+          seriesTitle: z.string().max(512).optional(),
+          season: z.string().max(32).optional(),
+          episodeNum: z.string().max(32).optional(),
+          searchTitle: z.string().max(512).optional(),
+          year: z.string().max(8).optional(),
+          imdbId: z.string().max(32).optional(),
+        })
+        .optional(),
     })
     .optional()
     .nullable(),

@@ -6,11 +6,19 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useState,
   type Ref,
 } from "react";
 
 import { getStreamHlsConfig } from "@/lib/player/hls-live-config";
+import {
+  collectPlaybackTelemetry,
+  streamSessionIdFromUrl,
+} from "@/lib/player/playback-telemetry";
+import { progressiveCompatibilityUrl } from "@/lib/player/progressive-compatibility";
+import { zendeFetch } from "@/lib/auth/zende-fetch";
 import type { PlaybackMode } from "@/lib/stream/playback-url";
+import { isTvEnvironment } from "@/lib/tv/tv-environment";
 import { cn } from "@/lib/utils";
 
 /**
@@ -77,6 +85,30 @@ function looksLikeHls(url: string): boolean {
   );
 }
 
+function createClientPlaybackId(): string {
+  try {
+    return crypto.randomUUID().replaceAll("-", "");
+  } catch {
+    return `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+  }
+}
+
+function playbackSurface(): "tv" | "mobile" | "desktop" | "unknown" {
+  if (isTvEnvironment()) return "tv";
+  if (typeof window === "undefined") return "unknown";
+  return window.matchMedia("(max-width: 767px)").matches ? "mobile" : "desktop";
+}
+
+function safeResourcePath(value: unknown): string | undefined {
+  if (typeof value !== "string" || value.length === 0) return undefined;
+  try {
+    const url = new URL(value, window.location.origin);
+    return `${url.pathname}${url.search}`.slice(0, 500);
+  } catch {
+    return value.slice(0, 500);
+  }
+}
+
 function parseHeightFromResolution(res?: string): number | undefined {
   if (!res) return undefined;
   const m = /(\d+)\s*x\s*(\d+)/.exec(res);
@@ -116,6 +148,17 @@ type MpegTsPlayer = {
   on(event: string, listener: (...args: unknown[]) => void): void;
 };
 
+type CompatibilityFallback = {
+  source: string;
+  url: string;
+};
+
+const COMPATIBILITY_TRANSCODE_HLS_CONFIG: Partial<HlsConfig> = {
+  startPosition: 0,
+  liveMaxLatencyDurationCount: Infinity,
+  maxLiveSyncPlaybackRate: 1,
+};
+
 export function StreamPlayer(
     {
       ref,
@@ -129,6 +172,14 @@ export function StreamPlayer(
     }: Props,
   ) {
     const innerRef = useRef<HTMLVideoElement>(null);
+    const [compatibilityFallback, setCompatibilityFallback] =
+      useState<CompatibilityFallback | null>(null);
+    const usesCompatibilityFallback =
+      playbackMode === "progressive" && compatibilityFallback?.source === src;
+    const activeSrc = usesCompatibilityFallback
+      ? compatibilityFallback.url
+      : src;
+    const activePlaybackMode = usesCompatibilityFallback ? "hls" : playbackMode;
     const setRef = useCallback((node: HTMLVideoElement | null) => {
       innerRef.current = node;
     }, []);
@@ -150,22 +201,180 @@ export function StreamPlayer(
       video.setAttribute("x-webkit-airplay", "allow");
       video.disablePictureInPicture = false;
       video.disableRemotePlayback = false;
-    }, [src]);
+    }, [activeSrc]);
 
     useEffect(() => {
       const video = innerRef.current;
-      if (!video || !src) return;
+      if (!video || !activeSrc) return;
 
       let hls: Hls | null = null;
       let mpegtsPlayer: MpegTsPlayer | null = null;
       let HlsModule: typeof import("hls.js").default | null = null;
       let networkRetryTimer: ReturnType<typeof setTimeout> | null = null;
       let mediaHardResetTimer: ReturnType<typeof setTimeout> | null = null;
+      let nativeErrorListener: (() => void) | null = null;
       let hlsRecreateAttempt = 0;
-      const hlsMode = shouldUseHls(src, playbackMode);
-      const mpegtsMode = playbackMode === "mpegts";
+      const hlsMode = shouldUseHls(activeSrc, activePlaybackMode);
+      const mpegtsMode = activePlaybackMode === "mpegts";
       let isNativeHls = false;
       let cancelled = false;
+      const streamSessionId = streamSessionIdFromUrl(activeSrc);
+      const clientPlaybackId = createClientPlaybackId();
+      const surface = playbackSurface();
+      const telemetryStartedAt = performance.now();
+      const recentEvents: Array<{
+        atMs: number;
+        event: string;
+        details?: Record<string, unknown>;
+      }> = [];
+      let waitingStartedAt: number | null = null;
+      let waitingReportTimer: ReturnType<typeof setInterval> | null = null;
+      let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+      let hlsLoadStoppedForPause = false;
+      let hlsIsLive = false;
+
+      const recordPlaybackEvent = (
+        event: string,
+        details?: Record<string, unknown>,
+      ) => {
+        recentEvents.push({
+          atMs: Math.max(0, Math.round(performance.now() - telemetryStartedAt)),
+          event,
+          ...(details ? { details } : {}),
+        });
+        if (recentEvents.length > 40) recentEvents.splice(0, recentEvents.length - 40);
+      };
+
+      const reportPlaybackEvent = (
+        event: string,
+        context?: Record<string, unknown>,
+      ) => {
+        if (!streamSessionId || cancelled) return;
+        recordPlaybackEvent(event, context);
+        const mediaError = video.error;
+        const stallDurationMs = waitingStartedAt === null
+          ? undefined
+          : Math.max(0, Math.round(performance.now() - waitingStartedAt));
+        void zendeFetch("/api/stream/client-event", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            schemaVersion: 1,
+            sessionId: streamSessionId,
+            clientPlaybackId,
+            event,
+            surface,
+            currentTime: Number.isFinite(video.currentTime) ? video.currentTime : 0,
+            readyState: video.readyState,
+            networkState: video.networkState,
+            paused: video.paused,
+            ...(stallDurationMs !== undefined ? { stallDurationMs } : {}),
+            ...(mediaError?.code ? { errorCode: mediaError.code } : {}),
+            ...(mediaError?.message
+              ? { errorMessage: mediaError.message }
+              : typeof context?.errorMessage === "string"
+                ? { errorMessage: context.errorMessage.slice(0, 500) }
+                : {}),
+            ...(typeof context?.errorType === "string"
+              ? { errorType: context.errorType }
+              : {}),
+            ...(typeof context?.errorDetails === "string"
+              ? { errorDetails: context.errorDetails }
+              : {}),
+            ...(typeof context?.fatal === "boolean" ? { fatal: context.fatal } : {}),
+            ...(context ? { context } : {}),
+            snapshot: collectPlaybackTelemetry(video, hls),
+            recentEvents,
+          }),
+          keepalive: true,
+        }).catch(() => undefined);
+      };
+
+      const clearWaitingReporter = () => {
+        if (waitingReportTimer) {
+          clearInterval(waitingReportTimer);
+          waitingReportTimer = null;
+        }
+      };
+
+      const beginWaiting = (event: "waiting" | "stalled") => {
+        if (waitingStartedAt === null) waitingStartedAt = performance.now();
+        reportPlaybackEvent(event);
+        if (!waitingReportTimer) {
+          waitingReportTimer = setInterval(() => {
+            reportPlaybackEvent("waiting-update");
+          }, 5_000);
+        }
+      };
+
+      const finishWaiting = () => {
+        if (waitingStartedAt === null) {
+          recordPlaybackEvent("playing");
+          return;
+        }
+        const stallDurationMs = Math.max(
+          0,
+          Math.round(performance.now() - waitingStartedAt),
+        );
+        reportPlaybackEvent("recovered", { stallDurationMs });
+        waitingStartedAt = null;
+        clearWaitingReporter();
+      };
+
+      const telemetryListeners: Record<string, () => void> = {
+        loadedmetadata: () => recordPlaybackEvent("loadedmetadata"),
+        loadeddata: () => recordPlaybackEvent("loadeddata"),
+        canplay: () => recordPlaybackEvent("canplay"),
+        playing: finishWaiting,
+        waiting: () => beginWaiting("waiting"),
+        stalled: () => beginWaiting("stalled"),
+        seeking: () => recordPlaybackEvent("seeking"),
+        seeked: () => recordPlaybackEvent("seeked"),
+        pause: () => recordPlaybackEvent("pause"),
+        ended: () => reportPlaybackEvent("ended"),
+        suspend: () => recordPlaybackEvent("suspend"),
+        durationchange: () => recordPlaybackEvent("durationchange"),
+        error: () => reportPlaybackEvent("error"),
+        abort: () => reportPlaybackEvent("abort"),
+      };
+
+      // hls.js continues refreshing a live playlist after the media element is
+      // paused. On single-connection IPTV accounts that invisible traffic can
+      // steal the upstream slot from a TV that is actively playing. Suspend
+      // network loading with the media element, then restart at the live edge
+      // (or the current VOD position) when playback resumes.
+      const suspendHlsLoadWhilePaused = () => {
+        if (!hls || video.ended || hlsLoadStoppedForPause) return;
+        hls.stopLoad();
+        hlsLoadStoppedForPause = true;
+        recordPlaybackEvent("hls-load-suspended", { reason: "media-paused" });
+      };
+      const resumeHlsLoadForPlayback = () => {
+        if (!hls || !hlsLoadStoppedForPause) return;
+        hlsLoadStoppedForPause = false;
+        hls.startLoad(hlsIsLive ? -1 : Math.max(0, video.currentTime));
+        recordPlaybackEvent("hls-load-resumed", {
+          live: hlsIsLive,
+          startPosition: hlsIsLive ? "live-edge" : video.currentTime,
+        });
+      };
+      video.addEventListener("pause", suspendHlsLoadWhilePaused);
+      video.addEventListener("play", resumeHlsLoadForPlayback);
+
+      if (streamSessionId) {
+        for (const [event, listener] of Object.entries(telemetryListeners)) {
+          video.addEventListener(event, listener);
+        }
+        queueMicrotask(() => reportPlaybackEvent("session-start", {
+          hlsMode,
+          mpegtsMode,
+          playbackMode: activePlaybackMode ?? "auto",
+          compatibilityFallback: usesCompatibilityFallback,
+        }));
+        heartbeatTimer = setInterval(() => {
+          reportPlaybackEvent("heartbeat");
+        }, 30_000);
+      }
 
       const bumpSession = () => {
         onSessionChangeRef.current?.(buildSession());
@@ -288,7 +497,7 @@ export function StreamPlayer(
               mediaHardResetTimer = null;
               if (cancelled || !hls) return;
               if (thenReloadSource) {
-                hls.loadSource(src);
+                hls.loadSource(activeSrc);
               }
               hls.attachMedia(video);
               hls.startLoad();
@@ -299,6 +508,9 @@ export function StreamPlayer(
             resetMediaErrorStage();
             networkRetries = 0;
             hlsRecreateAttempt = 0;
+            recordPlaybackEvent("hls-manifest-parsed", {
+              levelCount: hls?.levels.length ?? 0,
+            });
             bumpSession();
             void video.play().catch(() => {
               video.dispatchEvent(new Event("pause"));
@@ -323,6 +535,12 @@ export function StreamPlayer(
             if (!hls || !HlsModule) return;
             hls.off(HlsModule.Events.ERROR);
             hls.off(HlsModule.Events.MANIFEST_PARSED);
+            hls.off(HlsModule.Events.MANIFEST_LOADING);
+            hls.off(HlsModule.Events.MANIFEST_LOADED);
+            hls.off(HlsModule.Events.LEVEL_LOADING);
+            hls.off(HlsModule.Events.LEVEL_LOADED);
+            hls.off(HlsModule.Events.FRAG_LOADING);
+            hls.off(HlsModule.Events.FRAG_LOADED);
             hls.off(HlsModule.Events.LEVEL_SWITCHED);
             hls.off(HlsModule.Events.FRAG_BUFFERED);
             hls.off(HlsModule.Events.AUDIO_TRACKS_UPDATED);
@@ -336,21 +554,78 @@ export function StreamPlayer(
             if (!HlsModule || cancelled) return;
             destroyHlsInstance();
             mediaErrorStage = 0;
+            hlsLoadStoppedForPause = false;
+            hlsIsLive = false;
             hls = new HlsCtor({
               ...getStreamHlsConfig(),
+              ...(usesCompatibilityFallback
+                ? COMPATIBILITY_TRANSCODE_HLS_CONFIG
+                : undefined),
               ...hlsConfigExtra,
               ...configOverrides,
             });
             hls.on(HlsCtor.Events.MANIFEST_PARSED, onManifestParsed);
+            hls.on(HlsCtor.Events.MANIFEST_LOADING, () => {
+              recordPlaybackEvent("hls-manifest-loading");
+            });
+            hls.on(HlsCtor.Events.MANIFEST_LOADED, (_event, data) => {
+              recordPlaybackEvent("hls-manifest-loaded", {
+                levelCount: data.levels?.length ?? 0,
+                stats: {
+                  loaded: data.stats?.loaded ?? null,
+                  total: data.stats?.total ?? null,
+                  loadingStart: data.stats?.loading?.start ?? null,
+                  loadingEnd: data.stats?.loading?.end ?? null,
+                },
+              });
+            });
+            hls.on(HlsCtor.Events.LEVEL_LOADING, (_event, data) => {
+              recordPlaybackEvent("hls-level-loading", { level: data.level });
+            });
+            hls.on(HlsCtor.Events.LEVEL_LOADED, (_event, data) => {
+              hlsIsLive = Boolean(data.details?.live);
+              recordPlaybackEvent("hls-level-loaded", {
+                level: data.level,
+                live: data.details?.live ?? null,
+                age: data.details?.age ?? null,
+                targetDuration: data.details?.targetduration ?? null,
+                fragmentCount: data.details?.fragments?.length ?? 0,
+                startSN: data.details?.startSN ?? null,
+                endSN: data.details?.endSN ?? null,
+              });
+            });
+            hls.on(HlsCtor.Events.FRAG_LOADING, (_event, data) => {
+              recordPlaybackEvent("hls-frag-loading", {
+                type: data.frag?.type ?? null,
+                level: data.frag?.level ?? null,
+                sn: data.frag?.sn ?? null,
+              });
+            });
+            hls.on(HlsCtor.Events.FRAG_LOADED, (_event, data) => {
+              recordPlaybackEvent("hls-frag-loaded", {
+                type: data.frag?.type ?? null,
+                level: data.frag?.level ?? null,
+                sn: data.frag?.sn ?? null,
+                loaded: data.frag?.stats?.loaded ?? null,
+                total: data.frag?.stats?.total ?? null,
+                loadingStart: data.frag?.stats?.loading?.start ?? null,
+                loadingEnd: data.frag?.stats?.loading?.end ?? null,
+              });
+            });
             hls.on(HlsCtor.Events.LEVEL_SWITCHED, bumpSession);
-            hls.on(HlsCtor.Events.FRAG_BUFFERED, () => {
+            hls.on(HlsCtor.Events.FRAG_BUFFERED, (_event, data) => {
               resetMediaErrorStage();
               networkRetries = 0;
+              recordPlaybackEvent("hls-frag-buffered", {
+                type: data.frag?.type ?? null,
+                level: data.frag?.level ?? null,
+                sn: data.frag?.sn ?? null,
+              });
             });
             hls.on(HlsCtor.Events.AUDIO_TRACKS_UPDATED, bumpSession);
             hls.on(HlsCtor.Events.SUBTITLE_TRACKS_UPDATED, bumpSession);
             hls.on(HlsCtor.Events.ERROR, onHlsError);
-            hls.loadSource(src);
+            hls.loadSource(activeSrc);
             hls.attachMedia(video);
             onSessionChangeRef.current?.(buildSession());
           };
@@ -370,6 +645,26 @@ export function StreamPlayer(
               err.fatal ? "(FATAL)" : "",
               err.reason ?? "",
             );
+            reportPlaybackEvent("hls-error", {
+              errorType: err.type,
+              errorDetails: err.details,
+              fatal: err.fatal,
+              responseCode: data.response?.code ?? data.response?.status ?? null,
+              responseText: String(
+                data.response?.text ?? data.response?.statusText ?? "",
+              ).slice(0, 300),
+              resource: safeResourcePath(
+                data.url ?? data.response?.url ?? data.frag?.url,
+              ),
+              frag: data.frag
+                ? {
+                    type: data.frag.type ?? null,
+                    level: data.frag.level ?? null,
+                    sn: data.frag.sn ?? null,
+                  }
+                : null,
+              ...(err.reason ? { errorMessage: err.reason } : {}),
+            });
 
             if (!data.fatal) {
               onErrorRef.current?.(err);
@@ -440,11 +735,15 @@ export function StreamPlayer(
               networkRetryTimer = setTimeout(() => {
                 networkRetryTimer = null;
                 if (!cancelled && hls) {
+                  if (video.paused) {
+                    hlsLoadStoppedForPause = true;
+                    return;
+                  }
                   // A fatal manifest/level error stops hls.js's loader. Merely
                   // calling startLoad() leaves it on a black frame; reload the
                   // same backend-only source so it requests the shared snapshot.
                   hls.stopLoad();
-                  hls.loadSource(src);
+                  hls.loadSource(activeSrc);
                   hls.startLoad();
                 }
               }, 3_000 * networkRetries);
@@ -460,7 +759,7 @@ export function StreamPlayer(
           // Ensure remote playback / PiP stay enabled for Safari.
           video.disablePictureInPicture = false;
           video.disableRemotePlayback = false;
-          video.src = src;
+          video.src = activeSrc;
           video.addEventListener("loadedmetadata", bumpSession);
           video.addEventListener(
             "canplay",
@@ -474,7 +773,33 @@ export function StreamPlayer(
         } else {
           video.disablePictureInPicture = false;
           video.disableRemotePlayback = false;
-          video.src = src;
+          nativeErrorListener = () => {
+            const fallbackUrl = progressiveCompatibilityUrl({
+              src: activeSrc,
+              playbackMode: activePlaybackMode,
+              mediaErrorCode: video.error?.code,
+            });
+            if (fallbackUrl) {
+              reportPlaybackEvent("compatibility-fallback", {
+                from: "native-progressive",
+                to: "hls-transcode",
+                errorCode: video.error?.code ?? null,
+              });
+              setCompatibilityFallback({ source: src, url: fallbackUrl });
+              return;
+            }
+
+            onErrorRef.current?.({
+              type: "media",
+              details: `native-media-error-${video.error?.code ?? "unknown"}`,
+              fatal: true,
+              reason:
+                video.error?.message ||
+                "The browser could not play this media source.",
+            });
+          };
+          video.addEventListener("error", nativeErrorListener);
+          video.src = activeSrc;
           video.addEventListener(
             "canplay",
             () => {
@@ -502,7 +827,7 @@ export function StreamPlayer(
               throw new Error("This browser does not support live MPEG-TS playback.");
             }
             const player = mpegts.createPlayer(
-              { type: "mpegts", isLive: true, url: src, cors: false, withCredentials: true },
+              { type: "mpegts", isLive: true, url: activeSrc, cors: false, withCredentials: true },
               {
                 enableStashBuffer: false,
                 isLive: true,
@@ -513,6 +838,12 @@ export function StreamPlayer(
               },
             ) as MpegTsPlayer;
             player.on(mpegts.Events.ERROR, (...args: unknown[]) => {
+              reportPlaybackEvent("error", {
+                errorType: String(args[0] ?? "mpegts"),
+                errorDetails: String(args[1] ?? "playback-error"),
+                errorMessage: typeof args[2] === "string" ? args[2] : undefined,
+                fatal: true,
+              });
               onErrorRef.current?.({
                 type: String(args[0] ?? "mpegts"),
                 details: String(args[1] ?? "playback-error"),
@@ -522,6 +853,12 @@ export function StreamPlayer(
             });
             mpegtsPlayer = player;
           } catch (e) {
+            reportPlaybackEvent("error", {
+              errorType: "mpegts",
+              errorDetails: "unsupported",
+              errorMessage: e instanceof Error ? e.message : "MPEG-TS player failed to load.",
+              fatal: true,
+            });
             onErrorRef.current?.({
               type: "mpegts",
               details: "unsupported",
@@ -536,6 +873,12 @@ export function StreamPlayer(
             HlsModule = mod.default;
           } catch (e) {
             console.warn("[player] hls.js load failed", e);
+            reportPlaybackEvent("error", {
+              errorType: "hls-loader",
+              errorDetails: "module-load-failed",
+              errorMessage: e instanceof Error ? e.message : String(e),
+              fatal: true,
+            });
           }
         }
         if (cancelled) return;
@@ -545,16 +888,35 @@ export function StreamPlayer(
       })();
 
       return () => {
+        reportPlaybackEvent("session-end");
         cancelled = true;
+        if (streamSessionId) {
+          for (const [event, listener] of Object.entries(telemetryListeners)) {
+            video.removeEventListener(event, listener);
+          }
+        }
+        clearWaitingReporter();
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
+        video.removeEventListener("pause", suspendHlsLoadWhilePaused);
+        video.removeEventListener("play", resumeHlsLoadForPlayback);
         clearMediaHardResetTimer();
         if (networkRetryTimer) clearTimeout(networkRetryTimer);
         if (raf1) cancelAnimationFrame(raf1);
         if (deferredRafId !== null) cancelAnimationFrame(deferredRafId);
+        if (nativeErrorListener) {
+          video.removeEventListener("error", nativeErrorListener);
+        }
         if (hls) {
           try {
             if (HlsModule) {
               hls.off(HlsModule.Events.ERROR);
               hls.off(HlsModule.Events.MANIFEST_PARSED);
+              hls.off(HlsModule.Events.MANIFEST_LOADING);
+              hls.off(HlsModule.Events.MANIFEST_LOADED);
+              hls.off(HlsModule.Events.LEVEL_LOADING);
+              hls.off(HlsModule.Events.LEVEL_LOADED);
+              hls.off(HlsModule.Events.FRAG_LOADING);
+              hls.off(HlsModule.Events.FRAG_LOADED);
               hls.off(HlsModule.Events.LEVEL_SWITCHED);
               hls.off(HlsModule.Events.FRAG_BUFFERED);
               hls.off(HlsModule.Events.AUDIO_TRACKS_UPDATED);
@@ -583,7 +945,13 @@ export function StreamPlayer(
         video.removeAttribute("src");
         video.load();
       };
-    }, [src, hlsConfigExtra, playbackMode]);
+    }, [
+      activePlaybackMode,
+      activeSrc,
+      hlsConfigExtra,
+      src,
+      usesCompatibilityFallback,
+    ]);
 
     return (
       <video

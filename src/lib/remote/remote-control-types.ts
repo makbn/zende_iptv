@@ -13,6 +13,23 @@ export type RemotePlaybackState = {
   playing: boolean;
   buffering: boolean;
   seekable: boolean;
+  subtitleSearch?: Pick<
+    PlaybackSessionMeta,
+    | "contentKind"
+    | "seriesTitle"
+    | "season"
+    | "episodeNum"
+    | "searchTitle"
+    | "year"
+    | "imdbId"
+  >;
+};
+
+export type RemoteSubtitleTrack = {
+  id: string;
+  label: string;
+  language: string;
+  vttUrl: string;
 };
 
 export type RemotePlayableChannel = Pick<M3uChannel, "url" | "name"> &
@@ -30,7 +47,9 @@ export type RemoteCommandInput =
   | { type: "playMedia"; payload: { channel: RemotePlayableChannel } }
   | { type: "togglePlay" | "play" | "pause"; payload?: Record<string, never> }
   | { type: "skip"; payload: { seconds: number } }
-  | { type: "seekTo"; payload: { seconds: number } };
+  | { type: "seekTo"; payload: { seconds: number } }
+  | { type: "subtitleTrack"; payload: { track: RemoteSubtitleTrack } }
+  | { type: "subtitleOff"; payload?: Record<string, never> };
 
 export type RemoteCommand = RemoteCommandInput & {
   id: string;

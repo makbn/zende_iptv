@@ -5,7 +5,7 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@appica/ui-react/c
 import { Progress } from "@appica/ui-react/progress";
 import { ChevronLeft, Download, Play } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   BROWSE_BOTTOM_PAD_MOBILE,
@@ -14,6 +14,7 @@ import {
 } from "@/components/layout/browse-page-shell";
 import { MediaCastRail, MediaMetadataFacts } from "@/components/library/media-metadata-sections";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
+import { ShareMediaButton } from "@/components/shares/share-media-button";
 import { ZendeLoadingState } from "@/components/loading/zende-spinner";
 import { useMovieInfo } from "@/features/iptv/use-movie-info";
 import { secureImageUrl } from "@/lib/media/secure-image-url";
@@ -25,6 +26,8 @@ import {
 } from "@/lib/playback/playback-position";
 import { subscribeViewingStats } from "@/lib/watch/viewing-stats";
 import { cn } from "@/lib/utils";
+import { mediaShareTargetForChannel } from "@/lib/shares/share-target";
+import { isTvEnvironment } from "@/lib/tv/tv-environment";
 
 type Props = {
   movieId: string;
@@ -39,6 +42,7 @@ export function MovieDetailView({ movieId, fallbackTitle, fallbackLogo, fallback
   const [historyRevision, setHistoryRevision] = useState(0);
   const [downloadBusy, setDownloadBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const startMovieButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => subscribeViewingStats(() => setHistoryRevision((value) => value + 1)), []);
 
@@ -68,6 +72,18 @@ export function MovieDetailView({ movieId, fallbackTitle, fallbackLogo, fallback
       },
       }
     : null;
+  const shareTarget = playbackChannel
+    ? mediaShareTargetForChannel(playbackChannel)
+    : null;
+  const playbackUrl = playbackChannel?.url;
+
+  useEffect(() => {
+    if (!playbackUrl || !isTvEnvironment()) return;
+    const frame = window.requestAnimationFrame(() => {
+      startMovieButtonRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [playbackUrl]);
 
   function startPlayback() {
     if (!playbackChannel) return;
@@ -128,13 +144,13 @@ export function MovieDetailView({ movieId, fallbackTitle, fallbackLogo, fallback
     <main
       id="main"
       className={cn(
-        "min-h-screen bg-background text-foreground-intense",
+        "tv-media-detail tv-movie-detail min-h-screen bg-background text-foreground-intense",
         BROWSE_TOP_PAD,
         BROWSE_BOTTOM_PAD_MOBILE,
         "md:pb-16",
       )}
     >
-      <section className="relative isolate min-h-[36rem] overflow-hidden">
+      <section className="tv-media-detail-hero relative isolate min-h-[36rem] overflow-hidden">
         {backdrop ? (
           <div className="absolute inset-0 -z-20" aria-hidden>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -144,7 +160,7 @@ export function MovieDetailView({ movieId, fallbackTitle, fallbackLogo, fallback
         <div className="absolute inset-0 -z-10 bg-gradient-to-r from-background via-background/90 to-background/30" />
         <div className="absolute inset-0 -z-10 bg-gradient-to-t from-background via-transparent to-background/20" />
 
-        <div className={cn(BROWSE_CONTAINER_CLASS, "pb-12 pt-4 sm:pt-8")}>
+        <div className={cn(BROWSE_CONTAINER_CLASS, "tv-media-detail-content pb-12 pt-4 sm:pt-8")}>
           <Button
             variant="ghost"
             render={<Link href="/library?tab=movie" />}
@@ -154,8 +170,8 @@ export function MovieDetailView({ movieId, fallbackTitle, fallbackLogo, fallback
             Movies
           </Button>
 
-          <div className="grid items-end gap-7 md:grid-cols-[13rem_minmax(0,1fr)] lg:grid-cols-[15rem_minmax(0,1fr)]">
-            <Card frame="glass" inset={false} className="mx-auto w-44 overflow-hidden border-border shadow-2xl md:mx-0 md:w-full">
+          <div className="tv-media-detail-layout grid items-end gap-7 md:grid-cols-[13rem_minmax(0,1fr)] lg:grid-cols-[15rem_minmax(0,1fr)]">
+            <Card frame="glass" inset={false} className="tv-media-detail-poster mx-auto w-44 overflow-hidden border-border shadow-2xl md:mx-0 md:w-full">
               {poster ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={secureImageUrl(poster, undefined, "poster")} alt="" className="aspect-[2/3] w-full object-cover" />
@@ -166,7 +182,7 @@ export function MovieDetailView({ movieId, fallbackTitle, fallbackLogo, fallback
               )}
             </Card>
 
-            <div className="min-w-0 text-center md:text-left">
+            <div className="tv-media-detail-copy min-w-0 text-center md:text-left">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary-strong">Movie</p>
               <h1 className="mt-3 text-4xl font-semibold tracking-[-0.045em] sm:text-5xl lg:text-6xl">
                 {title}
@@ -176,13 +192,20 @@ export function MovieDetailView({ movieId, fallbackTitle, fallbackLogo, fallback
               ) : null}
               {metadata ? <div className="mt-5"><MediaMetadataFacts metadata={metadata} /></div> : null}
               {metadata?.overview ? (
-                <p className="mx-auto mt-5 max-w-3xl text-sm leading-6 text-foreground-muted md:mx-0 md:text-base">
+                <p className="tv-media-detail-overview mx-auto mt-5 max-w-3xl text-sm leading-6 text-foreground-muted md:mx-0 md:text-base">
                   {metadata.overview}
                 </p>
               ) : null}
 
-              <div className="mt-7 flex flex-wrap justify-center gap-3 md:justify-start">
-                <Button size="lg" onClick={startPlayback} disabled={!playbackChannel} className="min-w-44 rounded-full">
+              <div className="tv-media-detail-actions mt-7 flex flex-wrap justify-center gap-3 md:justify-start">
+                <Button
+                  ref={startMovieButtonRef}
+                  data-tv-initial-focus
+                  size="lg"
+                  onClick={startPlayback}
+                  disabled={!playbackChannel}
+                  className="min-w-44 rounded-full"
+                >
                   <Play className="size-4 fill-current" aria-hidden />
                   {progress != null ? "Continue" : "Start movie"}
                 </Button>
@@ -197,6 +220,9 @@ export function MovieDetailView({ movieId, fallbackTitle, fallbackLogo, fallback
                   <Download className="size-4" aria-hidden />
                   {downloadBusy ? "Preparing…" : "Download"}
                 </Button>
+                {shareTarget ? (
+                  <ShareMediaButton target={shareTarget} size="lg" showLabel />
+                ) : null}
               </div>
               {progress != null ? (
                 <div className="mx-auto mt-4 max-w-md text-left md:mx-0">

@@ -27,6 +27,1135 @@ html[data-tv-input="remote"] [data-tv-card]:focus {
 
 /* TV hardware volume remains available, while media downloads are not useful on TVs. */
 html[data-tv-input="remote"] [data-tv-hide-control],
-html[data-tv-input="remote"] [data-tv-download] {
+html[data-tv-input="remote"] [data-tv-download],
+html[data-tv-input="remote"] [data-tv-external-link] {
   display: none !important;
+}
+
+/*
+ * Ten-foot UI. These rules are intentionally scoped to the TV runtime marker
+ * set by TvSpatialNavigation; desktop and mobile retain their responsive UI.
+ */
+html[data-tv-input="remote"] {
+  color-scheme: dark;
+  --foreground: #d9dce5;
+  --foreground-subtle: #747b8d;
+  --foreground-muted: #a8aebe;
+  --foreground-strong: #f2f4f8;
+  --foreground-emphasis: #f8f9fb;
+  --foreground-intense: #ffffff;
+  --foreground-inverse: #0b0d13;
+  --background: #080a10;
+  --background-subtle: #0b0e16;
+  --background-muted: #171b26;
+  --background-strong: #232936;
+  --background-inverse: #ffffff;
+  --border: #2a3040;
+  --border-muted: #1d2230;
+  --border-strong: #464e61;
+  --border-emphasis: #687085;
+  --border-intense: #8f97aa;
+  --border-overlay: #343b4c;
+  --primary: #ffffff;
+  --primary-subtle: #1b1f2a;
+  --primary-soft: #2a3040;
+  --primary-muted: #e8eaf0;
+  --primary-strong: #ffffff;
+  --primary-foreground: #0b0d13;
+  --focus-ring: #ff4d94;
+  --focus-ring-primary: #ff4d94;
+  background: #080a10;
+  font-size: 18px;
+  overscroll-behavior: none;
+}
+
+html[data-tv-input="remote"] body {
+  min-width: 100vw;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 72% -20%, rgb(95 43 113 / 0.22), transparent 38rem),
+    #080a10;
+  font-size: 18px;
+  line-height: 1.45;
+}
+
+html[data-tv-input="remote"] :is(*, *::before, *::after) {
+  scrollbar-width: none;
+}
+
+html[data-tv-input="remote"] ::-webkit-scrollbar {
+  display: none;
+}
+
+html[data-tv-input="remote"] .tv-app-shell {
+  background: transparent !important;
+}
+
+html[data-tv-input="remote"] .tv-theme-toggle {
+  display: none !important;
+}
+
+/* Navigation is a persistent TV chrome bar, not a desktop website header. */
+html[data-tv-input="remote"] .tv-top-bar {
+  height: 88px;
+  border-bottom-color: rgb(255 255 255 / 0.07) !important;
+  background: linear-gradient(180deg, rgb(5 7 12 / 0.98), rgb(8 10 16 / 0.92)) !important;
+  box-shadow: 0 14px 36px rgb(0 0 0 / 0.25);
+  backdrop-filter: blur(24px) saturate(130%);
+}
+
+html[data-tv-input="remote"] .tv-top-bar-container {
+  max-width: none !important;
+  padding-inline: 3.5vw !important;
+}
+
+html[data-tv-input="remote"] .tv-top-bar-row {
+  height: 88px !important;
+}
+
+html[data-tv-input="remote"] .tv-brand-link {
+  gap: 12px !important;
+}
+
+html[data-tv-input="remote"] .tv-brand-link img {
+  width: 44px !important;
+}
+
+html[data-tv-input="remote"] .tv-brand-link span:first-of-type {
+  font-size: 24px !important;
+  font-weight: 700;
+}
+
+html[data-tv-input="remote"] .tv-brand-link span:last-of-type {
+  display: none !important;
+}
+
+html[data-tv-input="remote"] .tv-main-nav {
+  max-width: min(58vw, 920px) !important;
+  gap: 6px !important;
+}
+
+html[data-tv-input="remote"] .tv-nav-link {
+  height: 54px !important;
+  border: 0 !important;
+  border-radius: 12px;
+  padding-inline: 18px !important;
+  color: #a8aebe !important;
+  font-size: 17px !important;
+  font-weight: 600 !important;
+  transition: color 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+
+html[data-tv-input="remote"] .tv-nav-link[aria-current="page"] {
+  background: rgb(255 255 255 / 0.1);
+  color: #ffffff !important;
+}
+
+html[data-tv-input="remote"] .tv-nav-link:focus-visible {
+  background: #ffffff !important;
+  color: #080a10 !important;
+  transform: scale(1.04);
+}
+
+html[data-tv-input="remote"] .tv-top-bar-actions {
+  gap: 8px !important;
+}
+
+html[data-tv-input="remote"] .tv-top-bar-actions > :is(button, a, div > button) {
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 50% !important;
+  background: rgb(255 255 255 / 0.07);
+}
+
+html[data-tv-input="remote"] .tv-top-bar-actions > div > button {
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 50% !important;
+  background: rgb(255 255 255 / 0.07);
+}
+
+/* Shared TV typography, spacing and content shelves. */
+html[data-tv-input="remote"] :is(.tv-page, .tv-browse-main, .tv-library-main) {
+  padding-top: 112px !important;
+  padding-bottom: 72px !important;
+  background: transparent !important;
+}
+
+html[data-tv-input="remote"] .tv-home-shelves {
+  padding-bottom: 64px !important;
+}
+
+html[data-tv-input="remote"] .tv-home-shelves > * + * {
+  margin-top: 42px !important;
+}
+
+html[data-tv-input="remote"] .tv-section {
+  max-width: none !important;
+  padding-inline: 4vw !important;
+  scroll-margin-top: 110px;
+}
+
+html[data-tv-input="remote"] .tv-section-heading {
+  margin-bottom: 17px !important;
+}
+
+html[data-tv-input="remote"] .tv-section-heading h2 {
+  margin-top: 2px !important;
+  font-size: 28px !important;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+html[data-tv-input="remote"] .tv-section-heading p:first-child {
+  color: #ff7caf !important;
+  font-size: 13px !important;
+  font-weight: 750 !important;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+html[data-tv-input="remote"] .tv-section-heading h2 + p {
+  max-width: 820px !important;
+  color: #a8aebe !important;
+  font-size: 16px !important;
+}
+
+html[data-tv-input="remote"] .tv-rail {
+  margin-inline: -4vw !important;
+  gap: 20px !important;
+  overflow-y: visible !important;
+  padding: 10px 4vw 34px !important;
+  scroll-padding-inline: 4vw;
+  scroll-snap-type: x proximity;
+}
+
+html[data-tv-input="remote"] .tv-rail > .tv-media-card {
+  width: 226px !important;
+}
+
+html[data-tv-input="remote"] .tv-rail > div .tv-media-card {
+  width: 100% !important;
+}
+
+html[data-tv-input="remote"] .tv-media-card {
+  border-color: rgb(255 255 255 / 0.09) !important;
+  border-radius: 14px !important;
+  background: #11151f !important;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.22);
+  transform-origin: center center;
+  transition:
+    transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 160ms ease,
+    box-shadow 160ms ease !important;
+}
+
+html[data-tv-input="remote"] .tv-media-card-copy {
+  min-height: 86px !important;
+  padding: 13px 14px 14px !important;
+}
+
+html[data-tv-input="remote"] .tv-media-card-title {
+  font-size: 17px !important;
+  font-weight: 650 !important;
+  line-height: 1.25 !important;
+}
+
+html[data-tv-input="remote"] .tv-media-card-meta {
+  margin-top: 6px !important;
+  color: #9ba2b4 !important;
+  font-size: 13px !important;
+}
+
+html[data-tv-input="remote"] .tv-media-card-actions {
+  opacity: 0.35;
+  transition: opacity 140ms ease;
+}
+
+html[data-tv-input="remote"] .tv-media-card:focus .tv-media-card-actions {
+  opacity: 1;
+}
+
+html[data-tv-input="remote"] [data-tv-card]:focus {
+  z-index: 40;
+  outline: 4px solid #ffffff !important;
+  outline-offset: 3px;
+  border-color: #ffffff !important;
+  box-shadow:
+    0 0 0 7px rgb(255 77 148 / 0.88),
+    0 24px 54px rgb(0 0 0 / 0.72) !important;
+  transform: scale(1.055) translateY(-4px);
+}
+
+/* Library: remove dashboard clutter and make filters D-pad-sized. */
+html[data-tv-input="remote"] .tv-library-header,
+html[data-tv-input="remote"] .tv-library-results,
+html[data-tv-input="remote"] .tv-library-filter-sticky > div {
+  max-width: none !important;
+  padding-inline: 4vw !important;
+}
+
+html[data-tv-input="remote"] .tv-library-header {
+  padding-top: 14px !important;
+  padding-bottom: 14px !important;
+}
+
+html[data-tv-input="remote"] .tv-library-header-inner {
+  display: grid !important;
+  grid-template-columns: minmax(260px, 0.55fr) minmax(520px, 1.45fr) !important;
+  align-items: center;
+  gap: 32px !important;
+  border: 0 !important;
+  padding: 10px 0 16px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-tv-input="remote"] .tv-library-header-inner h1 {
+  margin-top: 4px !important;
+  font-size: 38px !important;
+  letter-spacing: -0.045em !important;
+}
+
+html[data-tv-input="remote"] :is(.tv-library-metrics, .tv-library-spotlight) {
+  display: none !important;
+}
+
+html[data-tv-input="remote"] .tv-library-search {
+  min-height: 58px !important;
+}
+
+html[data-tv-input="remote"] .tv-library-search input {
+  height: 58px !important;
+  border-color: rgb(255 255 255 / 0.13) !important;
+  border-radius: 14px !important;
+  background: #141925 !important;
+  padding-left: 52px !important;
+  color: #ffffff !important;
+  font-size: 18px !important;
+}
+
+html[data-tv-input="remote"] .tv-library-filter-sticky {
+  top: 88px !important;
+  border-color: rgb(255 255 255 / 0.07) !important;
+  background: rgb(8 10 16 / 0.94) !important;
+  backdrop-filter: blur(26px) saturate(125%);
+}
+
+html[data-tv-input="remote"] .tv-library-filter-deck {
+  grid-template-columns: auto minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 16px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 13px 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-tv-input="remote"] .tv-library-tabs {
+  gap: 6px !important;
+}
+
+html[data-tv-input="remote"] .tv-library-tabs button {
+  min-height: 54px !important;
+  border-radius: 12px !important;
+  padding-inline: 18px !important;
+  font-size: 16px !important;
+}
+
+html[data-tv-input="remote"] .tv-library-facets {
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+html[data-tv-input="remote"] .tv-library-facets [role="combobox"] {
+  min-height: 54px !important;
+  border-radius: 12px !important;
+  background: #171b26 !important;
+  font-size: 15px !important;
+}
+
+html[data-tv-input="remote"] .tv-library-results {
+  margin-top: 24px !important;
+}
+
+html[data-tv-input="remote"] .tv-library-results [data-tv-layout="grid"] {
+  padding: 10px 6px 34px !important;
+}
+
+html[data-tv-input="remote"] .poster-grid {
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 1.25rem;
+}
+
+/* Media details open like a streaming-app title page, with play as the clear next action. */
+html[data-tv-input="remote"] .tv-media-detail {
+  padding-top: 88px !important;
+  padding-bottom: 0 !important;
+  background: #080a10 !important;
+}
+
+html[data-tv-input="remote"] .tv-media-detail-hero {
+  min-height: calc(100vh - 88px) !important;
+}
+
+html[data-tv-input="remote"] .tv-media-detail-hero > [aria-hidden]:first-child img {
+  opacity: 0.62 !important;
+}
+
+html[data-tv-input="remote"] .tv-media-detail-content,
+html[data-tv-input="remote"] .tv-series-content {
+  max-width: none !important;
+  padding-inline: 4vw !important;
+}
+
+html[data-tv-input="remote"] .tv-media-detail-content {
+  display: flex;
+  min-height: calc(100vh - 88px);
+  flex-direction: column;
+  justify-content: center;
+  padding-top: 26px !important;
+  padding-bottom: 54px !important;
+}
+
+html[data-tv-input="remote"] .tv-media-detail-content > a,
+html[data-tv-input="remote"] .tv-media-detail-content > button:first-child {
+  align-self: flex-start;
+  min-height: 48px;
+  margin-bottom: 22px !important;
+  padding-inline: 18px;
+  font-size: 16px;
+}
+
+html[data-tv-input="remote"] .tv-media-detail-layout {
+  display: grid !important;
+  grid-template-columns: 270px minmax(0, 1fr) !important;
+  align-items: end !important;
+  gap: 42px !important;
+}
+
+html[data-tv-input="remote"] .tv-media-detail-poster {
+  width: 270px !important;
+  border-radius: 16px !important;
+  border-color: rgb(255 255 255 / 0.18) !important;
+  box-shadow: 0 30px 70px rgb(0 0 0 / 0.62) !important;
+}
+
+html[data-tv-input="remote"] .tv-media-detail-copy {
+  max-width: 1040px;
+  text-align: left !important;
+}
+
+html[data-tv-input="remote"] .tv-media-detail-copy > h1 {
+  margin-top: 8px !important;
+  font-size: clamp(48px, 4.1vw, 72px) !important;
+  line-height: 1.02 !important;
+  letter-spacing: -0.05em !important;
+}
+
+html[data-tv-input="remote"] .tv-media-detail-overview {
+  max-width: 900px !important;
+  margin-inline: 0 !important;
+  color: #c2c6d1 !important;
+  font-size: 18px !important;
+  line-height: 1.6 !important;
+}
+
+html[data-tv-input="remote"] .tv-media-detail-actions {
+  justify-content: flex-start !important;
+  gap: 14px !important;
+}
+
+html[data-tv-input="remote"] .tv-media-detail-actions button {
+  min-width: 190px;
+  min-height: 58px;
+  border-radius: 12px !important;
+  padding-inline: 24px !important;
+  font-size: 17px !important;
+  font-weight: 700 !important;
+}
+
+html[data-tv-input="remote"] .tv-series-content {
+  padding-top: 36px;
+}
+
+html[data-tv-input="remote"] .tv-season-tabs {
+  gap: 10px !important;
+  padding: 10px 6px 30px !important;
+}
+
+html[data-tv-input="remote"] .tv-season-tabs button {
+  min-height: 52px;
+  padding-inline: 22px !important;
+  font-size: 16px !important;
+}
+
+html[data-tv-input="remote"] .tv-episode-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 16px !important;
+}
+
+html[data-tv-input="remote"] .tv-episode-card {
+  min-height: 92px;
+  border-radius: 14px !important;
+  background: #141925 !important;
+}
+
+html[data-tv-input="remote"] .tv-episode-card button {
+  min-height: 64px;
+}
+
+/* Player chrome stays compact but has couch-readable labels and generous D-pad targets. */
+html[data-tv-input="remote"] .tv-player-top-chrome {
+  padding: 28px 3vw 86px !important;
+  background: linear-gradient(180deg, rgb(0 0 0 / 0.88), rgb(0 0 0 / 0.5) 55%, transparent) !important;
+}
+
+html[data-tv-input="remote"] .tv-player-top-chrome button,
+html[data-tv-input="remote"] .tv-player-top-chrome a {
+  min-height: 52px;
+  padding-inline: 18px;
+  font-size: 16px;
+}
+
+html[data-tv-input="remote"] .tv-player-title {
+  font-size: 22px !important;
+  line-height: 1.2 !important;
+}
+
+html[data-tv-input="remote"] .tv-player-bottom-inner {
+  max-width: none !important;
+  padding-inline: 3vw !important;
+  padding-bottom: 22px !important;
+}
+
+html[data-tv-input="remote"] .tv-player-control-panel {
+  border: 1px solid rgb(255 255 255 / 0.12) !important;
+  border-radius: 22px !important;
+  background: rgb(12 15 23 / 0.93) !important;
+  box-shadow: 0 28px 80px rgb(0 0 0 / 0.66) !important;
+  backdrop-filter: blur(28px) saturate(135%);
+}
+
+html[data-tv-input="remote"] .tv-player-control-panel > div:last-child {
+  padding: 18px 22px 20px !important;
+}
+
+html[data-tv-input="remote"] .tv-player-time-row {
+  margin-bottom: 9px !important;
+  font-size: 15px !important;
+}
+
+html[data-tv-input="remote"] .tv-player-control-row {
+  margin-top: 12px !important;
+  gap: 10px !important;
+}
+
+html[data-tv-input="remote"] .tv-player-control-row button {
+  min-width: 56px !important;
+  min-height: 56px !important;
+}
+
+html[data-tv-input="remote"] .tv-player-control-row button svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* Settings, recordings, guide and overlays share comfortable remote targets. */
+html[data-tv-input="remote"] .tv-page-hero {
+  max-width: none !important;
+  padding: 34px 4vw !important;
+}
+
+html[data-tv-input="remote"] .tv-page-hero h1 {
+  font-size: 46px !important;
+}
+
+html[data-tv-input="remote"] .tv-page-hero p {
+  font-size: 17px !important;
+}
+
+html[data-tv-input="remote"] :is(.tv-settings-page, .tv-recordings-page, .tv-favorites-page) main > div {
+  max-width: none;
+}
+
+html[data-tv-input="remote"] :is(button, a[href], [role="button"], [role="tab"], [role="menuitem"], [role="combobox"]) {
+  scroll-margin: 110px 4vw;
+}
+
+html[data-tv-input="remote"] :is(input, select, textarea, [role="combobox"]) {
+  min-height: 52px;
+  font-size: 17px;
+}
+
+html[data-tv-input="remote"] [role="dialog"] {
+  font-size: 17px;
+}
+
+html[data-tv-input="remote"] [role="dialog"] :is(button, a[href], [role="button"], [role="menuitem"], [role="option"]) {
+  min-height: 52px;
+}
+
+/* Pairing is readable from the couch and keeps the raw URL out of the TV UI. */
+html[data-tv-input="remote"] .tv-login-page {
+  justify-content: center;
+  padding: 48px 6vw !important;
+  background:
+    radial-gradient(circle at 50% 18%, rgb(255 77 148 / 0.13), transparent 28rem),
+    #080a10 !important;
+}
+
+html[data-tv-input="remote"] .tv-login-panel {
+  min-height: 0 !important;
+  max-width: 920px !important;
+}
+
+html[data-tv-input="remote"] .tv-login-panel > h1 {
+  margin-top: 6px !important;
+  font-size: 48px !important;
+}
+
+html[data-tv-input="remote"] .tv-login-panel > h1 + p {
+  max-width: 760px;
+  font-size: 18px !important;
+}
+
+html[data-tv-input="remote"] .tv-login-qr {
+  margin-top: 30px !important;
+  border-color: rgb(255 255 255 / 0.1) !important;
+  border-radius: 20px !important;
+  background: rgb(17 21 31 / 0.9) !important;
+  box-shadow: 0 30px 80px rgb(0 0 0 / 0.42);
+}
+
+html[data-tv-input="remote"] .tv-login-qr-content {
+  padding: 30px 32px !important;
+}
+
+html[data-tv-input="remote"] .tv-login-qr-content > p:first-child {
+  color: #ff7caf !important;
+  font-size: 14px !important;
+  letter-spacing: 0.12em;
+}
+
+html[data-tv-input="remote"] .tv-login-qr-content > p:nth-child(2) {
+  font-size: 17px !important;
+}
+
+html[data-tv-input="remote"] .tv-login-qr-row {
+  align-items: center !important;
+  gap: 34px !important;
+}
+
+html[data-tv-input="remote"] .tv-login-qr-code {
+  border-radius: 16px !important;
+  padding: 16px !important;
+  background: #ffffff !important;
+}
+
+html[data-tv-input="remote"] .tv-login-qr-code svg,
+html[data-tv-input="remote"] .tv-login-qr-code > div {
+  width: 320px !important;
+  height: 320px !important;
+}
+
+html[data-tv-input="remote"] .tv-login-qr-copy {
+  text-align: left !important;
+}
+
+html[data-tv-input="remote"] .tv-login-qr-copy > p:first-child {
+  font-size: 21px !important;
+  font-weight: 650;
+}
+
+html[data-tv-input="remote"] .tv-login-pair-url {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-tv-input="remote"] [data-tv-card]:focus,
+  html[data-tv-input="remote"] .tv-nav-link:focus-visible {
+    transform: none;
+  }
+}
+
+/* Cinematic home — full-bleed hero and compact landscape rails. */
+.tv-top-bar--home {
+  border-bottom-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.tv-top-bar--home .tv-top-bar-surface {
+  background: transparent !important;
+}
+
+.tv-home-page {
+  min-height: 100vh;
+  overflow: hidden;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  background:
+    radial-gradient(circle at 72% 16%, rgb(25 74 119 / 0.16), transparent 38rem),
+    #020914 !important;
+}
+
+.tv-home-hero {
+  position: relative;
+  height: clamp(540px, 62vh, 670px);
+  min-height: 540px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.tv-home-hero-art {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #07101c;
+}
+
+.tv-home-hero-art-fallback,
+.tv-home-hero-art-blur,
+.tv-home-hero-art-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.tv-home-hero-art-fallback {
+  opacity: 0.5;
+}
+
+.tv-home-hero-art-blur {
+  transform: scale(1.18);
+  object-fit: cover;
+  filter: blur(28px) saturate(1.22);
+  opacity: 0.48;
+}
+
+.tv-home-hero-art-image {
+  left: 0;
+  width: 100%;
+  object-fit: cover;
+  object-position: center 28%;
+  filter: saturate(0.92) contrast(1.04);
+  opacity: 0.84;
+}
+
+.tv-home-hero-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(90deg, #020914 0%, rgb(2 9 20 / 0.98) 27%, rgb(2 9 20 / 0.78) 43%, rgb(2 9 20 / 0.12) 72%, rgb(2 9 20 / 0.38) 100%),
+    linear-gradient(0deg, #020914 0%, rgb(2 9 20 / 0.96) 10%, transparent 46%),
+    linear-gradient(180deg, rgb(2 9 20 / 0.38), transparent 30%);
+}
+
+.tv-home-hero-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  width: min(40vw, 680px);
+  height: 100%;
+  flex-direction: column;
+  justify-content: center;
+  padding: 98px 0 88px 4.5vw;
+}
+
+.tv-home-hero-eyebrow {
+  margin: 0;
+  color: #c0c6d4;
+  font-size: clamp(11px, 0.72vw, 14px);
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+}
+
+.tv-home-hero-content h1 {
+  display: -webkit-box;
+  max-width: 700px;
+  margin: 12px 0 0;
+  overflow: hidden;
+  color: #fff;
+  font-size: clamp(42px, 3.25vw, 62px);
+  font-weight: 750;
+  line-height: 0.98;
+  letter-spacing: -0.05em;
+  text-wrap: balance;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.tv-home-hero-meta {
+  margin: 15px 0 0;
+  color: #c5cad5;
+  font-size: clamp(14px, 1vw, 18px);
+  font-weight: 540;
+  line-height: 1.3;
+}
+
+.tv-home-hero-description {
+  display: -webkit-box;
+  max-width: 620px;
+  margin: 13px 0 0;
+  overflow: hidden;
+  color: #bcc2ce;
+  font-size: clamp(15px, 1vw, 18px);
+  line-height: 1.55;
+  text-wrap: pretty;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.tv-home-hero-actions {
+  display: flex;
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.tv-home-hero-actions > button {
+  min-width: 152px;
+  min-height: 56px;
+  border: 1px solid rgb(255 255 255 / 0.08) !important;
+  border-radius: 13px !important;
+  padding-inline: 24px !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+}
+
+.tv-home-hero-actions > button svg {
+  width: 19px;
+  height: 19px;
+}
+
+.tv-home-hero-primary {
+  background: #f8f8fb !important;
+  color: #080b11 !important;
+  box-shadow: 0 0 28px rgb(255 51 137 / 0.25) !important;
+}
+
+.tv-home-hero-secondary {
+  background: rgb(20 28 42 / 0.78) !important;
+  color: #e8ebf1 !important;
+  backdrop-filter: blur(14px);
+}
+
+.tv-home-hero-dots {
+  position: absolute;
+  z-index: 3;
+  right: 4.5vw;
+  bottom: 158px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tv-home-hero-dots span {
+  width: 10px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgb(167 177 196 / 0.38);
+}
+
+.tv-home-hero-dots span.is-active {
+  width: 20px;
+  background: #ff3f91;
+  box-shadow: 0 0 14px rgb(255 63 145 / 0.55);
+}
+
+.tv-home-shelves {
+  position: relative;
+  z-index: 5;
+  margin-top: -142px;
+  padding-bottom: 72px;
+}
+
+.tv-home-shelves > * + * {
+  margin-top: 18px;
+}
+
+.tv-home-section {
+  padding-inline: 4.5vw;
+  scroll-margin-top: 96px;
+}
+
+.tv-home-section h2 {
+  margin: 0 0 10px;
+  color: #fff;
+  font-size: clamp(20px, 1.55vw, 29px);
+  font-weight: 700;
+  line-height: 1.18;
+  letter-spacing: -0.035em;
+}
+
+.tv-home-rail {
+  display: flex;
+  gap: 16px;
+  margin-inline: -4.5vw;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: 8px 4.5vw 24px;
+  scroll-padding-inline: 4.5vw;
+  scroll-snap-type: x proximity;
+}
+
+.tv-home-card-wrap {
+  width: clamp(230px, 17.5vw, 336px);
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+
+.tv-home-card-wrap.is-compact {
+  width: clamp(188px, 14.4vw, 276px);
+}
+
+.tv-home-card {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  border-radius: 12px;
+  padding: 0;
+  background: #101824;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.26);
+  color: #fff;
+  cursor: pointer;
+  text-align: left;
+  transform-origin: center;
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.tv-home-card-fallback,
+.tv-home-card-vignette,
+.tv-home-card img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.tv-home-card-fallback {
+  opacity: 0.72;
+}
+
+.tv-home-card img {
+  object-fit: cover;
+  object-position: center 25%;
+  transition: transform 450ms cubic-bezier(0.2, 0.8, 0.2, 1), filter 180ms ease;
+}
+
+.tv-home-card-vignette {
+  background: linear-gradient(0deg, rgb(1 5 12 / 0.92), transparent 58%);
+}
+
+.tv-home-card-title {
+  position: absolute;
+  right: 13px;
+  bottom: 20px;
+  left: 13px;
+  overflow: hidden;
+  font-size: clamp(13px, 0.92vw, 17px);
+  font-weight: 720;
+  line-height: 1.18;
+  text-overflow: ellipsis;
+  text-shadow: 0 2px 9px rgb(0 0 0 / 0.78);
+  white-space: nowrap;
+}
+
+.tv-home-card-progress {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  left: 12px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(198 207 222 / 0.25);
+}
+
+.tv-home-card-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #ff3f91;
+  box-shadow: 0 0 12px rgb(255 63 145 / 0.75);
+}
+
+.tv-home-card-meta {
+  margin: 8px 3px 0;
+  overflow: hidden;
+  color: #9fa8b9;
+  font-size: clamp(12px, 0.78vw, 15px);
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tv-home-card:hover img {
+  transform: scale(1.035);
+}
+
+.tv-home-loading-cards {
+  display: flex;
+  gap: 16px;
+  overflow: hidden;
+}
+
+.tv-home-loading-cards span {
+  width: clamp(230px, 17.5vw, 336px);
+  aspect-ratio: 16 / 9;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  background: linear-gradient(110deg, #101824 25%, #172335 42%, #101824 60%);
+  background-size: 220% 100%;
+  animation: tv-home-shimmer 1.6s linear infinite;
+}
+
+.tv-home-library-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  margin-inline: 4.5vw;
+  border: 1px solid rgb(255 255 255 / 0.09);
+  border-radius: 16px;
+  padding: 26px 28px;
+  background: linear-gradient(120deg, rgb(18 27 42 / 0.94), rgb(10 16 27 / 0.9));
+}
+
+.tv-home-library-cta p {
+  margin: 0 0 4px;
+  color: #ff77b0;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.tv-home-library-cta h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 25px;
+  letter-spacing: -0.03em;
+}
+
+.tv-home-shelf-error {
+  margin: 0;
+  padding: 0 4.5vw 36px;
+  color: #a8aebe;
+  font-size: 14px;
+}
+
+@keyframes tv-home-shimmer {
+  to { background-position: -220% 0; }
+}
+
+html[data-tv-input="remote"] .tv-top-bar.tv-top-bar--home {
+  height: 76px;
+  border-bottom-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+html[data-tv-input="remote"] .tv-top-bar--home .tv-top-bar-row {
+  height: 76px !important;
+}
+
+html[data-tv-input="remote"] .tv-top-bar--home .tv-top-bar-container {
+  padding-inline: 4.5vw !important;
+}
+
+html[data-tv-input="remote"] .tv-top-bar--home .tv-brand-link {
+  gap: 10px !important;
+}
+
+html[data-tv-input="remote"] .tv-top-bar--home .tv-brand-link img {
+  width: 38px !important;
+}
+
+html[data-tv-input="remote"] .tv-top-bar--home .tv-brand-link span:first-of-type {
+  font-size: 21px !important;
+}
+
+html[data-tv-input="remote"] .tv-top-bar--home .tv-main-nav {
+  gap: 8px !important;
+}
+
+html[data-tv-input="remote"] .tv-top-bar--home .tv-nav-link {
+  height: 44px !important;
+  border-radius: 11px;
+  padding-inline: 15px !important;
+  font-size: 15px !important;
+}
+
+html[data-tv-input="remote"] .tv-top-bar--home .tv-top-bar-actions > :is(button, a, div > button),
+html[data-tv-input="remote"] .tv-top-bar--home .tv-top-bar-actions > div > button {
+  width: 44px !important;
+  height: 44px !important;
+}
+
+html[data-tv-input="remote"] .tv-top-bar--home .tv-nav-link[aria-current="page"] {
+  background: #f7f7fa;
+  color: #090b11 !important;
+  box-shadow: 0 6px 22px rgb(0 0 0 / 0.3);
+}
+
+html[data-tv-input="remote"] .tv-home-page {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  background: #020914 !important;
+}
+
+html[data-tv-input="remote"] .tv-home-shelves {
+  padding-bottom: 72px !important;
+}
+
+html[data-tv-input="remote"] .tv-home-shelves > * + * {
+  margin-top: 18px !important;
+}
+
+html[data-tv-input="remote"] .tv-home-card:focus {
+  z-index: 40;
+  border-color: #ff4d99 !important;
+  outline: 3px solid #ff4d99 !important;
+  outline-offset: 1px;
+  box-shadow:
+    0 0 0 2px rgb(255 255 255 / 0.56),
+    0 0 24px 5px rgb(255 54 145 / 0.56),
+    0 18px 42px rgb(0 0 0 / 0.7) !important;
+  transform: scale(1.035) translateY(-2px);
+}
+
+html[data-tv-input="remote"] .tv-home-card:focus img {
+  filter: saturate(1.08) brightness(1.04);
+  transform: scale(1.035);
+}
+
+@media (max-width: 1180px) {
+  .tv-home-hero-content { width: 52vw; }
+  .tv-home-card-wrap { width: 230px; }
+  .tv-home-card-wrap.is-compact { width: 190px; }
+}
+
+@media (max-height: 760px) {
+  .tv-home-hero { height: 520px; min-height: 520px; }
+  .tv-home-hero-content { padding-bottom: 88px; }
+  .tv-home-shelves { margin-top: -116px; }
+  .tv-home-section h2 { margin-bottom: 8px; }
+  .tv-home-rail { padding-bottom: 20px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tv-home-card,
+  .tv-home-card img { transition: none; }
+  .tv-home-loading-cards span { animation: none; }
+  html[data-tv-input="remote"] .tv-home-card:focus { transform: none; }
 }

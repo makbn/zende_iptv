@@ -3,114 +3,163 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#08090c" />
     <title>Zende</title>
     <link rel="icon" href="/zende-logo.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/legacy/legacy.css?v=2" />
+    <link rel="stylesheet" href="/legacy/legacy.css?v=3" />
   </head>
   <body>
     <div class="legacy-root">
       <div id="legacy-screen-boot" class="legacy-screen is-active">
-        <div class="legacy-loading">Loading Zende…</div>
+        <div class="legacy-boot-mark">
+          <img src="/zende-logo.svg" alt="" />
+          <strong>Zende</strong>
+          <span class="legacy-spinner" aria-hidden="true"></span>
+        </div>
       </div>
 
       <div id="legacy-screen-login" class="legacy-screen">
-        <div class="legacy-login">
-          <h2>Sign in</h2>
-          <div id="legacy-pair-code-container" style="display: none; margin-bottom: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">
-            <img id="legacy-pair-qr" src="" alt="QR Code" style="width: 150px; height: 150px; margin: 0 auto 10px; display: block; border-radius: 4px; background: white; padding: 4px;" />
-            <p style="margin: 0 0 10px; color: #9aa8b8; font-size: 14px;">Or go to <strong id="legacy-pair-uri" style="color:#f7faff"></strong></p>
-            <p style="margin: 0; color: #9aa8b8; font-size: 14px;"><strong id="legacy-pair-code" style="font-size: 16px; color:#38d9ff; display:block; margin-top:8px"></strong></p>
+        <div class="legacy-login-shell">
+          <div class="legacy-login-brand">
+            <div class="legacy-brand-lockup">
+              <img src="/zende-logo.svg" alt="" />
+              <span>Zende</span>
+            </div>
+            <p class="legacy-kicker">YOUR ENTERTAINMENT, BEAUTIFULLY SIMPLE</p>
+            <h1>Everything you love.<br />One screen away.</h1>
+            <p class="legacy-login-copy">Live television, movies, series, and recordings—made comfortable for the big screen.</p>
           </div>
-          <form id="legacy-login-form">
-            <div class="legacy-field">
-              <label for="legacy-username">Username</label>
-              <input id="legacy-username" name="username" autocomplete="username" />
+          <div class="legacy-login-card">
+            <p class="legacy-eyebrow">WELCOME BACK</p>
+            <h2>Sign in to Zende</h2>
+            <p class="legacy-muted">Use your remote, or approve this TV from a signed-in phone.</p>
+            <div id="legacy-pair-code-container" class="legacy-pair-panel is-hidden">
+              <img id="legacy-pair-qr" src="" alt="Pair this television" />
+              <div>
+                <span class="legacy-eyebrow">QUICK SIGN IN</span>
+                <p>Scan with your phone, or visit<br /><strong id="legacy-pair-uri"></strong></p>
+                <strong id="legacy-pair-code" class="legacy-accent"></strong>
+              </div>
             </div>
-            <div class="legacy-field">
-              <label for="legacy-password">Password</label>
-              <input
-                id="legacy-password"
-                name="password"
-                type="password"
-                autocomplete="current-password"
-              />
-            </div>
-            <button type="submit" class="legacy-btn">Sign in</button>
-          </form>
-          <p class="legacy-login-hint">
-            <button id="legacy-modern-login" type="button" class="legacy-link-btn">
-              Try full app instead
-            </button>
-          </p>
+            <div id="legacy-login-status" class="legacy-form-status" aria-live="polite"></div>
+            <form id="legacy-login-form">
+              <div class="legacy-field">
+                <label for="legacy-username">Username</label>
+                <input id="legacy-username" name="username" autocomplete="username" />
+              </div>
+              <div class="legacy-field">
+                <label for="legacy-password">Password</label>
+                <input id="legacy-password" name="password" type="password" autocomplete="current-password" />
+              </div>
+              <button type="submit" class="legacy-btn legacy-btn-primary legacy-btn-wide">Sign in</button>
+            </form>
+            <button id="legacy-modern-login" type="button" class="legacy-link-btn">This TV supports the full app? Try it here</button>
+          </div>
         </div>
       </div>
 
       <div id="legacy-screen-home" class="legacy-screen">
         <header class="legacy-topbar">
-          <div class="legacy-topbar-title">
-            <h1>Zende <span class="legacy-badge">TV Lite</span></h1>
-          </div>
-          <nav class="legacy-nav" id="legacy-nav">
+          <button type="button" class="legacy-home-logo" data-tab="home" aria-label="Zende home">
+            <img src="/zende-logo.svg" alt="" />
+            <span>Zende</span>
+            <small>TV</small>
+          </button>
+          <nav class="legacy-nav" id="legacy-nav" aria-label="Main navigation">
             <button type="button" class="legacy-nav-btn is-active" data-tab="home">Home</button>
             <button type="button" class="legacy-nav-btn" data-tab="library">Library</button>
             <button type="button" class="legacy-nav-btn" data-tab="favorites">Favorites</button>
-            <button type="button" class="legacy-nav-btn" data-tab="search">Search</button>
+            <button type="button" class="legacy-nav-btn" data-tab="guide">Guide</button>
+            <button type="button" class="legacy-nav-btn" data-tab="recordings">Recordings</button>
           </nav>
-          <button id="legacy-logout-btn" type="button" class="legacy-btn legacy-btn-secondary" style="margin-right: 8px;">
-            Log out
-          </button>
-          <button id="legacy-modern-btn" type="button" class="legacy-btn legacy-btn-secondary">
-            Full app
-          </button>
+          <div class="legacy-top-actions">
+            <button id="legacy-search-toggle" type="button" class="legacy-icon-btn" data-tab="search" aria-label="Search">⌕</button>
+            <button id="legacy-account-toggle" type="button" class="legacy-avatar" aria-label="Account menu">?</button>
+          </div>
+          <div id="legacy-account-menu" class="legacy-account-menu is-hidden">
+            <div class="legacy-account-user">
+              <span class="legacy-eyebrow">SIGNED IN AS</span>
+              <strong id="legacy-account-name">Viewer</strong>
+              <span class="legacy-safe-label">● Safe mode always on</span>
+            </div>
+            <button id="legacy-modern-btn" type="button">Try full app</button>
+            <button id="legacy-logout-btn" type="button">Sign out</button>
+          </div>
         </header>
 
-        <div id="legacy-search-bar" class="legacy-toolbar is-hidden">
-          <input
-            id="legacy-search-input"
-            type="search"
-            placeholder="Search live TV, movies, and shows"
-            autocomplete="off"
-          />
-          <button id="legacy-search-prev" type="button" class="legacy-btn legacy-btn-secondary" style="display:none; margin-right:8px;">Prev</button>
-          <button id="legacy-search-next" type="button" class="legacy-btn legacy-btn-secondary" style="display:none; margin-right:8px;">Next</button>
-          <button id="legacy-search-go" type="button" class="legacy-btn">Search</button>
-        </div>
+        <main class="legacy-main">
+          <div id="legacy-page-heading" class="legacy-page-heading is-hidden">
+            <p id="legacy-page-eyebrow" class="legacy-eyebrow"></p>
+            <h1 id="legacy-page-title"></h1>
+            <p id="legacy-page-description" class="legacy-page-description"></p>
+          </div>
 
-        <div id="legacy-library-filters" class="legacy-filter-row is-hidden">
-          <button type="button" class="legacy-filter-btn is-active" data-filter="all">All</button>
-          <button type="button" class="legacy-filter-btn" data-filter="live">Live</button>
-          <button type="button" class="legacy-filter-btn" data-filter="movie">Movies</button>
-          <button type="button" class="legacy-filter-btn" data-filter="series">Shows</button>
-        </div>
+          <div id="legacy-search-bar" class="legacy-toolbar is-hidden">
+            <div class="legacy-search-box">
+              <span aria-hidden="true">⌕</span>
+              <input id="legacy-search-input" type="search" placeholder="Search titles, channels, or programmes" autocomplete="off" />
+              <button id="legacy-search-go" type="button" class="legacy-btn legacy-btn-primary">Search</button>
+            </div>
+            <div class="legacy-pager">
+              <button id="legacy-search-prev" type="button" class="legacy-btn legacy-btn-secondary is-hidden">Previous</button>
+              <span id="legacy-search-page"></span>
+              <button id="legacy-search-next" type="button" class="legacy-btn legacy-btn-secondary is-hidden">Next</button>
+            </div>
+          </div>
 
-        <div id="legacy-status" class="legacy-status"></div>
-        <div id="legacy-shelves" class="legacy-shelves">
-          <div class="legacy-loading">Loading channels…</div>
-        </div>
+          <div id="legacy-library-filters" class="legacy-filter-row is-hidden">
+            <button type="button" class="legacy-filter-btn is-active" data-filter="all">All</button>
+            <button type="button" class="legacy-filter-btn" data-filter="live">Live</button>
+            <button type="button" class="legacy-filter-btn" data-filter="movie">Movies</button>
+            <button type="button" class="legacy-filter-btn" data-filter="series">Shows</button>
+          </div>
+
+          <div id="legacy-status" class="legacy-status" aria-live="polite"></div>
+          <div id="legacy-shelves" class="legacy-shelves">
+            <div class="legacy-loading"><span class="legacy-spinner"></span>Loading your library…</div>
+          </div>
+        </main>
       </div>
 
       <div id="legacy-screen-series" class="legacy-screen">
-        <header class="legacy-series-bar">
-          <button id="legacy-series-back" type="button" class="legacy-back">Back</button>
-          <h2 id="legacy-series-title" class="legacy-series-title">Show</h2>
+        <header class="legacy-detail-bar">
+          <button id="legacy-series-back" type="button" class="legacy-back">‹ <span>Back</span></button>
+          <div class="legacy-brand-lockup legacy-detail-logo"><img src="/zende-logo.svg" alt="" /><span>Zende</span></div>
         </header>
-        <div id="legacy-series-status" class="legacy-status"></div>
-        <div id="legacy-series-episodes" class="legacy-shelves">
-          <div class="legacy-loading">Loading episodes…</div>
-        </div>
+        <main class="legacy-detail-main">
+          <section id="legacy-series-hero" class="legacy-series-hero">
+            <div id="legacy-series-art" class="legacy-series-art"></div>
+            <div class="legacy-series-copy">
+              <p class="legacy-eyebrow">SERIES</p>
+              <h1 id="legacy-series-title">Show</h1>
+              <p id="legacy-series-meta" class="legacy-page-description">Choose an episode to start watching.</p>
+            </div>
+          </section>
+          <div id="legacy-series-status" class="legacy-status" aria-live="polite"></div>
+          <div id="legacy-series-episodes" class="legacy-series-episodes">
+            <div class="legacy-loading"><span class="legacy-spinner"></span>Loading episodes…</div>
+          </div>
+        </main>
       </div>
 
       <div id="legacy-screen-player" class="legacy-screen">
         <div class="legacy-player">
-          <div class="legacy-player-bar">
-            <button id="legacy-back" type="button" class="legacy-back">Back</button>
-            <span id="legacy-player-title" class="legacy-player-title">Playing</span>
-          </div>
           <video id="legacy-video" controls playsinline></video>
+          <div id="legacy-player-shade" class="legacy-player-shade"></div>
+          <div id="legacy-player-bar" class="legacy-player-bar">
+            <button id="legacy-back" type="button" class="legacy-back">‹ <span>Back</span></button>
+            <div class="legacy-player-copy">
+              <span id="legacy-player-type" class="legacy-eyebrow">NOW PLAYING</span>
+              <strong id="legacy-player-title">Playing</strong>
+              <span id="legacy-player-meta"></span>
+            </div>
+            <span id="legacy-player-live" class="legacy-live-pill">● LIVE</span>
+          </div>
         </div>
       </div>
     </div>
+    <script src="/legacy/qrcode.js"></script>
     <script src="/legacy/hls.min.js"></script>
-    <script src="/legacy/legacy.js?v=8"></script>
+    <script src="/legacy/legacy.js?v=10"></script>
   </body>
 </html>

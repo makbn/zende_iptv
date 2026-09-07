@@ -185,8 +185,8 @@ export function TvFavoritesPage() {
   const favCount = enriched.length;
 
   return (
-    <div className="bg-background min-h-screen text-foreground">
-      <main className={cn("pb-28", TV_BROWSE_TOP_PAD_CLASS)}>
+    <div className="tv-favorites-page bg-background min-h-screen text-foreground">
+      <main className={cn("tv-browse-main pb-28", TV_BROWSE_TOP_PAD_CLASS)}>
         <div
           className={cn(
             "sticky z-30 border-b border-border transition-[background-color,backdrop-filter] duration-300",

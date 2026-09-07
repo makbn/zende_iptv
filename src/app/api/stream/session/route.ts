@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createServerLogger } from "@/core/logging/server";
-import { gateApiRequest } from "@/lib/auth/gate-api";
+import {
+  gateApiRequest,
+  getBearerToken,
+  setStreamAccessCookie,
+} from "@/lib/auth/gate-api";
 import { PUBLIC_INTERNAL_ERROR } from "@/lib/http/public-error";
 import { hashStreamUrl } from "@/lib/health/url-hash";
 import { lookupEnabledProviderChannelsByUrls } from "@/lib/iptv/provider-store";
@@ -195,6 +199,7 @@ export async function POST(request: Request) {
     );
 
     const id = await createStreamSession({
+      ownerUserId: gate.authEnabled ? gate.user.id : undefined,
       upstreamRootUrl: upstream.href,
       title: (parsed.data.title ?? "").trim() || "Live",
       logo: parsed.data.logo?.trim() || undefined,
@@ -211,7 +216,12 @@ export async function POST(request: Request) {
       unwrappedCorsProxyUrl: rawUrl !== resolvedUrl,
       elapsedMs: Date.now() - started,
     });
-    return NextResponse.json({ id });
+    const response = NextResponse.json({ id });
+    if (gate.authEnabled) {
+      const token = getBearerToken(request);
+      if (token) setStreamAccessCookie(response, request, token);
+    }
+    return response;
   } catch (err) {
     log.error("Session create failed", {
       upstreamHost: upstream.host,

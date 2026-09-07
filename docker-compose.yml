@@ -25,6 +25,7 @@ services:
       LOG_ERROR_MAX_FILES: "${LOG_ERROR_MAX_FILES:-5}"
       NODE_ENV: production
       PORT: "${PORT:-8077}"
+      TZ: "${TZ:-UTC}"
       # Built-in HDHomeRun emulator — off by default; Plex uses Threadfin (:34400) instead.
       ZENDE_HDHR_ENABLED: "${ZENDE_HDHR_ENABLED:-0}"
       ZENDE_HDHR_TUNER_COUNT: "${ZENDE_HDHR_TUNER_COUNT:-4}"
@@ -54,7 +55,14 @@ services:
       # Required for production auth: signs JWT access/refresh tokens (Settings → Authentication).
       AUTH_JWT_SECRET: "${AUTH_JWT_SECRET:-zende-local-dev-jwt-secret-change-in-prod}"
       # Optional: Bearer for cron, registry sync, health sweep APIs (Settings → Server).
-      # CRON_SECRET: "change-me-to-a-long-random-string"
+      CRON_SECRET: "${CRON_SECRET:-}"
+      # Nightly IMDb ratings refresh. Defaults to 03:15 in TZ.
+      ZENDE_IMDB_NIGHTLY_ENABLED: "${ZENDE_IMDB_NIGHTLY_ENABLED:-1}"
+      ZENDE_IMDB_NIGHTLY_HOUR: "${ZENDE_IMDB_NIGHTLY_HOUR:-3}"
+      ZENDE_IMDB_NIGHTLY_MINUTE: "${ZENDE_IMDB_NIGHTLY_MINUTE:-15}"
+      # Optional overrides; default to IMDb's official daily non-commercial TSV files.
+      IMDB_BASICS_DATASET_URL: "${IMDB_BASICS_DATASET_URL:-}"
+      IMDB_RATINGS_DATASET_URL: "${IMDB_RATINGS_DATASET_URL:-}"
 
       # Optional: VOD subtitle search via OpenSubtitles (free API key at opensubtitles.com).
       # WYZIE_API_KEY: "your-wyzie-key"

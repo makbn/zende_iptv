@@ -21,6 +21,10 @@ const externalKey = (channel: M3uChannel) =>
 
 type ProviderChannelRow = IptvProviderChannel & {
   provider: Pick<IptvProvider, "id" | "name">;
+  mediaMetadata?: {
+    imdbRating: number | null;
+    imdbVotes: number | null;
+  } | null;
 };
 
 function providerChannelFromRow(row: ProviderChannelRow): M3uChannel {
@@ -45,6 +49,12 @@ function providerChannelFromRow(row: ProviderChannelRow): M3uChannel {
     providerId: row.provider.id,
     providerName: row.provider.name,
     providerChannelId: row.id,
+    ...(row.mediaMetadata?.imdbRating != null
+      ? { imdbRating: row.mediaMetadata.imdbRating }
+      : {}),
+    ...(row.mediaMetadata?.imdbVotes != null
+      ? { imdbVotes: row.mediaMetadata.imdbVotes }
+      : {}),
   };
 }
 
@@ -86,7 +96,10 @@ export async function createProviderWithChannels(input: ProviderInput, channels:
 export async function loadEnabledProviderChannels(): Promise<M3uChannel[]> {
   const rows = await prisma.iptvProviderChannel.findMany({
     where: { provider: { enabled: true } },
-    include: { provider: { select: { id: true, name: true } } },
+    include: {
+      provider: { select: { id: true, name: true } },
+      mediaMetadata: { select: { imdbRating: true, imdbVotes: true } },
+    },
     orderBy: { name: "asc" },
   });
   return rows.map(providerChannelFromRow);

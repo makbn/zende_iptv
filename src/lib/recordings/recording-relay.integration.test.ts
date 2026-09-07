@@ -6,7 +6,7 @@ import { GET as streamProxyGet } from "@/app/api/stream/proxy/[sessionId]/route"
 import { createStreamSession } from "@/lib/stream/stream-session-store";
 import {
   ZENDE_INTERNAL_RELAY_HEADER,
-  ZENDE_INTERNAL_RELAY_HEADER_VALUE,
+  internalRelayHeaderValue,
 } from "@/lib/stream/internal-relay-request";
 import { resetSharedStreamCacheForTests } from "@/lib/stream/shared-response-cache";
 import { resetSharedRootPinsForTests } from "@/lib/stream/shared-root-pin-cache";
@@ -28,6 +28,7 @@ describe("recording relay (stream proxy + loopback origin)", () => {
   let edgeBHits = 0;
   let edgeAAvailable = true;
   let segmentHits = 0;
+  const progressiveRanges: Array<string | undefined> = [];
 
   beforeEach(() => {
     resetSharedManifestCacheForTests();
@@ -99,6 +100,24 @@ describe("recording relay (stream proxy + loopback origin)", () => {
         res.end(ts188());
         return;
       }
+      if (u.startsWith("/movie/test/test/99.mp4")) {
+        const range = req.headers.range;
+        progressiveRanges.push(range);
+        const match = /^bytes=(\d+)-(\d*)$/.exec(range ?? "");
+        const headers: Record<string, string> = {
+          "Content-Type": "video/mp4",
+          "Accept-Ranges": "bytes",
+          "Content-Length": "4",
+        };
+        if (match) {
+          const end = match[2] || "999999999";
+          headers["Content-Range"] =
+            `bytes ${match[1]}-${end}/1000000000`;
+        }
+        res.writeHead(match ? 206 : 200, headers);
+        res.end(Buffer.from([0, 0, 0, 0]));
+        return;
+      }
       res.writeHead(404);
       res.end();
     });
@@ -130,7 +149,7 @@ describe("recording relay (stream proxy + loopback origin)", () => {
     });
 
     const internal = {
-      [ZENDE_INTERNAL_RELAY_HEADER]: ZENDE_INTERNAL_RELAY_HEADER_VALUE,
+      [ZENDE_INTERNAL_RELAY_HEADER]: internalRelayHeaderValue(),
     } as Record<string, string>;
 
     const boot = await streamProxyGet(
@@ -171,10 +190,11 @@ describe("recording relay (stream proxy + loopback origin)", () => {
     const sessionId = await createStreamSession({
       upstreamRootUrl: upstreamRoot,
       title: "vitest-seg",
+      meta: { contentKind: "live" },
     });
 
     const internal = {
-      [ZENDE_INTERNAL_RELAY_HEADER]: ZENDE_INTERNAL_RELAY_HEADER_VALUE,
+      [ZENDE_INTERNAL_RELAY_HEADER]: internalRelayHeaderValue(),
     } as Record<string, string>;
 
     const boot = await streamProxyGet(
@@ -206,9 +226,38 @@ describe("recording relay (stream proxy + loopback origin)", () => {
       { params: Promise.resolve({ sessionId }) },
     );
     expect(segRes.status).toBe(200);
+    expect(segRes.headers.get("cache-control")).toBe("private, max-age=120");
     const buf = new Uint8Array(await segRes.arrayBuffer());
     expect(buf.length).toBe(188);
     expect(buf[0]).toBe(0x47);
+  });
+
+  it("preserves open-ended progressive seek ranges and response headers", async () => {
+    progressiveRanges.length = 0;
+    const upstreamRoot =
+      `http://127.0.0.1:${upstreamPort}/movie/test/test/99.mp4`;
+    const sessionId = await createStreamSession({
+      upstreamRootUrl: upstreamRoot,
+      title: "vitest-progressive",
+    });
+
+    const response = await streamProxyGet(
+      new Request(
+        `http://127.0.0.1:8077/api/stream/proxy/${sessionId}.mp4`,
+        { headers: { Range: "bytes=400000000-" } },
+      ),
+      { params: Promise.resolve({ sessionId: `${sessionId}.mp4` }) },
+    );
+
+    expect(response.status).toBe(206);
+    expect(progressiveRanges.at(-1)).toBe("bytes=400000000-");
+    expect(response.headers.get("accept-ranges")).toBe("bytes");
+    expect(response.headers.get("content-range"))
+      .toBe("bytes 400000000-999999999/1000000000");
+    expect(response.headers.get("x-accel-buffering")).toBe("no");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("vary")).toContain("Range");
+    await response.arrayBuffer();
   });
 
   it("pins a redirected live playlist CDN and falls back to the provider origin", async () => {

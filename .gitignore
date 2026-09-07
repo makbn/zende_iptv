@@ -19,6 +19,7 @@
 
 # production
 /build
+/tv/tizen/.buildResult/configured-server.js
 
 # misc
 .DS_Store

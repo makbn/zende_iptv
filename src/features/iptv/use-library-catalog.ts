@@ -16,6 +16,7 @@ type LibraryFacets = {
   languages: Array<{ key: string; label: string; count: number }>;
   countries: Array<{ key: string; label: string; count: number }>;
   years: Array<{ key: string; label: string; count: number }>;
+  ratings: Array<{ min: number; count: number }>;
 };
 
 type CachedResult = {
@@ -61,6 +62,7 @@ async function fetchLibraryCatalogPage(
             languages: body.facets.languages ?? [],
             countries: body.facets.countries ?? [],
             years: body.facets.years ?? [],
+            ratings: body.facets.ratings ?? [],
           }
         : {
             groups: [],
@@ -68,6 +70,7 @@ async function fetchLibraryCatalogPage(
             languages: [],
             countries: [],
             years: [],
+            ratings: [],
           },
       cachedAt: Date.now(),
     };
@@ -87,6 +90,7 @@ export function useLibraryCatalog(input: {
   languageFilter: string | null;
   countryFilter?: string | null;
   yearFilter?: string | null;
+  minImdbRating?: number | null;
   offset: number;
   pageSize: number;
 }) {
@@ -99,6 +103,7 @@ export function useLibraryCatalog(input: {
     languages: [],
     countries: [],
     years: [],
+    ratings: [],
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -113,8 +118,9 @@ export function useLibraryCatalog(input: {
     languages: [],
     countries: [],
     years: [],
+    ratings: [],
   });
-  const filterKey = `${input.contentTab}|${input.query}|${input.groupFilter}|${input.categoryFilter ?? null}|${input.languageFilter}|${input.countryFilter ?? null}|${input.yearFilter ?? null}`;
+  const filterKey = `${input.contentTab}|${input.query}|${input.groupFilter}|${input.categoryFilter ?? null}|${input.languageFilter}|${input.countryFilter ?? null}|${input.yearFilter ?? null}|${input.minImdbRating ?? null}`;
   const pageKey = `${filterKey}|${input.offset}|${input.pageSize}`;
   const lastFilterKey = useRef(filterKey);
 
@@ -202,6 +208,7 @@ export function useLibraryCatalog(input: {
         if (input.languageFilter) params.set("language", input.languageFilter);
         if (input.countryFilter) params.set("country", input.countryFilter);
         if (input.yearFilter) params.set("year", input.yearFilter);
+        if (input.minImdbRating) params.set("minImdbRating", String(input.minImdbRating));
 
         const requestKey = params.toString();
         const fetched = await fetchLibraryCatalogPage(
@@ -238,7 +245,7 @@ export function useLibraryCatalog(input: {
         if (!isAppend) {
           setChannels([]);
           setTotal(0);
-          setFacets({ groups: [], categories: [], languages: [], countries: [], years: [] });
+          setFacets({ groups: [], categories: [], languages: [], countries: [], years: [], ratings: [] });
         }
         setError(err instanceof Error ? err.message : "Failed to load library");
       } finally {
@@ -262,6 +269,7 @@ export function useLibraryCatalog(input: {
     input.languageFilter,
     input.countryFilter,
     input.yearFilter,
+    input.minImdbRating,
     input.query,
     pageKey,
     reloadNonce,

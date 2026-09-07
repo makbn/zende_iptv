@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Keep the waveform inside Android's adaptive-icon safe zone and centered at 54,54. -->
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.72"
+        android:scaleY="0.72">
+        <path
+            android:fillColor="#FD367E"
+            android:pathData="M12,48 L12,61 C12,66 18,66 18,61 L18,48 C18,43 12,43 12,48 M23,45 L23,64 C23,69 29,69 29,64 L29,45 C29,40 23,40 23,45 M34,37 L34,72 C34,77 40,77 40,72 L40,37 C40,32 34,32 34,37 M45,22 L45,87 C45,92 51,92 51,87 L51,22 C51,17 45,17 45,22 M57,27 L57,82 C57,87 63,87 63,82 L63,27 C63,22 57,22 57,27 M68,37 L68,72 C68,77 74,77 74,72 L74,37 C74,32 68,32 68,37 M79,45 L79,64 C79,69 85,69 85,64 L85,45 C85,40 79,40 79,45 M90,48 L90,61 C90,66 96,66 96,61 L96,48 C96,43 90,43 90,48" />
+    </group>
+</vector>

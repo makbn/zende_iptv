@@ -72,6 +72,7 @@ export function MediaMetadataFacts({ metadata }: { metadata: MediaMetadata }) {
           ))}
           {metadata.imdbId ? (
             <Button
+              data-tv-external-link
               variant="secondary"
               render={
                 <a

@@ -10,6 +10,7 @@ import {
   type MediaScore,
 } from "@/lib/media/media-metadata";
 import { parseXtreamDurationSeconds } from "@/lib/playback/stream-session-meta";
+import { preserveImdbRating } from "@/lib/media/imdb-rating";
 import {
   fetchTmdbMediaDetails,
   searchTmdbMedia,
@@ -19,6 +20,7 @@ import type { TmdbMediaMatch } from "@/lib/tmdb/types";
 
 const log = createServerLogger("lib.media.metadata");
 const inflight = new Map<string, Promise<MediaMetadata | null>>();
+const ENRICHMENT_RETRY_AGE_MS = 24 * 60 * 60 * 1_000;
 
 export type MediaMetadataInput = {
   mediaKey: string;
@@ -184,10 +186,24 @@ function mergeTmdb(portal: MediaMetadata, tmdb: TmdbMediaDetails, fetchedAt: Dat
   };
 }
 
+export function shouldUseCachedMediaMetadata(
+  metadata: MediaMetadata,
+  fetchedAtMs: number,
+  now = Date.now(),
+): boolean {
+  if (now - fetchedAtMs >= MEDIA_METADATA_MAX_AGE_MS) return false;
+  const isRich = metadata.source === "tmdb" && Boolean(metadata.backdropUrl) && metadata.cast.length > 0;
+  if (isRich) return true;
+  const attemptedAt = metadata.enrichmentAttemptedAt
+    ? Date.parse(metadata.enrichmentAttemptedAt)
+    : Number.NaN;
+  return Number.isFinite(attemptedAt) && now - attemptedAt < ENRICHMENT_RETRY_AGE_MS;
+}
+
 async function refreshMetadata(input: MediaMetadataInput): Promise<MediaMetadata | null> {
   const cached = await prisma.mediaMetadataCache.findUnique({ where: { mediaKey: input.mediaKey } });
   const cachedPayload = cached ? parseMediaMetadataPayload(cached.payloadJson) : null;
-  if (cached && cachedPayload && Date.now() - cached.fetchedAt.getTime() < MEDIA_METADATA_MAX_AGE_MS) {
+  if (cached && cachedPayload && shouldUseCachedMediaMetadata(cachedPayload, cached.fetchedAt.getTime())) {
     return cachedPayload;
   }
 
@@ -212,8 +228,13 @@ async function refreshMetadata(input: MediaMetadataInput): Promise<MediaMetadata
       mediaType: input.mediaType,
       error: error instanceof Error ? error.message : String(error),
     });
-    if (cachedPayload) return cachedPayload;
+    if (cachedPayload) metadata = cachedPayload;
   }
+
+  metadata = preserveImdbRating(
+    { ...metadata, enrichmentAttemptedAt: fetchedAt.toISOString() },
+    cachedPayload,
+  );
 
   await prisma.mediaMetadataCache.upsert({
     where: { mediaKey: input.mediaKey },

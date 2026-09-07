@@ -128,8 +128,8 @@ export function LoginQrPairing({ onComplete }: Props) {
   return (
     <Card
       frame="solid"
-      className="mt-8"
-      contentProps={{ className: "p-6" }}
+      className="tv-login-qr mt-8"
+      contentProps={{ className: "tv-login-qr-content p-6" }}
     >
       <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">
         Sign in with phone
@@ -138,8 +138,8 @@ export function LoginQrPairing({ onComplete }: Props) {
         Scan with a phone already signed in to Zende, then approve this TV.
       </p>
 
-      <div className="mt-5 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
-        <div className="rounded-lg bg-background-muted p-3 shadow-lg sm:p-4">
+      <div className="tv-login-qr-row mt-5 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+        <div className="tv-login-qr-code rounded-lg bg-background-muted p-3 shadow-lg sm:p-4">
           {pairUrl && status !== "error" ? (
             <QRCode value={pairUrl} size={240} level="M" />
           ) : (
@@ -148,7 +148,7 @@ export function LoginQrPairing({ onComplete }: Props) {
             </div>
           )}
         </div>
-        <div className="min-w-0 flex-1 text-center sm:text-left">
+        <div className="tv-login-qr-copy min-w-0 flex-1 text-center sm:text-left">
           {status === "waiting" ? (
             <p className="text-[14px] text-foreground-intense">
               Waiting for your phone…
@@ -172,7 +172,7 @@ export function LoginQrPairing({ onComplete }: Props) {
             </p>
           ) : null}
           {pairUrl ? (
-            <p className="mt-3 break-all text-[11px] text-foreground-intense sm:text-[12px]">
+            <p className="tv-login-pair-url mt-3 break-all text-[11px] text-foreground-intense sm:text-[12px]">
               {pairUrl}
             </p>
           ) : null}

@@ -9,6 +9,7 @@ import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { FavoriteStarButton } from "@/components/tv/favorite-star-button";
 import { TvCardActionMenu } from "@/components/tv/tv-card-action-menu";
 import { MovieDownloadButton } from "@/components/library/movie-download-button";
+import { ShareMediaButton } from "@/components/shares/share-media-button";
 import { ChannelHealthBadge } from "@/components/health/channel-health-badge";
 import {
   ChannelArtBadge,
@@ -20,6 +21,7 @@ import type { HealthScoreDto } from "@/features/health/use-channel-health";
 import { channelArtBadgeLabel, parseChannelLabel } from "@/lib/channel/channel-label";
 import { resolveLibraryContentType } from "@/lib/channels/content-type";
 import { cn } from "@/lib/utils";
+import { mediaShareTargetForChannel } from "@/lib/shares/share-target";
 
 export type TvChannelTileContextMenu = {
   onRemoveFromRecent: () => void;
@@ -60,6 +62,7 @@ export function TvChannelTile({
   const meta = channelMetaLine(channel.groupTitle);
   const sourceMeta = [channel.providerName, meta].filter(Boolean).join(" · ") || null;
   const contentType = resolveLibraryContentType(channel);
+  const shareTarget = mediaShareTargetForChannel(channel);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const tileRef = useRef<HTMLDivElement>(null);
 
@@ -96,13 +99,13 @@ export function TvChannelTile({
       aria-haspopup="menu"
       aria-expanded={actionMenuOpen}
       className={cn(
-        "group relative flex cursor-pointer flex-col overflow-hidden rounded-xl border border-border bg-background-subtle text-left snap-start",
+        "tv-media-card group relative flex cursor-pointer flex-col overflow-hidden rounded-xl border border-border bg-background-subtle text-left snap-start",
         "focus-visible:z-20 focus-visible:outline-none",
         !className?.includes("w-full") && "w-[178px] shrink-0 sm:w-[214px]",
         className,
       )}
     >
-      <div className="relative aspect-[2/3] w-full overflow-hidden bg-background-muted">
+      <div className="tv-media-card-art relative aspect-[2/3] w-full overflow-hidden bg-background-muted">
         {channel.tvgLogo ? (
           <ChannelLogo
             name={label}
@@ -127,23 +130,24 @@ export function TvChannelTile({
         ) : null}
       </div>
 
-      <div className="flex min-h-[4.5rem] flex-col justify-center p-3">
-        <h3 className="line-clamp-2 text-sm font-medium leading-tight text-foreground-intense">
+      <div className="tv-media-card-copy flex min-h-[4.5rem] flex-col justify-center p-3">
+        <h3 className="tv-media-card-title line-clamp-2 text-sm font-medium leading-tight text-foreground-intense">
           {label}
         </h3>
         {sourceMeta ? (
-          <p className="mt-1 truncate text-xs text-foreground-muted">{sourceMeta}</p>
+          <p className="tv-media-card-meta mt-1 truncate text-xs text-foreground-muted">{sourceMeta}</p>
         ) : null}
       </div>
 
-      {(channelArtBadgeLabel(parsed, contentType) || showFavoriteStar || contentType === "movie") ? (
-        <div className="pointer-events-none absolute right-2 top-2 z-20 flex flex-col items-end gap-1">
+      {(channelArtBadgeLabel(parsed, contentType) || showFavoriteStar || contentType === "movie" || shareTarget) ? (
+        <div className="tv-media-card-actions pointer-events-none absolute right-2 top-2 z-20 flex flex-col items-end gap-1">
           {channelArtBadgeLabel(parsed, contentType) ? (
             <div className="pointer-events-auto">
               <ChannelArtBadge parsed={parsed} contentType={contentType} />
             </div>
           ) : null}
           <div className="pointer-events-auto flex items-center gap-1">
+            {shareTarget ? <ShareMediaButton target={shareTarget} /> : null}
             {contentType === "movie" ? <MovieDownloadButton channel={channel} /> : null}
             {showFavoriteStar ? <FavoriteStarButton channel={channel} /> : null}
           </div>

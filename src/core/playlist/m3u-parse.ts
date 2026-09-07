@@ -1,4 +1,5 @@
 import { inferContentType } from "@/lib/channels/content-type";
+import type { MediaMetadata } from "@/lib/media/media-metadata";
 
 /**
  * Minimal Extended M3U parser (EXTINF + stream URL). Suitable for iptv-org style playlists.
@@ -22,6 +23,11 @@ export type M3uChannel = {
   providerId?: string;
   providerName?: string;
   providerChannelId?: string;
+  /** Nightly-refreshed IMDb score for movies and series. */
+  imdbRating?: number;
+  imdbVotes?: number;
+  /** Pre-enriched Home hero/details payload, serialized with discovery shelves. */
+  homeMetadata?: MediaMetadata;
 };
 
 function parseExtInfAttributes(attrPart: string): Pick<

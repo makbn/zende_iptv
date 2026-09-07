@@ -58,7 +58,7 @@ function LoginForm() {
   }, [refresh, redirectAfterLogin]);
 
   return (
-    <div className="mx-auto flex min-h-[calc(100svh-6rem)] w-full max-w-[520px] flex-col justify-center motion-reduce:animate-none motion-reduce:opacity-100 sm:min-h-0">
+    <div className="tv-login-panel mx-auto flex min-h-[calc(100svh-6rem)] w-full max-w-[520px] flex-col justify-center motion-reduce:animate-none motion-reduce:opacity-100 sm:min-h-0">
       <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">
         Zende
       </p>
@@ -142,6 +142,7 @@ function LoginForm() {
         </>
       ) : (
         <Link
+          data-tv-initial-focus
           href="/"
           className={buttonVariants({ variant: "secondary", size: "lg", className: "mt-8 self-start" })}
         >
@@ -154,8 +155,8 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="relative flex min-h-screen flex-col bg-background px-4 py-8 text-foreground sm:px-6 sm:py-16">
-      <div className="absolute right-4 top-4">
+    <div className="tv-login-page relative flex min-h-screen flex-col bg-background px-4 py-8 text-foreground sm:px-6 sm:py-16">
+      <div className="tv-theme-toggle absolute right-4 top-4">
         <ThemeToggle />
       </div>
       <Suspense

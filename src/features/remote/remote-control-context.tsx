@@ -22,11 +22,17 @@ import { MobileRemotePlayerController } from "@/components/remote/mobile-remote-
 import { sanitizeRemoteHref } from "@/lib/navigation/remote-href";
 import { createWatchUrl } from "@/lib/navigation/watch-url";
 import type {
+  RemoteCommand,
   RemoteCommandInput,
   RemotePlayableChannel,
   RemotePlaybackState,
   RemoteSessionSummary,
+  RemoteSubtitleTrack,
 } from "@/lib/remote/remote-control-types";
+import {
+  parseRemoteCommandCursor,
+  serializeRemoteCommandCursor,
+} from "@/lib/remote/remote-command-cursor";
 
 type RemoteControlContextValue = {
   isMobileController: boolean;
@@ -40,6 +46,8 @@ type RemoteControlContextValue = {
   sendTogglePlay: () => Promise<boolean>;
   sendSkip: (seconds: number) => Promise<boolean>;
   sendSeekTo: (seconds: number) => Promise<boolean>;
+  sendSubtitleTrack: (track: RemoteSubtitleTrack) => Promise<boolean>;
+  sendSubtitleOff: () => Promise<boolean>;
   reportTargetPlayback: (playback: RemotePlaybackState | null) => void;
 };
 
@@ -48,6 +56,7 @@ const RemoteControlContext = createContext<RemoteControlContextValue | null>(nul
 export const REMOTE_COMMAND_EVENT = "zende:remote-command";
 
 const TV_SESSION_KEY = "zende.remote.tvSessionId";
+const TV_COMMAND_CURSOR_KEY = "zende.remote.tvCommandCursor";
 
 function isTvBrowser(): boolean {
   if (typeof navigator === "undefined") return false;
@@ -139,6 +148,30 @@ function writeStoredSessionId(key: string, value: string | null) {
     else window.localStorage.removeItem(key);
   } catch {
     // ignore
+  }
+}
+
+function readStoredCommandCursor(sessionId: string | null): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    return parseRemoteCommandCursor(
+      window.localStorage.getItem(TV_COMMAND_CURSOR_KEY),
+      sessionId,
+    );
+  } catch {
+    return 0;
+  }
+}
+
+function writeStoredCommandCursor(sessionId: string, seq: number) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      TV_COMMAND_CURSOR_KEY,
+      serializeRemoteCommandCursor(sessionId, seq),
+    );
+  } catch {
+    // A storage failure must not block remote navigation.
   }
 }
 
@@ -285,6 +318,7 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
 
     let cancelled = false;
     let sessionId = readStoredSessionId(TV_SESSION_KEY);
+    commandCursorRef.current = readStoredCommandCursor(sessionId);
 
     const heartbeat = async () => {
       const currentPath = typeof window !== "undefined"
@@ -307,7 +341,9 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
       if (!response.ok || cancelled) return;
       const payload = (await response.json()) as { sessionId?: string };
       if (payload.sessionId) {
-        if (payload.sessionId !== sessionId) commandCursorRef.current = 0;
+        if (payload.sessionId !== sessionId) {
+          commandCursorRef.current = readStoredCommandCursor(payload.sessionId);
+        }
         sessionId = payload.sessionId;
         writeStoredSessionId(TV_SESSION_KEY, payload.sessionId);
       }
@@ -322,25 +358,38 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
       if (!response.ok || cancelled) return;
       const payload = (await response.json()) as {
         commandSeq?: number;
-        commands?: RemoteCommandInput[];
+        commands?: RemoteCommand[];
       };
       const commands = Array.isArray(payload.commands) ? payload.commands : [];
-      commandCursorRef.current =
-        typeof payload.commandSeq === "number" ? payload.commandSeq : commandCursorRef.current;
+      if (commands.length === 0) {
+        const serverCursor = typeof payload.commandSeq === "number"
+          ? payload.commandSeq
+          : commandCursorRef.current;
+        if (serverCursor > commandCursorRef.current) {
+          commandCursorRef.current = serverCursor;
+          writeStoredCommandCursor(sessionId, serverCursor);
+        }
+        return;
+      }
       for (const command of commands) {
+        if (command.seq <= commandCursorRef.current) continue;
+        // A navigation can replace the current route immediately. Persist the
+        // acknowledgement first so a reload cannot replay this command.
+        commandCursorRef.current = command.seq;
+        writeStoredCommandCursor(sessionId, command.seq);
         if (command.type === "navigate") {
           const href = sanitizeRemoteHref(command.payload.href);
-          if (href) window.location.assign(href);
-          continue;
+          if (href) router.replace(href);
+          return;
         }
         if (command.type === "playMedia") {
           try {
             const href = await createWatchUrl(command.payload.channel);
-            window.location.assign(href);
+            router.replace(href);
           } catch {
             // The controller will keep the pending state and can retry by selecting again.
           }
-          continue;
+          return;
         }
         window.dispatchEvent(
           new CustomEvent(REMOTE_COMMAND_EVENT, { detail: command }),
@@ -356,7 +405,7 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
       window.clearInterval(heartbeatTimer);
       window.clearInterval(commandTimer);
     };
-  }, [authEnabled, isTvTarget, ready, user]);
+  }, [authEnabled, isTvTarget, ready, router, user]);
 
   // Mobile controller: poll available sessions (faster while controlling)
   useEffect(() => {
@@ -425,6 +474,8 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
       sendTogglePlay: () => sendCommand({ type: "togglePlay" }),
       sendSkip: (seconds) => sendCommand({ type: "skip", payload: { seconds } }),
       sendSeekTo: (seconds) => sendCommand({ type: "seekTo", payload: { seconds } }),
+      sendSubtitleTrack: (track) => sendCommand({ type: "subtitleTrack", payload: { track } }),
+      sendSubtitleOff: () => sendCommand({ type: "subtitleOff" }),
       reportTargetPlayback,
     }),
     [
@@ -448,6 +499,7 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
       {children}
       {isMobileController && activeSession ? (
         <MobileRemotePlayerController
+          key={activeSession.playback?.playbackId ?? "idle"}
           open={controllerOpen}
           deviceLabel={activeSession.label}
           devicePath={pathnameLabel(activeSession.pathname)}
@@ -457,6 +509,8 @@ export function RemoteControlProvider({ children }: { children: ReactNode }) {
           onTogglePlay={() => void sendCommand({ type: "togglePlay" })}
           onSkip={(seconds) => void sendCommand({ type: "skip", payload: { seconds } })}
           onSeek={(seconds) => void sendCommand({ type: "seekTo", payload: { seconds } })}
+          onSubtitleTrack={(track) => void sendCommand({ type: "subtitleTrack", payload: { track } })}
+          onSubtitleOff={() => void sendCommand({ type: "subtitleOff" })}
           onDisconnect={() => {
             setControllerOpen(false);
             setDisableConfirmOpen(true);

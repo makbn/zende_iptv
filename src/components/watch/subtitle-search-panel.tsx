@@ -6,7 +6,7 @@ import { Input } from "@appica/ui-react/input";
 
 import Link from "next/link";
 import { Search, Subtitles, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
 import { Button } from "@appica/ui-react/button";
 
@@ -55,6 +55,7 @@ type Props = {
   onClose: () => void;
   title: string;
   playback?: PlaybackSessionMeta;
+  tvMode?: boolean;
   onSelect: (track: {
     id: string;
     label: string;
@@ -68,8 +69,10 @@ export function SubtitleSearchPanel({
   onClose,
   title,
   playback,
+  tvMode = false,
   onSelect,
 }: Props) {
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [wyzieEnabled, setWyzieEnabled] = useState<boolean | null>(null);
   const [tmdbEnabled, setTmdbEnabled] = useState<boolean | null>(null);
   const [language, setLanguage] = useState("en");
@@ -109,6 +112,16 @@ export function SubtitleSearchPanel({
         setTmdbEnabled(false);
       });
   }, [open, ctx]);
+
+  useEffect(() => {
+    if (!open || !tvMode) return;
+    const frame = window.requestAnimationFrame(() => {
+      dialogRef.current
+        ?.querySelector<HTMLElement>("[data-subtitle-primary]")
+        ?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [open, tvMode]);
 
   const searchSubtitles = useCallback(
     async (media: { tmdbId?: string; imdbId?: string } | null) => {
@@ -274,67 +287,89 @@ export function SubtitleSearchPanel({
 
   return (
     <div
-      className="fixed inset-0 z-[140] flex items-end justify-center bg-background p-3 backdrop-blur-sm sm:items-center sm:p-6"
+      ref={dialogRef}
+      className={cn(
+        "fixed inset-0 z-[140] flex items-end justify-center bg-background p-3 backdrop-blur-sm sm:items-center sm:p-6",
+        tvMode && "items-center p-8",
+      )}
       role="dialog"
       aria-modal="true"
       aria-label="Search subtitles"
+      onKeyDown={(event) => {
+        if (event.key === "Escape" || event.keyCode === 10009) {
+          event.preventDefault();
+          event.stopPropagation();
+          onClose();
+        }
+      }}
     >
       <div
-        className="flex max-h-[min(88vh,760px)] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-border bg-background shadow-2xl"
+        className={cn(
+          "flex max-h-[min(88vh,760px)] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-border bg-background shadow-2xl",
+          tvMode && "max-h-[92vh] max-w-5xl rounded-2xl border-2",
+        )}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
+        <div
+          data-tv-layout={tvMode ? "horizontal" : undefined}
+          className={cn(
+            "flex items-start justify-between gap-3 border-b border-border px-5 py-4",
+            tvMode && "gap-6 px-8 py-6",
+          )}
+        >
           <div className="min-w-0">
-            <div className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-foreground-intense">
-              <Subtitles className="size-4 text-primary-strong" aria-hidden />
+            <div className={cn("flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-foreground-intense", tvMode && "text-lg")}>
+              <Subtitles className={cn("size-4 text-primary-strong", tvMode && "size-6")} aria-hidden />
               Subtitle search
             </div>
-            <h2 className="mt-1 truncate text-[20px] font-semibold tracking-[-0.03em] text-foreground-intense">
+            <h2 className={cn("mt-1 truncate text-[20px] font-semibold tracking-[-0.03em] text-foreground-intense", tvMode && "mt-2 text-3xl")}>
               {selectedLabel}
             </h2>
-            <p className="mt-1 text-[13px] text-foreground-intense">
+            <p className={cn("mt-1 text-[13px] text-foreground-intense", tvMode && "mt-2 text-lg")}>
               Search by title or ID, refine by release/language, then load subtitles.
             </p>
           </div>
           <Button variant="ghost"
             type="button"
             onClick={onClose}
-            className="rounded-full p-2 text-foreground-intense transition-colors hover:bg-background-muted hover:text-foreground-intense"
+            className={cn("rounded-full p-2 text-foreground-intense transition-colors hover:bg-background-muted hover:text-foreground-intense", tvMode && "min-h-14 min-w-14 p-3")}
             aria-label="Close"
           >
-            <X className="size-5" aria-hidden />
+            <X className={cn("size-5", tvMode && "size-7")} aria-hidden />
           </Button>
         </div>
 
-        <div className="space-y-3 border-b border-border px-5 py-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block min-w-0">
-              <span className="text-[12px] font-medium text-foreground-intense">Movie or show title</span>
+        <div className={cn("space-y-3 border-b border-border px-5 py-4", tvMode && "space-y-5 px-8 py-6")}>
+          <div data-tv-layout={tvMode ? "grid" : undefined} data-tv-columns={tvMode ? "2" : undefined} className="grid gap-3 sm:grid-cols-2">
+            <label data-tv-index={tvMode ? "0" : undefined} className="block min-w-0">
+              <span className={cn("text-[12px] font-medium text-foreground-intense", tvMode && "text-lg")}>Movie or show title</span>
               <Input
+                data-tv-nav-input={tvMode ? "spatial" : undefined}
                 value={titleQuery}
                 onValueChange={(value) => setTitleQuery(value)}
-                className="mt-1.5 h-11 w-full rounded-2xl border border-border bg-background px-3 text-[15px] text-foreground-intense outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className={cn("mt-1.5 h-11 w-full rounded-2xl border border-border bg-background px-3 text-[15px] text-foreground-intense outline-none focus-visible:ring-2 focus-visible:ring-primary", tvMode && "mt-2 h-16 px-5 text-xl")}
                 placeholder="e.g. 1899, or tt1234567 / TMDB id"
               />
             </label>
-            <label className="block min-w-0">
-              <span className="text-[12px] font-medium text-foreground-intense">Release filter (optional)</span>
+            <label data-tv-index={tvMode ? "1" : undefined} className="block min-w-0">
+              <span className={cn("text-[12px] font-medium text-foreground-intense", tvMode && "text-lg")}>Release filter (optional)</span>
               <Input
+                data-tv-nav-input={tvMode ? "spatial" : undefined}
                 value={releaseFilter}
                 onValueChange={(value) => setReleaseFilter(value)}
-                className="mt-1.5 h-11 w-full rounded-2xl border border-border bg-background px-3 text-[15px] text-foreground-intense outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className={cn("mt-1.5 h-11 w-full rounded-2xl border border-border bg-background px-3 text-[15px] text-foreground-intense outline-none focus-visible:ring-2 focus-visible:ring-primary", tvMode && "mt-2 h-16 px-5 text-xl")}
                 placeholder="1080p, WEB-DL, release name…"
               />
             </label>
           </div>
-          <div className="grid gap-3 sm:grid-cols-[10rem_1fr]">
+          <div data-tv-layout={tvMode ? "horizontal" : undefined} className="grid gap-3 sm:grid-cols-[10rem_1fr]">
             <label className="block">
-              <span className="text-[12px] font-medium text-foreground-intense">Language</span>
+              <span className={cn("text-[12px] font-medium text-foreground-intense", tvMode && "text-lg")}>Language</span>
               <Select
                 value={language}
                 onValueChange={(value) =>setLanguage(String(value))}
               >
-<SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
+<SelectTrigger className={cn(tvMode && "mt-2 min-h-14 text-lg")}><SelectValue /></SelectTrigger><SelectContent>
                 {LANGUAGE_OPTIONS.map((option) => (
                   <SelectItem key={option.code} value={option.code}>
                     {option.label}
@@ -342,10 +377,11 @@ export function SubtitleSearchPanel({
                 ))}
               </SelectContent></Select>
             </label>
-            <div className="flex items-end justify-end gap-2">
+            <div data-tv-layout={tvMode ? "horizontal" : undefined} className="flex items-end justify-end gap-2">
               <Button
                 type="button"
                 onClick={onClose}
+                className={cn(tvMode && "min-h-14 px-6 text-lg")}
               >
                 Cancel
               </Button>
@@ -353,6 +389,7 @@ export function SubtitleSearchPanel({
                 type="button"
                 onClick={() => void searchTitles()}
                 disabled={loading}
+                className={cn(tvMode && "min-h-14 px-6 text-lg")}
               >
                 {loading ? (
                   <ZendeSpinner size="tiny" label="Finding title" />
@@ -366,6 +403,8 @@ export function SubtitleSearchPanel({
                 onClick={() => void searchSubtitles(null)}
                 disabled={loading || wyzieEnabled === false}
                 variant="primary"
+                data-subtitle-primary
+                className={cn(tvMode && "min-h-14 px-6 text-lg")}
               >
                 {loading ? (
                   <ZendeSpinner size="tiny" label="Searching subtitles" />
@@ -417,11 +456,11 @@ export function SubtitleSearchPanel({
           ) : null}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+        <div className={cn("min-h-0 flex-1 overflow-y-auto px-3 py-3", tvMode && "px-6 py-5")}>
           {loading && mediaMatches.length === 0 && results.length === 0 ? (
             <ZendeLoadingState className="py-16" size="small" label="Searching subtitles…" />
-          ) : results.length === 0 ? (
-            <p className="py-16 text-center text-[14px] text-foreground-intense">
+          ) : mediaMatches.length === 0 && results.length === 0 ? (
+            <p className={cn("py-16 text-center text-[14px] text-foreground-intense", tvMode && "text-xl")}>
               No subtitles found. Try another language or release filter.
             </p>
           ) : (
@@ -431,7 +470,7 @@ export function SubtitleSearchPanel({
                   <p className="px-1 text-[12px] font-semibold uppercase tracking-[0.12em] text-foreground-intense">
                     Matching titles (optional)
                   </p>
-                  <ul className="space-y-2">
+                  <ul data-tv-layout={tvMode ? "vertical" : undefined} className="space-y-2">
                     {mediaMatches.map((match) => (
                       <li key={`${match.mediaType}-${match.tmdbId}`}>
                         <Button variant="ghost"
@@ -441,6 +480,7 @@ export function SubtitleSearchPanel({
                           className={cn(
                             "flex w-full items-center gap-3 rounded-lg border border-border bg-background-muted px-4 py-3 text-left transition-colors",
                             "hover:border-border hover:bg-background-muted disabled:opacity-50",
+                            tvMode && "min-h-24 gap-5 px-6 py-4",
                           )}
                         >
                           <div className="flex h-16 w-11 shrink-0 overflow-hidden rounded-lg bg-background-muted">
@@ -450,17 +490,17 @@ export function SubtitleSearchPanel({
                             ) : null}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-[14px] font-semibold text-foreground-intense">
+                            <p className={cn("truncate text-[14px] font-semibold text-foreground-intense", tvMode && "text-xl")}>
                               {match.title}
                               {match.year ? (
                                 <span className="font-normal text-foreground-intense"> ({match.year})</span>
                               ) : null}
                             </p>
-                            <p className="mt-0.5 text-[12px] uppercase tracking-wide text-foreground-intense">
+                            <p className={cn("mt-0.5 text-[12px] uppercase tracking-wide text-foreground-intense", tvMode && "text-base")}>
                               {match.mediaType === "tv" ? "TV show" : "Movie"}
                             </p>
                             {match.overview ? (
-                              <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-foreground-intense">
+                              <p className={cn("mt-1 line-clamp-2 text-[12px] leading-relaxed text-foreground-intense", tvMode && "text-base")}>
                                 {match.overview}
                               </p>
                             ) : null}
@@ -471,7 +511,7 @@ export function SubtitleSearchPanel({
                   </ul>
                 </div>
               ) : null}
-              <ul className="space-y-2">
+              <ul data-tv-layout={tvMode ? "vertical" : undefined} className="space-y-2">
                 {results.map((result) => {
                   const busy = loadingSubtitleId === result.id;
                   return (
@@ -483,11 +523,12 @@ export function SubtitleSearchPanel({
                         className={cn(
                           "w-full rounded-lg border border-border bg-background-muted px-4 py-3 text-left transition-colors",
                           "hover:border-border hover:bg-background-muted disabled:opacity-50",
+                          tvMode && "min-h-20 px-6 py-4",
                         )}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="truncate text-[14px] font-semibold text-foreground-intense">
+                            <p className={cn("truncate text-[14px] font-semibold text-foreground-intense", tvMode && "text-xl")}>
                               {result.languageName}
                               {result.hearingImpaired ? (
                                 <span className="ml-2 rounded-full bg-background-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground-intense">
@@ -495,10 +536,10 @@ export function SubtitleSearchPanel({
                                 </span>
                               ) : null}
                             </p>
-                            <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-foreground-intense">
+                            <p className={cn("mt-1 line-clamp-2 text-[13px] leading-relaxed text-foreground-intense", tvMode && "text-lg")}>
                               {result.release}
                             </p>
-                            <p className="mt-1 text-[11px] text-foreground-intense">
+                            <p className={cn("mt-1 text-[11px] text-foreground-intense", tvMode && "text-base")}>
                               {result.downloadCount > 0
                                 ? `${result.downloadCount.toLocaleString()} downloads`
                                 : null}

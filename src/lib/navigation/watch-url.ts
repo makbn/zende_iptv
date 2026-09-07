@@ -10,8 +10,8 @@ export type WatchSessionMeta = {
   group: string | null;
   /** Same-origin path — pass to `StreamPlayer` / `<video>`. */
   playbackUrl: string;
-  /** Original upstream URL — stats / frequent ring only (not in address bar). */
-  canonicalUrl: string;
+  /** Omitted for proxy sessions so provider URLs and credentials never reach the client. */
+  canonicalUrl?: string;
   /** How the player should attach (HLS vs direct file). */
   playbackMode?: PlaybackMode;
   /** Server is converting an incompatible source to a sequential browser-safe stream. */

@@ -21,7 +21,7 @@ export function AppicaPage({
       id={id}
       tabIndex={-1}
       className={cn(
-        "relative min-h-screen bg-background-subtle text-foreground-intense outline-none",
+        "tv-page relative min-h-screen bg-background-subtle text-foreground-intense outline-none",
         className,
       )}
     >
@@ -52,7 +52,7 @@ export function AppicaHero({
     <section
       className={cn(
         BROWSE_CONTAINER_CLASS,
-        "grid gap-6 border-b border-border py-8 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,30rem)] lg:items-end",
+        "tv-page-hero grid gap-6 border-b border-border py-8 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,30rem)] lg:items-end",
         className,
       )}
     >
@@ -91,7 +91,7 @@ export function AppicaMetrics({
   return (
     <div
       className={cn(
-        "grid gap-2 sm:grid-cols-3",
+        "tv-metrics grid gap-2 sm:grid-cols-3",
         className,
       )}
     >
@@ -188,9 +188,9 @@ export function AppicaSection({
   return (
     <section
       id={id}
-      className={cn(BROWSE_CONTAINER_CLASS, className)}
+      className={cn(BROWSE_CONTAINER_CLASS, "tv-section", className)}
     >
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <div className="tv-section-heading mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           {eyebrow ? <p className="text-sm font-medium text-foreground-muted">{eyebrow}</p> : null}
           <h2 className="mt-1 text-xl font-semibold tracking-tight text-foreground-intense sm:text-2xl">
@@ -220,7 +220,7 @@ export function AppicaRail({
     <div
       data-tv-layout="horizontal"
       className={cn(
-        "-mx-2 -mt-2 flex snap-x snap-mandatory gap-3 overflow-x-auto px-2 pb-6 pt-2",
+        "tv-rail -mx-2 -mt-2 flex snap-x snap-mandatory gap-3 overflow-x-auto px-2 pb-6 pt-2",
         className,
       )}
     >

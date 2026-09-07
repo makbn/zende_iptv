@@ -3,8 +3,8 @@ import { z } from "zod";
 
 import { gateApiRequest } from "@/lib/auth/gate-api";
 import {
+  dequeueRemoteCommands,
   enqueueRemoteCommand,
-  getRemoteTvSession,
 } from "@/lib/remote/remote-control-store";
 
 export const runtime = "nodejs";
@@ -59,6 +59,21 @@ const commandSchema = z.discriminatedUnion("type", [
     type: z.literal("seekTo"),
     payload: z.object({ seconds: z.number().finite().min(0).max(24 * 3600) }),
   }),
+  z.object({
+    type: z.literal("subtitleTrack"),
+    payload: z.object({
+      track: z.object({
+        id: z.string().trim().min(1).max(256),
+        label: z.string().trim().min(1).max(256),
+        language: z.string().trim().min(1).max(16),
+        vttUrl: z.string().trim().startsWith("/api/subtitles/vtt/").max(512),
+      }),
+    }),
+  }),
+  z.object({
+    type: z.literal("subtitleOff"),
+    payload: z.object({}).optional(),
+  }),
 ]);
 
 export async function GET(request: Request, context: RouteContext) {
@@ -67,19 +82,14 @@ export async function GET(request: Request, context: RouteContext) {
   if (!gate.authEnabled) return NextResponse.json({ commands: [], commandSeq: 0 });
 
   const { sessionId } = await context.params;
-  const session = getRemoteTvSession(sessionId, gate.user.id);
-  if (!session) {
-    return NextResponse.json({ error: "TV session not found." }, { status: 404 });
-  }
-
   const url = new URL(request.url);
   const after = Number(url.searchParams.get("after") ?? 0);
   const cursor = Math.max(0, Number.isFinite(after) ? after : 0);
-  const commands = session.commands.filter((command) => command.seq > cursor);
-  return NextResponse.json({
-    commandSeq: session.commandSeq,
-    commands,
-  });
+  const delivery = dequeueRemoteCommands(sessionId, gate.user.id, cursor);
+  if (!delivery) {
+    return NextResponse.json({ error: "TV session not found." }, { status: 404 });
+  }
+  return NextResponse.json(delivery);
 }
 
 export async function POST(request: Request, context: RouteContext) {

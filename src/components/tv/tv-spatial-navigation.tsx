@@ -25,8 +25,43 @@ const OVERLAY_SELECTOR = [
   "[data-slot='context-menu-content']",
 ].join(",");
 
+const COMPOSITE_SELECTOR = [
+  "[role='menu']",
+  "[role='listbox']",
+  "[data-slot='select-content']",
+  "[data-slot='dropdown-menu-content']",
+  "[data-slot='context-menu-content']",
+].join(",");
+
 type Direction = "left" | "right" | "up" | "down";
 type LayoutMove = { handled: boolean; target: HTMLElement | null };
+
+function isTextField(element: EventTarget | null): element is HTMLInputElement | HTMLTextAreaElement {
+  if (element instanceof HTMLTextAreaElement) return true;
+  if (!(element instanceof HTMLInputElement)) return false;
+  return !["button", "checkbox", "color", "file", "hidden", "image", "radio", "range", "reset", "submit"].includes(
+    element.type.toLowerCase(),
+  );
+}
+
+function guardTextField(element: HTMLInputElement | HTMLTextAreaElement): void {
+  if (element.dataset.tvKeyboardGuard === "true" || element.readOnly) return;
+  element.dataset.tvKeyboardGuard = "true";
+  element.readOnly = true;
+}
+
+function guardAllTextFields(root: ParentNode = document): void {
+  for (const element of root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
+    "input:not([disabled]), textarea:not([disabled])",
+  )) {
+    if (isTextField(element)) guardTextField(element);
+  }
+}
+
+function focusTvElement(element: HTMLElement): void {
+  if (isTextField(element)) guardTextField(element);
+  element.focus({ preventScroll: true });
+}
 
 function isVisible(element: HTMLElement): boolean {
   if (element.closest("[hidden], [inert]") || element.getAttribute("aria-hidden") === "true") {
@@ -41,8 +76,12 @@ function isVisible(element: HTMLElement): boolean {
 }
 
 function focusableElements(): HTMLElement[] {
+  const modal = Array.from(
+    document.querySelectorAll<HTMLElement>("[role='dialog'][aria-modal='true'], dialog[open]"),
+  ).filter(isVisible).at(-1);
   return Array.from(document.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
     (element) => {
+      if (modal && !modal.contains(element)) return false;
       if (element.hasAttribute("disabled") || element.getAttribute("aria-disabled") === "true" || !isVisible(element)) {
         return false;
       }
@@ -59,7 +98,12 @@ function ownsDirectionalInput(
   direction: Direction,
 ): boolean {
   if (!(element instanceof HTMLElement)) return false;
-  if (element.matches("input, textarea, [contenteditable='true']")) return true;
+  // Keep left/right available for caret movement, but let TV users leave a
+  // query field with up/down. Text inputs otherwise become a D-pad trap.
+  if (element.matches("input, textarea, [contenteditable='true']")) {
+    if (element.dataset.tvNavInput === "spatial") return false;
+    return direction === "left" || direction === "right";
+  }
   return (
     element.matches("[role='slider']") &&
     (direction === "left" || direction === "right")
@@ -166,6 +210,30 @@ function firstMemberOfAdjacentLayout(
   return null;
 }
 
+function explicitDirectionalTarget(
+  active: HTMLElement,
+  direction: Direction,
+  candidates: HTMLElement[],
+): LayoutMove {
+  const owner = active.closest<HTMLElement>(`[data-tv-nav-${direction}]`);
+  if (!owner) return { handled: false, target: null };
+
+  const selector = owner.dataset[`tvNav${direction[0]!.toUpperCase()}${direction.slice(1)}`];
+  if (!selector) return { handled: true, target: null };
+
+  try {
+    const destination = document.querySelector<HTMLElement>(selector);
+    if (!destination) return { handled: true, target: null };
+    const target = candidates.find(
+      (candidate) => candidate === destination || destination.contains(candidate),
+    );
+    return { handled: true, target: target ?? null };
+  } catch {
+    // A malformed page-level selector must not break global remote navigation.
+    return { handled: true, target: null };
+  }
+}
+
 function firstContentLayoutElement(candidates: HTMLElement[]): HTMLElement | null {
   return candidates.find((candidate) => {
     const layout = candidate.closest<HTMLElement>("[data-tv-layout]");
@@ -182,7 +250,7 @@ function moveFocus(direction: Direction): boolean {
     : null;
   if (!active || !candidates.includes(active)) {
     const initial = firstContentLayoutElement(candidates) ?? candidates.find((element) => element.closest("main")) ?? candidates[0];
-    initial?.focus({ preventScroll: true });
+    if (initial) focusTvElement(initial);
     initial?.scrollIntoView({ behavior: "auto", block: "nearest", inline: "nearest" });
     return true;
   }
@@ -190,17 +258,27 @@ function moveFocus(direction: Direction): boolean {
   const explicitNeighbor = layoutNeighbor(active, direction, candidates);
   if (explicitNeighbor.handled) {
     if (explicitNeighbor.target) {
-      explicitNeighbor.target.focus({ preventScroll: true });
+      focusTvElement(explicitNeighbor.target);
       explicitNeighbor.target.scrollIntoView({ behavior: "auto", block: "nearest", inline: "nearest" });
       return true;
     }
     if (direction === "left" || direction === "right") return false;
   }
 
+  // Page authors can connect distinct decks explicitly. This runs after
+  // movement inside the active grid/list, so only an edge item exits it.
+  const explicitTarget = explicitDirectionalTarget(active, direction, candidates);
+  if (explicitTarget.handled) {
+    if (!explicitTarget.target) return false;
+    focusTvElement(explicitTarget.target);
+    explicitTarget.target.scrollIntoView({ behavior: "auto", block: "nearest", inline: "start" });
+    return true;
+  }
+
   if (direction === "up" || direction === "down") {
     const adjacentStart = firstMemberOfAdjacentLayout(active, direction, candidates);
     if (adjacentStart) {
-      adjacentStart.focus({ preventScroll: true });
+      focusTvElement(adjacentStart);
       adjacentStart.scrollIntoView({ behavior: "auto", block: "nearest", inline: "start" });
       return true;
     }
@@ -235,7 +313,7 @@ function moveFocus(direction: Direction): boolean {
   }
 
   if (!best) return false;
-  best.element.focus({ preventScroll: true });
+  focusTvElement(best.element);
   best.element.scrollIntoView({ behavior: "auto", block: "nearest", inline: "nearest" });
   return true;
 }
@@ -251,7 +329,7 @@ function hasOpenOverlay(): boolean {
 function isInsideOpenComposite(element: Element | null): boolean {
   if (!(element instanceof HTMLElement)) return false;
   return Boolean(
-    element.closest(OVERLAY_SELECTOR) ||
+    element.closest(COMPOSITE_SELECTOR) ||
     element.matches("[aria-expanded='true'], [data-popup-open]"),
   );
 }
@@ -263,7 +341,7 @@ function focusOpenOverlay(): boolean {
     "[role='menuitem'], button:not([disabled]), a[href], [tabindex]:not([tabindex='-1'])",
   );
   if (!first) return false;
-  first.focus({ preventScroll: true });
+  focusTvElement(first);
   return true;
 }
 
@@ -294,6 +372,8 @@ type TvBackResult = "overlay" | "history" | "root";
 declare global {
   interface Window {
     __zendeTvHandleBack?: () => TvBackResult;
+    __zendeTvPageBack?: () => boolean;
+    __zendeTvWakePlayer?: () => boolean;
   }
 }
 
@@ -313,6 +393,9 @@ export function TvSpatialNavigation() {
   useEffect(() => {
     if (!isTvEnvironment()) return;
     document.documentElement.dataset.tvInput = "remote";
+    guardAllTextFields();
+    const keyboardGuardObserver = new MutationObserver(() => guardAllTextFields());
+    keyboardGuardObserver.observe(document.body, { childList: true, subtree: true });
     const androidShell = /ZendeTVShell/i.test(navigator.userAgent);
     const density = androidShell ? Math.max(1, Math.min(3, window.devicePixelRatio || 1)) : 1;
     if (density > 1) {
@@ -323,7 +406,7 @@ export function TvSpatialNavigation() {
     let initialFocusObserver: MutationObserver | null = null;
     let initialFocusFallback: number | null = null;
     const finishInitialFocus = (initial: HTMLElement) => {
-      initial.focus({ preventScroll: true });
+      focusTvElement(initial);
       initial.scrollIntoView({ behavior: "auto", block: "nearest", inline: "start" });
       initialFocusDone = true;
       initialFocusObserver?.disconnect();
@@ -338,18 +421,28 @@ export function TvSpatialNavigation() {
         if (initialFocusFallback !== null) window.clearTimeout(initialFocusFallback);
         return;
       }
-      const initial = firstContentLayoutElement(focusableElements());
+      const candidates = focusableElements();
+      const preferred = document.querySelector<HTMLElement>("main [data-tv-initial-focus]")
+        ?? document.querySelector<HTMLElement>("[data-tv-initial-focus]");
+      const initial = preferred && candidates.includes(preferred)
+        ? preferred
+        : firstContentLayoutElement(candidates);
       if (!initial) return;
       finishInitialFocus(initial);
     };
     const initialFocusFrame = window.requestAnimationFrame(focusInitialTarget);
-    initialFocusObserver = new MutationObserver(focusInitialTarget);
+    initialFocusObserver = new MutationObserver(() => {
+      focusInitialTarget();
+    });
     initialFocusObserver.observe(document.body, { childList: true, subtree: true });
     initialFocusFallback = window.setTimeout(() => {
       if (initialFocusDone) return;
       const candidates = focusableElements();
-      const fallback = firstContentLayoutElement(candidates)
-        ?? document.querySelector<HTMLElement>("[data-tv-initial-focus]")
+      const preferred = document.querySelector<HTMLElement>("main [data-tv-initial-focus]")
+        ?? document.querySelector<HTMLElement>("[data-tv-initial-focus]");
+      const fallback = preferred && candidates.includes(preferred)
+        ? preferred
+        : firstContentLayoutElement(candidates)
         ?? candidates.find((candidate) => candidate.closest("main"))
         ?? null;
       if (fallback && isVisible(fallback)) finishInitialFocus(fallback);
@@ -359,6 +452,9 @@ export function TvSpatialNavigation() {
       if (hasOpenOverlay()) {
         dispatchEscape();
         return "overlay";
+      }
+      if (window.__zendeTvPageBack?.()) {
+        return "history";
       }
       if (window.location.pathname !== "/") {
         window.history.back();
@@ -379,8 +475,23 @@ export function TvSpatialNavigation() {
         return;
       }
 
+      const wokePlayer = window.__zendeTvWakePlayer?.() ?? false;
+      if (wokePlayer && (isRemoteOk(event) || directionForEvent(event))) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
       if (isRemoteOk(event)) {
         const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        if (isTextField(active)) {
+          if (active.dataset.tvKeyboardGuard === "true" && active.dataset.tvEditing !== "true") {
+            active.readOnly = false;
+            active.dataset.tvEditing = "true";
+            active.click();
+          }
+          return;
+        }
         if (
           active &&
           !active.matches("[data-tv-card]") &&
@@ -416,12 +527,41 @@ export function TvSpatialNavigation() {
       moveFocus(direction);
     };
 
+    const onFocusIn = (event: FocusEvent) => {
+      if (!isTextField(event.target)) return;
+      if (event.target.dataset.tvEditing !== "true") guardTextField(event.target);
+    };
+    const onFocusOut = (event: FocusEvent) => {
+      if (!isTextField(event.target) || event.target.dataset.tvKeyboardGuard !== "true") return;
+      event.target.readOnly = true;
+      delete event.target.dataset.tvEditing;
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (!isTextField(event.target) || event.target.dataset.tvKeyboardGuard !== "true") return;
+      event.target.readOnly = false;
+      event.target.dataset.tvEditing = "true";
+    };
+
     window.addEventListener("keydown", onKeyDown, true);
+    document.addEventListener("focusin", onFocusIn, true);
+    document.addEventListener("focusout", onFocusOut, true);
+    document.addEventListener("pointerdown", onPointerDown, true);
     return () => {
       window.cancelAnimationFrame(initialFocusFrame);
+      keyboardGuardObserver.disconnect();
       initialFocusObserver?.disconnect();
       if (initialFocusFallback !== null) window.clearTimeout(initialFocusFallback);
       window.removeEventListener("keydown", onKeyDown, true);
+      document.removeEventListener("focusin", onFocusIn, true);
+      document.removeEventListener("focusout", onFocusOut, true);
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      for (const element of document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
+        "[data-tv-keyboard-guard='true']",
+      )) {
+        element.readOnly = false;
+        delete element.dataset.tvKeyboardGuard;
+        delete element.dataset.tvEditing;
+      }
       delete window.__zendeTvHandleBack;
       delete document.documentElement.dataset.tvInput;
       if (density > 1) {

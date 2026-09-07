@@ -18,10 +18,60 @@ export function getBearerToken(request: Request): string | null {
   return t || null;
 }
 
-/**
- * When auth is off, APIs stay open. When auth is on, a valid access JWT is required.
- */
-export async function gateApiRequest(request: Request): Promise<
+export const STREAM_ACCESS_COOKIE = "zende-stream-access";
+
+function getCookie(request: Request, name: string): string | null {
+  const raw = request.headers.get("cookie");
+  if (!raw) return null;
+  for (const pair of raw.split(";")) {
+    const separator = pair.indexOf("=");
+    if (separator < 0 || pair.slice(0, separator).trim() !== name) continue;
+    const value = pair.slice(separator + 1).trim();
+    if (!value) return null;
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+  return null;
+}
+
+/** Media elements cannot attach Bearer headers, so stream routes also accept this HttpOnly cookie. */
+export function getStreamAccessToken(request: Request): string | null {
+  return getBearerToken(request) ?? getCookie(request, STREAM_ACCESS_COOKIE);
+}
+
+export function setStreamAccessCookie(
+  response: NextResponse,
+  request: Request,
+  token: string,
+): void {
+  response.cookies.set(STREAM_ACCESS_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "strict",
+    secure:
+      process.env.NODE_ENV === "production" ||
+      new URL(request.url).protocol === "https:",
+    path: "/api/stream",
+    maxAge: 14 * 24 * 60 * 60,
+  });
+}
+
+export function clearStreamAccessCookie(response: NextResponse): void {
+  response.cookies.set(STREAM_ACCESS_COOKIE, "", {
+    httpOnly: true,
+    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
+    path: "/api/stream",
+    maxAge: 0,
+  });
+}
+
+async function gateRequestWithToken(
+  request: Request,
+  token: string | null,
+): Promise<
   | { authEnabled: false }
   | {
       authEnabled: true;
@@ -31,11 +81,8 @@ export async function gateApiRequest(request: Request): Promise<
 > {
   const path = new URL(request.url).pathname;
   const cfg = await ensureAuthConfigRow();
-  if (!cfg.enabled) {
-    return { authEnabled: false };
-  }
+  if (!cfg.enabled) return { authEnabled: false };
 
-  const token = getBearerToken(request);
   if (!token) {
     log.warn("api unauthorized: missing bearer", { path });
     return {
@@ -75,10 +122,28 @@ export async function gateApiRequest(request: Request): Promise<
     });
   }
 
-  return {
-    authEnabled: true,
-    user,
-  };
+  return { authEnabled: true, user };
+}
+
+/**
+ * When auth is off, APIs stay open. When auth is on, a valid access JWT is required.
+ */
+export async function gateApiRequest(request: Request): Promise<
+  | { authEnabled: false }
+  | {
+      authEnabled: true;
+      user: { id: string; username: string; role: UserRole };
+    }
+  | { authEnabled: true; response: Response }
+> {
+  return gateRequestWithToken(request, getBearerToken(request));
+}
+
+/** Auth gate for media URLs requested by fetch, hls.js, or native video elements. */
+export async function gateStreamRequest(
+  request: Request,
+): ReturnType<typeof gateRequestWithToken> {
+  return gateRequestWithToken(request, getStreamAccessToken(request));
 }
 
 export async function requireAdmin(request: Request): Promise<

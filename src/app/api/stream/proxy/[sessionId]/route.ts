@@ -7,6 +7,7 @@ import {
 
 import { createServerLogger } from "@/core/logging/server";
 import { getRequestOrigin } from "@/lib/http/request-origin";
+import { isInternalRelayRequest } from "@/lib/stream/internal-relay-request";
 import { buildProxyAgent } from "@/lib/proxies/proxy-agent";
 import { DVR_RECORDING_SESSION_TITLE } from "@/lib/recordings/recording-session-title";
 import {
@@ -27,6 +28,8 @@ import {
 import {
   isOpenEndedLiveMpegTsUrl,
   isProgressiveMediaUrl,
+  isXtreamLiveStreamUrl,
+  progressiveBootstrapRange,
   progressiveMediaContentType,
   shouldStreamProxyPassthrough,
 } from "@/lib/stream/playback-url";
@@ -52,6 +55,7 @@ import {
   rememberSharedRootPin,
 } from "@/lib/stream/shared-root-pin-cache";
 import { createResilientUpstream } from "@/lib/stream/resilient-upstream";
+import { authorizeStreamSession } from "@/lib/stream/stream-session-auth";
 
 export const runtime = "nodejs";
 
@@ -215,13 +219,22 @@ function forwardUpstreamHeaders(upstream: Response): Headers {
     // causing a content-length mismatch that Cloudflare treats as a 520. We set it explicitly
     // to buf.byteLength at the call site instead.
     "cache-control",
-    "accept-ranges",
     "content-range",
     "etag",
     "last-modified",
   ]) {
     const v = upstream.headers.get(k);
     if (v) h.set(k, v);
+  }
+  const acceptRanges = upstream.headers.get("accept-ranges")?.trim().toLowerCase();
+  if (
+    (acceptRanges && acceptRanges !== "none") ||
+    upstream.status === 206 ||
+    h.has("content-range")
+  ) {
+    // Some IPTV origins return the byte interval itself here (for example
+    // `0-249526276`). Browsers expect the range unit, which is always `bytes`.
+    h.set("accept-ranges", "bytes");
   }
   return h;
 }
@@ -508,7 +521,7 @@ async function fetchUpstreamWithRetries(
  * Proxies manifest, segments, and keys for a session. Query `u` = encoded absolute
  * upstream URL; `h` = short hash alias when URLs are too long for query strings.
  */
-export async function GET(
+async function proxySessionGet(
   request: Request,
   context: { params: Promise<{ sessionId: string }> },
 ) {
@@ -529,6 +542,9 @@ export async function GET(
       },
     );
   }
+
+  const authorizationFailure = await authorizeStreamSession(request, session, sessionId);
+  if (authorizationFailure) return authorizationFailure;
 
   let cacheLease: Extract<SharedStreamCacheLease, { kind: "leader" }> | undefined;
   let manifestLease: Extract<SharedManifestLease, { kind: "leader" }> | undefined;
@@ -669,7 +685,18 @@ export async function GET(
           : FETCH_TIMEOUT_MS;
 
   const baseHeaders = buildBaseHeaders(request, refererForProxiedFetch);
+  const upstreamRange = progressiveBootstrapRange({
+    fetchUrl,
+    requestedRange: request.headers.get("range"),
+    asDownload,
+    internalRelay: isInternalRelayRequest(request),
+  });
+  if (upstreamRange) baseHeaders.set("Range", upstreamRange);
   const resourceKind = resourceKindFromUrl(fetchUrl);
+  const liveCacheStream =
+    session.meta.contentKind === "live" ||
+    isXtreamLiveStreamUrl(session.upstreamRootUrl) ||
+    isOpenEndedLiveMpegTsUrl(session.upstreamRootUrl);
   const origin = getRequestOrigin(request);
   responseCacheId = isRootBootstrap
     ? sharedManifestCacheKey(session.upstreamRootUrl)
@@ -683,7 +710,7 @@ export async function GET(
         range: request.headers.get("range"),
       });
 
-  if (isRootBootstrap && !asDownload) {
+  if (liveCacheStream && isRootBootstrap && !asDownload && !isProgressiveMediaUrl(fetchUrl)) {
     const manifestKey = responseCacheId;
     let alreadyWaited = false;
     while (true) {
@@ -729,6 +756,7 @@ export async function GET(
   }
 
   const cacheEligible =
+    liveCacheStream &&
     !asDownload &&
     !request.headers.get("range") &&
     !isProgressiveMediaUrl(fetchUrl) &&
@@ -1124,6 +1152,7 @@ export async function GET(
       progressive: isProgressiveMediaUrl(fetchUrl),
     });
     const h = forwardPassthroughHeaders(upstream);
+    h.set("X-Accel-Buffering", "no");
     if (!h.get("content-type")) {
       if (isOpenEndedLiveMpegTsUrl(fetchUrl)) h.set("content-type", "video/mp2t");
       else if (isProgressiveMediaUrl(fetchUrl)) {
@@ -1329,4 +1358,20 @@ export async function GET(
       },
     );
   }
+}
+
+/** Never let browsers or intermediaries reuse media after authorization state changes. */
+export async function GET(
+  request: Request,
+  context: { params: Promise<{ sessionId: string }> },
+) {
+  const response = await proxySessionGet(request, context);
+  const liveSharedMedia =
+    response.ok && response.headers.has("x-zende-stream-cache");
+  response.headers.set(
+    "Cache-Control",
+    liveSharedMedia ? "private, max-age=120" : "private, no-store",
+  );
+  response.headers.set("Vary", "Cookie, Authorization, Range");
+  return response;
 }

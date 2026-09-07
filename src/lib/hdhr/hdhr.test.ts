@@ -35,6 +35,7 @@ describe("hdhr config", () => {
 describe("hdhr discover", () => {
   it("matches Threadfin-style fields", () => {
     vi.stubEnv("AUTH_JWT_SECRET", "plex-test");
+    vi.stubEnv("PUBLIC_APP_URL", "");
     const req = new Request("http://192.168.1.50:8077/discover.json", {
       headers: { host: "192.168.1.50:8077" },
     });
@@ -43,6 +44,7 @@ describe("hdhr discover", () => {
     expect(d.TunerCount).toBeGreaterThan(0);
     expect(d.DeviceID).toMatch(/^[0-9A-F]{8}$/);
     expect(d.FriendlyName).toBe("Zende IPTV");
+    vi.unstubAllEnvs();
   });
 
   it("builds stream urls from guide numbers", () => {

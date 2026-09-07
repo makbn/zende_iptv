@@ -34,6 +34,8 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
+  type Ref,
   type ReactNode,
 } from "react";
 
@@ -106,6 +108,11 @@ import {
 } from "@/features/remote/remote-control-context";
 import { useLiveChannelEpg } from "@/features/epg/use-live-channel-epg";
 import type { RemotePlaybackState } from "@/lib/remote/remote-control-types";
+import { useSmallScreen } from "@/components/mobile/use-small-screen";
+import { isTvEnvironment } from "@/lib/tv/tv-environment";
+import {
+  createDeferredSeekCommitter,
+} from "@/lib/player/deferred-seek";
 
 const FREQUENT_RING = 15;
 const ZAP_MODE_STORAGE = "zende.zapMode";
@@ -130,11 +137,27 @@ function favoritesRingEntries(): ViewingEntry[] {
 
 /** Hide top/bottom chrome after this many ms with no pointer activity (unless hovering chrome). */
 const CHROME_IDLE_MS = 3000;
+const TV_CHROME_IDLE_MS = 5000;
 /** Keep the large player tree from re-rendering on every native `timeupdate`. */
 const CHROME_PROGRESS_UPDATE_MS = 1000;
 const REMOTE_SEEK_SECONDS = 15;
+/** Collapse a drag or a burst of remote steps into one media seek. */
+const SEEK_COMMIT_IDLE_MS = 600;
+const TRANSCODED_VOD_HLS_CONFIG = {
+  startPosition: 0,
+  liveMaxLatencyDurationCount: Infinity,
+  maxLiveSyncPlaybackRate: 1,
+};
 
 const PLAYBACK_SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2] as const;
+
+function subscribeStaticEnvironment(): () => void {
+  return () => undefined;
+}
+
+function getServerTvEnvironment(): boolean {
+  return false;
+}
 
 const programmeClockFormatter = new Intl.DateTimeFormat(undefined, {
   hour: "numeric",
@@ -403,6 +426,13 @@ export function WatchView() {
   );
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const playPauseButtonRef = useRef<HTMLButtonElement>(null);
+  const smallScreen = useSmallScreen();
+  const tvSurface = useSyncExternalStore(
+    subscribeStaticEnvironment,
+    isTvEnvironment,
+    getServerTvEnvironment,
+  );
 
   const [statsEpoch, setStatsEpoch] = useState(0);
   const [playing, setPlaying] = useState(true);
@@ -463,6 +493,17 @@ export function WatchView() {
       playing,
       buffering,
       seekable,
+      subtitleSearch: playbackMeta
+        ? {
+            contentKind: playbackMeta.contentKind,
+            seriesTitle: playbackMeta.seriesTitle,
+            season: playbackMeta.season,
+            episodeNum: playbackMeta.episodeNum,
+            searchTitle: playbackMeta.searchTitle,
+            year: playbackMeta.year,
+            imdbId: playbackMeta.imdbId,
+          }
+        : undefined,
     });
   }, [
     buffering,
@@ -473,6 +514,7 @@ export function WatchView() {
     isRecordedPlayback,
     isVodPlayback,
     logo,
+    playbackMeta,
     playbackSrc,
     playing,
     recordingId,
@@ -516,6 +558,7 @@ export function WatchView() {
   const [recordingHint, setRecordingHint] = useState<string | null>(null);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const remoteControlActiveState = Boolean(remote?.activeSession);
+  const usesHardwareVolume = smallScreen || tvSurface;
   const toast = useToastManager<{ icon?: ReactNode }>();
 
   const liveGuideIdentity = useMemo(() => {
@@ -565,6 +608,11 @@ export function WatchView() {
   const chromeHoverRef = useRef(false);
   const chromeVisibleRef = useRef(true);
   const lastChromeProgressSyncRef = useRef(0);
+  const effectiveDurationRef = useRef(effectiveDuration);
+
+  useEffect(() => {
+    effectiveDurationRef.current = effectiveDuration;
+  }, [effectiveDuration]);
 
   const [catalogMergeEpoch, setCatalogMergeEpoch] = useState(0);
 
@@ -764,9 +812,10 @@ export function WatchView() {
 
     const nextTime = Number.isFinite(v.currentTime) ? Math.max(0, v.currentTime) : 0;
     const nextDuration = v.duration;
+    const currentEffectiveDuration = effectiveDurationRef.current;
     const durationForBuffer =
-      Number.isFinite(effectiveDuration) && effectiveDuration > 0
-        ? effectiveDuration
+      Number.isFinite(currentEffectiveDuration) && currentEffectiveDuration > 0
+        ? currentEffectiveDuration
         : nextDuration;
     const nextBufferRatio =
       Number.isFinite(durationForBuffer) && durationForBuffer > 0
@@ -781,7 +830,7 @@ export function WatchView() {
         ? nextBufferRatio
         : previous,
     );
-  }, [effectiveDuration]);
+  }, []);
 
   const clearChromeIdleTimer = useCallback(() => {
     if (chromeIdleTimerRef.current) {
@@ -797,8 +846,8 @@ export function WatchView() {
         chromeVisibleRef.current = false;
         setChromeVisible(false);
       }
-    }, CHROME_IDLE_MS);
-  }, [clearChromeIdleTimer]);
+    }, tvSurface ? TV_CHROME_IDLE_MS : CHROME_IDLE_MS);
+  }, [clearChromeIdleTimer, tvSurface]);
 
   const revealChrome = useCallback(() => {
     const wasHidden = !chromeVisibleRef.current;
@@ -806,7 +855,33 @@ export function WatchView() {
     if (wasHidden) syncChromeProgress(true);
     setChromeVisible(true);
     scheduleChromeHide();
+    if (wasHidden && isTvEnvironment()) {
+      window.requestAnimationFrame(() => {
+        playPauseButtonRef.current?.focus({ preventScroll: true });
+      });
+    }
   }, [scheduleChromeHide, syncChromeProgress]);
+
+  useEffect(() => {
+    if (!tvSurface) return;
+    window.__zendeTvWakePlayer = () => {
+      const wasHidden = !chromeVisibleRef.current;
+      revealChrome();
+      return wasHidden;
+    };
+    window.__zendeTvPageBack = () => {
+      if (!chromeVisibleRef.current) {
+        revealChrome();
+        return true;
+      }
+      router.replace(getWatchReturnHref());
+      return true;
+    };
+    return () => {
+      delete window.__zendeTvWakePlayer;
+      delete window.__zendeTvPageBack;
+    };
+  }, [revealChrome, router, tvSurface]);
 
   const onChromePointerEnter = useCallback(() => {
     const wasHidden = !chromeVisibleRef.current;
@@ -823,6 +898,9 @@ export function WatchView() {
   }, [scheduleChromeHide]);
 
   useEffect(() => {
+    // This subscription must remain stable while a live HLS playlist grows.
+    // Segment-driven duration/progress changes are media activity, not user
+    // activity, and must never reveal the hidden player chrome.
     queueMicrotask(revealChrome);
     const onActivity = () => revealChrome();
     window.addEventListener("mousemove", onActivity, { passive: true });
@@ -969,7 +1047,17 @@ export function WatchView() {
   useEffect(() => {
     queueMicrotask(() => setPlayerFatalError(null));
     return bindVideo();
-  }, [bindVideo, playbackSrc]);
+  }, [bindVideo, playbackSrc, playerSession]);
+
+  useEffect(() => {
+    if (!usesHardwareVolume) return;
+    const video = videoRef.current;
+    if (!video) return;
+    video.volume = 1;
+    video.muted = false;
+    setVolume(1);
+    setMuted(false);
+  }, [usesHardwareVolume, playbackSrc, playerSession]);
 
   useEffect(() => {
     queueMicrotask(() => setAutoplayBlocked(false));
@@ -1153,23 +1241,6 @@ export function WatchView() {
     setPlaybackRate(rate);
   }, []);
 
-  const onSeek = useCallback(
-    (clientX: number, rect: DOMRect) => {
-      const v = videoRef.current;
-      if (!v || seekRatio === null) return;
-      const d =
-        Number.isFinite(effectiveDuration) && effectiveDuration > 0
-          ? effectiveDuration
-          : v.duration;
-      if (!Number.isFinite(d) || d <= 0) return;
-      const x = clientX - rect.left;
-      const t = (x / rect.width) * d;
-      v.currentTime = Math.min(d, Math.max(0, t));
-      setCurrentTime(v.currentTime);
-    },
-    [seekRatio, effectiveDuration],
-  );
-
   const remoteAwareTogglePlay = useCallback(() => {
     if (remoteControlActiveState) {
       void remote?.sendTogglePlay();
@@ -1213,6 +1284,13 @@ export function WatchView() {
         | { type: "togglePlay" | "play" | "pause" }
         | { type: "skip"; payload: { seconds: number } }
         | { type: "seekTo"; payload: { seconds: number } }
+        | {
+            type: "subtitleTrack";
+            payload: {
+              track: { id: string; label: string; language: string; vttUrl: string };
+            };
+          }
+        | { type: "subtitleOff" }
       >;
       const command = custom.detail;
       if (!command) return;
@@ -1249,12 +1327,31 @@ export function WatchView() {
         );
         v.currentTime = clamped;
         setCurrentTime(clamped);
+        return;
+      }
+
+      if (command.type === "subtitleTrack") {
+        playerSession?.setSubtitleTrack(-1);
+        externalSubtitles.addTrack(command.payload.track);
+        return;
+      }
+
+      if (command.type === "subtitleOff") {
+        playerSession?.setSubtitleTrack(-1);
+        externalSubtitles.markOff();
       }
     };
 
     window.addEventListener(REMOTE_COMMAND_EVENT, onRemoteCommand);
     return () => window.removeEventListener(REMOTE_COMMAND_EVENT, onRemoteCommand);
-  }, [togglePlay, skipSeconds, isVodPlayback, effectiveDuration]);
+  }, [
+    effectiveDuration,
+    externalSubtitles,
+    isVodPlayback,
+    playerSession,
+    skipSeconds,
+    togglePlay,
+  ]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1492,6 +1589,7 @@ export function WatchView() {
             ref={videoRef}
             src={playbackSrc}
             playbackMode={sessionMeta?.playbackMode}
+            hlsConfig={sessionMeta?.transcoded ? TRANSCODED_VOD_HLS_CONFIG : undefined}
             controls={false}
             onSessionChange={setPlayerSession}
             onError={(err) => {
@@ -1728,7 +1826,7 @@ export function WatchView() {
           <div
             inert={!chromeVisible ? true : undefined}
             className={cn(
-              "absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 transition-opacity duration-300 ease-out motion-reduce:transition-none",
+              "tv-player-top-chrome absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 transition-opacity duration-300 ease-out motion-reduce:transition-none",
               "bg-gradient-to-b from-background via-background to-transparent",
               "p-3 pb-10 pt-[max(0.65rem,env(safe-area-inset-top))]",
               chromeVisible ? "opacity-100" : "pointer-events-none opacity-0",
@@ -1740,12 +1838,14 @@ export function WatchView() {
             <div className="pointer-events-auto flex min-w-0 flex-1 items-center gap-2">
               <GlassTextButton
                 onClick={() => router.replace(getWatchReturnHref())}
+                id="tv-player-back"
+                data-tv-nav-down="#tv-player-seekbar"
               >
                 ← Back
               </GlassTextButton>
               <div className="min-w-0 flex-1">
                 <div className="flex min-w-0 items-center gap-2">
-              <h1 className="truncate text-[14px] font-semibold tracking-tight sm:text-[15px]">
+              <h1 className="tv-player-title truncate text-[14px] font-semibold tracking-tight sm:text-[15px]">
                     {titleDisplay}
                   </h1>
                   {titleResolutionBadge ? (
@@ -1812,17 +1912,17 @@ export function WatchView() {
         <div
           inert={!chromeVisible ? true : undefined}
           className={cn(
-            "absolute inset-x-0 bottom-0 z-30 w-full transition-opacity duration-300 ease-out motion-reduce:transition-none",
+            "tv-player-bottom-chrome absolute inset-x-0 bottom-0 z-30 w-full transition-opacity duration-300 ease-out motion-reduce:transition-none",
             chromeVisible ? "opacity-100" : "pointer-events-none opacity-0",
           )}
           onMouseEnter={onChromePointerEnter}
           onMouseLeave={onChromePointerLeave}
           onFocusCapture={revealChrome}
         >
-          <div className="mx-auto flex w-full max-w-[min(100vw,1920px)] flex-col gap-1.5 px-2 sm:px-3">
+          <div className="tv-player-bottom-inner mx-auto flex w-full max-w-[min(100vw,1920px)] flex-col gap-1.5 px-2 sm:px-3">
             <div
               className={cn(
-                "relative w-full overflow-hidden rounded-t-[20px] rounded-b-none border-x-0 border-b-0",
+                "tv-player-control-panel relative w-full overflow-hidden rounded-t-[20px] rounded-b-none border-x-0 border-b-0",
                 "border border-border border-b-transparent bg-background",
                 "shadow-lg backdrop-blur-xl ring-1 ring-border",
               )}
@@ -1831,7 +1931,7 @@ export function WatchView() {
                 className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary to-transparent"
                 aria-hidden
               />
-              <div className="px-2.5 pb-[max(0.65rem,env(safe-area-inset-bottom))] pt-2 sm:px-3">
+              <div className="px-3 pb-[max(1.25rem,calc(env(safe-area-inset-bottom)+0.75rem))] pt-3 sm:px-3 sm:pb-3 sm:pt-2">
                 {playbackMeta?.contentKind === "episode" && playbackMeta.seriesId ? (
                   <EpisodePlaybackControls
                     playback={playbackMeta}
@@ -1841,7 +1941,7 @@ export function WatchView() {
                   />
                 ) : null}
 
-                <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] tabular-nums text-foreground-intense">
+                <div className="tv-player-time-row mb-1.5 flex items-center justify-between gap-2 text-[11px] tabular-nums text-foreground-intense">
                   {isLivePlayback ? (
                     <span className="inline-flex items-center gap-1.5 font-medium uppercase tracking-wide text-success-strong">
                       <span className="relative flex h-1.5 w-1.5">
@@ -1885,16 +1985,8 @@ export function WatchView() {
                     bufferRatio={bufferRatio}
                     onActivity={revealChrome}
                     onSeekTo={remoteAwareSeekTo}
-                    onSeek={(clientX, rect) => {
-                      if (remoteControlActiveState && effectiveDuration > 0) {
-                        const x = Math.min(Math.max(clientX, rect.left), rect.right);
-                        const ratio = (x - rect.left) / rect.width;
-                        remoteAwareSeekTo(ratio * effectiveDuration);
-                        return;
-                      }
-                      onSeek(clientX, rect);
-                    }}
                     disabled={!Number.isFinite(effectiveDuration) || effectiveDuration <= 0}
+                    tvNavigation={tvSurface}
                   />
                 ) : (
                   <LiveBufferBar bufferRatio={bufferRatio} />
@@ -1902,26 +1994,34 @@ export function WatchView() {
 
                 <div
                   data-tv-layout="horizontal"
-                  className="mt-1.5 flex items-center gap-1.5"
+                  className="tv-player-control-row mt-2 flex items-center gap-2 sm:mt-1.5 sm:gap-1.5"
                 >
-                  <div className="flex shrink-0 items-center gap-1">
+                  <div className="flex shrink-0 items-center gap-1.5 sm:gap-1">
                     {isVodPlayback ? (
                       <GlassIconButton
                         aria-label="Back 15 seconds"
                         onClick={() => remoteAwareSkipSeconds(-15)}
+                        className="h-12 min-w-12 touch-manipulation sm:h-10 sm:min-w-10"
                       >
-                        <Rewind className="h-4 w-4" />
+                        <span className="relative flex items-center justify-center">
+                          <Rewind className="h-5 w-5" />
+                          <span className="absolute -bottom-2 text-[8px] font-bold tabular-nums">15</span>
+                        </span>
                       </GlassIconButton>
                     ) : null}
 
                     <GlassPrimaryButton
+                      buttonRef={playPauseButtonRef}
                       aria-label={playing ? "Pause" : "Play"}
                       onClick={remoteAwareTogglePlay}
+                      id="tv-player-play"
+                      data-tv-nav-up="#tv-player-seekbar"
+                      className="h-[3.25rem] min-w-[3.25rem] touch-manipulation sm:h-11 sm:min-w-11"
                     >
                       {playing ? (
-                        <Pause className="h-4 w-4" fill="currentColor" />
+                        <Pause className="h-5 w-5" fill="currentColor" />
                       ) : (
-                        <Play className="h-4 w-4 pl-0.5" fill="currentColor" />
+                        <Play className="h-5 w-5 pl-0.5" fill="currentColor" />
                       )}
                     </GlassPrimaryButton>
 
@@ -1929,67 +2029,76 @@ export function WatchView() {
                       <GlassIconButton
                         aria-label="Forward 15 seconds"
                         onClick={() => remoteAwareSkipSeconds(15)}
+                        className="h-12 min-w-12 touch-manipulation sm:h-10 sm:min-w-10"
                       >
-                        <FastForward className="h-4 w-4" />
+                        <span className="relative flex items-center justify-center">
+                          <FastForward className="h-5 w-5" />
+                          <span className="absolute -bottom-2 text-[8px] font-bold tabular-nums">15</span>
+                        </span>
                       </GlassIconButton>
                     ) : null}
                   </div>
 
                   <div className="ml-auto flex min-w-0 items-center gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  <GlassIconButton
-                    aria-label={fs ? "Exit fullscreen" : "Fullscreen"}
-                    onClick={toggleFullscreen}
-                    className="shrink-0"
-                  >
-                    {fs ? (
-                      <Minimize2 className="h-4 w-4" />
-                    ) : (
-                      <Maximize2 className="h-4 w-4" />
-                    )}
-                  </GlassIconButton>
-
-                  <DropdownMenu modal={false}>
-                    <GlassIconMenuTrigger
-                      aria-label="Playback speed"
-                      disabled={!isVodPlayback}
+                  {!tvSurface ? (
+                    <GlassIconButton
+                      aria-label={fs ? "Exit fullscreen" : "Fullscreen"}
+                      onClick={toggleFullscreen}
+                      className="shrink-0"
                     >
-                      <Gauge className="h-4 w-4" />
-                    </GlassIconMenuTrigger>
-                    <>
-                      <DropdownMenuContent
-                        side="top"
-                        align="end"
-                        sideOffset={10}
-                        className="z-[100]"
-                      >
-                        <div className="min-w-[140px] origin-bottom rounded-2xl border border-border bg-background p-1 shadow-2xl outline-none">
-                          <div>
-                            <DropdownMenuGroup>
-                              <DropdownMenuGroupLabel className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-foreground-intense">
-                                Speed
-                              </DropdownMenuGroupLabel>
-                              {PLAYBACK_SPEEDS.map((r) => (
-                                <DropdownMenuItem
-                                  key={r}
-                                  className={cn(
-                                    "flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-foreground-intense outline-none",
-                                    "data-[highlighted]:bg-background-muted",
-                                  )}
-                                  onClick={() => applySpeed(r)}
-                                >
-                                  {r === 1 ? "Normal" : `${r}×`}
-                                  {playbackRate === r ? (
-                                    <span className="text-success-strong">✓</span>
-                                  ) : null}
-                                </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuGroup>
-                          </div>
-                        </div>
-                      </DropdownMenuContent>
-                    </>
-                  </DropdownMenu>
+                      {fs ? (
+                        <Minimize2 className="h-4 w-4" />
+                      ) : (
+                        <Maximize2 className="h-4 w-4" />
+                      )}
+                    </GlassIconButton>
+                  ) : null}
 
+                  <div data-tv-hide-control className="hidden md:contents">
+                    <DropdownMenu modal={false}>
+                      <GlassIconMenuTrigger
+                        aria-label="Playback speed"
+                        disabled={!isVodPlayback}
+                      >
+                        <Gauge className="h-4 w-4" />
+                      </GlassIconMenuTrigger>
+                      <>
+                        <DropdownMenuContent
+                          side="top"
+                          align="end"
+                          sideOffset={10}
+                          className="z-[100]"
+                        >
+                          <div className="min-w-[140px] origin-bottom rounded-2xl border border-border bg-background p-1 shadow-2xl outline-none">
+                            <div>
+                              <DropdownMenuGroup>
+                                <DropdownMenuGroupLabel className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-foreground-intense">
+                                  Speed
+                                </DropdownMenuGroupLabel>
+                                {PLAYBACK_SPEEDS.map((r) => (
+                                  <DropdownMenuItem
+                                    key={r}
+                                    className={cn(
+                                      "flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-foreground-intense outline-none",
+                                      "data-[highlighted]:bg-background-muted",
+                                    )}
+                                    onClick={() => applySpeed(r)}
+                                  >
+                                    {r === 1 ? "Normal" : `${r}×`}
+                                    {playbackRate === r ? (
+                                      <span className="text-success-strong">✓</span>
+                                    ) : null}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuGroup>
+                            </div>
+                          </div>
+                        </DropdownMenuContent>
+                      </>
+                    </DropdownMenu>
+                  </div>
+
+                  {!tvSurface ? (
                   <DropdownMenu modal={false}>
                     <GlassIconMenuTrigger
                       aria-label="Quality"
@@ -2043,6 +2152,7 @@ export function WatchView() {
                       </DropdownMenuContent>
                     </>
                   </DropdownMenu>
+                  ) : null}
 
                   {audioTracks.length > 1 ? (
                     <DropdownMenu modal={false}>
@@ -2147,33 +2257,32 @@ export function WatchView() {
                     </DropdownMenu>
                   ) : null}
 
-                  <div
-                    data-tv-hide-control
-                    className="hidden items-center gap-1.5 sm:flex"
-                  >
-                    <span className="text-[11px] text-foreground-intense">Vol</span>
-                    <Slider
-                      aria-label="Volume"
-                      min={0}
-                      max={1}
-                      step={0.02}
-                      value={[volume]}
-                      onValueChange={(value) => setVol(Array.isArray(value) ? (value[0] ?? 0) : value)}
-                      tooltipVisibility="never"
-                      className="w-20"
-                    />
-                  </div>
+                  <div data-tv-hide-control className="hidden md:contents">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-foreground-intense">Vol</span>
+                      <Slider
+                        aria-label="Volume"
+                        min={0}
+                        max={1}
+                        step={0.02}
+                        value={[volume]}
+                        onValueChange={(value) => setVol(Array.isArray(value) ? (value[0] ?? 0) : value)}
+                        tooltipVisibility="never"
+                        className="w-20"
+                      />
+                    </div>
 
-                  <GlassIconButton
-                    aria-label={muted ? "Unmute" : "Mute"}
-                    onClick={toggleMute}
-                  >
-                    {muted ? (
-                      <VolumeX className="h-4 w-4" />
-                    ) : (
-                      <Volume2 className="h-4 w-4" />
-                    )}
-                  </GlassIconButton>
+                    <GlassIconButton
+                      aria-label={muted ? "Unmute" : "Mute"}
+                      onClick={toggleMute}
+                    >
+                      {muted ? (
+                        <VolumeX className="h-4 w-4" />
+                      ) : (
+                        <Volume2 className="h-4 w-4" />
+                      )}
+                    </GlassIconButton>
+                  </div>
 
                   {pipCapable ? (
                     <GlassIconButton
@@ -2203,6 +2312,7 @@ export function WatchView() {
           onClose={() => setSubtitleSearchOpen(false)}
           title={title}
           playback={playbackMeta}
+          tvMode={tvSurface}
           onSelect={(track) => {
             externalSubtitles.addTrack(track);
           }}
@@ -2215,14 +2325,20 @@ export function WatchView() {
 function GlassTextButton({
   children,
   onClick,
+  id,
+  "data-tv-nav-down": tvNavDown,
 }: {
   children: ReactNode;
   onClick: () => void;
+  id?: string;
+  "data-tv-nav-down"?: string;
 }) {
   return (
     <Button variant="ghost"
       type="button"
       onClick={onClick}
+      id={id}
+      data-tv-nav-down={tvNavDown}
       className={cn(
         "inline-flex shrink-0 rounded-full border border-border bg-background px-2.5 py-1.5 text-[13px] font-semibold text-foreground-intense outline-none backdrop-blur-xl",
         "transition-colors hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-primary",
@@ -2266,21 +2382,33 @@ function GlassIconButton({
 
 function GlassPrimaryButton({
   children,
+  buttonRef,
+  className,
   onClick,
+  id,
+  "data-tv-nav-up": tvNavUp,
   "aria-label": ariaLabel,
 }: {
   children: ReactNode;
+  buttonRef?: Ref<HTMLButtonElement>;
+  className?: string;
   onClick: () => void;
+  id?: string;
+  "data-tv-nav-up"?: string;
   "aria-label": string;
 }) {
   return (
     <Button variant="ghost"
+      ref={buttonRef}
       type="button"
       aria-label={ariaLabel}
       onClick={onClick}
+      id={id}
+      data-tv-nav-up={tvNavUp}
       className={cn(
         "inline-flex h-10 min-w-10 items-center justify-center rounded-full border border-border bg-primary text-primary-foreground outline-none sm:h-11 sm:min-w-11",
         "shadow-lg focus-visible:ring-2 focus-visible:ring-primary",
+        className,
       )}
     >
       {children}
@@ -2346,8 +2474,8 @@ function SeekBar({
   bufferRatio,
   disabled,
   onActivity,
-  onSeek,
   onSeekTo,
+  tvNavigation = false,
 }: {
   ratio: number;
   currentSeconds: number;
@@ -2355,64 +2483,137 @@ function SeekBar({
   bufferRatio: number;
   disabled: boolean;
   onActivity: () => void;
-  onSeek: (clientX: number, rect: DOMRect) => void;
   onSeekTo: (seconds: number) => void;
+  tvNavigation?: boolean;
 }) {
   const barRef = useRef<HTMLDivElement>(null);
+  const activePointerRef = useRef<number | null>(null);
+  const pointerPreviewRef = useRef<number | null>(null);
   const keyboardPreviewRef = useRef<number | null>(null);
   const seekHoldRef = useRef<{
     direction: -1 | 1;
     startedAt: number;
   } | null>(null);
+  const [pointerPreview, setPointerPreview] = useState<number | null>(null);
   const [keyboardPreview, setKeyboardPreview] = useState<number | null>(null);
+  const [seekCommitter] = useState(() =>
+    createDeferredSeekCommitter(SEEK_COMMIT_IDLE_MS),
+  );
 
-  const displayedSeconds = keyboardPreview ?? currentSeconds;
+  const clearSeekCommitTimer = useCallback(() => {
+    seekCommitter.cancel();
+  }, [seekCommitter]);
+
+  useEffect(() => clearSeekCommitTimer, [clearSeekCommitTimer]);
+
+  const displayedSeconds = pointerPreview ?? keyboardPreview ?? currentSeconds;
   const displayedRatio =
     Number.isFinite(durationSeconds) && durationSeconds > 0
       ? Math.min(1, Math.max(0, displayedSeconds / durationSeconds))
       : ratio;
 
-  const seekFromPointer = useCallback(
+  const previewFromPointer = useCallback(
     (clientX: number) => {
       const el = barRef.current;
-      if (!el || disabled) return;
-      onSeek(clientX, el.getBoundingClientRect());
+      if (!el || disabled || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+        return null;
+      }
+      const rect = el.getBoundingClientRect();
+      const fraction = rect.width > 0
+        ? Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
+        : 0;
+      const target = fraction * durationSeconds;
+      pointerPreviewRef.current = target;
+      setPointerPreview(target);
+      return target;
     },
-    [disabled, onSeek],
+    [disabled, durationSeconds],
   );
 
-  const commitKeyboardSeek = useCallback(() => {
+  const finishPointerSeek = useCallback(() => {
+    const target = pointerPreviewRef.current;
+    activePointerRef.current = null;
+    if (target === null) return;
+    clearSeekCommitTimer();
+    seekCommitter.schedule(target, () => {
+      if (pointerPreviewRef.current !== target) return;
+      pointerPreviewRef.current = null;
+      setPointerPreview(null);
+      onSeekTo(target);
+    });
+  }, [clearSeekCommitTimer, onSeekTo, seekCommitter]);
+
+  const cancelPointerSeek = useCallback(() => {
+    clearSeekCommitTimer();
+    activePointerRef.current = null;
+    pointerPreviewRef.current = null;
+    setPointerPreview(null);
+  }, [clearSeekCommitTimer]);
+
+  const scheduleKeyboardSeek = useCallback(() => {
     const target = keyboardPreviewRef.current;
-    keyboardPreviewRef.current = null;
     seekHoldRef.current = null;
-    setKeyboardPreview(null);
-    if (target !== null) onSeekTo(target);
-  }, [onSeekTo]);
+    if (target === null) return;
+    clearSeekCommitTimer();
+    seekCommitter.schedule(target, () => {
+      if (keyboardPreviewRef.current !== target) return;
+      keyboardPreviewRef.current = null;
+      setKeyboardPreview(null);
+      onSeekTo(target);
+    });
+  }, [clearSeekCommitTimer, onSeekTo, seekCommitter]);
 
   return (
     <div
       ref={barRef}
+      id={tvNavigation ? "tv-player-seekbar" : undefined}
+      data-tv-nav-up={tvNavigation ? "#tv-player-back" : undefined}
+      data-tv-nav-down={tvNavigation ? "#tv-player-play" : undefined}
       role="slider"
       tabIndex={disabled ? -1 : 0}
       aria-disabled={disabled}
       aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={Math.round(displayedRatio * 100)}
+      aria-valuemax={Math.max(0, Math.round(durationSeconds))}
+      aria-valuenow={Math.max(0, Math.round(displayedSeconds))}
       aria-valuetext={`${formatClock(displayedSeconds)} of ${formatClock(durationSeconds)}`}
       className={cn(
-        "group relative mb-1 h-5 w-full cursor-pointer rounded-full outline-none",
+        "group relative mb-1 h-11 w-full touch-none select-none cursor-pointer rounded-full outline-none sm:h-8",
         "focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         disabled && "cursor-default opacity-50",
       )}
       onPointerDown={(e) => {
         if (disabled) return;
+        e.preventDefault();
         onActivity();
-        seekFromPointer(e.clientX);
+        clearSeekCommitTimer();
+        keyboardPreviewRef.current = null;
+        setKeyboardPreview(null);
+        activePointerRef.current = e.pointerId;
+        previewFromPointer(e.clientX);
         e.currentTarget.setPointerCapture?.(e.pointerId);
       }}
       onPointerMove={(e) => {
-        if (disabled || e.buttons !== 1) return;
-        seekFromPointer(e.clientX);
+        if (disabled || activePointerRef.current !== e.pointerId) return;
+        e.preventDefault();
+        onActivity();
+        previewFromPointer(e.clientX);
+      }}
+      onPointerUp={(e) => {
+        if (activePointerRef.current !== e.pointerId) return;
+        e.preventDefault();
+        previewFromPointer(e.clientX);
+        finishPointerSeek();
+        if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+          e.currentTarget.releasePointerCapture?.(e.pointerId);
+        }
+      }}
+      onPointerCancel={(e) => {
+        if (activePointerRef.current !== e.pointerId) return;
+        cancelPointerSeek();
+      }}
+      onLostPointerCapture={(e) => {
+        if (activePointerRef.current !== e.pointerId) return;
+        finishPointerSeek();
       }}
       onKeyDown={(e) => {
         const direction =
@@ -2428,6 +2629,9 @@ function SeekBar({
           return;
         }
         onActivity();
+        clearSeekCommitTimer();
+        pointerPreviewRef.current = null;
+        setPointerPreview(null);
 
         const now = performance.now();
         if (!seekHoldRef.current || seekHoldRef.current.direction !== direction) {
@@ -2457,11 +2661,19 @@ function SeekBar({
         }
         e.preventDefault();
         e.stopPropagation();
-        commitKeyboardSeek();
+        scheduleKeyboardSeek();
       }}
-      onBlur={commitKeyboardSeek}
+      onBlur={scheduleKeyboardSeek}
     >
-      <div className="pointer-events-none absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 overflow-hidden rounded-full border border-border bg-background-muted">
+      {(pointerPreview !== null || keyboardPreview !== null) ? (
+        <div
+          className="pointer-events-none absolute bottom-[calc(50%+0.85rem)] z-10 -translate-x-1/2 rounded-lg bg-background-inverse px-2 py-1 text-[12px] font-semibold tabular-nums text-foreground-inverse shadow-lg"
+          style={{ left: `${Math.min(98, Math.max(2, displayedRatio * 100))}%` }}
+        >
+          {formatClock(displayedSeconds)}
+        </div>
+      ) : null}
+      <div className="pointer-events-none absolute inset-x-0 top-1/2 h-2.5 -translate-y-1/2 overflow-hidden rounded-full border border-border bg-background-muted sm:h-2">
         <div
           className="absolute inset-y-0 left-0 bg-white/20"
           style={{ width: `${Math.min(100, bufferRatio * 100)}%` }}
@@ -2471,6 +2683,14 @@ function SeekBar({
           style={{ width: `${displayedRatio * 100}%` }}
         />
       </div>
+      <div
+        className={cn(
+          "pointer-events-none absolute top-1/2 size-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-background shadow-md transition-transform",
+          (pointerPreview !== null || keyboardPreview !== null) && "scale-125",
+        )}
+        style={{ left: `${displayedRatio * 100}%` }}
+        aria-hidden
+      />
     </div>
   );
 }

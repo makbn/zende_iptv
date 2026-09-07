@@ -121,6 +121,30 @@ async function loadRemoteImage(rawUrl: string): Promise<Omit<CachedImage, "expir
   throw new Error("Too many remote image redirects.");
 }
 
+/** Download an image into the same persistent cache used by the browser relay. */
+export async function primeRemoteImageCache(
+  kind: ImageCacheKind,
+  rawUrl?: string | null,
+): Promise<void> {
+  const url = rawUrl?.trim();
+  if (!url || readCachedImage(kind, url)) return;
+  try {
+    await loadCachedImage(kind, url, () => loadRemoteImage(url));
+  } catch (error) {
+    let remoteHost = "invalid";
+    try {
+      remoteHost = new URL(url).hostname;
+    } catch {
+      /* keep invalid */
+    }
+    log.warn("image cache prewarm failed", {
+      kind,
+      remoteHost,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 function imageResponse(image: CachedImage, cacheState: "HIT" | "MISS" | "COALESCED", kind: ImageCacheKind): NextResponse {
   const body = image.body.buffer.slice(image.body.byteOffset, image.body.byteOffset + image.body.byteLength) as ArrayBuffer;
   const browserMaxAge = kind === "thumbnail" ? 6 * 60 * 60 : 24 * 60 * 60;

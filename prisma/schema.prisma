@@ -49,6 +49,7 @@ model User {
   favorites         UserFavorite[]
   viewingHistory    UserViewingHistory[]
   iptvCredentials   IptvClientCredential[]
+  mediaShares       MediaShare[]
 }
 
 /// Long-lived portal login for Xtream-compatible IPTV apps (e.g. TiviMate): `portalUsername` + secret map to Xtream username/password.
@@ -117,26 +118,52 @@ model HealthAggregate {
 
 /// Ephemeral HLS proxy session: maps opaque `id` → upstream URL + rewrite aliases (survives dev HMR).
 model StreamProxySession {
-  id                String   @id
+  id                String    @id
+  /// Signed-in user who created this browser playback session. Null for explicit public/integration relays.
+  ownerUserId       String?
+  /// SHA-256 of a short-lived HttpOnly grant used by intentional public-share playback.
+  accessGrantHash   String?
   upstreamRootUrl   String
   title             String
   logo              String?
   groupTitle        String?
   /// JSON object: short hash → absolute upstream URL (for overlong `?u=`).
-  urlAliasesJson    String   @default("{}")
+  urlAliasesJson    String    @default("{}")
   /// JSON: hash → upstream playlist URL that referenced this resource — used as `Referer` for that hash (avoids racing `lastRefererUrl`).
-  aliasReferersJson String   @default("{}")
+  aliasReferersJson String    @default("{}")
   /// JSON: `{ origin: { cookieName: cookieValue } }` — forwarded on segment requests (many CDNs require playlist cookies).
-  cookieJarJson     String   @default("{}")
+  cookieJarJson     String    @default("{}")
   /// Last upstream playlist URL fetched through this session — segments should use this `Referer` (not only the master URL).
   lastRefererUrl    String?
   /// Serialized StoredProxyConfig — proxy is read once at session creation; the proxy route never needs a second DB query.
   proxyConfigJson   String?
   /// JSON: duration, series/episode context for VOD seek bar and next/prev controls.
-  metaJson          String   @default("{}")
+  metaJson          String    @default("{}")
   expiresAt         DateTime
-  createdAt         DateTime @default(now())
+  /// Optional hard stop used by public shares. Unlike `expiresAt`, this is never extended.
+  absoluteExpiresAt DateTime?
+  createdAt         DateTime  @default(now())
 
+  @@index([expiresAt])
+  @@index([absoluteExpiresAt])
+  @@index([ownerUserId])
+}
+
+/// An admin-created, opaque public link to a live stream or VOD snapshot.
+/// Provider URLs stay in `payloadJson` and are never returned by public metadata APIs.
+model MediaShare {
+  id              String   @id @default(cuid())
+  token           String   @unique
+  kind            String
+  title           String
+  logo            String?
+  payloadJson     String
+  createdByUserId String
+  createdBy       User     @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+
+  @@index([createdByUserId, createdAt(sort: Desc)])
   @@index([expiresAt])
 }
 
@@ -320,12 +347,19 @@ model MediaMetadataCache {
   title             String
   tmdbId            String?
   imdbId            String?
+  /// IMDb's 1–10 weighted average and vote count from the official daily ratings dataset.
+  imdbRating        Float?
+  imdbVotes         Int?
+  imdbRatingFetchedAt DateTime?
+  /// Avoid re-scanning IMDb title basics nightly for catalog labels that did not match.
+  imdbMatchAttemptedAt DateTime?
   payloadJson       String
   fetchedAt         DateTime
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
 
   @@index([mediaType, tmdbId])
+  @@index([mediaType, imdbRating])
   @@index([fetchedAt])
 }
 

@@ -6,6 +6,19 @@ export DATABASE_URL="${DATABASE_URL:-file:/data/zende.db}"
 
 mkdir -p /data /data/recordings /logs
 
+# Keep internal scheduled routes authenticated even when an operator has not
+# supplied CRON_SECRET. The generated value persists with the data volume and
+# is inherited by both Next.js and the scheduler process.
+if [ -z "${CRON_SECRET:-}" ]; then
+  INTERNAL_CRON_SECRET_FILE=/data/internal-cron-secret
+  if [ ! -s "$INTERNAL_CRON_SECRET_FILE" ]; then
+    openssl rand -hex 32 > "$INTERNAL_CRON_SECRET_FILE"
+    chmod 600 "$INTERNAL_CRON_SECRET_FILE"
+  fi
+  CRON_SECRET=$(tr -d '\r\n' < "$INTERNAL_CRON_SECRET_FILE")
+  export CRON_SECRET
+fi
+
 if [ "$(id -u)" -eq 0 ]; then
   # Named volumes are often root-owned on first mount — chown so Prisma can write zende.db.
   chown -R nextjs:nodejs /data
@@ -67,5 +80,14 @@ fi
 # One-time relational migration for legacy Xtream rows previously flattened
 # into ManualChannelsStore JSON. Non-provider manual URLs stay in that store.
 su-exec nextjs node scripts/migrate-legacy-provider-channels.mjs
+
+# One lightweight timer process invokes the protected IMDb refresh route at
+# 03:15 in the configured TZ. The route owns de-duplication and job logging.
+IMDB_SCHEDULER_ENABLED=$(printf '%s' "${ZENDE_IMDB_NIGHTLY_ENABLED:-1}" | tr '[:upper:]' '[:lower:]')
+if [ "$IMDB_SCHEDULER_ENABLED" != "0" ] && [ "$IMDB_SCHEDULER_ENABLED" != "false" ] && [ "$IMDB_SCHEDULER_ENABLED" != "no" ]; then
+  if [ -n "${CRON_SECRET:-}" ]; then
+    su-exec nextjs node scripts/nightly-imdb-scheduler.mjs &
+  fi
+fi
 
 exec su-exec nextjs "$@"

@@ -244,10 +244,11 @@ Requires `DATABASE_URL` and a password of at least eight characters.
 
 ## Scheduling and hosting
 
-For automated registry or health sweeps, set **`CRON_SECRET`** and configure callers to send `Authorization: Bearer <CRON_SECRET>`.
+For automated registry or health sweeps, set **`CRON_SECRET`** and configure callers to send `Authorization: Bearer <CRON_SECRET>`. Docker deployments generate a private persisted token automatically when this variable is omitted.
 
 * From **Settings → Server**, operators may store the same secret for browser-initiated calls to protected routes, or call APIs from scripts with the Bearer header.
 * **Nightly health:** `GET /api/cron/nightly-health` on your deployment’s base URL. Schedule with host **cron**, **systemd** timers, **Kubernetes CronJob**, **Nomad**, **GitHub Actions** `schedule`, or any job runner that can issue HTTPS GET with the header.
+* **IMDb ratings:** `GET /api/cron/imdb-ratings`. Docker invokes this automatically at 03:15 in `TZ`. It matches non-adult movies/shows against IMDb's official daily `title.basics.tsv.gz`, joins `title.ratings.tsv.gz`, and persists rating/vote counts for Library filtering. Unmatched titles are retried after 30 days, while already matched titles only need the smaller nightly ratings refresh. Set `ZENDE_IMDB_NIGHTLY_ENABLED=0` to disable it or adjust `ZENDE_IMDB_NIGHTLY_HOUR` and `ZENDE_IMDB_NIGHTLY_MINUTE`.
 
 Example host cron entry (05:00 UTC daily):
 

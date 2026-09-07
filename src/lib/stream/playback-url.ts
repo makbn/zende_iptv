@@ -53,6 +53,16 @@ export function progressiveMediaContentType(url: string): string {
     : "video/mp4";
 }
 
+/** Preserve the browser's exact VOD Range request for provider-native seeking. */
+export function progressiveBootstrapRange(input: {
+  fetchUrl: string;
+  requestedRange: string | null;
+  asDownload: boolean;
+  internalRelay: boolean;
+}): string | undefined {
+  return input.requestedRange?.trim() || undefined;
+}
+
 export function shouldStreamProxyPassthrough(input: {
   request: Request;
   fetchUrl: string;

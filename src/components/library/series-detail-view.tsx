@@ -14,6 +14,7 @@ import {
   BROWSE_TOP_PAD,
 } from "@/components/layout/browse-page-shell";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
+import { ShareMediaButton } from "@/components/shares/share-media-button";
 import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
 import { useSeriesInfo } from "@/features/iptv/use-series-info";
 import { buildEpisodeWatchChannel, formatEpisodeCode } from "@/lib/playback/play-episode";
@@ -30,6 +31,7 @@ import {
   type ViewingEntry,
 } from "@/lib/watch/viewing-stats";
 import { cn } from "@/lib/utils";
+import type { MediaShareTarget } from "@/lib/shares/media-share-types";
 
 type Props = {
   seriesId: string;
@@ -72,6 +74,34 @@ export function SeriesDetailView({
   const groupTitle = fallbackGroup;
 
   const activeSeason = seasonTab ?? episodesBySeason.seasons[0] ?? null;
+
+  const seriesShareTarget = useMemo<MediaShareTarget | null>(() => {
+    if (episodesBySeason.flat.length === 0) return null;
+    return {
+      kind: "series",
+      title,
+      ...(cover ? { logo: cover } : {}),
+      ...(groupTitle ? { group: groupTitle } : {}),
+      ...(overview ? { description: overview } : {}),
+      items: episodesBySeason.flat.map((episode, episodeIndex) => {
+        const channel = buildEpisodeWatchChannel({
+          seriesId,
+          seriesTitle: title,
+          cover: cover || undefined,
+          groupTitle,
+          episode,
+          episodeIndex,
+        });
+        return {
+          id: `episode-${episodeIndex}`,
+          title: episode.title || formatEpisodeCode(episode.season, episode.episodeNum),
+          subtitle: formatEpisodeCode(episode.season, episode.episodeNum),
+          url: episode.playUrl,
+          playback: channel.playback,
+        };
+      }),
+    };
+  }, [cover, episodesBySeason.flat, groupTitle, overview, seriesId, title]);
 
   const continueTarget = useMemo(() => {
     const byUrl = new Map(
@@ -154,13 +184,13 @@ export function SeriesDetailView({
     <main
       id="main"
       className={cn(
-        "bg-background min-h-screen text-foreground-intense",
+        "tv-media-detail tv-series-detail bg-background min-h-screen text-foreground-intense",
         BROWSE_TOP_PAD,
         BROWSE_BOTTOM_PAD_MOBILE,
         "md:pb-16",
       )}
     >
-      <div className="relative overflow-hidden">
+      <div className="tv-media-detail-hero relative overflow-hidden">
         {heroArt ? (
           <div className="absolute inset-0 overflow-hidden" aria-hidden>
             {/* Fallback treatment for low-res artwork: enlarged, desaturated and pixel-emphasized */}
@@ -176,7 +206,7 @@ export function SeriesDetailView({
         ) : null}
         <div className="absolute inset-0 bg-gradient-to-b from-background via-background to-background" />
 
-        <div className={cn(BROWSE_CONTAINER_CLASS, "relative pb-8 pt-4 sm:pt-8")}>
+        <div className={cn(BROWSE_CONTAINER_CLASS, "tv-media-detail-content relative pb-8 pt-4 sm:pt-8")}>
           <Button
             variant="ghost"
             render={<Link href="/library?tab=series" />}
@@ -186,8 +216,8 @@ export function SeriesDetailView({
             Library
           </Button>
 
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-end">
-            <div className="mx-auto w-40 shrink-0 overflow-hidden rounded-lg border border-border bg-background shadow-lg sm:mx-0 sm:w-52">
+          <div className="tv-media-detail-layout flex flex-col gap-6 sm:flex-row sm:items-end">
+            <div className="tv-media-detail-poster mx-auto w-40 shrink-0 overflow-hidden rounded-lg border border-border bg-background shadow-lg sm:mx-0 sm:w-52">
               {cover ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={secureImageUrl(cover, undefined, "poster")} alt="" className="aspect-[2/3] w-full object-cover" />
@@ -198,7 +228,7 @@ export function SeriesDetailView({
               )}
             </div>
 
-            <div className="min-w-0 flex-1 text-center sm:text-left">
+            <div className="tv-media-detail-copy min-w-0 flex-1 text-center sm:text-left">
               <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">
                 TV Show
               </p>
@@ -212,14 +242,15 @@ export function SeriesDetailView({
                 <div className="mt-4"><MediaMetadataFacts metadata={metadata} /></div>
               ) : null}
               {overview ? (
-                <p className="text-sm text-foreground-muted mt-4 max-w-3xl">
+                <p className="tv-media-detail-overview text-sm text-foreground-muted mt-4 max-w-3xl">
                   {overview}
                 </p>
               ) : null}
 
-              <div className="mt-6 flex flex-wrap items-center justify-center gap-3 sm:justify-start">
+              <div className="tv-media-detail-actions mt-6 flex flex-wrap items-center justify-center gap-3 sm:justify-start">
                 {continueTarget ? (
                   <Button variant="primary"
+                    data-tv-initial-focus
                     type="button"
                     disabled={playBusy}
                     onClick={() => void playEpisode(continueTarget.ep, continueTarget.index)}
@@ -249,6 +280,7 @@ export function SeriesDetailView({
                   </Button>
                 ) : episodesBySeason.flat[0] ? (
                   <Button variant="primary"
+                    data-tv-initial-focus
                     type="button"
                     disabled={playBusy || loading}
                     onClick={() => void playEpisode(episodesBySeason.flat[0]!, 0)}
@@ -261,13 +293,16 @@ export function SeriesDetailView({
                     </span>
                   </Button>
                 ) : null}
+                {seriesShareTarget ? (
+                  <ShareMediaButton target={seriesShareTarget} size="lg" showLabel />
+                ) : null}
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className={cn(BROWSE_CONTAINER_CLASS, "pb-28 md:pb-16")}>
+      <div className={cn(BROWSE_CONTAINER_CLASS, "tv-series-content pb-28 md:pb-16")}>
         {displayPlayError ? (
           <NavErrorBanner
             message={displayPlayError}
@@ -288,7 +323,7 @@ export function SeriesDetailView({
           <p className="py-12 text-center text-[15px] text-foreground-intense">No episodes found.</p>
         ) : (
           <>
-            <div className="flex gap-2 overflow-x-auto pb-6 pt-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="tv-season-tabs flex gap-2 overflow-x-auto pb-6 pt-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {episodesBySeason.seasons.map((season) => (
                 <Button
                   variant={activeSeason === season ? "primary" : "secondary"}
@@ -305,12 +340,36 @@ export function SeriesDetailView({
               ))}
             </div>
 
-            <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <ul className="tv-episode-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {(episodesBySeason.map.get(activeSeason ?? "") ?? []).map((ep) => {
                 const downloading = downloadBusyUrl === ep.playUrl;
+                const episodeIndex = episodesBySeason.flat.findIndex(
+                  (candidate) => candidate.playUrl === ep.playUrl,
+                );
+                const episodeChannel = buildEpisodeWatchChannel({
+                  seriesId,
+                  seriesTitle: title,
+                  cover: cover || undefined,
+                  groupTitle,
+                  episode: ep,
+                  episodeIndex: episodeIndex >= 0 ? episodeIndex : ep.index,
+                });
+                const episodeShareTarget: MediaShareTarget = {
+                  kind: "episode",
+                  title: episodeChannel.name,
+                  ...(cover ? { logo: cover } : {}),
+                  ...(groupTitle ? { group: groupTitle } : {}),
+                  items: [{
+                    id: "main",
+                    title: episodeChannel.name,
+                    subtitle: formatEpisodeCode(ep.season, ep.episodeNum),
+                    url: episodeChannel.url,
+                    playback: episodeChannel.playback,
+                  }],
+                };
                 return (
                   <li key={ep.playUrl}>
-                    <Card frame="solid" className="group h-full overflow-hidden transition-all hover:border-primary/50 hover:shadow-md">
+                    <Card frame="solid" className="tv-episode-card group h-full overflow-hidden transition-all hover:border-primary/50 hover:shadow-md">
                       <div className="flex h-full items-center p-2">
                         <Button variant="ghost"
                           data-tv-download
@@ -334,6 +393,7 @@ export function SeriesDetailView({
                             ) : null}
                           </div>
                         </Button>
+                        <ShareMediaButton target={episodeShareTarget} />
                         <Button variant="ghost"
                           type="button"
                           disabled={playBusy || Boolean(downloadBusyUrl)}

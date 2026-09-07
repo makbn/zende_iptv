@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { gateApiRequest } from "@/lib/auth/gate-api";
+import { clearStreamAccessCookie, gateApiRequest } from "@/lib/auth/gate-api";
 import {
   revokeAllRefreshTokensForUser,
   revokeRefreshToken,
@@ -38,6 +38,7 @@ export async function POST(request: Request) {
   }
 
   const response = NextResponse.json({ ok: true });
+  clearStreamAccessCookie(response);
   clearParentalUnlockCookie(response);
   response.cookies.set("zende-prefer-modern", "", {
     path: "/",

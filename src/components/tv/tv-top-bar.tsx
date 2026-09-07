@@ -184,7 +184,7 @@ export function TvTopBar() {
       onClick={onNavigateClick(href)}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "relative flex h-16 items-center border-b-2 border-transparent px-1 text-sm font-medium text-foreground-muted outline-none",
+        "tv-nav-link relative flex h-16 items-center border-b-2 border-transparent px-1 text-sm font-medium text-foreground-muted outline-none",
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         active
           ? "border-foreground-intense text-foreground-intense"
@@ -201,32 +201,26 @@ export function TvTopBar() {
       <WatchTogetherDialog open={boardOpen} onClose={() => setBoardOpen(false)} />
       <header
         className={cn(
-          "fixed inset-x-0 top-0 z-50 border-b border-border bg-background",
+          "tv-top-bar fixed inset-x-0 top-0 z-50 border-b border-border bg-background",
+          homeActive && "tv-top-bar--home",
         )}
       >
         <div
           className={cn(
             BROWSE_CONTAINER_CLASS,
-            "relative",
+            "tv-top-bar-container relative",
           )}
         >
-          <div
-            className={cn(
-              "bg-background",
-            )}
-          >
+            <div className="tv-top-bar-surface">
             <div
               data-tv-layout="horizontal"
               className={cn(
-                "flex h-16 w-full items-center justify-between",
+                "tv-top-bar-row flex h-16 w-full items-center justify-between",
               )}
             >
-              <Link
-                data-tv-initial-focus
-                href="/"
-                onClick={onNavigateClick("/")}
-                aria-label="Zende home"
-                className="flex shrink-0 items-center gap-2 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              <div
+                className="tv-brand-link flex shrink-0 items-center gap-2"
+                aria-label="Zende"
               >
                 {/* block + aspect-ratio avoids baseline clipping; removed overflow-hidden on chrome (was cropping) */}
                 <img
@@ -244,28 +238,20 @@ export function TvTopBar() {
                 <span className="hidden text-xs text-foreground-muted md:inline">
                   Live
                 </span>
-              </Link>
+              </div>
               <nav
-                className="absolute left-1/2 flex max-w-[calc(100vw-18rem)] -translate-x-1/2 items-center gap-6 overflow-x-auto **:[scrollbar-width:none]"
+                className="tv-main-nav absolute left-1/2 flex max-w-[calc(100vw-18rem)] -translate-x-1/2 items-center gap-6 overflow-x-auto **:[scrollbar-width:none]"
                 style={{ scrollbarWidth: "none" }}
                 aria-label="Main"
               >
                 {navLink("Home", homeActive, "/", "nav-home")}
                 {navLink("Library", libraryActive, "/library", "nav-library")}
                 {navLink("Favorites", favoritesActive, "/favorites", "nav-favorites")}
-                {navLink("Guide", guideActive, "/guide", "nav-guide")}
+                {navLink("Discover", guideActive, "/guide", "nav-guide")}
                 {navLink("Recordings", recordingsActive, "/recordings", "nav-recordings")}
               </nav>
-              <div className="flex shrink-0 items-center gap-2">
-                <ThemeToggle />
-                <Button variant="ghost"
-                  size="icon-md"
-                  type="button"
-                  onClick={() => setBoardOpen(true)}
-                  aria-label="Watch multiple channels"
-                >
-                  <LayoutGrid aria-hidden />
-                </Button>
+              <div className="tv-top-bar-actions flex shrink-0 items-center gap-2">
+                <span className="tv-theme-toggle"><ThemeToggle /></span>
                 <Button variant="ghost"
                   size="icon-md"
                   type="button"
@@ -273,6 +259,14 @@ export function TvTopBar() {
                   aria-label="Search channels"
                 >
                   <Search aria-hidden />
+                </Button>
+                <Button variant="ghost"
+                  size="icon-md"
+                  type="button"
+                  onClick={() => setBoardOpen(true)}
+                  aria-label="Watch multiple channels"
+                >
+                  <LayoutGrid aria-hidden />
                 </Button>
                 <HeaderUserMenu />
               </div>

@@ -63,6 +63,22 @@ function focusTvElement(element: HTMLElement): void {
   element.focus({ preventScroll: true });
 }
 
+let pendingRevealFrame: number | null = null;
+
+/** Focus is immediate; potentially expensive layout/scroll work waits a frame. */
+function focusAndReveal(
+  element: HTMLElement,
+  inline: ScrollLogicalPosition = "nearest",
+): void {
+  focusTvElement(element);
+  if (pendingRevealFrame !== null) window.cancelAnimationFrame(pendingRevealFrame);
+  pendingRevealFrame = window.requestAnimationFrame(() => {
+    pendingRevealFrame = null;
+    if (document.activeElement !== element || !element.isConnected) return;
+    element.scrollIntoView({ behavior: "auto", block: "nearest", inline });
+  });
+}
+
 function isVisible(element: HTMLElement): boolean {
   if (element.closest("[hidden], [inert]") || element.getAttribute("aria-hidden") === "true") {
     return false;
@@ -91,6 +107,106 @@ function focusableElements(): HTMLElement[] {
       return !element.parentElement?.closest(FOCUSABLE_SELECTOR);
     },
   );
+}
+
+function isQuickFocusable(element: HTMLElement): boolean {
+  if (
+    element.closest("[hidden], [inert]") ||
+    element.getAttribute("aria-hidden") === "true" ||
+    element.hasAttribute("disabled") ||
+    element.getAttribute("aria-disabled") === "true"
+  ) {
+    return false;
+  }
+  // Match the global rule that treats a card containing icon controls as one
+  // remote stop, without forcing style/layout calculation for every element.
+  return !element.parentElement?.closest(FOCUSABLE_SELECTOR);
+}
+
+function quickLayoutMembers(layout: HTMLElement): HTMLElement[] {
+  return Array.from(layout.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (element) =>
+      element.closest<HTMLElement>("[data-tv-layout]") === layout &&
+      isQuickFocusable(element),
+  );
+}
+
+function indexedRailTarget(
+  layout: HTMLElement,
+  index: number,
+): HTMLElement | null {
+  const indexed = layout.querySelector<HTMLElement>(`[data-tv-item-index="${index}"]`);
+  if (!indexed) return null;
+  if (indexed.matches(FOCUSABLE_SELECTOR) && isQuickFocusable(indexed)) return indexed;
+  return Array.from(indexed.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
+    .find(isQuickFocusable) ?? null;
+}
+
+/** O(1) left/right lookup for large rails that publish their current index. */
+function indexedRailNeighbor(
+  active: HTMLElement,
+  direction: Direction,
+): LayoutMove {
+  const layout = active.closest<HTMLElement>("[data-tv-layout='horizontal'][data-tv-item-count]");
+  if (!layout || (direction !== "left" && direction !== "right")) {
+    return { handled: false, target: null };
+  }
+  const indexed = active.closest<HTMLElement>("[data-tv-item-index]");
+  const current = Number(indexed?.dataset.tvItemIndex);
+  const count = Number(layout.dataset.tvItemCount);
+  if (!Number.isInteger(current) || !Number.isInteger(count) || count <= 0) {
+    return { handled: false, target: null };
+  }
+  const targetIndex = current + (direction === "right" ? 1 : -1);
+  return {
+    handled: true,
+    target: targetIndex >= 0 && targetIndex < count
+      ? indexedRailTarget(layout, targetIndex)
+      : null,
+  };
+}
+
+/** Preserve the item column while moving between indexed Home rails. */
+function indexedAdjacentRailMember(
+  active: HTMLElement,
+  direction: "up" | "down",
+): HTMLElement | null {
+  const currentLayout = active.closest<HTMLElement>(
+    "[data-tv-layout='horizontal'][data-tv-item-count]",
+  );
+  const indexed = active.closest<HTMLElement>("[data-tv-item-index]");
+  const currentItem = Number(indexed?.dataset.tvItemIndex);
+  if (!currentLayout || !Number.isInteger(currentItem)) return null;
+
+  const rails = Array.from(document.querySelectorAll<HTMLElement>(
+    "main [data-tv-layout='horizontal'][data-tv-item-count]",
+  ));
+  const currentRail = rails.indexOf(currentLayout);
+  const targetRail = rails[currentRail + (direction === "down" ? 1 : -1)];
+  if (currentRail < 0 || !targetRail) return null;
+  const targetCount = Number(targetRail.dataset.tvItemCount);
+  if (!Number.isInteger(targetCount) || targetCount <= 0) return null;
+  return indexedRailTarget(targetRail, Math.min(currentItem, targetCount - 1));
+}
+
+function adjacentLayoutMember(
+  active: HTMLElement,
+  direction: "up" | "down",
+): HTMLElement | null {
+  const currentLayout = active.closest<HTMLElement>("[data-tv-layout]");
+  if (!currentLayout) return null;
+  const modal = active.closest<HTMLElement>("[role='dialog'][aria-modal='true'], dialog[open]");
+  const layouts = Array.from(
+    (modal ?? document).querySelectorAll<HTMLElement>("[data-tv-layout]"),
+  ).filter((layout) => quickLayoutMembers(layout).length > 0);
+  const current = layouts.indexOf(currentLayout);
+  if (current < 0) return null;
+  const step = direction === "down" ? 1 : -1;
+  for (let index = current + step; index >= 0 && index < layouts.length; index += step) {
+    const first = quickLayoutMembers(layouts[index]!)[0];
+    if (first) return first;
+  }
+  return null;
 }
 
 function ownsDirectionalInput(
@@ -242,24 +358,63 @@ function firstContentLayoutElement(candidates: HTMLElement[]): HTMLElement | nul
 }
 
 function moveFocus(direction: Direction): boolean {
+  const active = document.activeElement instanceof HTMLElement && document.activeElement.isConnected
+    ? document.activeElement
+    : null;
+  // The common TV path stays inside a declared rail/grid. Resolve only that
+  // small layout instead of measuring every card, nav item, and button in the
+  // document on each key press.
+  if (active) {
+    const indexedMove = indexedRailNeighbor(active, direction);
+    if (indexedMove.handled) {
+      if (indexedMove.target) {
+        focusAndReveal(indexedMove.target);
+        return true;
+      }
+      return false;
+    }
+    if (direction === "up" || direction === "down") {
+      const indexedAdjacent = indexedAdjacentRailMember(active, direction);
+      if (indexedAdjacent) {
+        focusAndReveal(indexedAdjacent, "start");
+        return true;
+      }
+    }
+
+    const layout = active.closest<HTMLElement>("[data-tv-layout]");
+    if (layout) {
+      const localMove = layoutNeighbor(active, direction, quickLayoutMembers(layout));
+      if (localMove.handled) {
+        if (localMove.target) {
+          focusAndReveal(localMove.target);
+          return true;
+        }
+        if (direction === "left" || direction === "right") return false;
+      }
+      if (direction === "up" || direction === "down") {
+        const adjacent = adjacentLayoutMember(active, direction);
+        if (adjacent) {
+          focusAndReveal(adjacent, "start");
+          return true;
+        }
+        if (localMove.handled) return false;
+      }
+    }
+  }
+
   const candidates = focusableElements();
   if (candidates.length === 0) return false;
 
-  const active = document.activeElement instanceof HTMLElement && isVisible(document.activeElement)
-    ? document.activeElement
-    : null;
   if (!active || !candidates.includes(active)) {
     const initial = firstContentLayoutElement(candidates) ?? candidates.find((element) => element.closest("main")) ?? candidates[0];
-    if (initial) focusTvElement(initial);
-    initial?.scrollIntoView({ behavior: "auto", block: "nearest", inline: "nearest" });
+    if (initial) focusAndReveal(initial);
     return true;
   }
 
   const explicitNeighbor = layoutNeighbor(active, direction, candidates);
   if (explicitNeighbor.handled) {
     if (explicitNeighbor.target) {
-      focusTvElement(explicitNeighbor.target);
-      explicitNeighbor.target.scrollIntoView({ behavior: "auto", block: "nearest", inline: "nearest" });
+      focusAndReveal(explicitNeighbor.target);
       return true;
     }
     if (direction === "left" || direction === "right") return false;
@@ -270,16 +425,14 @@ function moveFocus(direction: Direction): boolean {
   const explicitTarget = explicitDirectionalTarget(active, direction, candidates);
   if (explicitTarget.handled) {
     if (!explicitTarget.target) return false;
-    focusTvElement(explicitTarget.target);
-    explicitTarget.target.scrollIntoView({ behavior: "auto", block: "nearest", inline: "start" });
+    focusAndReveal(explicitTarget.target, "start");
     return true;
   }
 
   if (direction === "up" || direction === "down") {
     const adjacentStart = firstMemberOfAdjacentLayout(active, direction, candidates);
     if (adjacentStart) {
-      focusTvElement(adjacentStart);
-      adjacentStart.scrollIntoView({ behavior: "auto", block: "nearest", inline: "start" });
+      focusAndReveal(adjacentStart, "start");
       return true;
     }
     if (explicitNeighbor.handled) return false;
@@ -313,8 +466,7 @@ function moveFocus(direction: Direction): boolean {
   }
 
   if (!best) return false;
-  focusTvElement(best.element);
-  best.element.scrollIntoView({ behavior: "auto", block: "nearest", inline: "nearest" });
+  focusAndReveal(best.element);
   return true;
 }
 
@@ -332,6 +484,10 @@ function isInsideOpenComposite(element: Element | null): boolean {
     element.closest(COMPOSITE_SELECTOR) ||
     element.matches("[aria-expanded='true'], [data-popup-open]"),
   );
+}
+
+function isInsideOpenOverlay(element: Element | null): boolean {
+  return element instanceof HTMLElement && Boolean(element.closest(OVERLAY_SELECTOR));
 }
 
 function focusOpenOverlay(): boolean {
@@ -505,7 +661,7 @@ export function TvSpatialNavigation() {
       }
 
       const direction = directionForEvent(event);
-      if (direction && hasOpenOverlay() && !isInsideOpenComposite(document.activeElement)) {
+      if (direction && hasOpenOverlay() && !isInsideOpenOverlay(document.activeElement)) {
         event.preventDefault();
         event.stopPropagation();
         focusOpenOverlay();
@@ -548,6 +704,10 @@ export function TvSpatialNavigation() {
     document.addEventListener("pointerdown", onPointerDown, true);
     return () => {
       window.cancelAnimationFrame(initialFocusFrame);
+      if (pendingRevealFrame !== null) {
+        window.cancelAnimationFrame(pendingRevealFrame);
+        pendingRevealFrame = null;
+      }
       keyboardGuardObserver.disconnect();
       initialFocusObserver?.disconnect();
       if (initialFocusFallback !== null) window.clearTimeout(initialFocusFallback);

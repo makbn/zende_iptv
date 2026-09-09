@@ -3,12 +3,14 @@ import { resolveLibraryContentType } from "@/lib/channels/content-type";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
 import { personalDataStorageKey } from "@/lib/auth/personal-data-scope";
 import type { PlaybackSessionMeta } from "@/lib/playback/stream-session-meta";
+import { viewingContentKey } from "@/lib/watch/viewing-content-key";
 
 const STORAGE_KEY = "zende.viewing.v2";
 const storageKey = () => personalDataStorageKey(STORAGE_KEY);
 
 export type ViewingEntry = {
   url: string;
+  contentKey?: string;
   name: string;
   tvgLogo?: string;
   groupTitle?: string;
@@ -61,8 +63,11 @@ function serverRecord(entry: {
   }).catch(() => {/* best-effort */});
 }
 
-function serverRemoveEntry(url: string) {
-  void zendeFetch(`/api/user/history?url=${encodeURIComponent(url)}`, {
+function serverRemoveEntry(url: string, contentKey?: string) {
+  const query = contentKey
+    ? `contentKey=${encodeURIComponent(contentKey)}`
+    : `url=${encodeURIComponent(url)}`;
+  void zendeFetch(`/api/user/history?${query}`, {
     method: "DELETE",
   }).catch(() => {/* best-effort */});
 }
@@ -77,6 +82,7 @@ export async function hydrateHistoryFromServer(): Promise<void> {
     if (!res.ok) return;
     const rows = (await res.json()) as Array<{
       url: string;
+      contentKey?: string | null;
       name: string;
       tvgLogo?: string | null;
       groupTitle?: string | null;
@@ -87,6 +93,7 @@ export async function hydrateHistoryFromServer(): Promise<void> {
     }>;
     const entries: ViewingEntry[] = rows.map((r) => ({
       url: r.url,
+      ...(r.contentKey ? { contentKey: r.contentKey } : {}),
       name: r.name,
       ...(r.tvgLogo ? { tvgLogo: r.tvgLogo } : {}),
       ...(r.groupTitle ? { groupTitle: r.groupTitle } : {}),
@@ -107,7 +114,7 @@ export async function hydrateHistoryFromServer(): Promise<void> {
       lastOpenedAt: new Date(r.lastOpenedAt).getTime(),
       openCount: r.openCount,
     }));
-    writeStore({ entries });
+    writeStore({ entries: dedupeViewingEntries(entries) });
     notifyViewingStatsUpdated();
   } catch {
     /* network offline — keep localStorage */
@@ -128,12 +135,17 @@ export function recordPlaybackStart(input: {
 }): void {
   const store = readStore();
   const now = Date.now();
-  const idx = store.entries.findIndex((e) => e.url === input.url);
+  const contentKey = viewingContentKey(input);
+  const idx = store.entries.findIndex(
+    (entry) => (entry.contentKey ?? viewingContentKey(entry)) === contentKey,
+  );
   let next: ViewingEntry;
   if (idx >= 0) {
     const prev = store.entries[idx]!;
     next = {
       ...prev,
+      url: input.url,
+      contentKey,
       name: input.name || prev.name,
       ...(input.tvgLogo ? { tvgLogo: input.tvgLogo } : {}),
       ...(input.groupTitle ? { groupTitle: input.groupTitle } : {}),
@@ -145,6 +157,7 @@ export function recordPlaybackStart(input: {
   } else {
     next = {
       url: input.url,
+      contentKey,
       name: input.name || "Live",
       ...(input.tvgLogo ? { tvgLogo: input.tvgLogo } : {}),
       ...(input.groupTitle ? { groupTitle: input.groupTitle } : {}),
@@ -163,7 +176,7 @@ export function recordPlaybackStart(input: {
 
 export function listRecentPlayback(limit: number): ViewingEntry[] {
   const { entries } = readStore();
-  return entries
+  return dedupeViewingEntries(entries)
     .slice()
     .sort((a, b) => b.lastOpenedAt - a.lastOpenedAt)
     .slice(0, Math.max(0, limit));
@@ -172,7 +185,7 @@ export function listRecentPlayback(limit: number): ViewingEntry[] {
 /** Channels you open often — tuned for "Because You Watch" style shelves. */
 export function listTopByPlayCount(limit: number): ViewingEntry[] {
   const { entries } = readStore();
-  return entries
+  return dedupeViewingEntries(entries)
     .filter((e) => e.openCount >= 2)
     .slice()
     .sort((a, b) => b.openCount - a.openCount || b.lastOpenedAt - a.lastOpenedAt)
@@ -182,7 +195,7 @@ export function listTopByPlayCount(limit: number): ViewingEntry[] {
 /** Top N channels by play count (includes first-time opens) — for watch "frequent" strip. */
 export function listTopFrequentChannels(limit: number): ViewingEntry[] {
   const { entries } = readStore();
-  return entries
+  return dedupeViewingEntries(entries)
     .slice()
     .sort(
       (a, b) =>
@@ -235,10 +248,16 @@ export function notifyViewingStatsUpdated(): void {
 export function removeViewingEntry(url: string): void {
   if (!url) return;
   const store = readStore();
-  store.entries = store.entries.filter((e) => e.url !== url);
+  const target = store.entries.find((entry) => entry.url === url);
+  const contentKey = target?.contentKey ?? (target ? viewingContentKey(target) : undefined);
+  store.entries = store.entries.filter(
+    (entry) =>
+      entry.url !== url &&
+      (!contentKey || (entry.contentKey ?? viewingContentKey(entry)) !== contentKey),
+  );
   writeStore(store);
   notifyViewingStatsUpdated();
-  serverRemoveEntry(url);
+  serverRemoveEntry(url, contentKey);
 }
 
 /** Clear recently watched and play-count history on this device and server. */
@@ -268,4 +287,51 @@ export function updateViewingPosition(url: string, positionSeconds: number): voi
   };
   writeStore(store);
   notifyViewingStatsUpdated();
+}
+
+/** Add/update local Continue Watching only after meaningful VOD playback. */
+export function recordLocalPlaybackProgress(input: {
+  url: string;
+  name: string;
+  tvgLogo?: string;
+  groupTitle?: string;
+  playback?: PlaybackSessionMeta;
+  positionSeconds: number;
+}): void {
+  if (!Number.isFinite(input.positionSeconds) || input.positionSeconds < 60) return;
+  const store = readStore();
+  const contentKey = viewingContentKey(input);
+  const idx = store.entries.findIndex(
+    (entry) => (entry.contentKey ?? viewingContentKey(entry)) === contentKey,
+  );
+  const previous = idx >= 0 ? store.entries[idx] : undefined;
+  const next: ViewingEntry = {
+    ...(previous ?? {}),
+    url: input.url,
+    contentKey,
+    name: input.name.trim() || previous?.name || "Video",
+    ...(input.tvgLogo ? { tvgLogo: input.tvgLogo } : {}),
+    ...(input.groupTitle ? { groupTitle: input.groupTitle } : {}),
+    ...(input.playback ? { playback: input.playback } : {}),
+    positionSeconds: Math.round(input.positionSeconds),
+    lastOpenedAt: Date.now(),
+    openCount: previous?.openCount ?? 1,
+  };
+  if (idx >= 0) store.entries.splice(idx, 1);
+  store.entries.unshift(next);
+  store.entries = dedupeViewingEntries(store.entries).slice(0, MAX_ENTRIES);
+  writeStore(store);
+  notifyViewingStatsUpdated();
+}
+
+function dedupeViewingEntries(entries: ViewingEntry[]): ViewingEntry[] {
+  const seen = new Set<string>();
+  const deduped: ViewingEntry[] = [];
+  for (const entry of entries) {
+    const key = entry.contentKey ?? viewingContentKey(entry);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(entry.contentKey ? entry : { ...entry, contentKey: key });
+  }
+  return deduped;
 }

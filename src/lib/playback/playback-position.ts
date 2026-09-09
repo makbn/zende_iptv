@@ -1,6 +1,9 @@
 "use client";
 
-import { syncPlaybackPositionStub } from "@/lib/playback/sync-playback-position";
+import {
+  syncPlaybackPositionStub,
+  type PlaybackPositionSyncTarget,
+} from "@/lib/playback/sync-playback-position";
 
 const STORAGE_KEY = "zende.playback.position.v1";
 const MAX_ENTRIES = 400;
@@ -60,17 +63,27 @@ export function clearPlaybackPosition(url: string) {
   writeStore(store);
 }
 
-/** Call from watch UI — throttled position persistence. */
-export function createPlaybackPositionSaver(url: string | null) {
+export type PlaybackPositionSaver = ((position: number) => void) & {
+  flush: (position: number) => void;
+};
+
+/** Call from watch UI — throttled position persistence with explicit exit/seek flushes. */
+export function createPlaybackPositionSaver(
+  target: PlaybackPositionSyncTarget & { positionKey?: string | null },
+): PlaybackPositionSaver {
   let lastSave = 0;
-  return (position: number) => {
-    if (!url) return;
+  const persist = (position: number, force: boolean) => {
+    if (!target.positionKey || (!target.url && !target.sessionId)) return;
+    if (!Number.isFinite(position) || position < 5) return;
     const now = Date.now();
-    if (now - lastSave < SAVE_INTERVAL_MS) return;
+    if (!force && now - lastSave < SAVE_INTERVAL_MS) return;
     lastSave = now;
-    savePlaybackPosition(url, position);
-    void syncPlaybackPositionStub(url, position);
+    savePlaybackPosition(target.positionKey, position);
+    void syncPlaybackPositionStub(target, position, { keepalive: force });
   };
+  const saver = ((position: number) => persist(position, false)) as PlaybackPositionSaver;
+  saver.flush = (position: number) => persist(position, true);
+  return saver;
 }
 
 /** Fraction watched (0–1) for continue UI — null if unknown. */

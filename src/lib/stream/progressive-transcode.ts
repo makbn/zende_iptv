@@ -95,17 +95,18 @@ export function buildProgressiveTranscodeArgs(
   if (segmentCount > 0) {
     args.push("-t", String(segmentCount * TRANSCODE_HLS_SEGMENT_SECONDS));
   }
+  args.push("-map", "0:v:0", "-map", "0:a:0?", "-sn", "-dn");
   args.push(
-    "-map",
-    "0:v:0",
-    "-map",
-    "0:a:0?",
-    "-sn",
-    "-dn",
     "-c:v",
     "libx264",
     "-preset",
     "superfast",
+    "-tune",
+    "zerolatency",
+    "-profile:v",
+    "main",
+    "-level:v",
+    "4.2",
     "-crf",
     "25",
     "-vf",
@@ -116,6 +117,10 @@ export function buildProgressiveTranscodeArgs(
     "20M",
     "-pix_fmt",
     "yuv420p",
+    // Do not let FFmpeg's automatic CFR mode manufacture duplicate frames
+    // for variable- or fractional-rate movie sources.
+    "-fps_mode:v",
+    "passthrough",
     "-sc_threshold",
     "0",
     "-force_key_frames",

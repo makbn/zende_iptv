@@ -535,7 +535,9 @@ html[data-tv-input="remote"] .tv-player-control-panel {
   border-radius: 22px !important;
   background: rgb(12 15 23 / 0.93) !important;
   box-shadow: 0 28px 80px rgb(0 0 0 / 0.66) !important;
-  backdrop-filter: blur(28px) saturate(135%);
+  /* Blurring a full-width layer over hardware video forces costly per-frame
+     composition on inexpensive Android TV GPUs. The panel is already opaque. */
+  backdrop-filter: none;
 }
 
 html[data-tv-input="remote"] .tv-player-control-panel > div:last-child {
@@ -1135,8 +1137,20 @@ html[data-tv-input="remote"] .tv-home-card:focus {
 }
 
 html[data-tv-input="remote"] .tv-home-card:focus img {
-  filter: saturate(1.08) brightness(1.04);
+  filter: none;
   transform: scale(1.035);
+}
+
+/* Full-screen image filters are expensive on TV WebViews and Tizen. Keep one
+   clean composited hero layer so a backdrop swap cannot stall D-pad focus. */
+html[data-tv-input="remote"] .tv-home-hero-art-blur {
+  display: none;
+}
+
+html[data-tv-input="remote"] .tv-home-hero-art-image,
+html[data-tv-input="remote"] .tv-home-hero-secondary {
+  filter: none;
+  backdrop-filter: none;
 }
 
 @media (max-width: 1180px) {

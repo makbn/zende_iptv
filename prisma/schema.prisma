@@ -231,6 +231,8 @@ model UserViewingHistory {
   userId          String
   user            User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   url             String
+  /// One row per movie or series; series episodes intentionally share a key.
+  contentKey      String?
   name            String
   tvgLogo         String?
   groupTitle      String?
@@ -242,6 +244,7 @@ model UserViewingHistory {
   openCount       Int      @default(1)
 
   @@unique([userId, url])
+  @@unique([userId, contentKey])
   @@index([userId, lastOpenedAt])
   @@index([userId, openCount])
 }

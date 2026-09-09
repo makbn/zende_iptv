@@ -21,6 +21,7 @@ import {
 } from "@/lib/playback/resolve-duration";
 import type { PlaybackSessionMeta } from "@/lib/playback/stream-session-meta";
 import { createStreamSession } from "@/lib/stream/stream-session-store";
+import { saveViewingHistoryEntry } from "@/lib/watch/viewing-history-store";
 import {
   isChannelParentalBlocked,
   resolveParentalAccess,
@@ -28,6 +29,7 @@ import {
 
 export const runtime = "nodejs";
 const log = createServerLogger("api.stream.session");
+const GUEST_USER_ID = "__guest__";
 
 const bodySchema = z.object({
   url: z.string().min(4).max(8192),
@@ -208,6 +210,19 @@ export async function POST(request: Request) {
       proxyConfig: proxyConfig ?? undefined,
       meta,
     });
+    if (meta.contentKind === "live") {
+      await saveViewingHistoryEntry(
+        gate.authEnabled ? gate.user.id : GUEST_USER_ID,
+        {
+          url: upstream.href,
+          name: (parsed.data.title ?? "").trim() || "Live",
+          tvgLogo: parsed.data.logo,
+          groupTitle: parsed.data.group,
+          playback: meta,
+        },
+        { incrementOpenCount: true },
+      );
+    }
     log.info("Stream session created", {
       sessionId: id,
       upstreamHost: upstream.host,

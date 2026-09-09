@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Build;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -85,6 +86,12 @@ public final class MainActivity extends ComponentActivity {
         webView.setBackgroundColor(Color.rgb(7, 10, 18));
         webView.setFocusable(true);
         webView.setFocusableInTouchMode(true);
+        // Keep video composition on the GPU and prevent Android from lowering
+        // the WebView renderer priority during long, fullscreen playback.
+        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false);
+        }
 
         // Keep the native layer neutral; the shared frontend normalizes TV pixel density.
         webView.setInitialScale(100);

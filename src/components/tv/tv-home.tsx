@@ -4,7 +4,15 @@ import { Button, buttonVariants } from "@appica/ui-react/button";
 import { Info, Play } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import {
+  memo,
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { gradientFromChannelName } from "@/components/channels/channel-presentation";
 import { AppicaPage } from "@/components/layout/appica-page";
@@ -181,8 +189,14 @@ function HomeHero({
       <div className="tv-home-hero-art" aria-hidden>
         {art ? (
           <>
-            <img className="tv-home-hero-art-blur" src={art} alt="" />
-            <img className="tv-home-hero-art-image" src={art} alt="" />
+            <img className="tv-home-hero-art-blur" src={art} alt="" decoding="async" />
+            <img
+              className="tv-home-hero-art-image"
+              src={art}
+              alt=""
+              decoding="async"
+              fetchPriority="high"
+            />
           </>
         ) : (
           <div
@@ -238,23 +252,26 @@ function HomeHero({
   );
 }
 
-function HomeMediaCard({
+type HomeRailItem = {
+  feature: HomeFeature;
+  progress?: number;
+  metadata?: string;
+  initialFocus?: boolean;
+};
+
+type HomeMediaCardProps = HomeRailItem & {
+  index: number;
+  compact?: boolean;
+};
+
+const HomeMediaCard = memo(function HomeMediaCard({
   feature,
   progress,
   metadata,
   initialFocus = false,
   compact = false,
-  onSelect,
-  onFocus,
-}: {
-  feature: HomeFeature;
-  progress?: number;
-  metadata?: string;
-  initialFocus?: boolean;
-  compact?: boolean;
-  onSelect: () => void;
-  onFocus: () => void;
-}) {
+  index,
+}: HomeMediaCardProps) {
   const title = displayTitle(feature);
   const art = artworkUrl(feature.channel);
   return (
@@ -262,11 +279,9 @@ function HomeMediaCard({
       <button
         type="button"
         data-tv-card
+        data-tv-item-index={index}
         {...(initialFocus ? { "data-tv-initial-focus": true } : {})}
         className="tv-home-card"
-        onClick={onSelect}
-        onFocus={onFocus}
-        onMouseEnter={onFocus}
         aria-label={`${feature.source === "continue" ? "Resume" : "Open"} ${title}`}
       >
         <span
@@ -286,28 +301,77 @@ function HomeMediaCard({
       {metadata ? <p className="tv-home-card-meta">{metadata}</p> : null}
     </div>
   );
-}
+}, (previous, next) =>
+  previous.feature.channel === next.feature.channel &&
+  previous.feature.playback === next.feature.playback &&
+  previous.feature.source === next.feature.source &&
+  previous.feature.positionSeconds === next.feature.positionSeconds &&
+  previous.progress === next.progress &&
+  previous.metadata === next.metadata &&
+  previous.initialFocus === next.initialFocus &&
+  previous.compact === next.compact &&
+  previous.index === next.index,
+);
 
 function HomeRailSection({
   id,
   title,
   compact = false,
-  children,
+  items,
+  onFocus,
+  onSelect,
 }: {
   id: string;
   title: string;
   compact?: boolean;
-  children: React.ReactNode;
+  items: HomeRailItem[];
+  onFocus: (feature: HomeFeature) => void;
+  onSelect: (feature: HomeFeature) => void;
 }) {
+  const itemFromTarget = useCallback((target: EventTarget | null) => {
+    if (!(target instanceof Element)) return null;
+    const card = target.closest<HTMLElement>("[data-tv-item-index]");
+    const index = Number(card?.dataset.tvItemIndex);
+    return Number.isInteger(index) ? items[index] ?? null : null;
+  }, [items]);
+
   return (
     <section id={id} className={compact ? "tv-home-section is-compact" : "tv-home-section"}>
       <h2>{title}</h2>
-      <div className="tv-home-rail" data-tv-layout="horizontal">
-        {children}
+      <div
+        className="tv-home-rail"
+        data-tv-layout="horizontal"
+        data-tv-item-count={items.length}
+        onFocusCapture={(event) => {
+          const item = itemFromTarget(event.target);
+          if (item) onFocus(item.feature);
+        }}
+        onMouseOver={(event) => {
+          const item = itemFromTarget(event.target);
+          if (!item) return;
+          const card = (event.target as Element).closest<HTMLElement>("[data-tv-item-index]");
+          if (event.relatedTarget instanceof Node && card?.contains(event.relatedTarget)) return;
+          onFocus(item.feature);
+        }}
+        onClick={(event) => {
+          const item = itemFromTarget(event.target);
+          if (item) onSelect(item.feature);
+        }}
+      >
+        {items.map((item, index) => (
+          <HomeMediaCard
+            key={`${id}-${item.feature.channel.url}-${index}`}
+            {...item}
+            index={index}
+            compact={compact}
+          />
+        ))}
       </div>
     </section>
   );
 }
+
+const MemoizedHomeRailSection = memo(HomeRailSection);
 
 export function TvHome() {
   const router = useRouter();
@@ -324,6 +388,33 @@ export function TvHome() {
   const { channelCount, catalogLoaded, metaFailed, busy, refreshCatalog } = catalog;
   const [statsEpoch, setStatsEpoch] = useState(0);
   const [focusedFeature, setFocusedFeature] = useState<HomeFeature | null>(null);
+  const pendingFocusedFeatureRef = useRef<HomeFeature | null>(null);
+  const heroCommitFrameRef = useRef<number | null>(null);
+
+  const scheduleFocusedFeature = useCallback((feature: HomeFeature) => {
+    pendingFocusedFeatureRef.current = feature;
+    if (heroCommitFrameRef.current !== null) return;
+    // Let the browser paint the native focus ring first and coalesce a burst of
+    // remote key presses into one hero update for the final focused card.
+    heroCommitFrameRef.current = window.requestAnimationFrame(() => {
+      heroCommitFrameRef.current = null;
+      const next = pendingFocusedFeatureRef.current;
+      if (!next) return;
+      startTransition(() => {
+        setFocusedFeature((current) =>
+          current?.channel.url === next.channel.url && current.source === next.source
+            ? current
+            : next,
+        );
+      });
+    });
+  }, []);
+
+  useEffect(() => () => {
+    if (heroCommitFrameRef.current !== null) {
+      window.cancelAnimationFrame(heroCommitFrameRef.current);
+    }
+  }, []);
 
   useEffect(() => subscribeViewingStats(() => setStatsEpoch((value) => value + 1)), []);
 
@@ -405,6 +496,44 @@ export function TvHome() {
     [continueUrls, homeShelves.series.channels],
   );
 
+  const continueRailItems = useMemo<HomeRailItem[]>(
+    () => continueWatching.map((item, index) => {
+      const feature = featureFromContinue(item);
+      return {
+        feature,
+        progress: item.progress,
+        metadata: featureMeta(feature),
+        initialFocus: index === 0,
+      };
+    }),
+    [continueWatching],
+  );
+  const trendingRailItems = useMemo<HomeRailItem[]>(
+    () => trendingChannels.map((channel, index) => ({
+      feature: featureFromChannel(channel),
+      initialFocus: continueWatching.length === 0 && index === 0,
+    })),
+    [continueWatching.length, trendingChannels],
+  );
+  const popularRailItems = useMemo<HomeRailItem[]>(
+    () => popularChannels.map((channel, index) => ({
+      feature: featureFromChannel(channel),
+      initialFocus:
+        continueWatching.length === 0 &&
+        trendingChannels.length === 0 &&
+        index === 0,
+    })),
+    [continueWatching.length, popularChannels, trendingChannels.length],
+  );
+  const movieRailItems = useMemo<HomeRailItem[]>(
+    () => movieChannels.map((channel) => ({ feature: featureFromChannel(channel) })),
+    [movieChannels],
+  );
+  const seriesRailItems = useMemo<HomeRailItem[]>(
+    () => seriesChannels.map((channel) => ({ feature: featureFromChannel(channel) })),
+    [seriesChannels],
+  );
+
   const defaultFeature = useMemo<HomeFeature | null>(() => {
     if (continueWatching[0]) return featureFromContinue(continueWatching[0]);
     const firstCatalogItem = trendingChannels[0] ?? popularChannels[0] ?? movieChannels[0] ?? seriesChannels[0];
@@ -435,7 +564,7 @@ export function TvHome() {
   const fetchedHeroMetadata = useHomeHeroMetadata(heroMetadataQuery);
   const heroMetadata = embeddedHeroMetadata ?? fetchedHeroMetadata;
 
-  const playFeature = (feature: HomeFeature | null) => {
+  const playFeature = useCallback((feature: HomeFeature | null) => {
     if (!feature) return;
     if (feature.source === "continue") {
       playChannel({
@@ -445,16 +574,16 @@ export function TvHome() {
       return;
     }
     openChannel(feature.channel);
-  };
+  }, [openChannel, playChannel]);
 
-  const openFeatureInfo = (feature: HomeFeature | null) => {
+  const openFeatureInfo = useCallback((feature: HomeFeature | null) => {
     if (!feature) return;
     if (feature.playback?.seriesId) {
       router.push(buildShowPageHref(feature.playback.seriesId, feature.channel));
       return;
     }
     openChannel(feature.channel);
-  };
+  }, [openChannel, router]);
 
   if (metaFailed) {
     return (
@@ -489,22 +618,13 @@ export function TvHome() {
 
       <div className="tv-home-shelves">
         {continueWatching.length > 0 ? (
-          <HomeRailSection id="continue" title="Continue Watching">
-            {continueWatching.map((item, index) => {
-              const feature = featureFromContinue(item);
-              return (
-                <HomeMediaCard
-                  key={`continue-${item.channel.url}-${index}`}
-                  feature={feature}
-                  progress={item.progress}
-                  metadata={featureMeta(feature)}
-                  initialFocus={index === 0}
-                  onFocus={() => setFocusedFeature(feature)}
-                  onSelect={() => playFeature(feature)}
-                />
-              );
-            })}
-          </HomeRailSection>
+          <MemoizedHomeRailSection
+            id="continue"
+            title="Continue Watching"
+            items={continueRailItems}
+            onFocus={scheduleFocusedFeature}
+            onSelect={playFeature}
+          />
         ) : continueWatchingLoading ? (
           <section className="tv-home-section tv-home-loading" aria-label="Loading continue watching">
             <h2>Continue Watching</h2>
@@ -515,73 +635,47 @@ export function TvHome() {
         ) : null}
 
         {trendingChannels.length > 0 ? (
-          <HomeRailSection id="trending" title="Trending Now" compact>
-            {trendingChannels.map((channel, index) => {
-              const feature = featureFromChannel(channel);
-              return (
-                <HomeMediaCard
-                  key={`trending-${channel.url}-${index}`}
-                  feature={feature}
-                  compact
-                  initialFocus={continueWatching.length === 0 && index === 0}
-                  onFocus={() => setFocusedFeature(feature)}
-                  onSelect={() => openChannel(channel)}
-                />
-              );
-            })}
-          </HomeRailSection>
+          <MemoizedHomeRailSection
+            id="trending"
+            title="Trending Now"
+            compact
+            items={trendingRailItems}
+            onFocus={scheduleFocusedFeature}
+            onSelect={playFeature}
+          />
         ) : null}
 
         {popularChannels.length > 0 ? (
-          <HomeRailSection id="popular" title="Popular on Zende" compact>
-            {popularChannels.map((channel, index) => {
-              const feature = featureFromChannel(channel);
-              return (
-                <HomeMediaCard
-                  key={`popular-${channel.url}-${index}`}
-                  feature={feature}
-                  compact
-                  initialFocus={continueWatching.length === 0 && trendingChannels.length === 0 && index === 0}
-                  onFocus={() => setFocusedFeature(feature)}
-                  onSelect={() => openChannel(channel)}
-                />
-              );
-            })}
-          </HomeRailSection>
+          <MemoizedHomeRailSection
+            id="popular"
+            title="Popular on Zende"
+            compact
+            items={popularRailItems}
+            onFocus={scheduleFocusedFeature}
+            onSelect={playFeature}
+          />
         ) : null}
 
         {movieChannels.length > 0 ? (
-          <HomeRailSection id="movies" title="Movies for You" compact>
-            {movieChannels.map((channel, index) => {
-              const feature = featureFromChannel(channel);
-              return (
-                <HomeMediaCard
-                  key={`movie-${channel.url}-${index}`}
-                  feature={feature}
-                  compact
-                  onFocus={() => setFocusedFeature(feature)}
-                  onSelect={() => openChannel(channel)}
-                />
-              );
-            })}
-          </HomeRailSection>
+          <MemoizedHomeRailSection
+            id="movies"
+            title="Movies for You"
+            compact
+            items={movieRailItems}
+            onFocus={scheduleFocusedFeature}
+            onSelect={playFeature}
+          />
         ) : null}
 
         {seriesChannels.length > 0 ? (
-          <HomeRailSection id="series" title="Series to Explore" compact>
-            {seriesChannels.map((channel, index) => {
-              const feature = featureFromChannel(channel);
-              return (
-                <HomeMediaCard
-                  key={`series-${channel.url}-${index}`}
-                  feature={feature}
-                  compact
-                  onFocus={() => setFocusedFeature(feature)}
-                  onSelect={() => openChannel(channel)}
-                />
-              );
-            })}
-          </HomeRailSection>
+          <MemoizedHomeRailSection
+            id="series"
+            title="Series to Explore"
+            compact
+            items={seriesRailItems}
+            onFocus={scheduleFocusedFeature}
+            onSelect={playFeature}
+          />
         ) : null}
 
         <section className="tv-home-library-cta">

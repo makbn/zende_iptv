@@ -4,7 +4,7 @@ import { Button } from "@appica/ui-react/button";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronLeft, Download, Play } from "lucide-react";
+import { ChevronLeft, Play } from "lucide-react";
 
 import { Card } from "@appica/ui-react/card";
 import { MediaCastRail, MediaMetadataFacts } from "@/components/library/media-metadata-sections";
@@ -15,14 +15,13 @@ import {
 } from "@/components/layout/browse-page-shell";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import { ShareMediaButton } from "@/components/shares/share-media-button";
-import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
+import { ZendeLoadingState } from "@/components/loading/zende-spinner";
 import { useSeriesInfo } from "@/features/iptv/use-series-info";
 import { buildEpisodeWatchChannel, formatEpisodeCode } from "@/lib/playback/play-episode";
 import {
   getPlaybackPosition,
   playbackProgressRatio,
 } from "@/lib/playback/playback-position";
-import { createDownloadUrl } from "@/lib/navigation/watch-url";
 import { secureImageUrl } from "@/lib/media/secure-image-url";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
 import {
@@ -62,7 +61,6 @@ export function SeriesDetailView({
   const history = useViewingHistory();
   const [seasonTab, setSeasonTab] = useState<string | null>(null);
   const [playBusy, setPlayBusy] = useState(false);
-  const [downloadBusyUrl, setDownloadBusyUrl] = useState<string | null>(null);
   const [playError, setPlayError] = useState<string | null>(null);
   const displayPlayError = playError ?? watchNavError;
 
@@ -141,36 +139,6 @@ export function SeriesDetailView({
       }
     },
     [clearNavError, cover, episodesBySeason, groupTitle, openChannel, seriesId, title],
-  );
-
-  const downloadEpisode = useCallback(
-    async (episode: (typeof episodesBySeason.flat)[0], episodeIndex: number) => {
-      setDownloadBusyUrl(episode.playUrl);
-      setPlayError(null);
-      clearNavError();
-      try {
-        const channel = buildEpisodeWatchChannel({
-          seriesId,
-          seriesTitle: title,
-          cover: cover || undefined,
-          groupTitle,
-          episode,
-          episodeIndex,
-        });
-        const href = await createDownloadUrl(channel);
-        const a = document.createElement("a");
-        a.href = href;
-        a.rel = "noopener";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      } catch (err) {
-        setPlayError(err instanceof Error ? err.message : "Could not start download.");
-      } finally {
-        setDownloadBusyUrl(null);
-      }
-    },
-    [clearNavError, cover, episodesBySeason, groupTitle, seriesId, title],
   );
 
   const continueProgress = continueTarget
@@ -342,73 +310,39 @@ export function SeriesDetailView({
 
             <ul className="tv-episode-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {(episodesBySeason.map.get(activeSeason ?? "") ?? []).map((ep) => {
-                const downloading = downloadBusyUrl === ep.playUrl;
                 const episodeIndex = episodesBySeason.flat.findIndex(
                   (candidate) => candidate.playUrl === ep.playUrl,
                 );
-                const episodeChannel = buildEpisodeWatchChannel({
-                  seriesId,
-                  seriesTitle: title,
-                  cover: cover || undefined,
-                  groupTitle,
-                  episode: ep,
-                  episodeIndex: episodeIndex >= 0 ? episodeIndex : ep.index,
-                });
-                const episodeShareTarget: MediaShareTarget = {
-                  kind: "episode",
-                  title: episodeChannel.name,
-                  ...(cover ? { logo: cover } : {}),
-                  ...(groupTitle ? { group: groupTitle } : {}),
-                  items: [{
-                    id: "main",
-                    title: episodeChannel.name,
-                    subtitle: formatEpisodeCode(ep.season, ep.episodeNum),
-                    url: episodeChannel.url,
-                    playback: episodeChannel.playback,
-                  }],
-                };
                 return (
                   <li key={ep.playUrl}>
-                    <Card frame="solid" className="tv-episode-card group h-full overflow-hidden transition-all hover:border-primary/50 hover:shadow-md">
-                      <div className="flex h-full items-center p-2">
-                        <Button variant="ghost"
-                          data-tv-download
+                    <Card frame="solid" className="tv-episode-card group h-full overflow-hidden border-white/10 bg-[#141925] transition-all hover:border-primary/50 hover:shadow-md">
+                        <Button
+                          variant="ghost"
+                          data-tv-card
                           type="button"
-                          disabled={playBusy || Boolean(downloadBusyUrl)}
-                          onClick={() => void playEpisode(ep, ep.index)}
-                          className="flex min-w-0 flex-1 items-center gap-4 rounded-md px-3 py-3 text-left outline-none hover:bg-transparent"
+                          disabled={playBusy}
+                          onClick={() => void playEpisode(ep, episodeIndex >= 0 ? episodeIndex : ep.index)}
+                          aria-label={`Play ${formatEpisodeCode(ep.season, ep.episodeNum)}${ep.title ? `, ${ep.title}` : ""}`}
+                          className="tv-episode-play flex h-full min-h-[88px] w-full items-center gap-4 rounded-xl px-5 py-4 text-left text-white outline-none hover:bg-white/8 focus-visible:bg-white/10 focus-visible:ring-2 focus-visible:ring-primary"
                         >
-                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-background-muted text-[15px] font-bold text-foreground-intense group-hover:bg-primary group-hover:text-primary-foreground transition-colors shadow-sm">
-                            {ep.episodeNum || "·"}
+                          <div className="flex h-12 min-w-20 shrink-0 items-center justify-center rounded-lg bg-white/10 px-3 text-[15px] font-extrabold text-white transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                            {formatEpisodeCode(ep.season, ep.episodeNum)}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <span className="block text-[15px] font-semibold text-foreground-intense truncate">
-                              {formatEpisodeCode(ep.season, ep.episodeNum)}
-                              {ep.title ? ` · ${ep.title}` : ""}
+                            <span className="block truncate text-[16px] font-bold text-white">
+                              {ep.title || `Episode ${ep.episodeNum || ""}`}
                             </span>
                             {ep.durationSeconds ? (
-                              <span className="mt-1 block text-[13px] font-medium text-foreground-muted">
+                              <span className="mt-1 block text-[13px] font-medium text-white/60">
                                 {Math.round(ep.durationSeconds / 60)} min
                               </span>
                             ) : null}
                           </div>
+                          <span className="flex shrink-0 items-center gap-2 rounded-full bg-white px-4 py-2 text-[13px] font-extrabold text-black">
+                            <Play className="h-4 w-4 fill-current" aria-hidden />
+                            Play
+                          </span>
                         </Button>
-                        <ShareMediaButton target={episodeShareTarget} />
-                        <Button variant="ghost"
-                          type="button"
-                          disabled={playBusy || Boolean(downloadBusyUrl)}
-                          aria-label={`Download ${formatEpisodeCode(ep.season, ep.episodeNum)}`}
-                          title="Download"
-                          onClick={() => void downloadEpisode(ep, ep.index)}
-                          className="mr-2 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground-muted transition-colors hover:bg-background-muted hover:text-foreground-intense"
-                        >
-                          {downloading ? (
-                            <ZendeSpinner size="tiny" label="Preparing download" />
-                          ) : (
-                            <Download className="h-5 w-5" aria-hidden />
-                          )}
-                        </Button>
-                      </div>
                     </Card>
                   </li>
                 );

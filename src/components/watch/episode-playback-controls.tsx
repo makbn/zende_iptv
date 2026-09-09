@@ -1,15 +1,31 @@
 "use client";
 
 import { Button } from "@appica/ui-react/button";
-
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@appica/ui-react/dropdown-menu";
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@appica/ui-react/dialog";
 import { ChevronLeft, ChevronRight, ListVideo } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import { useRouter } from "next/navigation";
 
 import type { SeriesEpisodeRow } from "@/app/api/xtream/series-info/route";
 import { useSeriesInfo } from "@/features/iptv/use-series-info";
-import { buildEpisodeWatchChannel, formatEpisodeCode } from "@/lib/playback/play-episode";
+import {
+  buildEpisodeWatchChannel,
+  formatEpisodeCode,
+  resolveSeriesEpisodeIndex,
+} from "@/lib/playback/play-episode";
 import { createWatchUrl } from "@/lib/navigation/watch-url";
 import type { PlaybackSessionMeta } from "@/lib/playback/stream-session-meta";
 import { cn } from "@/lib/utils";
@@ -19,6 +35,7 @@ type Props = {
   logo?: string | null;
   group?: string | null;
   disabled?: boolean;
+  videoRef: RefObject<HTMLVideoElement | null>;
 };
 
 function GlassIconButton({
@@ -49,31 +66,31 @@ function GlassIconButton({
   );
 }
 
-export function EpisodePlaybackControls({ playback, logo, group, disabled }: Props) {
+export function EpisodePlaybackControls({ playback, logo, group, disabled, videoRef }: Props) {
   const router = useRouter();
   const seriesId = playback.seriesId ?? null;
   const { episodesBySeason, showTitle, loading } = useSeriesInfo(seriesId);
   const [busy, setBusy] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerSeason, setPickerSeason] = useState<string | null>(null);
+  const initialEpisodeRef = useRef<HTMLButtonElement>(null);
+  const autoAdvancingRef = useRef(false);
 
   const flat = episodesBySeason.flat;
-  const currentIndex = playback.episodeIndex ?? -1;
+  const currentIndex = resolveSeriesEpisodeIndex(flat, playback);
   const prevEp = currentIndex > 0 ? flat[currentIndex - 1] : null;
   const nextEp =
     currentIndex >= 0 && currentIndex < flat.length - 1 ? flat[currentIndex + 1] : null;
 
-  const activeSeason = pickerSeason ?? episodesBySeason.seasons[0] ?? null;
-
-  const episodeLabel = useMemo(() => {
-    if (playback.season && playback.episodeNum) {
-      return formatEpisodeCode(playback.season, playback.episodeNum);
-    }
-    return playback.episodeTitle ?? "Episode";
-  }, [playback]);
+  const currentSeason = playback.season && episodesBySeason.seasons.includes(playback.season)
+    ? playback.season
+    : null;
+  const activeSeason = pickerSeason ?? currentSeason ?? episodesBySeason.seasons[0] ?? null;
+  const activeEpisodes = episodesBySeason.map.get(activeSeason ?? "") ?? [];
 
   const jumpToEpisode = useCallback(
     async (episode: SeriesEpisodeRow, episodeIndex: number) => {
-      if (!seriesId) return;
+      if (!seriesId) return false;
       setBusy(true);
       try {
         const channel = buildEpisodeWatchChannel({
@@ -85,9 +102,11 @@ export function EpisodePlaybackControls({ playback, logo, group, disabled }: Pro
           episodeIndex,
         });
         const href = await createWatchUrl(channel);
+        setPickerOpen(false);
         router.replace(href);
+        return true;
       } catch {
-        /* ignore */
+        return false;
       } finally {
         setBusy(false);
       }
@@ -116,121 +135,168 @@ export function EpisodePlaybackControls({ playback, logo, group, disabled }: Pro
     return () => window.removeEventListener("keydown", onKey);
   }, [nextEp, prevEp, currentIndex, jumpToEpisode]);
 
+  useEffect(() => {
+    autoAdvancingRef.current = false;
+  }, [playback.season, playback.episodeNum]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.loop = false;
+    const onEnded = () => {
+      video.pause();
+      if (!nextEp || currentIndex < 0 || autoAdvancingRef.current) return;
+      autoAdvancingRef.current = true;
+      void jumpToEpisode(nextEp, currentIndex + 1).then((advanced) => {
+        if (!advanced) autoAdvancingRef.current = false;
+      });
+    };
+    video.addEventListener("ended", onEnded);
+    return () => video.removeEventListener("ended", onEnded);
+  }, [currentIndex, jumpToEpisode, nextEp, videoRef]);
+
+  const openEpisodePicker = () => {
+    setPickerSeason(currentSeason ?? episodesBySeason.seasons[0] ?? null);
+    setPickerOpen(true);
+  };
+
   if (!seriesId || playback.contentKind !== "episode") return null;
 
   return (
-    <div className="pointer-events-auto mb-2 rounded-lg border border-border bg-background px-2.5 py-2 ring-1 ring-border">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-foreground-intense">
-            Episode
-          </p>
-          <p className="mt-0.5 min-w-0 truncate text-[12px] font-semibold text-foreground-intense">
-            {playback.seriesTitle ?? showTitle ?? "Show"}
-            <span className="text-foreground-intense"> · </span>
-            <span className="text-foreground-intense">{episodeLabel}</span>
-            {playback.episodeTitle ? (
-              <span className="hidden text-foreground-intense md:inline">
-                {" "}
-                · {playback.episodeTitle}
-              </span>
-            ) : null}
-          </p>
-        </div>
+    <>
+      <GlassIconButton
+        aria-label="Previous episode"
+        disabled={disabled || busy || !prevEp || loading}
+        onClick={() =>
+          prevEp && currentIndex > 0 && void jumpToEpisode(prevEp, currentIndex - 1)
+        }
+      >
+        <span className="flex items-center gap-1.5 px-2">
+          <ChevronLeft className="h-5 w-5" />
+          <span className="hidden text-[12px] font-semibold sm:inline">Prev</span>
+        </span>
+      </GlassIconButton>
 
-        <div
-          data-tv-layout="horizontal"
-          className="flex shrink-0 flex-wrap items-center justify-center gap-2 sm:justify-end"
-        >
-        <GlassIconButton
-          aria-label="Previous episode"
-          disabled={disabled || busy || !prevEp || loading}
-          onClick={() => prevEp && currentIndex > 0 && void jumpToEpisode(prevEp, currentIndex - 1)}
-        >
-          <span className="flex items-center gap-1.5 px-2">
-            <ChevronLeft className="h-5 w-5" />
-            <span className="hidden text-[12px] font-semibold sm:inline">Prev</span>
-          </span>
-        </GlassIconButton>
+      <Button
+        variant="ghost"
+        type="button"
+        disabled={disabled || busy || loading || flat.length === 0}
+        aria-label="Choose episode"
+        onClick={openEpisodePicker}
+        className={cn(
+          "inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-background px-3 text-[12px] font-semibold text-foreground-intense outline-none transition-colors sm:h-10",
+          "hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-primary",
+          "disabled:cursor-not-allowed disabled:opacity-35",
+        )}
+      >
+        <ListVideo className="h-4 w-4" aria-hidden />
+        Episodes
+      </Button>
 
-        <DropdownMenu modal={false}>
-          <DropdownMenuTrigger
-            disabled={disabled || busy || loading || flat.length === 0}
-            aria-label="Choose episode"
-            className={cn(
-              "inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-background px-3 text-[12px] font-semibold text-foreground-intense outline-none transition-colors sm:h-10",
-              "hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-primary",
-              "disabled:cursor-not-allowed disabled:opacity-35",
-              "data-[popup-open]:bg-background-muted",
-            )}
-          >
-            <ListVideo className="h-4 w-4" aria-hidden />
-            Episodes
-          </DropdownMenuTrigger>
-          <>
-            <DropdownMenuContent side="top" align="center" sideOffset={12} className="z-[100]">
-              <div className="flex max-h-[min(70vh,520px)] w-[min(92vw,420px)] flex-col overflow-hidden rounded-lg border border-border bg-background p-1 shadow-2xl outline-none backdrop-blur-2xl">
-                <div className="border-b border-border px-3 py-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-foreground-intense">
-                    {playback.seriesTitle ?? showTitle ?? "Show"}
-                  </p>
-                </div>
-                <div className="flex gap-1 overflow-x-auto border-b border-border px-2 py-2">
-                  {episodesBySeason.seasons.map((season) => (
-                    <Button variant="ghost"
-                      key={season}
-                      type="button"
-                      onClick={() => setPickerSeason(season)}
-                      className={cn(
-                        "shrink-0 rounded-full px-3 py-1.5 text-[12px] font-medium",
-                        activeSeason === season
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-background-muted text-foreground-intense hover:bg-background-muted",
-                      )}
-                    >
-                      S{season}
-                    </Button>
-                  ))}
-                </div>
-                <div className="min-h-0 flex-1 overflow-y-auto p-2">
-                  <DropdownMenuGroup>
-                    {(episodesBySeason.map.get(activeSeason ?? "") ?? []).map((ep) => (
-                      <DropdownMenuItem
-                        key={ep.playUrl}
-                        className={cn(
-                          "flex cursor-pointer flex-col rounded-xl px-3 py-2.5 text-left outline-none",
-                          "data-[highlighted]:bg-background-muted",
-                          ep.index === currentIndex && "bg-primary",
-                        )}
-                        onClick={() => void jumpToEpisode(ep, ep.index)}
-                      >
-                        <span className="text-[14px] font-medium text-foreground-intense">
-                          {formatEpisodeCode(ep.season, ep.episodeNum)}
-                          {ep.title ? ` · ${ep.title}` : ""}
-                        </span>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuGroup>
-                </div>
-              </div>
-            </DropdownMenuContent>
-          </>
-        </DropdownMenu>
+      <GlassIconButton
+        aria-label="Next episode"
+        disabled={disabled || busy || !nextEp || loading}
+        onClick={() =>
+          nextEp && currentIndex >= 0 && void jumpToEpisode(nextEp, currentIndex + 1)
+        }
+      >
+        <span className="flex items-center gap-1.5 px-2">
+          <span className="hidden text-[12px] font-semibold sm:inline">Next</span>
+          <ChevronRight className="h-5 w-5" />
+        </span>
+      </GlassIconButton>
 
-        <GlassIconButton
-          aria-label="Next episode"
-          disabled={disabled || busy || !nextEp || loading}
-          onClick={() =>
-            nextEp && currentIndex >= 0 && void jumpToEpisode(nextEp, currentIndex + 1)
-          }
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent
+          closeButton={false}
+          initialFocus={initialEpisodeRef}
+          className="tv-episode-picker-dialog h-[min(82vh,780px)] w-[min(90vw,1240px)] max-w-none"
+          backdropProps={{ className: "bg-black/75 backdrop-blur-md" }}
+          viewportProps={{ className: "p-[4vw]" }}
         >
-          <span className="flex items-center gap-1.5 px-2">
-            <span className="hidden text-[12px] font-semibold sm:inline">Next</span>
-            <ChevronRight className="h-5 w-5" />
-          </span>
-        </GlassIconButton>
-        </div>
-      </div>
-    </div>
+          <DialogHeader className="border-b border-white/10 px-8 pb-6 pt-7">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-primary-strong">
+              Choose an episode
+            </p>
+            <DialogTitle className="truncate text-[32px] text-white">
+              {playback.seriesTitle ?? showTitle ?? "Show"}
+            </DialogTitle>
+            <DialogDescription className="text-[15px] text-white/65">
+              Left and right changes season. Up and down chooses an episode. Press OK to play; Back closes.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogBody className="flex min-h-0 flex-1 flex-col px-0 pb-0">
+            <div
+              id="tv-episode-picker-seasons"
+              data-tv-layout="horizontal"
+              data-tv-nav-down="#tv-episode-picker-list"
+              className="tv-episode-picker-seasons flex shrink-0 gap-3 overflow-x-auto border-b border-white/10 px-8 py-5"
+            >
+              {episodesBySeason.seasons.map((season) => (
+                <Button
+                  key={season}
+                  type="button"
+                  variant={activeSeason === season ? "primary" : "secondary"}
+                  onFocus={() => setPickerSeason(season)}
+                  onClick={() => setPickerSeason(season)}
+                  className={cn(
+                    "shrink-0 rounded-xl px-6 py-3 text-[17px] font-bold",
+                    activeSeason !== season && "bg-white/8 text-white hover:bg-white/14",
+                  )}
+                >
+                  Season {season}
+                </Button>
+              ))}
+            </div>
+
+            <div
+              id="tv-episode-picker-list"
+              data-tv-layout="vertical"
+              data-tv-nav-up="#tv-episode-picker-seasons"
+              className="tv-episode-picker-list min-h-0 flex-1 overflow-y-auto px-8 py-5"
+            >
+              {activeEpisodes.map((ep, seasonIndex) => {
+                const current = ep.index === currentIndex;
+                const receivesInitialFocus = current || (currentIndex < 0 && seasonIndex === 0);
+                return (
+                  <Button
+                    ref={receivesInitialFocus ? initialEpisodeRef : undefined}
+                    key={ep.playUrl}
+                    type="button"
+                    variant="ghost"
+                    disabled={busy}
+                    onClick={() => void jumpToEpisode(ep, ep.index)}
+                    aria-label={`Play ${formatEpisodeCode(ep.season, ep.episodeNum)}${ep.title ? `, ${ep.title}` : ""}`}
+                    className={cn(
+                      "tv-episode-picker-row mb-3 flex min-h-[76px] w-full items-center gap-5 rounded-xl border border-white/10 bg-white/[0.055] px-5 py-3 text-left text-white",
+                      "hover:bg-white/10 focus-visible:border-primary focus-visible:bg-white/12 focus-visible:ring-2 focus-visible:ring-primary",
+                      current && "border-primary/60 bg-primary/15",
+                    )}
+                  >
+                    <span className="flex h-11 min-w-20 shrink-0 items-center justify-center rounded-lg bg-black/35 px-3 text-[16px] font-extrabold text-white">
+                      {formatEpisodeCode(ep.season, ep.episodeNum)}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[18px] font-bold text-white">
+                        {ep.title || `Episode ${ep.episodeNum || seasonIndex + 1}`}
+                      </span>
+                      <span className="mt-1 block text-[14px] font-medium text-white/60">
+                        {ep.durationSeconds ? `${Math.round(ep.durationSeconds / 60)} min` : "Play episode"}
+                        {current ? " · Now playing" : ""}
+                      </span>
+                    </span>
+                    <span className="shrink-0 rounded-full bg-white px-5 py-2 text-[14px] font-extrabold text-black">
+                      Play
+                    </span>
+                  </Button>
+                );
+              })}
+            </div>
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

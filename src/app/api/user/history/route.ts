@@ -2,11 +2,17 @@ import { NextResponse } from "next/server";
 
 import { gateApiRequest } from "@/lib/auth/gate-api";
 import { prisma } from "@/lib/db/prisma";
+import type { PlaybackSessionMeta } from "@/lib/playback/stream-session-meta";
 import {
   filterParentalChannels,
   isChannelParentalBlocked,
   resolveParentalAccess,
 } from "@/lib/parental/parental-control-store";
+import {
+  pruneViewingHistory,
+  saveViewingHistoryEntry,
+  storedViewingContentKey,
+} from "@/lib/watch/viewing-history-store";
 
 export const runtime = "nodejs";
 
@@ -36,7 +42,9 @@ export async function GET(request: Request) {
         : { lastOpenedAt: "desc" },
     take: MAX_HISTORY,
     select: {
+      id: true,
       url: true,
+      contentKey: true,
       name: true,
       tvgLogo: true,
       groupTitle: true,
@@ -48,7 +56,27 @@ export async function GET(request: Request) {
   });
   rows = filterParentalChannels(rows, parental.blockedPatterns);
 
-  return NextResponse.json(rows);
+  // Legacy rows were URL-scoped, so one series could have one row per episode.
+  // Collapse them at read time as well as during the next progress update.
+  const seen = new Set<string>();
+  rows = rows.filter((row) => {
+    const key = storedViewingContentKey(row);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  return NextResponse.json(rows.map((row) => ({
+    url: row.url,
+    contentKey: storedViewingContentKey(row),
+    name: row.name,
+    tvgLogo: row.tvgLogo,
+    groupTitle: row.groupTitle,
+    playbackJson: row.playbackJson,
+    positionSeconds: row.positionSeconds,
+    lastOpenedAt: row.lastOpenedAt,
+    openCount: row.openCount,
+  })));
 }
 
 export async function POST(request: Request) {
@@ -83,48 +111,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Channel is locked by parental controls." }, { status: 403 });
   }
 
-  await prisma.userViewingHistory.upsert({
-    where: { userId_url: { userId, url: body.url } },
-    create: {
-      userId,
-      url: body.url,
-      name: (body.name ?? "").trim() || "Live",
-      tvgLogo: body.tvgLogo ?? null,
-      groupTitle: body.groupTitle ?? null,
-      playbackJson: body.playback ? JSON.stringify(body.playback) : null,
-      positionSeconds:
-        typeof body.positionSeconds === "number" && body.positionSeconds > 0
-          ? Math.round(body.positionSeconds)
-          : null,
-      openCount: 1,
-      lastOpenedAt: new Date(),
-    },
-    update: {
-      name: (body.name ?? "").trim() || "Live",
-      tvgLogo: body.tvgLogo ?? null,
-      groupTitle: body.groupTitle ?? null,
-      playbackJson: body.playback ? JSON.stringify(body.playback) : null,
-      positionSeconds:
-        typeof body.positionSeconds === "number" && body.positionSeconds > 0
-          ? Math.round(body.positionSeconds)
-          : undefined,
-      openCount: { increment: 1 },
-      lastOpenedAt: new Date(),
-    },
+  await saveViewingHistoryEntry(userId, {
+    url: body.url,
+    name: (body.name ?? "").trim() || "Live",
+    tvgLogo: body.tvgLogo,
+    groupTitle: body.groupTitle,
+    playback:
+      body.playback && typeof body.playback === "object"
+        ? (body.playback as PlaybackSessionMeta)
+        : undefined,
+    positionSeconds: body.positionSeconds,
+  }, {
+    incrementOpenCount: true,
   });
 
-  // Prune oldest entries beyond MAX_HISTORY
-  const oldest = await prisma.userViewingHistory.findMany({
-    where: { userId },
-    orderBy: { lastOpenedAt: "asc" },
-    skip: MAX_HISTORY,
-    select: { id: true },
-  });
-  if (oldest.length > 0) {
-    await prisma.userViewingHistory.deleteMany({
-      where: { id: { in: oldest.map((r) => r.id) } },
-    });
-  }
+  await pruneViewingHistory(userId, MAX_HISTORY);
 
   return NextResponse.json({ ok: true });
 }
@@ -141,9 +142,34 @@ export async function DELETE(request: Request) {
   }
 
   const url = searchParams.get("url");
-  if (!url) return NextResponse.json({ error: "url required" }, { status: 400 });
+  const contentKey = searchParams.get("contentKey");
+  if (!url && !contentKey) {
+    return NextResponse.json({ error: "url or contentKey required" }, { status: 400 });
+  }
 
-  await prisma.userViewingHistory.deleteMany({ where: { userId, url } });
+  if (contentKey) {
+    const rows = await prisma.userViewingHistory.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        url: true,
+        name: true,
+        contentKey: true,
+        playbackJson: true,
+      },
+    });
+    await prisma.userViewingHistory.deleteMany({
+      where: {
+        id: {
+          in: rows
+            .filter((row) => storedViewingContentKey(row) === contentKey)
+            .map((row) => row.id),
+        },
+      },
+    });
+  } else {
+    await prisma.userViewingHistory.deleteMany({ where: { userId, url: url! } });
+  }
 
   return NextResponse.json({ ok: true });
 }

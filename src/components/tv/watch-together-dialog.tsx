@@ -2,7 +2,7 @@
 
 import { Input } from "@appica/ui-react/input";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Play, X } from "lucide-react";
 
@@ -18,6 +18,7 @@ import {
 } from "@/features/iptv/use-library-catalog";
 
 const MAX = 6;
+const SEARCH_PAGE_SIZE = 80;
 type Props = { open: boolean; onClose: () => void };
 
 export function WatchTogetherDialog({ open, onClose }: Props) {
@@ -26,28 +27,62 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [q, setQ] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selected, setSelected] = useState<M3uChannel[]>([]);
   const [launching, setLaunching] = useState(false);
   const [offset, setOffset] = useState(0);
   const { channels, loading, refreshing, hasMore } = useLibraryCatalog({
+    enabled: open && debouncedQuery.length > 0,
     contentTab: "live",
-    query: q,
+    query: debouncedQuery,
     groupFilter: null,
     languageFilter: null,
     offset,
-    pageSize: 500,
+    pageSize: SEARCH_PAGE_SIZE,
   });
+
+  const normalizedQuery = q.trim();
+  const searchReady = normalizedQuery.length > 0 && normalizedQuery === debouncedQuery;
+  const visibleChannels = useMemo(() => {
+    if (!searchReady) return selected;
+    const selectedUrls = new Set(selected.map((channel) => channel.url));
+    const needle = debouncedQuery.toLocaleLowerCase();
+    const results = channels.filter((channel) => {
+      if (selectedUrls.has(channel.url)) return false;
+      const searchable = `${channel.name} ${channel.groupTitle ?? ""} ${channel.tvgId ?? ""} ${channel.tvgLanguage ?? ""}`
+        .toLocaleLowerCase();
+      return searchable.includes(needle);
+    });
+    return [...selected, ...results];
+  }, [channels, debouncedQuery, searchReady, selected]);
+  const searchPending =
+    normalizedQuery.length > 0 &&
+    (!searchReady || loading || refreshing);
+  const matchingResultCount = Math.max(0, visibleChannels.length - selected.length);
 
   // Reset local UI state when dialog opens.
   useEffect(() => {
     if (!open) return;
     queueMicrotask(() => {
       setQ("");
+      setDebouncedQuery("");
       setSelected([]);
       setOffset(0);
       inputRef.current?.focus();
     });
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!normalizedQuery) {
+      queueMicrotask(() => setDebouncedQuery(""));
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setDebouncedQuery(normalizedQuery);
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [normalizedQuery, open]);
 
   // Escape to close
   useEffect(() => {
@@ -159,15 +194,9 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
 
           {/* Channel list */}
           <div className="flex-1 overflow-y-auto overscroll-contain">
-            {loading || refreshing ? (
-              <ZendeLoadingState className="py-14" size="small" label="Loading live channels…" />
-            ) : channels.length === 0 ? (
-              <p className="px-5 py-10 text-center text-[14px] text-foreground-intense">
-                No channels match &quot;{q}&quot;
-              </p>
-            ) : (
+            {visibleChannels.length > 0 ? (
               <ul className="divide-y divide-border">
-                {channels.slice(0, 500).map((ch) => {
+                {visibleChannels.map((ch) => {
                   const isSelected = selected.some((c) => c.url === ch.url);
                   const atMax = !isSelected && selected.length >= MAX;
                   return (
@@ -183,7 +212,6 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
                           isSelected && "bg-background-muted",
                         )}
                       >
-                        {/* Channel logo */}
                         <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-background-muted">
                           {ch.tvgLogo ? (
                             // eslint-disable-next-line @next/next/no-img-element
@@ -203,7 +231,6 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
                           )}
                         </div>
 
-                        {/* Name + group */}
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[14px] font-medium text-foreground-intense">
                             {ch.name}
@@ -215,7 +242,6 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
                           ) : null}
                         </div>
 
-                        {/* Checkmark */}
                         <div
                           className={cn(
                             "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors",
@@ -236,12 +262,19 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
                   );
                 })}
               </ul>
-            )}
-            {!loading && channels.length > 0 && hasMore ? (
+            ) : null}
+            {searchPending ? (
+              <ZendeLoadingState className="py-10" size="small" label="Searching live channels…" />
+            ) : searchReady && matchingResultCount === 0 ? (
+              <p className="px-5 py-10 text-center text-[14px] text-foreground-intense">
+                No channels match &quot;{q}&quot;
+              </p>
+            ) : null}
+            {!searchPending && searchReady && matchingResultCount > 0 && hasMore ? (
               <div className="px-5 py-3">
                 <Button variant="ghost"
                   type="button"
-                  onClick={() => setOffset((n) => n + 500)}
+                  onClick={() => setOffset((n) => n + SEARCH_PAGE_SIZE)}
                   className={cn(
                     "w-full rounded-xl border border-border bg-background-muted px-4 py-2.5 text-[13px] font-semibold text-foreground-intense outline-none",
                     "hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-border",

@@ -83,6 +83,7 @@ async function fetchLibraryCatalogPage(
 }
 
 export function useLibraryCatalog(input: {
+  enabled?: boolean;
   contentTab: LibraryContentTab;
   query: string;
   groupFilter: string | null;
@@ -153,7 +154,18 @@ export function useLibraryCatalog(input: {
   );
 
   useEffect(() => {
-    if (!protectedApiReady) return;
+    if (!protectedApiReady || input.enabled === false) {
+      const seq = ++requestSeq.current;
+      queueMicrotask(() => {
+        if (seq !== requestSeq.current) return;
+        setChannels([]);
+        setTotal(0);
+        setLoading(false);
+        setRefreshing(false);
+        setError(null);
+      });
+      return;
+    }
     const seq = ++requestSeq.current;
     const controller = new AbortController();
     const filtersChanged = lastFilterKey.current !== filterKey;
@@ -260,6 +272,7 @@ export function useLibraryCatalog(input: {
     };
   }, [
     protectedApiReady,
+    input.enabled,
     filterKey,
     input.offset,
     input.pageSize,

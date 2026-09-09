@@ -157,6 +157,10 @@ const COMPATIBILITY_TRANSCODE_HLS_CONFIG: Partial<HlsConfig> = {
   startPosition: 0,
   liveMaxLatencyDurationCount: Infinity,
   maxLiveSyncPlaybackRate: 1,
+  // VOD segments have deliberate A/V timestamps. Extending short video tracks
+  // duplicates their final frame and is only useful for malformed live IPTV.
+  stretchShortVideoTrack: false,
+  forceKeyFrameOnDiscontinuity: false,
 };
 
 export function StreamPlayer(

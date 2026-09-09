@@ -12,6 +12,10 @@ export type WatchSessionMeta = {
   playbackUrl: string;
   /** Omitted for proxy sessions so provider URLs and credentials never reach the client. */
   canonicalUrl?: string;
+  /** Stable, credential-free key used for local resume positions. */
+  historyKey?: string;
+  /** Cross-device resume position for this exact movie or episode URL. */
+  resumePositionSeconds?: number | null;
   /** How the player should attach (HLS vs direct file). */
   playbackMode?: PlaybackMode;
   /** Server is converting an incompatible source to a sequential browser-safe stream. */
@@ -109,6 +113,8 @@ export async function fetchWatchSessionMeta(
     group: body.group ?? null,
     playbackUrl: body.playbackUrl,
     canonicalUrl: body.canonicalUrl,
+    historyKey: body.historyKey,
+    resumePositionSeconds: body.resumePositionSeconds,
     playbackMode: body.playbackMode,
     transcoded: body.transcoded,
     playback: body.playback,
@@ -135,6 +141,8 @@ export async function fetchRecordingWatchMeta(
     group: body.group ?? null,
     playbackUrl: body.playbackUrl,
     canonicalUrl: body.canonicalUrl,
+    historyKey: body.historyKey,
+    resumePositionSeconds: body.resumePositionSeconds,
     playbackMode: body.playbackMode,
     transcoded: body.transcoded,
     playback: body.playback,

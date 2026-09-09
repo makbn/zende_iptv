@@ -21,6 +21,7 @@ import {
   PictureInPicture,
   Play,
   Rewind,
+  RotateCcw,
   Search,
   Volume2,
   VolumeX,
@@ -147,6 +148,8 @@ const TRANSCODED_VOD_HLS_CONFIG = {
   startPosition: 0,
   liveMaxLatencyDurationCount: Infinity,
   maxLiveSyncPlaybackRate: 1,
+  stretchShortVideoTrack: false,
+  forceKeyFrameOnDiscontinuity: false,
 };
 
 const PLAYBACK_SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2] as const;
@@ -393,6 +396,7 @@ export function WatchView() {
     if (sessionMeta?.canonicalUrl) return sessionMeta.canonicalUrl;
     return decodedLegacyUrl;
   }, [sessionMeta, decodedLegacyUrl]);
+  const playbackPositionKey = sessionMeta?.historyKey ?? canonicalUrl;
 
   const playbackMeta = sessionMeta?.playback;
   const expectedDuration = playbackMeta?.durationSeconds ?? 0;
@@ -713,6 +717,7 @@ export function WatchView() {
       recordingId ||
       !playbackSrc ||
       !canonicalUrl ||
+      isVodContent ||
       lastRecordedUrl.current === canonicalUrl
     )
       return;
@@ -730,7 +735,7 @@ export function WatchView() {
       label: title,
       presetId: BUILTIN_PLAYLIST_SOURCES[0]?.presetId,
     });
-  }, [recordingId, playbackSrc, canonicalUrl, title, logo, group]);
+  }, [recordingId, playbackSrc, canonicalUrl, isVodContent, title, logo, group, playbackMeta]);
 
   useEffect(() => {
     const sync = () =>
@@ -976,20 +981,23 @@ export function WatchView() {
       positionSaverRef.current?.(v.currentTime);
       syncChromeProgress();
     };
+    const flushPosition = () => positionSaverRef.current?.flush(v.currentTime);
     const onMeta = () => {
       setDuration(v.duration);
       if (
-        canonicalUrl &&
-        resumedUrlRef.current !== canonicalUrl &&
+        playbackPositionKey &&
+        resumedUrlRef.current !== playbackPositionKey &&
         isVodContent &&
         !sessionMeta?.transcoded
       ) {
-        const saved = getPlaybackPosition(canonicalUrl);
+        const saved =
+          sessionMeta?.resumePositionSeconds ??
+          getPlaybackPosition(playbackPositionKey);
         if (saved != null && saved > 5) {
           v.pause();
-          setResumePrompt({ saved, url: canonicalUrl, timeLeft: 10 });
+          setResumePrompt({ saved, url: playbackPositionKey, timeLeft: 10 });
         }
-        resumedUrlRef.current = canonicalUrl;
+        resumedUrlRef.current = playbackPositionKey;
       }
       if (chromeVisibleRef.current) syncChromeProgress(true);
     };
@@ -1005,6 +1013,8 @@ export function WatchView() {
     const onRate = () => setPlaybackRate(v.playbackRate);
     const onProgress = () => syncChromeProgress();
     v.addEventListener("timeupdate", onTime);
+    v.addEventListener("seeked", flushPosition);
+    v.addEventListener("pause", flushPosition);
     v.addEventListener("loadedmetadata", onMeta);
     v.addEventListener("durationchange", onMeta);
     v.addEventListener("play", onPlay);
@@ -1024,6 +1034,8 @@ export function WatchView() {
     setPlaybackRate(v.playbackRate);
     return () => {
       v.removeEventListener("timeupdate", onTime);
+      v.removeEventListener("seeked", flushPosition);
+      v.removeEventListener("pause", flushPosition);
       v.removeEventListener("loadedmetadata", onMeta);
       v.removeEventListener("durationchange", onMeta);
       v.removeEventListener("play", onPlay);
@@ -1036,13 +1048,34 @@ export function WatchView() {
       v.removeEventListener("ratechange", onRate);
       v.removeEventListener("progress", onProgress);
     };
-  }, [canonicalUrl, isVodContent, sessionMeta?.transcoded, syncChromeProgress]);
+  }, [isVodContent, playbackPositionKey, sessionMeta?.resumePositionSeconds, sessionMeta?.transcoded, syncChromeProgress]);
 
   useEffect(() => {
-    positionSaverRef.current = createPlaybackPositionSaver(
-      isVodContent ? canonicalUrl : null,
-    );
-  }, [canonicalUrl, isVodContent]);
+    const saver = createPlaybackPositionSaver({
+      positionKey: isVodContent ? playbackPositionKey : null,
+      ...(isVodContent && sessionId ? { sessionId } : {}),
+      ...(isVodContent && canonicalUrl ? { url: canonicalUrl } : {}),
+      name: title,
+      ...(logo ? { tvgLogo: logo } : {}),
+      ...(group ? { groupTitle: group } : {}),
+      ...(playbackMeta ? { playback: playbackMeta } : {}),
+    });
+    positionSaverRef.current = saver;
+    return () => {
+      const video = videoRef.current;
+      if (video) saver.flush(video.currentTime);
+      if (positionSaverRef.current === saver) positionSaverRef.current = null;
+    };
+  }, [canonicalUrl, group, isVodContent, logo, playbackMeta, playbackPositionKey, sessionId, title]);
+
+  useEffect(() => {
+    const flush = () => {
+      const video = videoRef.current;
+      if (video) positionSaverRef.current?.flush(video.currentTime);
+    };
+    window.addEventListener("pagehide", flush);
+    return () => window.removeEventListener("pagehide", flush);
+  }, []);
 
   useEffect(() => {
     queueMicrotask(() => setPlayerFatalError(null));
@@ -1932,15 +1965,6 @@ export function WatchView() {
                 aria-hidden
               />
               <div className="px-3 pb-[max(1.25rem,calc(env(safe-area-inset-bottom)+0.75rem))] pt-3 sm:px-3 sm:pb-3 sm:pt-2">
-                {playbackMeta?.contentKind === "episode" && playbackMeta.seriesId ? (
-                  <EpisodePlaybackControls
-                    playback={playbackMeta}
-                    logo={logo}
-                    group={group}
-                    disabled={Boolean(playerFatalError)}
-                  />
-                ) : null}
-
                 <div className="tv-player-time-row mb-1.5 flex items-center justify-between gap-2 text-[11px] tabular-nums text-foreground-intense">
                   {isLivePlayback ? (
                     <span className="inline-flex items-center gap-1.5 font-medium uppercase tracking-wide text-success-strong">
@@ -1957,24 +1981,13 @@ export function WatchView() {
                   ) : (
                     <span>{formatClock(currentTime)}</span>
                   )}
-                  <div className="flex items-center gap-1.5">
-                    {isVodPlayback ? (
-                      <Button variant="ghost"
-                        type="button"
-                        onClick={() => remoteAwareSeekTo(0)}
-                        className="rounded-full border border-border bg-background-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground-intense hover:bg-background-muted"
-                      >
-                        Start over
-                      </Button>
-                    ) : null}
-                    <span className="text-foreground-intense">
-                      {isVodPlayback
-                        ? formatClock(effectiveDuration)
-                        : isLivePlayback
-                          ? "Buffering"
-                          : ""}
-                    </span>
-                  </div>
+                  <span className="text-foreground-intense">
+                    {isVodPlayback
+                      ? formatClock(effectiveDuration)
+                      : isLivePlayback
+                        ? "Buffering"
+                        : ""}
+                  </span>
                 </div>
 
                 {seekRatio !== null ? (
@@ -2038,6 +2051,99 @@ export function WatchView() {
                       </GlassIconButton>
                     ) : null}
                   </div>
+
+                  {playbackMeta?.contentKind === "episode" && playbackMeta.seriesId ? (
+                    <EpisodePlaybackControls
+                      playback={playbackMeta}
+                      logo={logo}
+                      group={group}
+                      disabled={Boolean(playerFatalError)}
+                      videoRef={videoRef}
+                    />
+                  ) : null}
+
+                  {isVodPlayback ? (
+                    <Button
+                      variant="ghost"
+                      type="button"
+                      aria-label="Start over"
+                      onClick={() => remoteAwareSeekTo(0)}
+                      className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-border bg-background px-3 text-[12px] font-semibold text-foreground-intense outline-none hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      <RotateCcw className="h-4 w-4" aria-hidden />
+                      Start over
+                    </Button>
+                  ) : null}
+
+                  {showSubtitleControls ? (
+                    <DropdownMenu modal={false}>
+                      <GlassIconMenuTrigger aria-label="Subtitles">
+                        <Subtitles className="h-4 w-4" />
+                      </GlassIconMenuTrigger>
+                      <>
+                        <DropdownMenuContent side="top" align="end" sideOffset={10} className="z-[100]">
+                          <div className="min-w-[220px] origin-bottom rounded-2xl border border-border bg-background p-1 shadow-2xl outline-none">
+                            <div>
+                              <DropdownMenuGroup>
+                                <DropdownMenuGroupLabel className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-foreground-intense">
+                                  Subtitles
+                                </DropdownMenuGroupLabel>
+                                <DropdownMenuItem
+                                  className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-foreground-intense outline-none data-[highlighted]:bg-background-muted"
+                                  onClick={() => {
+                                    handleBuiltinSubtitle(-1);
+                                    externalSubtitles.markOff();
+                                  }}
+                                >
+                                  Off
+                                  {currentSubtitleTrack < 0 &&
+                                  !externalSubtitles.activeTrackId ? (
+                                    <span className="text-success-strong">✓</span>
+                                  ) : null}
+                                </DropdownMenuItem>
+                                {hasBuiltinSubtitles
+                                  ? subtitleTracks
+                                      .filter((track) => track.index >= 0)
+                                      .map((track) => (
+                                        <DropdownMenuItem
+                                          key={`builtin-${track.index}`}
+                                          className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-foreground-intense outline-none data-[highlighted]:bg-background-muted"
+                                          onClick={() => handleBuiltinSubtitle(track.index)}
+                                        >
+                                          {track.label}
+                                          {currentSubtitleTrack === track.index &&
+                                          externalSubtitles.activeSource !== "external" ? (
+                                            <span className="text-success-strong">✓</span>
+                                          ) : null}
+                                        </DropdownMenuItem>
+                                      ))
+                                  : null}
+                                {externalSubtitles.tracks.map((track) => (
+                                  <DropdownMenuItem
+                                    key={`external-${track.id}`}
+                                    className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-foreground-intense outline-none data-[highlighted]:bg-background-muted"
+                                    onClick={() => handleExternalSubtitle(track.id)}
+                                  >
+                                    {track.label}
+                                    {externalSubtitles.activeTrackId === track.id ? (
+                                      <span className="text-success-strong">✓</span>
+                                    ) : null}
+                                  </DropdownMenuItem>
+                                ))}
+                                <DropdownMenuItem
+                                  className="mt-1 flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-background-muted px-3 py-2.5 text-[14px] font-medium text-primary-strong outline-none data-[highlighted]:bg-background-muted"
+                                  onClick={() => setSubtitleSearchOpen(true)}
+                                >
+                                  <Search className="size-4" aria-hidden />
+                                  Search online…
+                                </DropdownMenuItem>
+                              </DropdownMenuGroup>
+                            </div>
+                          </div>
+                        </DropdownMenuContent>
+                      </>
+                    </DropdownMenu>
+                  ) : null}
 
                   <div className="ml-auto flex min-w-0 items-center gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {!tvSurface ? (
@@ -2179,76 +2285,6 @@ export function WatchView() {
                                     ) : null}
                                   </DropdownMenuItem>
                                 ))}
-                              </DropdownMenuGroup>
-                            </div>
-                          </div>
-                        </DropdownMenuContent>
-                      </>
-                    </DropdownMenu>
-                  ) : null}
-
-                  {showSubtitleControls ? (
-                    <DropdownMenu modal={false}>
-                      <GlassIconMenuTrigger aria-label="Subtitles">
-                        <Subtitles className="h-4 w-4" />
-                      </GlassIconMenuTrigger>
-                      <>
-                        <DropdownMenuContent side="top" align="end" sideOffset={10} className="z-[100]">
-                          <div className="min-w-[220px] origin-bottom rounded-2xl border border-border bg-background p-1 shadow-2xl outline-none">
-                            <div>
-                              <DropdownMenuGroup>
-                                <DropdownMenuGroupLabel className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-foreground-intense">
-                                  Subtitles
-                                </DropdownMenuGroupLabel>
-                                <DropdownMenuItem
-                                  className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-foreground-intense outline-none data-[highlighted]:bg-background-muted"
-                                  onClick={() => {
-                                    handleBuiltinSubtitle(-1);
-                                    externalSubtitles.markOff();
-                                  }}
-                                >
-                                  Off
-                                  {currentSubtitleTrack < 0 &&
-                                  !externalSubtitles.activeTrackId ? (
-                                    <span className="text-success-strong">✓</span>
-                                  ) : null}
-                                </DropdownMenuItem>
-                                {hasBuiltinSubtitles
-                                  ? subtitleTracks
-                                      .filter((track) => track.index >= 0)
-                                      .map((track) => (
-                                        <DropdownMenuItem
-                                          key={`builtin-${track.index}`}
-                                          className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-foreground-intense outline-none data-[highlighted]:bg-background-muted"
-                                          onClick={() => handleBuiltinSubtitle(track.index)}
-                                        >
-                                          {track.label}
-                                          {currentSubtitleTrack === track.index &&
-                                          externalSubtitles.activeSource !== "external" ? (
-                                            <span className="text-success-strong">✓</span>
-                                          ) : null}
-                                        </DropdownMenuItem>
-                                      ))
-                                  : null}
-                                {externalSubtitles.tracks.map((track) => (
-                                  <DropdownMenuItem
-                                    key={`external-${track.id}`}
-                                    className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-foreground-intense outline-none data-[highlighted]:bg-background-muted"
-                                    onClick={() => handleExternalSubtitle(track.id)}
-                                  >
-                                    {track.label}
-                                    {externalSubtitles.activeTrackId === track.id ? (
-                                      <span className="text-success-strong">✓</span>
-                                    ) : null}
-                                  </DropdownMenuItem>
-                                ))}
-                                <DropdownMenuItem
-                                  className="mt-1 flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-background-muted px-3 py-2.5 text-[14px] font-medium text-primary-strong outline-none data-[highlighted]:bg-background-muted"
-                                  onClick={() => setSubtitleSearchOpen(true)}
-                                >
-                                  <Search className="size-4" aria-hidden />
-                                  Search online…
-                                </DropdownMenuItem>
                               </DropdownMenuGroup>
                             </div>
                           </div>

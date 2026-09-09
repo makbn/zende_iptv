@@ -16,6 +16,8 @@ describe("progressive browser transcode", () => {
 
     expect(args).toContain("libx264");
     expect(args).toContain("superfast");
+    expect(args).toContain("zerolatency");
+    expect(args).toContain("passthrough");
     expect(args).toContain("scale=w='min(1920,iw)':h=-2");
     expect(args).toContain("10M");
     expect(args).toContain("yuv420p");

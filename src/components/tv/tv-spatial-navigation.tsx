@@ -357,10 +357,48 @@ function firstContentLayoutElement(candidates: HTMLElement[]): HTMLElement | nul
   }) ?? null;
 }
 
+function firstFocusableInMain(): HTMLElement | null {
+  // ResponsivePage keeps its mobile and desktop trees mounted and hides one
+  // with CSS. Always enter the visible page tree, not merely the first <main>
+  // in DOM order (which is commonly the hidden mobile page on a television).
+  const main = Array.from(document.querySelectorAll<HTMLElement>("main")).find(isVisible);
+  if (!main) return null;
+
+  // A page can nominate its natural TV entry point. Home uses this to enter
+  // the first content card instead of stopping on a hero action.
+  const preferred = main.querySelector<HTMLElement>(
+    "[data-tv-page-entry], [data-tv-initial-focus]",
+  );
+  if (
+    preferred &&
+    preferred.matches(FOCUSABLE_SELECTOR) &&
+    isQuickFocusable(preferred) &&
+    isVisible(preferred)
+  ) {
+    return preferred;
+  }
+
+  // Header-to-page movement is infrequent, so checking visibility here is
+  // inexpensive and prevents focus from landing on responsive hidden controls.
+  return Array.from(main.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).find(
+    (element) => isQuickFocusable(element) && isVisible(element),
+  ) ?? null;
+}
+
 function moveFocus(direction: Direction): boolean {
   const active = document.activeElement instanceof HTMLElement && document.activeElement.isConnected
     ? document.activeElement
     : null;
+
+  // The top bar is itself a horizontal layout. Handle its vertical exit before
+  // the fast layout path so ArrowDown cannot be consumed by header navigation.
+  if (active?.closest(".tv-top-bar") && direction === "down") {
+    const pageEntry = firstFocusableInMain();
+    if (!pageEntry) return false;
+    focusAndReveal(pageEntry, "start");
+    return true;
+  }
+
   // The common TV path stays inside a declared rail/grid. Resolve only that
   // small layout instead of measuring every card, nav item, and button in the
   // document on each key press.
@@ -473,7 +511,9 @@ function moveFocus(direction: Direction): boolean {
 function hasOpenOverlay(): boolean {
   const overlay = Array.from(document.querySelectorAll<HTMLElement>(OVERLAY_SELECTOR)).some(isVisible);
   const expandedTrigger = Array.from(
-    document.querySelectorAll<HTMLElement>("[aria-expanded='true'], [data-popup-open]"),
+    document.querySelectorAll<HTMLElement>(
+      "[aria-expanded='true'][aria-haspopup], [data-popup-open]",
+    ),
   ).some(isVisible);
   return overlay || expandedTrigger;
 }
@@ -482,7 +522,7 @@ function isInsideOpenComposite(element: Element | null): boolean {
   if (!(element instanceof HTMLElement)) return false;
   return Boolean(
     element.closest(COMPOSITE_SELECTOR) ||
-    element.matches("[aria-expanded='true'], [data-popup-open]"),
+    element.matches("[aria-expanded='true'][aria-haspopup], [data-popup-open]"),
   );
 }
 

@@ -30,7 +30,13 @@ class PlayerActivity : ComponentActivity() {
         val token = intent.getStringExtra(EXTRA_TOKEN)
         val cookies = intent.getStringExtra(EXTRA_COOKIES)
         val contentType = intent.getStringExtra(CONTENT_TYPE)
-        setContent { ZendeTheme { VideoPlayer(url, contentType!!, token, cookies) } }
+        val launch = PlaybackHandoff.launch?.takeIf { it.isVod }
+        setContent {
+            ZendeTheme {
+                if (launch != null && url.isNotBlank()) VodPlayer(url, token, cookies, launch)
+                else VideoPlayer(url, contentType ?: "live", token, cookies)
+            }
+        }
     }
 
     companion object {

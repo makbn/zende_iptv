@@ -21,10 +21,17 @@ import com.zende.androidtv.model.HomeShelves
 import com.zende.androidtv.model.PairSession
 import com.zende.androidtv.model.PreferredGuideChannel
 import com.zende.androidtv.model.Recording
+import com.zende.androidtv.model.MediaMetadata
 import com.zende.androidtv.model.SeriesEpisode
 import com.zende.androidtv.model.SeriesInfo
 import com.zende.androidtv.model.MovieInfo
+import com.zende.androidtv.model.StreamSessionRequest
 import com.zende.androidtv.model.User
+import com.zende.androidtv.ui.player.PlaybackEpisodeRef
+import com.zende.androidtv.ui.player.PlaybackHandoff
+import com.zende.androidtv.ui.player.PlaybackLaunch
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -37,7 +44,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-data class PlaybackRequest(val title: String, val url: String, val contentType: String, val token: String?, val cookies: String?)
+data class PlaybackRequest(
+    val title: String,
+    val url: String,
+    val contentType: String,
+    val token: String?,
+    val cookies: String?,
+    val launch: PlaybackLaunch? = null,
+)
 
 data class ZendeUiState(
     val booting: Boolean = true,
@@ -294,16 +308,64 @@ class ZendeViewModel(context: Context) : ViewModel() {
 
     fun selectSeason(season: String) = mutableState.update { it.copy(selectedSeason = season) }
 
+    fun playMovie() {
+        val current = mutableState.value
+        val original = current.movieChannel ?: return
+        val info = current.movieInfo
+        val channel = info?.channel?.takeIf { it.url.isNotBlank() } ?: original
+        val metadata = info?.metadata
+        play(
+            channel.copy(
+                name = metadata?.title ?: channel.displayTitle,
+                contentType = "movie",
+                duration = info?.durationSeconds?.toDouble() ?: channel.duration,
+            ),
+            PlaybackLaunch(
+                title = metadata?.title ?: channel.displayTitle,
+                upstreamUrl = channel.url,
+                contentKind = "movie",
+                imdbId = metadata.portalId(info?.info, "imdb"),
+                tmdbId = metadata.portalId(info?.info, "tmdb"),
+                releaseName = original.name,
+                year = metadata?.year,
+                durationSeconds = info?.durationSeconds,
+            ),
+        )
+    }
+
     fun playEpisode(seriesChannel: Channel, episode: SeriesEpisode) {
+        val info = mutableState.value.seriesInfo
+        val episodes = info?.episodes.orEmpty()
+        val index = episodes.indexOfFirst { it.playUrl == episode.playUrl }
+        val metadata = info?.metadata
+        val title = "${seriesChannel.displayTitle} · ${episode.code} · ${episode.title}"
         play(
             Channel(
                 url = episode.playUrl,
-                name = "${seriesChannel.displayTitle} · ${episode.code} · ${episode.title}",
+                name = title,
                 tvgLogo = episode.artworkUrl ?: seriesChannel.posterUrl,
                 groupTitle = seriesChannel.groupTitle,
                 contentType = "episode",
                 duration = episode.durationSeconds?.toDouble(),
-            )
+            ),
+            PlaybackLaunch(
+                title = title,
+                upstreamUrl = episode.playUrl,
+                contentKind = "episode",
+                imdbId = metadata.portalId(info?.info, "imdb"),
+                tmdbId = metadata.portalId(info?.info, "tmdb"),
+                releaseName = "${seriesChannel.name} ${episode.title}".trim(),
+                year = metadata?.year,
+                season = episode.season,
+                episodeNum = episode.episodeNum,
+                seriesId = info?.seriesId?.takeIf { it.isNotBlank() },
+                seriesTitle = metadata?.title ?: seriesChannel.displayTitle,
+                episodeIndex = index,
+                durationSeconds = episode.durationSeconds,
+                episodes = episodes.map {
+                    PlaybackEpisodeRef(it.season, it.episodeNum, it.title, it.playUrl, it.durationSeconds)
+                },
+            ),
         )
     }
 
@@ -313,15 +375,44 @@ class ZendeViewModel(context: Context) : ViewModel() {
             .onFailure { error -> mutableState.update { it.copy(message = error.readable()) } }
     }
 
-    fun play(channel: Channel) = viewModelScope.launch {
-        mutableState.update { it.copy(message = "Preparing ${channel.displayTitle}…") }
-        runCatching { channels.createStream(channel) }
-            .onSuccess { session ->
+    private var playbackJob: Job? = null
+
+    fun play(channel: Channel, launch: PlaybackLaunch? = null) {
+        if (playbackJob?.isActive == true) return
+        val prepared = launch ?: PlaybackLaunch(
+            title = channel.displayTitle,
+            upstreamUrl = channel.url,
+            contentKind = channel.contentType ?: if (channel.isLive) "live" else "movie",
+            releaseName = channel.name,
+            durationSeconds = channel.duration?.toInt()?.takeIf { it > 0 },
+        )
+        playbackJob = viewModelScope.launch {
+            mutableState.update { it.copy(message = "Preparing ${prepared.title}…") }
+            runCatching {
+                channels.createStream(
+                    StreamSessionRequest(
+                        url = prepared.upstreamUrl,
+                        title = prepared.title,
+                        logo = channel.artUrl,
+                        group = channel.groupTitle,
+                        meta = prepared.toMeta(),
+                    ),
+                )
+            }.onSuccess { session ->
                 mutableState.update { it.copy(message = null) }
-                mutablePlayback.emit(PlaybackRequest(channel.displayTitle, factory.session.serverUrl + "api/stream/proxy/${session.id}",
-                    channel.contentType!!, factory.session.accessToken, factory.session.cookies))
-            }
-            .onFailure { error -> mutableState.update { it.copy(message = error.readable()) } }
+                PlaybackHandoff.launch = prepared
+                mutablePlayback.emit(
+                    PlaybackRequest(
+                        prepared.title,
+                        factory.session.serverUrl + "api/stream/proxy/${session.id}",
+                        prepared.contentKind,
+                        factory.session.accessToken,
+                        factory.session.cookies,
+                        prepared,
+                    ),
+                )
+            }.onFailure { error -> mutableState.update { it.copy(message = error.readable()) } }
+        }
     }
 
     fun setSearchOpen(open: Boolean) {
@@ -358,7 +449,22 @@ class ZendeViewModel(context: Context) : ViewModel() {
     }
 
     fun playRecording(recording: Recording) = viewModelScope.launch {
-        mutablePlayback.emit(PlaybackRequest(recording.channelName, factory.session.serverUrl + "api/recordings/${recording.id}/play", "", factory.session.accessToken, factory.session.cookies))
+        PlaybackHandoff.launch = null
+        mutablePlayback.emit(PlaybackRequest(recording.channelName, factory.session.serverUrl + "api/recordings/${recording.id}/play", "live", factory.session.accessToken, factory.session.cookies))
+    }
+
+    private fun MediaMetadata?.portalId(info: kotlinx.serialization.json.JsonObject?, kind: String): String? {
+        val direct = if (kind == "imdb") this?.imdbId else this?.tmdbId
+        direct?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
+        val source = info ?: return null
+        val keys = if (kind == "imdb") listOf("imdb_id", "imdb", "imdbId") else listOf("tmdb_id", "tmdb", "tmdbId")
+        for (key in keys) {
+            val value = source[key]
+            if (value is JsonPrimitive) {
+                value.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
+            }
+        }
+        return null
     }
 
     private fun Throwable.readable(): String = when (this) {

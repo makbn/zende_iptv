@@ -23,8 +23,12 @@ import com.zende.androidtv.model.RecordingsOverview
 import com.zende.androidtv.model.RefreshRequest
 import com.zende.androidtv.model.StartRecordingRequest
 import com.zende.androidtv.model.SeriesInfo
+import com.zende.androidtv.model.IntroResponse
 import com.zende.androidtv.model.StreamSession
 import com.zende.androidtv.model.StreamSessionRequest
+import com.zende.androidtv.model.SubtitleLoadRequest
+import com.zende.androidtv.model.SubtitleLoadResponse
+import com.zende.androidtv.model.SubtitleSearchResponse
 import com.zende.androidtv.model.TokenResponse
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -210,6 +214,21 @@ interface ZendeService {
     @GET("api/recordings/overview") suspend fun recordings(): RecordingsOverview
     @POST("api/recordings/start") suspend fun startRecording(@Body request: StartRecordingRequest): JsonObject
     @POST("api/stream/session") suspend fun createStream(@Body request: StreamSessionRequest): StreamSession
+    @GET("api/subtitles/search") suspend fun searchSubtitles(
+        @Query("imdbId") imdbId: String? = null,
+        @Query("tmdbId") tmdbId: String? = null,
+        @Query("season") season: Int? = null,
+        @Query("episode") episode: Int? = null,
+        @Query("type") type: String? = null,
+        @Query("releaseFilter") releaseFilter: String? = null,
+    ): SubtitleSearchResponse
+    @POST("api/subtitles/load") suspend fun loadSubtitle(@Body request: SubtitleLoadRequest): SubtitleLoadResponse
+    @GET("api/media/intro") suspend fun intro(
+        @Query("imdbId") imdbId: String? = null,
+        @Query("tmdbId") tmdbId: String? = null,
+        @Query("season") season: Int? = null,
+        @Query("episode") episode: Int? = null,
+    ): IntroResponse
     @GET("api/providers") suspend fun providers(): JsonObject
 }
 

@@ -121,6 +121,14 @@ async function loadRemoteImage(rawUrl: string): Promise<Omit<CachedImage, "expir
   throw new Error("Too many remote image redirects.");
 }
 
+function safeHost(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "invalid";
+  }
+}
+
 /** Download an image into the same persistent cache used by the browser relay. */
 export async function primeRemoteImageCache(
   kind: ImageCacheKind,
@@ -131,21 +139,19 @@ export async function primeRemoteImageCache(
   try {
     await loadCachedImage(kind, url, () => loadRemoteImage(url));
   } catch (error) {
-    let remoteHost = "invalid";
-    try {
-      remoteHost = new URL(url).hostname;
-    } catch {
-      /* keep invalid */
-    }
     log.warn("image cache prewarm failed", {
       kind,
-      remoteHost,
+      remoteHost: safeHost(url),
       message: error instanceof Error ? error.message : String(error),
     });
   }
 }
 
-function imageResponse(image: CachedImage, cacheState: "HIT" | "MISS" | "COALESCED", kind: ImageCacheKind): NextResponse {
+function imageResponse(
+  image: CachedImage,
+  cacheState: "HIT" | "MISS" | "COALESCED",
+  kind: ImageCacheKind,
+): NextResponse {
   const body = image.body.buffer.slice(image.body.byteOffset, image.body.byteOffset + image.body.byteLength) as ArrayBuffer;
   const browserMaxAge = kind === "thumbnail" ? 6 * 60 * 60 : 24 * 60 * 60;
   return new NextResponse(body, {
@@ -179,13 +185,12 @@ export async function relayImageFromEncodedPath(encoded: string): Promise<Respon
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const badRequest = /not allowed|Only HTTP|Invalid URL|valid URL|private media/i.test(message);
-    let remoteHost = "invalid";
-    try {
-      remoteHost = new URL(payload.url).hostname;
-    } catch {
-      /* keep invalid */
-    }
-    log.warn("image relay failed", { kind: payload.kind, remoteHost, badRequest, message });
+    log.warn("image relay failed", {
+      kind: payload.kind,
+      remoteHost: safeHost(payload.url),
+      badRequest,
+      message,
+    });
     return NextResponse.json(
       { error: badRequest ? "Media URL is not allowed." : "Remote image could not be loaded." },
       { status: badRequest ? 400 : 502, headers: { "Cache-Control": "no-store" } },

@@ -14,11 +14,14 @@ export type PlaybackNavigationEndDetail = {
   token: string;
 };
 
+let activeToken: string | null = null;
+
 export function beginPlaybackNavigation({
   title,
   message,
 }: Omit<PlaybackNavigationStartDetail, "token">) {
   const token = createClientId("playback");
+  activeToken = token;
 
   if (typeof window !== "undefined") {
     window.dispatchEvent(
@@ -33,6 +36,7 @@ export function beginPlaybackNavigation({
 }
 
 export function endPlaybackNavigation(token: string) {
+  if (activeToken === token) activeToken = null;
   if (typeof window === "undefined") return;
 
   window.dispatchEvent(
@@ -41,4 +45,10 @@ export function endPlaybackNavigation(token: string) {
       { detail: { token } },
     ),
   );
+}
+
+/** Hides the current playback overlay once the destination player is actually ready. */
+export function endActivePlaybackNavigation() {
+  if (!activeToken) return;
+  endPlaybackNavigation(activeToken);
 }

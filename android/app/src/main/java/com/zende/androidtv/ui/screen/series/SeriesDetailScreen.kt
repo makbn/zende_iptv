@@ -30,8 +30,15 @@ import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -53,6 +60,7 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import com.zende.androidtv.model.Channel
+import com.zende.androidtv.ui.ZendeImage
 import com.zende.androidtv.model.SeriesEpisode
 import com.zende.androidtv.model.SeriesInfo
 import com.zende.androidtv.ui.theme.Border
@@ -159,7 +167,7 @@ fun SeriesDetailScreen(
         }
 
         if (loading) {
-            item { Text("Loading seasons and episodes…", color = Muted, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 86.dp, vertical = 42.dp)) }
+            item { EpisodeSkeleton() }
         } else if (error != null) {
             item {
                 Row(Modifier.padding(horizontal = 86.dp, vertical = 34.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -187,7 +195,9 @@ fun SeriesDetailScreen(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     row.forEach { episode ->
-                        EpisodeCard(episode, cover, { onPlay(episode) }, Modifier.weight(1f))
+                        key(episode.playUrl) {
+                            EpisodeCard(episode, cover, { onPlay(episode) }, Modifier.weight(1f))
+                        }
                     }
                     if (row.size == 1) Spacer(Modifier.weight(1f))
                 }
@@ -236,7 +246,8 @@ private fun EpisodeCard(episode: SeriesEpisode, fallbackArt: String?, onClick: (
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.width(226.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(10.dp)).background(Surface)) {
-            AsyncImage(episode.artworkUrl ?: fallbackArt, episode.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alpha = if (episode.artworkUrl == null) .62f else 1f)
+            ZendeImage(episode.artworkUrl ?: fallbackArt, episode.title, Modifier.fillMaxSize())
+            if (episode.artworkUrl == null) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .38f)))
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xB8000000)))))
             Text(episode.code, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.align(Alignment.BottomStart).padding(9.dp).background(Color(0xB3050810), RoundedCornerShape(5.dp)).padding(horizontal = 7.dp, vertical = 3.dp))
         }
@@ -257,6 +268,32 @@ private fun EpisodeCard(episode: SeriesEpisode, fallbackArt: String?, onClick: (
             Icon(Icons.Filled.PlayArrow, "Play ${episode.code}", tint = if (focused) Color.Black else Color.White, modifier = Modifier.size(26.dp))
         }
         Spacer(Modifier.width(8.dp))
+    }
+}
+
+@Composable
+private fun EpisodeSkeleton() {
+    val transition = rememberInfiniteTransition(label = "episodeSkeleton")
+    val shift = transition.animateFloat(0f, 1f, infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Reverse), label = "episodeSheen").value
+    val shimmer = Brush.linearGradient(listOf(Surface, Color(0xFF243044).copy(alpha = .7f + shift * .2f), Surface))
+    Column(Modifier.padding(horizontal = 86.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            repeat(4) { Box(Modifier.width(132.dp).height(44.dp).clip(RoundedCornerShape(12.dp)).background(shimmer)) }
+        }
+        repeat(4) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                repeat(2) {
+                    Row(Modifier.weight(1f).height(160.dp).clip(RoundedCornerShape(15.dp)).background(Color(0xFF111722)).padding(10.dp)) {
+                        Box(Modifier.width(226.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(10.dp)).background(shimmer))
+                        Column(Modifier.padding(start = 18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Box(Modifier.width(220.dp).height(18.dp).clip(RoundedCornerShape(6.dp)).background(shimmer))
+                            Box(Modifier.width(120.dp).height(12.dp).clip(RoundedCornerShape(6.dp)).background(shimmer))
+                            Box(Modifier.fillMaxWidth().height(28.dp).clip(RoundedCornerShape(6.dp)).background(shimmer))
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

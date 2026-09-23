@@ -6,6 +6,11 @@ import { gateApiRequest } from "@/lib/auth/gate-api";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
 import { prisma } from "@/lib/db/prisma";
 import { fetchXtreamVodInfo } from "@/lib/iptv/xtream-client";
+import {
+  isProviderInfoFresh,
+  readCachedVodInfo,
+  writeCachedVodInfo,
+} from "@/lib/iptv/series-info-cache";
 import { loadXtreamPortalCredentials } from "@/lib/iptv/xtream-portal-store";
 import type { XtreamVodInfo } from "@/lib/iptv/xtream-types";
 import {
@@ -85,12 +90,40 @@ export async function GET(request: Request) {
 
     let vod: XtreamVodInfo | null = null;
     if (vodId && creds) {
-      vod = await fetchXtreamVodInfo(creds, vodId);
-      if (!vod && !providerChannel) {
-        log.error("get_vod_info returned nothing", { vodId });
-        return NextResponse.json({ error: "Could not load movie from portal." }, { status: 502 });
+      const providerKey = provider?.id ?? creds.serverUrl;
+      const cached =
+        (await readCachedVodInfo(providerKey, vodId)) ??
+        (providerKey === creds.serverUrl ? null : await readCachedVodInfo(creds.serverUrl, vodId));
+      if (cached && isProviderInfoFresh(cached.cachedAt)) {
+        vod = cached.info;
+        log.info("serving fresh cached movie info", { vodId, cachedAt: cached.cachedAt });
+      } else {
+        vod = await fetchXtreamVodInfo(creds, vodId);
+        if (vod) {
+          await Promise.all([
+            writeCachedVodInfo(providerKey, vodId, vod),
+            providerKey === creds.serverUrl
+              ? Promise.resolve()
+              : writeCachedVodInfo(creds.serverUrl, vodId, vod),
+          ]).catch((error) => {
+            log.warn("could not persist movie info cache", {
+              vodId,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          });
+        } else if (cached) {
+          vod = cached.info;
+          log.warn("serving cached movie info after provider failure", {
+            vodId,
+            cachedAt: cached.cachedAt,
+          });
+        } else if (!providerChannel) {
+          log.error("get_vod_info returned nothing", { vodId });
+          return NextResponse.json({ error: "Could not load movie from portal." }, { status: 502 });
+        } else {
+          log.warn("movie portal metadata unavailable; using catalog fallback", { vodId });
+        }
       }
-      if (!vod) log.warn("movie portal metadata unavailable; using catalog fallback", { vodId });
     }
 
     const portalInfo = mergePortalInfo(vod);

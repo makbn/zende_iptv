@@ -5,6 +5,7 @@ import { withApiLogging } from "@/core/logging/api-log";
 import { gateApiRequest } from "@/lib/auth/gate-api";
 import { fetchXtreamSeriesInfo } from "@/lib/iptv/xtream-client";
 import {
+  isProviderInfoFresh,
   readCachedSeriesInfo,
   writeCachedSeriesInfo,
 } from "@/lib/iptv/series-info-cache";
@@ -188,31 +189,46 @@ export async function GET(request: Request) {
       );
     }
 
-    log.info("fetching series info", { seriesId, server: creds.serverUrl });
     const providerKey = provider?.id ?? creds.serverUrl;
-    let info = await fetchXtreamSeriesInfo(creds, seriesId);
+    const cached =
+      (await readCachedSeriesInfo(providerKey, seriesId)) ??
+      (providerKey === creds.serverUrl
+        ? null
+        : await readCachedSeriesInfo(creds.serverUrl, seriesId));
+    let info = cached && isProviderInfoFresh(cached.cachedAt) ? cached.info : null;
     let stale = false;
-    let cachedAt: string | undefined;
-    if (!info) {
-      const cached = await readCachedSeriesInfo(providerKey, seriesId);
-      if (!cached) {
-        log.error("get_series_info returned nothing and no cached copy exists", { seriesId });
-        return NextResponse.json(
-          { error: "The series provider is temporarily unreachable. Try again shortly." },
-          { status: 502 },
-        );
-      }
-      info = cached.info;
-      stale = true;
-      cachedAt = cached.cachedAt;
-      log.warn("serving cached series info after provider failure", { seriesId, cachedAt });
+    let cachedAt = info ? cached?.cachedAt : undefined;
+    if (info) {
+      log.info("serving fresh cached series info", { seriesId, cachedAt });
     } else {
-      await writeCachedSeriesInfo(providerKey, seriesId, info).catch((error) => {
-        log.warn("could not persist series info cache", {
-          seriesId,
-          error: error instanceof Error ? error.message : String(error),
+      log.info("fetching series info", { seriesId, server: creds.serverUrl });
+      info = await fetchXtreamSeriesInfo(creds, seriesId);
+      if (!info) {
+        if (!cached) {
+          log.error("get_series_info returned nothing and no cached copy exists", { seriesId });
+          return NextResponse.json(
+            { error: "The series provider is temporarily unreachable. Try again shortly." },
+            { status: 502 },
+          );
+        }
+        info = cached.info;
+        stale = true;
+        cachedAt = cached.cachedAt;
+        log.warn("serving cached series info after provider failure", { seriesId, cachedAt });
+      } else {
+        cachedAt = new Date().toISOString();
+        await Promise.all([
+          writeCachedSeriesInfo(providerKey, seriesId, info),
+          providerKey === creds.serverUrl
+            ? Promise.resolve()
+            : writeCachedSeriesInfo(creds.serverUrl, seriesId, info),
+        ]).catch((error) => {
+          log.warn("could not persist series info cache", {
+            seriesId,
+            error: error instanceof Error ? error.message : String(error),
+          });
         });
-      });
+      }
     }
 
     const episodes = flattenEpisodes(info.episodes, creds);

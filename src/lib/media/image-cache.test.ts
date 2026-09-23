@@ -45,5 +45,28 @@ describe("resource-specific image cache", () => {
     expect(loader).toHaveBeenCalledTimes(1);
     expect([a.state, b.state].sort()).toEqual(["COALESCED", "MISS"]);
   });
+
+  it("serves from cache for the full TTL without calling the loader again", async () => {
+    vi.useFakeTimers();
+    const loader = vi.fn(async () => ({
+      body: new Uint8Array([7, 7, 7]),
+      contentType: "image/jpeg",
+    }));
+
+    await loadCachedImage("thumbnail", "ttl-url", loader);
+    expect(loader).toHaveBeenCalledTimes(1);
+
+    // Still inside the 24h thumbnail TTL — must be a pure cache hit.
+    vi.advanceTimersByTime(2 * 60 * 60 * 1000);
+    expect(readCachedImage("thumbnail", "ttl-url")?.body).toEqual(new Uint8Array([7, 7, 7]));
+    await loadCachedImage("thumbnail", "ttl-url", loader);
+    expect(loader).toHaveBeenCalledTimes(1);
+
+    // Past TTL — next load may fetch again.
+    vi.advanceTimersByTime(23 * 60 * 60 * 1000);
+    expect(readCachedImage("thumbnail", "ttl-url")).toBeNull();
+
+    vi.useRealTimers();
+  });
 });
 

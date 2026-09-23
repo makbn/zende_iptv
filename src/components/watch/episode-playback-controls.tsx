@@ -26,6 +26,10 @@ import {
   formatEpisodeCode,
   resolveSeriesEpisodeIndex,
 } from "@/lib/playback/play-episode";
+import {
+  beginPlaybackNavigation,
+  endActivePlaybackNavigation,
+} from "@/lib/navigation/playback-navigation-feedback";
 import { createWatchUrl } from "@/lib/navigation/watch-url";
 import type { PlaybackSessionMeta } from "@/lib/playback/stream-session-meta";
 import { cn } from "@/lib/utils";
@@ -71,6 +75,7 @@ export function EpisodePlaybackControls({ playback, logo, group, disabled, video
   const seriesId = playback.seriesId ?? null;
   const { episodesBySeason, showTitle, loading } = useSeriesInfo(seriesId);
   const [busy, setBusy] = useState(false);
+  const jumpLock = useRef(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerSeason, setPickerSeason] = useState<string | null>(null);
   const initialEpisodeRef = useRef<HTMLButtonElement>(null);
@@ -90,8 +95,14 @@ export function EpisodePlaybackControls({ playback, logo, group, disabled, video
 
   const jumpToEpisode = useCallback(
     async (episode: SeriesEpisodeRow, episodeIndex: number) => {
-      if (!seriesId) return false;
+      if (!seriesId || jumpLock.current) return false;
+      jumpLock.current = true;
       setBusy(true);
+      const label = `${formatEpisodeCode(episode.season, episode.episodeNum)} · ${episode.title || "Episode"}`;
+      beginPlaybackNavigation({
+        title: label,
+        message: "Loading episode…",
+      });
       try {
         const channel = buildEpisodeWatchChannel({
           seriesId,
@@ -100,18 +111,21 @@ export function EpisodePlaybackControls({ playback, logo, group, disabled, video
           groupTitle: group ?? undefined,
           episode,
           episodeIndex,
+          imdbId: playback.imdbId,
+          year: playback.year,
         });
         const href = await createWatchUrl(channel);
         setPickerOpen(false);
         router.replace(href);
         return true;
       } catch {
-        return false;
-      } finally {
+        endActivePlaybackNavigation();
+        jumpLock.current = false;
         setBusy(false);
+        return false;
       }
     },
-    [seriesId, playback.seriesTitle, showTitle, logo, group, router],
+    [seriesId, playback.seriesTitle, playback.imdbId, playback.year, showTitle, logo, group, router],
   );
 
   useEffect(() => {
@@ -137,6 +151,8 @@ export function EpisodePlaybackControls({ playback, logo, group, disabled, video
 
   useEffect(() => {
     autoAdvancingRef.current = false;
+    jumpLock.current = false;
+    setBusy(false);
   }, [playback.season, playback.episodeNum]);
 
   useEffect(() => {

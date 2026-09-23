@@ -91,6 +91,9 @@ export function SeriesDetailView({
           groupTitle,
           episode,
           episodeIndex,
+          imdbId: metadata?.imdbId,
+          tmdbId: metadata?.tmdbId,
+          year: metadata?.year,
         });
         return {
           id: `episode-${episodeIndex}`,
@@ -101,7 +104,7 @@ export function SeriesDetailView({
         };
       }),
     };
-  }, [cover, episodesBySeason.flat, groupTitle, overview, seriesId, title]);
+  }, [cover, episodesBySeason.flat, groupTitle, metadata?.imdbId, metadata?.tmdbId, metadata?.year, overview, seriesId, title]);
 
   const continueTarget = useMemo(() => {
     const byUrl = new Map(
@@ -131,6 +134,9 @@ export function SeriesDetailView({
         groupTitle,
         episode: primaryEpisode,
         episodeIndex: Math.max(0, primaryEpisodeIndex),
+        imdbId: metadata?.imdbId,
+        tmdbId: metadata?.tmdbId,
+        year: metadata?.year,
       })
     : null;
   const favoriteSeriesChannel = {
@@ -153,6 +159,9 @@ export function SeriesDetailView({
           groupTitle,
           episode,
           episodeIndex,
+          imdbId: metadata?.imdbId,
+          tmdbId: metadata?.tmdbId,
+          year: metadata?.year,
         });
         openChannel(channel);
       } catch (err) {
@@ -161,7 +170,7 @@ export function SeriesDetailView({
         setPlayBusy(false);
       }
     },
-    [clearNavError, cover, episodesBySeason, groupTitle, openChannel, seriesId, title],
+    [clearNavError, cover, episodesBySeason, groupTitle, metadata?.imdbId, metadata?.tmdbId, metadata?.year, openChannel, seriesId, title],
   );
 
   const continueProgress = continueTarget

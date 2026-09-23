@@ -15,7 +15,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,11 +29,17 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.foundation.focusGroup
+import com.zende.androidtv.ui.InstallZendeImageLoader
+import com.zende.androidtv.ui.player.PlaybackHandoff
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -65,11 +73,13 @@ class MainActivity : ComponentActivity() {
             // The web app targets a ~2200 px-wide desktop canvas. TV devices commonly expose
             // only 960 x 540 dp even at 4K; normalize once so web measurements retain parity.
             CompositionLocalProvider(LocalDensity provides Density(deviceDensity.density * .45f, deviceDensity.fontScale)) {
+                InstallZendeImageLoader()
                 ZendeTheme {
                     val model: ZendeViewModel = viewModel(factory = ZendeViewModel.factory(applicationContext))
                     val state by model.state.collectAsStateWithLifecycle()
                     LaunchedEffect(model) {
                         model.playback.collect { request ->
+                            PlaybackHandoff.launch = request.launch
                             startActivity(Intent(this@MainActivity, PlayerActivity::class.java).apply {
                                 putExtra(PlayerActivity.EXTRA_TITLE, request.title)
                                 putExtra(PlayerActivity.EXTRA_URL, request.url)
@@ -96,6 +106,22 @@ private fun ZendeApp(state: ZendeUiState, model: ZendeViewModel) {
             else -> {
                 val headerFocus = remember { FocusRequester() }
                 val pageFocus = remember { FocusRequester() }
+                var headerFocusEnabled by remember { mutableStateOf(false) }
+                val focusManager = LocalFocusManager.current
+                LaunchedEffect(headerFocusEnabled) {
+                    if (headerFocusEnabled) headerFocus.requestFocus()
+                }
+                val openHeader = {
+                    headerFocusEnabled = true
+                }
+                val pageKeys = Modifier.restoreUpFocus(focusManager, openHeader)
+                val headerKeys = Modifier.onKeyEvent {
+                    if (it.key == Key.DirectionDown && it.type == KeyEventType.KeyDown) {
+                        pageFocus.requestFocus()
+                        headerFocusEnabled = false
+                        true
+                    } else false
+                }
 
                 val contentUnderHeader = (state.destination == Destination.Home || state.seriesChannel != null || state.movieChannel != null) && !state.settingsOpen
                 if (contentUnderHeader) {
@@ -104,29 +130,16 @@ private fun ZendeApp(state: ZendeUiState, model: ZendeViewModel) {
                             state.destination, state.user?.username,
                             onNavigate = {
                                 model.navigate(it)
-                                if (it == Destination.Home) {
-                                    pageFocus.requestFocus()
-                                }
+                                headerFocusEnabled = false
+                                if (it == Destination.Home) pageFocus.requestFocus()
                             },
                             onSearch = { model.setSearchOpen(true) },
                             onSettings = { model.setSettingsOpen(true) },
                             overlay = true,
-                            modifier = Modifier
-                                .zIndex(1f)
-                                .focusRequester(headerFocus)
-                                .onKeyEvent {
-                                    if (it.key == Key.DirectionDown && it.type == KeyEventType.KeyDown) {
-                                        pageFocus.requestFocus()
-                                        true
-                                    } else false
-                                }
+                            focusEnabled = headerFocusEnabled,
+                            modifier = Modifier.zIndex(1f).focusRequester(headerFocus).then(headerKeys),
                         )
-                        Box(Modifier.focusRequester(pageFocus).focusGroup().onKeyEvent {
-                            if (it.key == Key.DirectionUp && it.type == KeyEventType.KeyDown) {
-                                headerFocus.requestFocus()
-                                true
-                            } else false
-                        }) {
+                        Box(Modifier.focusRequester(pageFocus).focusGroup().focusRestorer().then(pageKeys)) {
                             CurrentPage(state, model)
                         }
                     }
@@ -136,27 +149,15 @@ private fun ZendeApp(state: ZendeUiState, model: ZendeViewModel) {
                             state.destination, state.user?.username,
                             onNavigate = {
                                 model.navigate(it)
-                                if (it == Destination.Home) {
-                                    pageFocus.requestFocus()
-                                }
+                                headerFocusEnabled = false
+                                if (it == Destination.Home) pageFocus.requestFocus()
                             },
                             onSearch = { model.setSearchOpen(true) },
                             onSettings = { model.setSettingsOpen(true) },
-                            modifier = Modifier
-                                .focusRequester(headerFocus)
-                                .onKeyEvent {
-                                    if (it.key == Key.DirectionDown && it.type == KeyEventType.KeyDown) {
-                                        pageFocus.requestFocus()
-                                        true
-                                    } else false
-                                }
+                            focusEnabled = headerFocusEnabled,
+                            modifier = Modifier.focusRequester(headerFocus).then(headerKeys),
                         )
-                        Box(Modifier.weight(1f).focusRequester(pageFocus).focusGroup().onKeyEvent {
-                            if (it.key == Key.DirectionUp && it.type == KeyEventType.KeyDown) {
-                                headerFocus.requestFocus()
-                                true
-                            } else false
-                        }) {
+                        Box(Modifier.weight(1f).focusRequester(pageFocus).focusGroup().focusRestorer().then(pageKeys)) {
                             CurrentPage(state, model)
                         }
                     }
@@ -184,7 +185,7 @@ private fun CurrentPage(state: ZendeUiState, model: ZendeViewModel) {
                 canDownload = state.user?.role == "ADMIN" && state.internalDownloadConfigured,
                 onBack = model::closeMovie,
                 onRetry = model::retryMovie,
-                onPlay = model::play,
+                onPlay = { model.playMovie() },
                 onFavorite = model::toggleFavorite,
                 onShare = model::showShare,
                 onDownload = model::download,
@@ -227,6 +228,16 @@ private fun CurrentPage(state: ZendeUiState, model: ZendeViewModel) {
         }
         if (state.refreshing && state.home.discover.channels.isEmpty()) LoadingScreen("Loading your library…")
     }
+}
+
+@Composable
+private fun Modifier.restoreUpFocus(
+    focusManager: androidx.compose.ui.focus.FocusManager,
+    onLeaveUp: () -> Unit,
+): Modifier = onPreviewKeyEvent { event ->
+    if (event.key != Key.DirectionUp || event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+    if (!focusManager.moveFocus(FocusDirection.Up)) onLeaveUp()
+    true
 }
 
 @Composable

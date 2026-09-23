@@ -59,6 +59,7 @@ fun Header(
     onSettings: () -> Unit,
     modifier: Modifier = Modifier,
     overlay: Boolean = false,
+    focusEnabled: Boolean = true,
 ) {
     Row(
         modifier = modifier.fillMaxWidth().height(64.dp)
@@ -80,23 +81,23 @@ fun Header(
         }
         Spacer(Modifier.weight(1f))
         Destination.entries.forEach { destination ->
-            NavItem(destination.label, selected == destination) { onNavigate(destination) }
+            NavItem(destination.label, selected == destination, focusEnabled) { onNavigate(destination) }
         }
         Spacer(Modifier.weight(1f))
-        HeaderIcon(Icons.Outlined.Search, "Search", onSearch)
-        HeaderIcon(Icons.Outlined.Settings, "Settings", onSettings)
+        HeaderIcon(Icons.Outlined.Search, "Search", focusEnabled, onSearch)
+        HeaderIcon(Icons.Outlined.Settings, "Settings", focusEnabled, onSettings)
     }
 }
 
 @Composable
-private fun NavItem(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun NavItem(label: String, selected: Boolean, focusEnabled: Boolean, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val line by animateColorAsState(if (selected || focused) FocusBlue else Color.Transparent, label = "nav")
     Box(
         modifier = Modifier.width(106.dp).height(64.dp).padding(horizontal = 10.dp).onFocusChanged { focused = it.isFocused }
             .onKeyEvent { event ->
                 if (event.key == Key.Enter || event.key == Key.DirectionCenter) { onClick(); true } else false
-            }.focusable().semantics { role = Role.Tab },
+            }.focusable(focusEnabled).semantics { role = Role.Tab },
         contentAlignment = Alignment.Center,
     ) {
         Text(label, color = if (selected || focused) Ink else Muted, fontSize = 14.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Clip)
@@ -105,14 +106,14 @@ private fun NavItem(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun HeaderIcon(icon: ImageVector, description: String, onClick: () -> Unit) {
+private fun HeaderIcon(icon: ImageVector, description: String, focusEnabled: Boolean, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     Box(
         Modifier.padding(horizontal = 3.dp).size(38.dp).clip(CircleShape)
             .background(if (focused) FocusBlue else Color.Transparent)
             .onFocusChanged { focused = it.isFocused }
             .onKeyEvent { if (it.key == Key.Enter || it.key == Key.DirectionCenter) { onClick(); true } else false }
-            .focusable().semantics { role = Role.Button },
+            .focusable(focusEnabled).semantics { role = Role.Button },
         contentAlignment = Alignment.Center,
     ) { Icon(icon, description, tint = if (focused) Color.White else Muted, modifier = Modifier.size(20.dp)) }
 }

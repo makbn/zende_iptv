@@ -116,21 +116,16 @@ function readDiskEntry(kind: ImageCacheKind, url: string): CachedImage | null {
     const expiresLo = buf.readUInt32BE(4 + ctLen + 4);
     const expiresAt = expiresHi * 0x100000000 + expiresLo;
     if (Date.now() > expiresAt) {
+      // TTL over — drop the file so the next request re-fetches.
       fs.unlinkSync(filePath);
       return null;
     }
-    const body = new Uint8Array(buf.buffer, buf.byteOffset + 4 + ctLen + 8, buf.length - 4 - ctLen - 8);
+    // Copy out of the Node buffer pool. A view into that slab is overwritten by later
+    // filesystem reads, so the second request for a cached thumbnail decodes as blank.
+    const body = new Uint8Array(buf.subarray(4 + ctLen + 8));
     return { body, contentType, expiresAt };
   } catch {
     return null;
-  }
-}
-
-function deleteDiskEntry(kind: ImageCacheKind, url: string): void {
-  try {
-    fs.unlinkSync(diskPath(kind, url));
-  } catch {
-    /* ignore */
   }
 }
 
@@ -144,6 +139,10 @@ function deleteEntry(kind: ImageCacheKind, key: string): void {
   state.entries.delete(key);
 }
 
+/**
+ * Return a cached image while its TTL is still valid (memory, then disk).
+ * Does not call the network.
+ */
 export function readCachedImage(kind: ImageCacheKind, key: string): CachedImage | null {
   const state = states[kind];
   const value = state.entries.get(key);
@@ -158,7 +157,7 @@ export function readCachedImage(kind: ImageCacheKind, key: string): CachedImage 
     }
   }
 
-  // Memory miss — try disk
+  // Memory miss / expired — try disk while TTL is still valid
   const fromDisk = readDiskEntry(kind, key);
   if (!fromDisk) return null;
 
@@ -184,6 +183,10 @@ export async function loadCachedImage(
   key: string,
   loader: () => Promise<Omit<CachedImage, "expiresAt">>,
 ): Promise<{ image: CachedImage; state: "MISS" | "COALESCED" }> {
+  // Honor TTL before any network work (covers callers that skip readCachedImage).
+  const fresh = readCachedImage(kind, key);
+  if (fresh) return { image: fresh, state: "COALESCED" };
+
   const namespace = states[kind];
   const existing = namespace.inFlight.get(key);
   if (existing) return { image: await existing, state: "COALESCED" };
@@ -209,7 +212,7 @@ export async function loadCachedImage(
       namespace.entries.set(key, image);
       namespace.bytes += image.body.byteLength;
     }
-    // Persist to disk (fire-and-forget)
+    // Persist to disk for the remainder of the TTL (survives restarts).
     writeDiskEntry(kind, key, image);
     return { image, state: "MISS" };
   } finally {

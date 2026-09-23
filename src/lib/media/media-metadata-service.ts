@@ -73,6 +73,15 @@ function yearFromPortal(info: Record<string, unknown>, fallback?: string | null)
   return match ?? (fallback && /^\d{4}$/.test(fallback) ? fallback : undefined);
 }
 
+/** Strip playlist noise so TMDB can match titles like `#blackAF [MULTI-SUB]`. */
+export function tmdbSearchQuery(title: string): string {
+  const cleaned = parseChannelLabel(title).displayName
+    .replace(/^[#@]+/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || title.trim();
+}
+
 function tmdbIdFromPortal(info: Record<string, unknown>): string | undefined {
   const raw = firstText(info, ["tmdb_id", "tmdb", "tmdbId"]);
   return raw?.match(/\d+/)?.[0];
@@ -197,6 +206,11 @@ export function shouldUseCachedMediaMetadata(
   const attemptedAt = metadata.enrichmentAttemptedAt
     ? Date.parse(metadata.enrichmentAttemptedAt)
     : Number.NaN;
+  // Portal-only rows without IMDb/TMDB ids should retry enrichment soon so
+  // skip-intro / subtitles can resolve (titles like "#blackAF" often miss once).
+  if (!metadata.tmdbId && !metadata.imdbId) {
+    return Number.isFinite(attemptedAt) && now - attemptedAt < 60 * 60 * 1000;
+  }
   return Number.isFinite(attemptedAt) && now - attemptedAt < ENRICHMENT_RETRY_AGE_MS;
 }
 
@@ -213,10 +227,11 @@ async function refreshMetadata(input: MediaMetadataInput): Promise<MediaMetadata
   try {
     let tmdbId = portal.tmdbId;
     if (!tmdbId) {
-      const matches = await searchTmdbMedia(portal.title, {
+      const searchTitle = tmdbSearchQuery(portal.title);
+      const matches = await searchTmdbMedia(searchTitle, {
         preferType: input.mediaType,
       });
-      tmdbId = selectBestTmdbMatch(matches, portal.title, portal.year)?.tmdbId;
+      tmdbId = selectBestTmdbMatch(matches, searchTitle, portal.year)?.tmdbId;
     }
     if (tmdbId) {
       const details = await fetchTmdbMediaDetails(tmdbId, input.mediaType);

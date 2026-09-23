@@ -16,7 +16,8 @@ class ChannelApi(factory: ZendeApiFactory) : BaseApi(factory) {
     suspend fun guide(query: String = "", preferred: List<PreferredGuideChannel> = emptyList()) = execute {
         service.guide(GuideRequest(query = query, preferred = preferred))
     }
-    suspend fun createStream(channel: com.zende.androidtv.model.Channel) = execute {
-        service.createStream(StreamSessionRequest(channel.url, channel.displayTitle, channel.artUrl, channel.groupTitle))
-    }
+    suspend fun createStream(request: StreamSessionRequest) = execute { service.createStream(request) }
+    suspend fun createStream(channel: com.zende.androidtv.model.Channel) = createStream(
+        StreamSessionRequest(channel.url, channel.displayTitle, channel.artUrl, channel.groupTitle),
+    )
 }

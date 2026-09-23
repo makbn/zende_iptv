@@ -29,6 +29,9 @@ export function buildEpisodeWatchChannel(args: {
   groupTitle?: string;
   episode: SeriesEpisodeRow;
   episodeIndex: number;
+  imdbId?: string;
+  tmdbId?: string;
+  year?: string;
 }): CreateWatchInput {
   const { seriesTitle, episode, episodeIndex } = args;
   const label = `S${episode.season}E${episode.episodeNum || "?"} · ${episode.title}`;
@@ -41,6 +44,9 @@ export function buildEpisodeWatchChannel(args: {
     episodeTitle: episode.title,
     episodeIndex,
     ...(episode.durationSeconds ? { durationSeconds: episode.durationSeconds } : {}),
+    ...(args.imdbId?.trim() ? { imdbId: args.imdbId.trim() } : {}),
+    ...(args.tmdbId?.trim() ? { tmdbId: args.tmdbId.trim() } : {}),
+    ...(args.year?.trim() ? { year: args.year.trim() } : {}),
   };
   return {
     url: episode.playUrl,

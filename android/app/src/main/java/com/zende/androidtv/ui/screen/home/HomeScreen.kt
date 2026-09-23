@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -42,21 +44,21 @@ fun HomeScreen(home: HomeShelves, history: List<Channel>, favorites: Set<String>
         HomeLoadingState()
         return
     }
-    LazyColumn {
-        hero?.let { item { HeroSection(it, history.isNotEmpty()) { onPlay(it) } } }
-        if (continueWatching.isNotEmpty()) item {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        hero?.let { HeroSection(it, history.isNotEmpty()) { onPlay(it) } }
+        if (continueWatching.isNotEmpty()) {
             Column { Box(modifierPadding()) { MediaRowTitle("Continue Watching") }; DiscoveryRow(continueWatching.take(6), false, favorites, onPlay, onFavorite) }
         }
-        if (trending.isNotEmpty()) item {
+        if (trending.isNotEmpty()) {
             Column { Box(modifierPadding()) { MediaRowTitle("Trending Now") }; DiscoveryRow(trending, false, favorites, onPlay, onFavorite) }
         }
-        if (popular.isNotEmpty()) item {
+        if (popular.isNotEmpty()) {
             Column { Box(modifierPadding()) { MediaRowTitle("Popular on Zende") }; DiscoveryRow(popular, false, favorites, onPlay, onFavorite) }
         }
-        if (movies.isNotEmpty()) item {
+        if (movies.isNotEmpty()) {
             Column { Box(modifierPadding()) { MediaRowTitle("Movies for You") }; DiscoveryRow(movies, true, favorites, onPlay, onFavorite) }
         }
-        if (series.isNotEmpty()) item {
+        if (series.isNotEmpty()) {
             Column { Box(modifierPadding()) { MediaRowTitle("Series to Explore") }; DiscoveryRow(series, true, favorites, onPlay, onFavorite) }
         }
     }

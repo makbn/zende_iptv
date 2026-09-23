@@ -20,6 +20,7 @@ export type PlaybackSessionMeta = {
   searchTitle?: string;
   year?: string;
   imdbId?: string;
+  tmdbId?: string;
 };
 
 export function parsePlaybackSessionMeta(raw: string | null | undefined): PlaybackSessionMeta {
@@ -52,6 +53,7 @@ export function serializePlaybackSessionMeta(meta: PlaybackSessionMeta): string 
   if (meta.searchTitle?.trim()) clean.searchTitle = meta.searchTitle.trim();
   if (meta.year?.trim()) clean.year = meta.year.trim();
   if (meta.imdbId?.trim()) clean.imdbId = meta.imdbId.trim();
+  if (meta.tmdbId?.trim()) clean.tmdbId = meta.tmdbId.trim();
   return JSON.stringify(clean);
 }
 

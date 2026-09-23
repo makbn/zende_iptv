@@ -52,6 +52,8 @@ data class MediaMetadata(
     val year: String? = null,
     val contentRating: String? = null,
     val overview: String? = null,
+    val imdbId: String? = null,
+    val tmdbId: String? = null,
 )
 
 @Serializable
@@ -205,12 +207,67 @@ data class StartRecordingRequest(
 )
 
 @Serializable
+data class StreamSessionMeta(
+    val contentKind: String? = null,
+    val durationSeconds: Int? = null,
+    val seriesId: String? = null,
+    val seriesTitle: String? = null,
+    val season: String? = null,
+    val episodeNum: String? = null,
+    val episodeTitle: String? = null,
+    val episodeIndex: Int? = null,
+    val searchTitle: String? = null,
+    val year: String? = null,
+    val imdbId: String? = null,
+)
+
+@Serializable
 data class StreamSessionRequest(
     val url: String,
     val title: String,
     val logo: String? = null,
     val group: String? = null,
+    val meta: StreamSessionMeta? = null,
 )
+
+@Serializable
+data class SubtitleHit(
+    val id: String = "",
+    val url: String = "",
+    val language: String = "",
+    val languageName: String = "",
+    val release: String = "",
+    val hearingImpaired: Boolean = false,
+)
+
+@Serializable
+data class SubtitleSearchResponse(
+    val enabled: Boolean = false,
+    val results: List<SubtitleHit> = emptyList(),
+    val error: String? = null,
+)
+
+@Serializable
+data class SubtitleLoadRequest(
+    val url: String,
+    val label: String,
+    val language: String,
+    val fileName: String? = null,
+)
+
+@Serializable
+data class SubtitleLoadResponse(
+    val trackId: String = "",
+    val label: String = "",
+    val language: String = "",
+    val vttUrl: String = "",
+)
+
+@Serializable
+data class IntroSegment(val startMs: Long = 0, val endMs: Long = 0)
+
+@Serializable
+data class IntroResponse(val segments: List<IntroSegment> = emptyList())
 
 @Serializable
 data class StreamSession(val id: String = "")

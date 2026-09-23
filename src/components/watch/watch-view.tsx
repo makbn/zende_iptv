@@ -57,6 +57,7 @@ import {
 import { BrowseShellRefContext } from "@/components/layout/app-shell";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
+import { endActivePlaybackNavigation } from "@/lib/navigation/playback-navigation-feedback";
 import { getWatchReturnHref } from "@/lib/navigation/watch-browse-origin";
 import {
   useCatalogChannels,
@@ -87,6 +88,10 @@ import { cn } from "@/lib/utils";
 import { FavoriteStarButton } from "@/components/tv/favorite-star-button";
 import { ChannelResolutionBadge } from "@/components/tv/channel-resolution-badge";
 import { EpisodePlaybackControls } from "@/components/watch/episode-playback-controls";
+import {
+  SkipIntroButton,
+  useIntroSegments,
+} from "@/components/watch/skip-intro-button";
 import { SubtitleSearchPanel } from "@/components/watch/subtitle-search-panel";
 import { queuePlaybackHealthProbe } from "@/features/health/queue-playback-health-probe";
 import { useExternalSubtitles } from "@/lib/player/use-external-subtitles";
@@ -364,6 +369,17 @@ export function WatchView() {
       cancelled = true;
     };
   }, [sessionId, recordingId]);
+
+  const sawSessionLoad = useRef(false);
+  useEffect(() => {
+    if (sessionLoading) {
+      sawSessionLoad.current = true;
+      return;
+    }
+    if (!sawSessionLoad.current) return;
+    sawSessionLoad.current = false;
+    endActivePlaybackNavigation();
+  }, [sessionLoading]);
 
   const title =
     sessionMeta?.title ?? searchParams.get("title")?.trim() ?? "Live";
@@ -1476,6 +1492,14 @@ export function WatchView() {
   const hasBuiltinSubtitles = subtitleTracks.length > 1;
   const showSubtitleControls = isVodPlayback;
 
+  const introSegments = useIntroSegments({
+    enabled: isVodPlayback && !isRecordedPlayback,
+    imdbId: playbackMeta?.imdbId,
+    tmdbId: playbackMeta?.tmdbId,
+    season: playbackMeta?.season,
+    episodeNum: playbackMeta?.episodeNum,
+  });
+
   const handleBuiltinSubtitle = useCallback(
     (index: number) => {
       playerSession?.setSubtitleTrack(index);
@@ -1930,6 +1954,13 @@ export function WatchView() {
               Library
             </Link>
           </div>
+
+        <SkipIntroButton
+          segments={introSegments}
+          currentTimeSeconds={currentTime}
+          onSkipTo={remoteAwareSeekTo}
+          chromeVisible={chromeVisible}
+        />
 
         <div
           inert={!chromeVisible ? true : undefined}

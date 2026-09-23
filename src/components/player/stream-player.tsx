@@ -960,7 +960,7 @@ export function StreamPlayer(
     return (
       <video
         ref={mergeRefs(setRef, ref)}
-        className={cn("h-full w-full bg-background object-contain", className)}
+        className={cn("h-full w-full bg-black object-contain", className)}
         controls={controls}
         playsInline
         // Keep remote playback / PiP allowed (hls.js ManagedMediaSource may flip these).

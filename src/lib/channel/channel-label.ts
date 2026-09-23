@@ -68,12 +68,20 @@ export function parseChannelLabel(raw: string): ParsedChannelLabel {
   }
 
   name = name.replace(/\s+/g, " ").trim();
+  /* Playlist tags like `#blackAF` — keep the words, drop the hash marker. */
+  name = name.replace(/^[#@]+/, "").trim();
 
   return {
     displayName: name || raw.trim(),
     resolutionLabel,
     yearLabel,
   };
+}
+
+/** Player-facing title: strip `[MULTI-SUB]`, `[EN/FR]`, quality tags, and leading `#`. */
+export function cleanMediaDisplayTitle(raw: string | null | undefined): string {
+  if (!raw?.trim()) return "";
+  return parseChannelLabel(raw).displayName;
 }
 
 /** Release year extracted from a channel title, if present. */

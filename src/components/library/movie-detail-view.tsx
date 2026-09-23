@@ -65,9 +65,10 @@ export function MovieDetailView({ movieId, fallbackTitle, fallbackLogo, fallback
       groupTitle: data.channel.groupTitle ?? fallbackGroup,
       playback: {
         contentKind: "movie" as const,
+        displayTitle: title,
         ...(durationSeconds ? { durationSeconds } : {}),
         searchTitle: title,
-        ...(metadata?.year ? { year: metadata.year } : {}),
+        ...(metadata?.year ? { year: metadata.year, displaySubtitle: metadata.year } : {}),
         ...(metadata?.imdbId ? { imdbId: metadata.imdbId } : {}),
       },
       }

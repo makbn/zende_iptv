@@ -1,6 +1,6 @@
 import type { PlaybackSessionMeta } from "@/lib/playback/stream-session-meta";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
-import type { SubtitleSearchQuery } from "@/lib/subtitles/types";
+import type { SubtitleSearchQuery, SubtitleSearchResult } from "@/lib/subtitles/types";
 
 export type SubtitleSearchContext = {
   title: string;
@@ -30,8 +30,54 @@ export function hasResolvableMediaId(
     opts?.selectedTmdbId ||
       override.imdbId ||
       override.tmdbId ||
-      ctx.playback?.imdbId,
+      ctx.playback?.imdbId ||
+      ctx.playback?.tmdbId,
   );
+}
+
+/**
+ * Pull language / release tokens from IPTV titles, e.g. `[EN]`, `[EN/FR]`, `[MULTI-SUB]`.
+ * Used to rank Wyzie hits toward the file the portal actually carries.
+ */
+export function releaseTokensFromTitle(...sources: Array<string | null | undefined>): string[] {
+  const tokens = new Set<string>();
+  for (const source of sources) {
+    if (!source?.trim()) continue;
+    for (const match of source.matchAll(/\[([^\]]+)\]/g)) {
+      const inner = match[1]?.trim();
+      if (!inner) continue;
+      for (const part of inner.split(/[/+,|]+/)) {
+        const token = part.trim().toUpperCase();
+        if (token.length >= 2 && token.length <= 16) tokens.add(token);
+      }
+    }
+  }
+  return [...tokens];
+}
+
+/** Prefer subtitle releases that mention the same bracket tags as the VOD filename. */
+export function rankSubtitleResults(
+  results: SubtitleSearchResult[],
+  releaseTokens: string[],
+): SubtitleSearchResult[] {
+  if (releaseTokens.length === 0) {
+    return [...results].sort((a, b) => b.downloadCount - a.downloadCount);
+  }
+  const score = (result: SubtitleSearchResult): number => {
+    const hay = `${result.release} ${result.language} ${result.languageName}`.toUpperCase();
+    let points = 0;
+    for (const token of releaseTokens) {
+      if (hay.includes(token)) points += 10;
+    }
+    // Light preference for matching language codes like EN → language en
+    for (const token of releaseTokens) {
+      if (token.length <= 3 && result.language.toUpperCase().startsWith(token.slice(0, 2))) {
+        points += 3;
+      }
+    }
+    return points * 1_000_000 + result.downloadCount;
+  };
+  return [...results].sort((a, b) => score(b) - score(a));
 }
 
 /** Build a Wyzie Subs query from watch session metadata. */
@@ -50,7 +96,8 @@ export function buildSubtitleSearchQuery(
   const mediaOverride = parseMediaIdOverride(opts?.mediaIdInput ?? "");
 
   const imdbId = mediaOverride.imdbId ?? playback?.imdbId;
-  const tmdbId = opts?.selectedTmdbId ?? mediaOverride.tmdbId;
+  const tmdbId =
+    opts?.selectedTmdbId ?? mediaOverride.tmdbId ?? playback?.tmdbId ?? undefined;
   const releaseFilter = opts?.releaseFilter?.trim() || undefined;
 
   const season = playback?.season ? Number.parseInt(playback.season, 10) : undefined;

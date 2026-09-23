@@ -124,5 +124,8 @@ export function buildProxyAgent(cfg: StoredProxyConfig): Agent | ProxyAgent {
     ? `${encodeURIComponent(cfg.username)}:${encodeURIComponent(cfg.password ?? "")}@`
     : "";
   const uri = `${cfg.protocol}://${auth}${cfg.host}:${cfg.port}`;
-  return new ProxyAgent({ uri, connect: { rejectUnauthorized: false } });
+  return new ProxyAgent({
+    uri,
+    connect: { rejectUnauthorized: false, timeout: 15_000 },
+  });
 }

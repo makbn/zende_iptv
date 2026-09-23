@@ -119,11 +119,11 @@ const FETCH_TIMEOUT_MS = 20_000;
  * 30 s gives slow VPN exit nodes headroom without hanging the player too long.
  */
 const FETCH_TIMEOUT_PROXY_MS = 30_000;
-const UPSTREAM_MAX_ATTEMPTS = 2;
-/** Root playlist bootstrap can be slow on overloaded IPTV origins/CDNs. */
-const BOOTSTRAP_FETCH_TIMEOUT_MS = 45_000;
-const BOOTSTRAP_FETCH_TIMEOUT_PROXY_MS = 60_000;
-const BOOTSTRAP_MAX_ATTEMPTS = 3;
+const UPSTREAM_MAX_ATTEMPTS = 4;
+/** Root playlist / progressive VOD bootstrap can be slow on overloaded IPTV origins/CDNs. */
+const BOOTSTRAP_FETCH_TIMEOUT_MS = 60_000;
+const BOOTSTRAP_FETCH_TIMEOUT_PROXY_MS = 90_000;
+const BOOTSTRAP_MAX_ATTEMPTS = 5;
 
 /**
  * DVR ffmpeg hits this relay as the only client. Upstream HLS can long-pause on slow
@@ -141,12 +141,12 @@ const MAX_REDIRECT_HOPS = 10;
 
 /**
  * Provider redirectors occasionally assign a CDN hostname that accepts no TCP
- * connections. Undici's default connect timeout is 10 seconds, which compounds
- * badly with player and relay retries. A shared dispatcher also keeps working
- * CDN connections warm between manifest and segment requests.
+ * connections. Keep connectTimeout generous enough for slow VPN/ISP paths, but
+ * still bounded so dead CDNs fail before the player gives up. A shared
+ * dispatcher also keeps working CDN connections warm between requests.
  */
 const DIRECT_UPSTREAM_DISPATCHER = new Agent({
-  connectTimeout: 4_000,
+  connectTimeout: 15_000,
   // One open MPEG-TS request per live viewer plus HLS/VOD bursts. Keep enough
   // capacity for 100 concurrent channels without serializing at the origin.
   connections: 256,

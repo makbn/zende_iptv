@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; style-src 'self'; script-src 'self'"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src *; img-src 'self' data:;"
     />
     <title>Zende</title>
     <link rel="stylesheet" href="styles.css" />
@@ -17,6 +17,9 @@
       <h1>Connect to your server</h1>
       <p class="description">
         Enter the address of the Zende server running on your network.
+        Older Samsung TVs should use plain HTTP on your LAN
+        (for example <code>http://192.168.1.76:8077</code>), not
+        <code>https://</code> Cloudflare URLs.
       </p>
       <form id="server-form">
         <label for="server-url">Server URL</label>
@@ -30,6 +33,7 @@
           autocomplete="url"
           required
         />
+        <p id="status" class="hint" aria-live="polite"></p>
         <p id="error" class="error" role="alert"></p>
         <button type="submit">Open Zende</button>
       </form>

@@ -36,6 +36,7 @@ const postBodySchema = z.object({
           searchTitle: z.string().max(512).optional(),
           year: z.string().max(8).optional(),
           imdbId: z.string().max(32).optional(),
+          tmdbId: z.string().max(32).optional(),
         })
         .optional(),
     })

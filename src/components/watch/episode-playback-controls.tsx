@@ -23,6 +23,7 @@ import type { SeriesEpisodeRow } from "@/app/api/xtream/series-info/route";
 import { useSeriesInfo } from "@/features/iptv/use-series-info";
 import {
   buildEpisodeWatchChannel,
+  episodeRowFromNeighbor,
   formatEpisodeCode,
   resolveSeriesEpisodeIndex,
 } from "@/lib/playback/play-episode";
@@ -83,15 +84,46 @@ export function EpisodePlaybackControls({ playback, logo, group, disabled, video
 
   const flat = episodesBySeason.flat;
   const currentIndex = resolveSeriesEpisodeIndex(flat, playback);
-  const prevEp = currentIndex > 0 ? flat[currentIndex - 1] : null;
+  const prevWatchId = playback.previous?.watchId?.trim() || null;
+  const nextWatchId = playback.next?.watchId?.trim() || null;
+  const prevEp =
+    !prevWatchId && playback.previous?.playUrl
+      ? episodeRowFromNeighbor(playback.previous)
+      : currentIndex > 0
+        ? flat[currentIndex - 1]
+        : null;
   const nextEp =
-    currentIndex >= 0 && currentIndex < flat.length - 1 ? flat[currentIndex + 1] : null;
+    !nextWatchId && playback.next?.playUrl
+      ? episodeRowFromNeighbor(playback.next)
+      : currentIndex >= 0 && currentIndex < flat.length - 1
+        ? flat[currentIndex + 1]
+        : null;
+  const prevIndex = playback.previous?.episodeIndex ?? (currentIndex > 0 ? currentIndex - 1 : -1);
+  const nextIndex =
+    playback.next?.episodeIndex ??
+    (currentIndex >= 0 && currentIndex < flat.length - 1 ? currentIndex + 1 : -1);
 
   const currentSeason = playback.season && episodesBySeason.seasons.includes(playback.season)
     ? playback.season
     : null;
   const activeSeason = pickerSeason ?? currentSeason ?? episodesBySeason.seasons[0] ?? null;
   const activeEpisodes = episodesBySeason.map.get(activeSeason ?? "") ?? [];
+
+  const jumpToWatchId = useCallback(
+    (watchId: string, label: string) => {
+      if (jumpLock.current) return false;
+      jumpLock.current = true;
+      setBusy(true);
+      beginPlaybackNavigation({
+        title: label,
+        message: "Loading episode…",
+      });
+      setPickerOpen(false);
+      router.replace(`/watch?id=${encodeURIComponent(watchId)}`);
+      return true;
+    },
+    [router],
+  );
 
   const jumpToEpisode = useCallback(
     async (episode: SeriesEpisodeRow, episodeIndex: number) => {
@@ -112,7 +144,9 @@ export function EpisodePlaybackControls({ playback, logo, group, disabled, video
           episode,
           episodeIndex,
           imdbId: playback.imdbId,
+          tmdbId: playback.tmdbId,
           year: playback.year,
+          allEpisodes: flat.length > 0 ? flat : undefined,
         });
         const href = await createWatchUrl(channel);
         setPickerOpen(false);
@@ -125,8 +159,30 @@ export function EpisodePlaybackControls({ playback, logo, group, disabled, video
         return false;
       }
     },
-    [seriesId, playback.seriesTitle, playback.imdbId, playback.year, showTitle, logo, group, router],
+    [seriesId, playback.seriesTitle, playback.imdbId, playback.tmdbId, playback.year, showTitle, logo, group, router, flat],
   );
+
+  const goPrev = useCallback(() => {
+    if (prevWatchId) {
+      const label = playback.previous
+        ? `${formatEpisodeCode(playback.previous.season, playback.previous.episodeNum)} · ${playback.previous.title || "Episode"}`
+        : "Previous episode";
+      return jumpToWatchId(prevWatchId, label);
+    }
+    if (prevEp && prevIndex >= 0) return void jumpToEpisode(prevEp, prevIndex);
+    return false;
+  }, [prevWatchId, prevEp, prevIndex, playback.previous, jumpToWatchId, jumpToEpisode]);
+
+  const goNext = useCallback(() => {
+    if (nextWatchId) {
+      const label = playback.next
+        ? `${formatEpisodeCode(playback.next.season, playback.next.episodeNum)} · ${playback.next.title || "Episode"}`
+        : "Next episode";
+      return jumpToWatchId(nextWatchId, label);
+    }
+    if (nextEp && nextIndex >= 0) return void jumpToEpisode(nextEp, nextIndex);
+    return false;
+  }, [nextWatchId, nextEp, nextIndex, playback.next, jumpToWatchId, jumpToEpisode]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -137,17 +193,17 @@ export function EpisodePlaybackControls({ playback, logo, group, disabled, video
         return;
       }
       if (e.altKey || e.ctrlKey || e.metaKey) return;
-      if (e.key === "n" && nextEp && currentIndex >= 0) {
+      if (e.key === "n" && (nextWatchId || nextEp)) {
         e.preventDefault();
-        void jumpToEpisode(nextEp, currentIndex + 1);
-      } else if (e.key === "p" && prevEp && currentIndex > 0) {
+        goNext();
+      } else if (e.key === "p" && (prevWatchId || prevEp)) {
         e.preventDefault();
-        void jumpToEpisode(prevEp, currentIndex - 1);
+        goPrev();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [nextEp, prevEp, currentIndex, jumpToEpisode]);
+  }, [nextEp, prevEp, nextWatchId, prevWatchId, goNext, goPrev]);
 
   useEffect(() => {
     autoAdvancingRef.current = false;
@@ -162,15 +218,14 @@ export function EpisodePlaybackControls({ playback, logo, group, disabled, video
     video.loop = false;
     const onEnded = () => {
       video.pause();
-      if (!nextEp || currentIndex < 0 || autoAdvancingRef.current) return;
+      if ((!nextWatchId && !nextEp) || autoAdvancingRef.current) return;
       autoAdvancingRef.current = true;
-      void jumpToEpisode(nextEp, currentIndex + 1).then((advanced) => {
-        if (!advanced) autoAdvancingRef.current = false;
-      });
+      const advanced = goNext();
+      if (!advanced) autoAdvancingRef.current = false;
     };
     video.addEventListener("ended", onEnded);
     return () => video.removeEventListener("ended", onEnded);
-  }, [currentIndex, jumpToEpisode, nextEp, videoRef]);
+  }, [goNext, nextEp, nextWatchId, videoRef]);
 
   const openEpisodePicker = () => {
     setPickerSeason(currentSeason ?? episodesBySeason.seasons[0] ?? null);
@@ -179,14 +234,15 @@ export function EpisodePlaybackControls({ playback, logo, group, disabled, video
 
   if (!seriesId || playback.contentKind !== "episode") return null;
 
+  const prevReady = Boolean(prevWatchId || prevEp);
+  const nextReady = Boolean(nextWatchId || nextEp);
+
   return (
     <>
       <GlassIconButton
         aria-label="Previous episode"
-        disabled={disabled || busy || !prevEp || loading}
-        onClick={() =>
-          prevEp && currentIndex > 0 && void jumpToEpisode(prevEp, currentIndex - 1)
-        }
+        disabled={disabled || busy || !prevReady || (loading && !prevWatchId && !playback.previous)}
+        onClick={() => goPrev()}
       >
         <span className="flex items-center gap-1.5 px-2">
           <ChevronLeft className="h-5 w-5" />
@@ -212,10 +268,8 @@ export function EpisodePlaybackControls({ playback, logo, group, disabled, video
 
       <GlassIconButton
         aria-label="Next episode"
-        disabled={disabled || busy || !nextEp || loading}
-        onClick={() =>
-          nextEp && currentIndex >= 0 && void jumpToEpisode(nextEp, currentIndex + 1)
-        }
+        disabled={disabled || busy || !nextReady || (loading && !nextWatchId && !playback.next)}
+        onClick={() => goNext()}
       >
         <span className="flex items-center gap-1.5 px-2">
           <span className="hidden text-[12px] font-semibold sm:inline">Next</span>

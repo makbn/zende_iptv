@@ -22,7 +22,6 @@ import {
   Play,
   Rewind,
   RotateCcw,
-  Search,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -436,7 +435,36 @@ export function WatchView() {
 
 
   const { displayName: titleDisplay, resolutionLabel: titleResolutionBadge } =
-    useMemo(() => parseChannelLabel(title), [title]);
+    useMemo(() => {
+      const fromMeta = playbackMeta?.displayTitle?.trim();
+      if (fromMeta) {
+        const cleaned = parseChannelLabel(fromMeta);
+        return {
+          displayName: cleaned.displayName,
+          resolutionLabel: cleaned.resolutionLabel,
+        };
+      }
+      return parseChannelLabel(title);
+    }, [playbackMeta?.displayTitle, title]);
+
+  const titleSubtitle = useMemo(() => {
+    const fromMeta = playbackMeta?.displaySubtitle?.trim();
+    if (fromMeta) return fromMeta;
+    if (playbackMeta?.contentKind === "episode" && playbackMeta.season) {
+      const code = `S${playbackMeta.season}E${playbackMeta.episodeNum || "?"}`;
+      const ep = playbackMeta.episodeTitle
+        ? parseChannelLabel(playbackMeta.episodeTitle).displayName
+        : "";
+      return [code, ep].filter(Boolean).join(" · ") || undefined;
+    }
+    return undefined;
+  }, [
+    playbackMeta?.contentKind,
+    playbackMeta?.displaySubtitle,
+    playbackMeta?.episodeNum,
+    playbackMeta?.episodeTitle,
+    playbackMeta?.season,
+  ]);
 
   const lastRecordedUrl = useRef<string | null>(null);
   const resumedUrlRef = useRef<string | null>(null);
@@ -503,7 +531,7 @@ export function WatchView() {
           ? `recording:${recordingId}`
           : `legacy:${title}`,
       active: true,
-      title,
+      title: titleDisplay || title,
       logo: logo ?? null,
       group: group ?? null,
       contentKind,
@@ -541,6 +569,7 @@ export function WatchView() {
     resolvedPlaybackKind,
     sessionId,
     title,
+    titleDisplay,
   ]);
 
   useEffect(() => {
@@ -1486,10 +1515,7 @@ export function WatchView() {
 
   const qualityOptions = playerSession?.getQualityOptions() ?? [];
   const audioTracks = playerSession?.getAudioTracks() ?? [];
-  const subtitleTracks = playerSession?.getSubtitleTracks() ?? [];
   const currentAudioTrack = playerSession?.hls?.audioTrack ?? 0;
-  const currentSubtitleTrack = playerSession?.hls?.subtitleTrack ?? -1;
-  const hasBuiltinSubtitles = subtitleTracks.length > 1;
   const showSubtitleControls = isVodPlayback;
 
   const introSegments = useIntroSegments({
@@ -1498,6 +1524,8 @@ export function WatchView() {
     tmdbId: playbackMeta?.tmdbId,
     season: playbackMeta?.season,
     episodeNum: playbackMeta?.episodeNum,
+    /* Prefer windows already resolved onto the stream session. */
+    preloaded: playbackMeta?.intro,
   });
 
   const handleBuiltinSubtitle = useCallback(
@@ -1509,14 +1537,6 @@ export function WatchView() {
         externalSubtitles.turnOffExternal();
         externalSubtitles.markBuiltinActive();
       }
-    },
-    [externalSubtitles, playerSession],
-  );
-
-  const handleExternalSubtitle = useCallback(
-    (trackId: string) => {
-      playerSession?.setSubtitleTrack(-1);
-      externalSubtitles.selectExternalTrack(trackId);
     },
     [externalSubtitles, playerSession],
   );
@@ -1608,7 +1628,7 @@ export function WatchView() {
     <BrowseShellRefContext.Provider value={containerRef}>
       <div
         ref={containerRef}
-        className="fixed inset-0 z-0 overflow-hidden bg-background text-foreground-intense"
+        className="fixed inset-0 z-0 overflow-hidden bg-black text-foreground-intense"
       >
         {resumePrompt ? (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm">
@@ -1757,6 +1777,11 @@ export function WatchView() {
                       <h2 className="mt-1 truncate text-[18px] font-semibold text-foreground-intense">
                         {titleDisplay}
                       </h2>
+                      {titleSubtitle ? (
+                        <p className="mt-1 truncate text-[13px] text-foreground-intense">
+                          {titleSubtitle}
+                        </p>
+                      ) : null}
                       {group ? (
                         <p className="mt-1 truncate text-[13px] text-foreground-intense">{group}</p>
                       ) : null}
@@ -1911,6 +1936,9 @@ export function WatchView() {
                     />
                   ) : null}
                 </div>
+                {titleSubtitle ? (
+                  <p className="truncate text-[12px] text-foreground-intense/80">{titleSubtitle}</p>
+                ) : null}
                 {isRecordedPlayback ? (
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-primary-strong">
                     Recorded
@@ -2096,73 +2124,13 @@ export function WatchView() {
                   ) : null}
 
                   {showSubtitleControls ? (
-                    <DropdownMenu modal={false}>
-                      <GlassIconMenuTrigger aria-label="Subtitles">
-                        <Subtitles className="h-4 w-4" />
-                      </GlassIconMenuTrigger>
-                      <>
-                        <DropdownMenuContent side="top" align="end" sideOffset={10} className="z-[100]">
-                          <div className="min-w-[220px] origin-bottom rounded-2xl border border-border bg-background p-1 shadow-2xl outline-none">
-                            <div>
-                              <DropdownMenuGroup>
-                                <DropdownMenuGroupLabel className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-foreground-intense">
-                                  Subtitles
-                                </DropdownMenuGroupLabel>
-                                <DropdownMenuItem
-                                  className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-foreground-intense outline-none data-[highlighted]:bg-background-muted"
-                                  onClick={() => {
-                                    handleBuiltinSubtitle(-1);
-                                    externalSubtitles.markOff();
-                                  }}
-                                >
-                                  Off
-                                  {currentSubtitleTrack < 0 &&
-                                  !externalSubtitles.activeTrackId ? (
-                                    <span className="text-success-strong">✓</span>
-                                  ) : null}
-                                </DropdownMenuItem>
-                                {hasBuiltinSubtitles
-                                  ? subtitleTracks
-                                      .filter((track) => track.index >= 0)
-                                      .map((track) => (
-                                        <DropdownMenuItem
-                                          key={`builtin-${track.index}`}
-                                          className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-foreground-intense outline-none data-[highlighted]:bg-background-muted"
-                                          onClick={() => handleBuiltinSubtitle(track.index)}
-                                        >
-                                          {track.label}
-                                          {currentSubtitleTrack === track.index &&
-                                          externalSubtitles.activeSource !== "external" ? (
-                                            <span className="text-success-strong">✓</span>
-                                          ) : null}
-                                        </DropdownMenuItem>
-                                      ))
-                                  : null}
-                                {externalSubtitles.tracks.map((track) => (
-                                  <DropdownMenuItem
-                                    key={`external-${track.id}`}
-                                    className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-foreground-intense outline-none data-[highlighted]:bg-background-muted"
-                                    onClick={() => handleExternalSubtitle(track.id)}
-                                  >
-                                    {track.label}
-                                    {externalSubtitles.activeTrackId === track.id ? (
-                                      <span className="text-success-strong">✓</span>
-                                    ) : null}
-                                  </DropdownMenuItem>
-                                ))}
-                                <DropdownMenuItem
-                                  className="mt-1 flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-background-muted px-3 py-2.5 text-[14px] font-medium text-primary-strong outline-none data-[highlighted]:bg-background-muted"
-                                  onClick={() => setSubtitleSearchOpen(true)}
-                                >
-                                  <Search className="size-4" aria-hidden />
-                                  Search online…
-                                </DropdownMenuItem>
-                              </DropdownMenuGroup>
-                            </div>
-                          </div>
-                        </DropdownMenuContent>
-                      </>
-                    </DropdownMenu>
+                    <GlassIconButton
+                      aria-label="Subtitles"
+                      onClick={() => setSubtitleSearchOpen(true)}
+                      className="h-12 min-w-12 touch-manipulation sm:h-10 sm:min-w-10"
+                    >
+                      <Subtitles className="h-4 w-4" />
+                    </GlassIconButton>
                   ) : null}
 
                   <div className="ml-auto flex min-w-0 items-center gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -2369,7 +2337,13 @@ export function WatchView() {
           title={title}
           playback={playbackMeta}
           tvMode={tvSurface}
+          activeTrackId={externalSubtitles.activeTrackId}
+          onTurnOff={() => {
+            handleBuiltinSubtitle(-1);
+            externalSubtitles.markOff();
+          }}
           onSelect={(track) => {
+            playerSession?.setSubtitleTrack(-1);
             externalSubtitles.addTrack(track);
           }}
         />
@@ -2741,7 +2715,7 @@ function SeekBar({
       </div>
       <div
         className={cn(
-          "pointer-events-none absolute top-1/2 size-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-background shadow-md transition-transform",
+          "pointer-events-none absolute top-1/2 size-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-[deeppink] shadow-md transition-transform",
           (pointerPreview !== null || keyboardPreview !== null) && "scale-125",
         )}
         style={{ left: `${displayedRatio * 100}%` }}

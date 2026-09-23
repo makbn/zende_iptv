@@ -9,6 +9,13 @@ import {
   inferPlaybackModeFromUrl,
   progressivePlaybackExtension,
 } from "@/lib/stream/playback-url";
+import { cleanMediaDisplayTitle } from "@/lib/channel/channel-label";
+import {
+  clientSafePlaybackMeta,
+  materializeNeighborWatchIds,
+  persistSessionPlaybackMeta,
+} from "@/lib/playback/neighbor-watch-sessions";
+import { attachIntroToPlaybackMeta } from "@/lib/playback/resolve-duration";
 
 export const runtime = "nodejs";
 const log = createServerLogger("api.stream.session.meta");
@@ -29,6 +36,36 @@ export async function GET(
   const authorizationFailure = await authorizeStreamSession(request, session, id);
   if (authorizationFailure) return authorizationFailure;
 
+  let meta = session.meta;
+  let metaDirty = false;
+
+  const needsMaterialize =
+    meta.contentKind === "episode" &&
+    ((Boolean(meta.previous?.playUrl) && !meta.previous?.watchId) ||
+      (Boolean(meta.next?.playUrl) && !meta.next?.watchId));
+  if (needsMaterialize) {
+    meta = await materializeNeighborWatchIds(meta, {
+      ownerUserId: session.ownerUserId ?? undefined,
+      proxyConfig: session.proxyConfig ?? undefined,
+      logo: session.logo,
+      group: session.group,
+    });
+    metaDirty = true;
+  }
+
+  if (meta.intro === undefined && meta.contentKind !== "live") {
+    const withIntro = await attachIntroToPlaybackMeta(meta);
+    if (withIntro.intro !== undefined) {
+      meta = withIntro;
+      metaDirty = true;
+    }
+  }
+
+  if (metaDirty) {
+    await persistSessionPlaybackMeta(id, meta).catch(() => undefined);
+    session.meta = meta;
+  }
+
   log.info("Session metadata served", {
     sessionId: id,
     upstreamHost: (() => {
@@ -41,6 +78,7 @@ export async function GET(
     aliasCount: session.urlAliases.size,
     cookieOrigins: Object.keys(session.cookieJar ?? {}).length,
     hasProxy: Boolean(session.proxyConfig),
+    introSegments: meta.intro?.length ?? null,
     elapsedMs: Date.now() - started,
   });
 
@@ -53,24 +91,33 @@ export async function GET(
   const historyKey = await hashStreamUrl(session.upstreamRootUrl);
   const resumePositionSeconds =
     !session.accessGrantHash &&
-    (session.meta.contentKind === "movie" || session.meta.contentKind === "episode")
+    (meta.contentKind === "movie" || meta.contentKind === "episode")
       ? await findViewingPositionForUrl(
           session.ownerUserId ?? "__guest__",
           session.upstreamRootUrl,
         )
       : null;
 
-  return NextResponse.json({
-    title: session.title,
-    logo: session.logo ?? null,
-    group: session.group ?? null,
-    historyKey,
-    resumePositionSeconds,
-    playbackUrl: needsBrowserTranscode
-      ? `/api/stream/transcode/${id}.m3u8`
-      : `/api/stream/proxy/${id}${ext}`,
-    playbackMode: needsBrowserTranscode ? "hls" : mode,
-    transcoded: needsBrowserTranscode,
-    playback: session.meta,
-  }, { headers: { "Cache-Control": "private, no-store" } });
+  const safeMeta = clientSafePlaybackMeta(meta);
+  const title =
+    safeMeta.displayTitle?.trim() ||
+    cleanMediaDisplayTitle(session.title) ||
+    session.title;
+
+  return NextResponse.json(
+    {
+      title,
+      logo: session.logo ?? null,
+      group: session.group ?? null,
+      historyKey,
+      resumePositionSeconds,
+      playbackUrl: needsBrowserTranscode
+        ? `/api/stream/transcode/${id}.m3u8`
+        : `/api/stream/proxy/${id}${ext}`,
+      playbackMode: needsBrowserTranscode ? "hls" : mode,
+      transcoded: needsBrowserTranscode,
+      playback: safeMeta,
+    },
+    { headers: { "Cache-Control": "private, no-store" } },
+  );
 }

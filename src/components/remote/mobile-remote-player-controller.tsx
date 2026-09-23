@@ -256,6 +256,11 @@ export function MobileRemotePlayerController({
         onClose={() => setSubtitleSearchOpen(false)}
         title={title}
         playback={playback?.subtitleSearch}
+        activeTrackId={remoteSubtitleTrack && subtitleVisible ? remoteSubtitleTrack.id : null}
+        onTurnOff={() => {
+          onSubtitleOff();
+          setSubtitleVisible(false);
+        }}
         onSelect={(track) => {
           setRemoteSubtitleTrack(track);
           setSubtitleVisible(true);

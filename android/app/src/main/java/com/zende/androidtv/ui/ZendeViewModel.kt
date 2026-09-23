@@ -314,16 +314,20 @@ class ZendeViewModel(context: Context) : ViewModel() {
         val info = current.movieInfo
         val channel = info?.channel?.takeIf { it.url.isNotBlank() } ?: original
         val metadata = info?.metadata
+        val cleanTitle = PlaybackLaunch.cleanMediaDisplayTitle(metadata?.title ?: channel.displayTitle)
+            .ifBlank { channel.displayTitle }
         play(
             channel.copy(
-                name = metadata?.title ?: channel.displayTitle,
+                name = cleanTitle,
                 contentType = "movie",
                 duration = info?.durationSeconds?.toDouble() ?: channel.duration,
             ),
             PlaybackLaunch(
-                title = metadata?.title ?: channel.displayTitle,
+                title = cleanTitle,
                 upstreamUrl = channel.url,
                 contentKind = "movie",
+                displayTitle = cleanTitle,
+                displaySubtitle = metadata?.year,
                 imdbId = metadata.portalId(info?.info, "imdb"),
                 tmdbId = metadata.portalId(info?.info, "tmdb"),
                 releaseName = original.name,
@@ -338,20 +342,41 @@ class ZendeViewModel(context: Context) : ViewModel() {
         val episodes = info?.episodes.orEmpty()
         val index = episodes.indexOfFirst { it.playUrl == episode.playUrl }
         val metadata = info?.metadata
-        val title = "${seriesChannel.displayTitle} · ${episode.code} · ${episode.title}"
+        val seriesTitle = PlaybackLaunch.cleanMediaDisplayTitle(metadata?.title ?: seriesChannel.displayTitle)
+            .ifBlank { seriesChannel.displayTitle }
+        val episodeTitle = PlaybackLaunch.cleanMediaDisplayTitle(episode.title).ifBlank { episode.title }
+        val code = episode.code.ifBlank { "S${episode.season}E${episode.episodeNum.ifBlank { "?" }}" }
+        val subtitle = "$code · $episodeTitle"
+        val episodeRefs = episodes.map {
+            PlaybackEpisodeRef(
+                it.season,
+                it.episodeNum,
+                PlaybackLaunch.cleanMediaDisplayTitle(it.title).ifBlank { it.title },
+                it.playUrl,
+                it.durationSeconds,
+            )
+        }
+        val previous = if (index > 0) PlaybackLaunch.neighborFrom(episodeRefs, index - 1) else null
+        val next = if (index >= 0 && index < episodeRefs.lastIndex) {
+            PlaybackLaunch.neighborFrom(episodeRefs, index + 1)
+        } else {
+            null
+        }
         play(
             Channel(
                 url = episode.playUrl,
-                name = title,
+                name = "$seriesTitle · $subtitle",
                 tvgLogo = episode.artworkUrl ?: seriesChannel.posterUrl,
                 groupTitle = seriesChannel.groupTitle,
                 contentType = "episode",
                 duration = episode.durationSeconds?.toDouble(),
             ),
             PlaybackLaunch(
-                title = title,
+                title = episodeTitle,
                 upstreamUrl = episode.playUrl,
                 contentKind = "episode",
+                displayTitle = seriesTitle,
+                displaySubtitle = subtitle,
                 imdbId = metadata.portalId(info?.info, "imdb"),
                 tmdbId = metadata.portalId(info?.info, "tmdb"),
                 releaseName = "${seriesChannel.name} ${episode.title}".trim(),
@@ -359,12 +384,14 @@ class ZendeViewModel(context: Context) : ViewModel() {
                 season = episode.season,
                 episodeNum = episode.episodeNum,
                 seriesId = info?.seriesId?.takeIf { it.isNotBlank() },
-                seriesTitle = metadata?.title ?: seriesChannel.displayTitle,
+                seriesTitle = seriesTitle,
                 episodeIndex = index,
                 durationSeconds = episode.durationSeconds,
-                episodes = episodes.map {
-                    PlaybackEpisodeRef(it.season, it.episodeNum, it.title, it.playUrl, it.durationSeconds)
-                },
+                hasPrevious = previous != null,
+                hasNext = next != null,
+                previous = previous,
+                next = next,
+                episodes = episodeRefs,
             ),
         )
     }
@@ -383,16 +410,18 @@ class ZendeViewModel(context: Context) : ViewModel() {
             title = channel.displayTitle,
             upstreamUrl = channel.url,
             contentKind = channel.contentType ?: if (channel.isLive) "live" else "movie",
+            displayTitle = PlaybackLaunch.cleanMediaDisplayTitle(channel.displayTitle)
+                .ifBlank { channel.displayTitle },
             releaseName = channel.name,
             durationSeconds = channel.duration?.toInt()?.takeIf { it > 0 },
         )
         playbackJob = viewModelScope.launch {
-            mutableState.update { it.copy(message = "Preparing ${prepared.title}…") }
+            mutableState.update { it.copy(message = "Preparing ${prepared.chromeTitle}…") }
             runCatching {
                 channels.createStream(
                     StreamSessionRequest(
                         url = prepared.upstreamUrl,
-                        title = prepared.title,
+                        title = prepared.chromeTitle,
                         logo = channel.artUrl,
                         group = channel.groupTitle,
                         meta = prepared.toMeta(),
@@ -403,7 +432,7 @@ class ZendeViewModel(context: Context) : ViewModel() {
                 PlaybackHandoff.launch = prepared
                 mutablePlayback.emit(
                     PlaybackRequest(
-                        prepared.title,
+                        prepared.chromeTitle,
                         factory.session.serverUrl + "api/stream/proxy/${session.id}",
                         prepared.contentKind,
                         factory.session.accessToken,

@@ -15,11 +15,17 @@ import { applyPublicCorsProxyUnwrap } from "@/lib/stream/public-cors-proxy-url";
 import { normalizeXtreamLivePlaybackUrl } from "@/lib/stream/playback-url";
 import { redactStreamUrlForLog } from "@/lib/stream/redact-stream-url";
 import {
+  attachIntroToPlaybackMeta,
   enrichPlaybackSearchMeta,
   inferContentKindFromUrl,
   resolvePlaybackDurationSeconds,
 } from "@/lib/playback/resolve-duration";
+import {
+  clientSafePlaybackMeta,
+  materializeNeighborWatchIds,
+} from "@/lib/playback/neighbor-watch-sessions";
 import type { PlaybackSessionMeta } from "@/lib/playback/stream-session-meta";
+import { cleanMediaDisplayTitle } from "@/lib/channel/channel-label";
 import { createStreamSession } from "@/lib/stream/stream-session-store";
 import { saveViewingHistoryEntry } from "@/lib/watch/viewing-history-store";
 import {
@@ -30,6 +36,16 @@ import {
 export const runtime = "nodejs";
 const log = createServerLogger("api.stream.session");
 const GUEST_USER_ID = "__guest__";
+
+const neighborSchema = z.object({
+  season: z.string().max(16),
+  episodeNum: z.string().max(16),
+  title: z.string().max(512),
+  watchId: z.string().max(64).optional(),
+  playUrl: z.string().min(4).max(8192).optional(),
+  episodeIndex: z.number().int().min(0),
+  durationSeconds: z.number().positive().optional(),
+});
 
 const bodySchema = z.object({
   url: z.string().min(4).max(8192),
@@ -50,6 +66,8 @@ const bodySchema = z.object({
   meta: z
     .object({
       contentKind: z.enum(["live", "movie", "episode"]).optional(),
+      displayTitle: z.string().max(512).optional(),
+      displaySubtitle: z.string().max(512).optional(),
       guideProviderId: z.string().max(128).optional(),
       guideTvgId: z.string().max(512).optional(),
       durationSeconds: z.number().positive().optional(),
@@ -62,6 +80,11 @@ const bodySchema = z.object({
       searchTitle: z.string().max(512).optional(),
       year: z.string().max(8).optional(),
       imdbId: z.string().max(32).optional(),
+      tmdbId: z.string().max(32).optional(),
+      hasPrevious: z.boolean().optional(),
+      hasNext: z.boolean().optional(),
+      previous: neighborSchema.optional(),
+      next: neighborSchema.optional(),
     })
     .optional(),
 });
@@ -199,11 +222,27 @@ export async function POST(request: Request) {
       meta,
       (parsed.data.title ?? "").trim() || "Live",
     );
+    meta = await attachIntroToPlaybackMeta(meta);
+    const displayTitle =
+      meta.displayTitle?.trim() ||
+      cleanMediaDisplayTitle(parsed.data.title) ||
+      (parsed.data.title ?? "").trim() ||
+      "Live";
+    meta = {
+      ...meta,
+      displayTitle,
+    };
+    meta = await materializeNeighborWatchIds(meta, {
+      ownerUserId: gate.authEnabled ? gate.user.id : undefined,
+      proxyConfig: proxyConfig ?? undefined,
+      logo: parsed.data.logo?.trim() || undefined,
+      group: parsed.data.group?.trim() || undefined,
+    });
 
     const id = await createStreamSession({
       ownerUserId: gate.authEnabled ? gate.user.id : undefined,
       upstreamRootUrl: upstream.href,
-      title: (parsed.data.title ?? "").trim() || "Live",
+      title: displayTitle,
       logo: parsed.data.logo?.trim() || undefined,
       group: parsed.data.group?.trim() || undefined,
       cookies: parsed.data.cookies,
@@ -215,10 +254,10 @@ export async function POST(request: Request) {
         gate.authEnabled ? gate.user.id : GUEST_USER_ID,
         {
           url: upstream.href,
-          name: (parsed.data.title ?? "").trim() || "Live",
+          name: displayTitle,
           tvgLogo: parsed.data.logo,
           groupTitle: parsed.data.group,
-          playback: meta,
+          playback: clientSafePlaybackMeta(meta),
         },
         { incrementOpenCount: true },
       );

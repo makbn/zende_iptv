@@ -207,8 +207,27 @@ data class StartRecordingRequest(
 )
 
 @Serializable
+data class PlaybackNeighborRef(
+    val season: String = "",
+    val episodeNum: String = "",
+    val title: String = "",
+    val watchId: String? = null,
+    val playUrl: String? = null,
+    val episodeIndex: Int = -1,
+    val durationSeconds: Int? = null,
+)
+
+@Serializable
+data class PlaybackIntroSegment(
+    val startMs: Int = 0,
+    val endMs: Int = 0,
+)
+
+@Serializable
 data class StreamSessionMeta(
     val contentKind: String? = null,
+    val displayTitle: String? = null,
+    val displaySubtitle: String? = null,
     val durationSeconds: Int? = null,
     val seriesId: String? = null,
     val seriesTitle: String? = null,
@@ -219,6 +238,12 @@ data class StreamSessionMeta(
     val searchTitle: String? = null,
     val year: String? = null,
     val imdbId: String? = null,
+    val tmdbId: String? = null,
+    val intro: List<PlaybackIntroSegment>? = null,
+    val hasPrevious: Boolean? = null,
+    val hasNext: Boolean? = null,
+    val previous: PlaybackNeighborRef? = null,
+    val next: PlaybackNeighborRef? = null,
 )
 
 @Serializable

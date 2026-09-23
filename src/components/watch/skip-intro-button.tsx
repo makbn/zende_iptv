@@ -17,6 +17,8 @@ type IntroQuery = {
   tmdbId?: string | null;
   season?: string | null;
   episodeNum?: string | null;
+  /** When the stream session already carried intro windows, skip the extra fetch. */
+  preloaded?: IntroSegment[] | null;
 };
 
 function parsePositiveInt(raw: string | null | undefined): number | undefined {
@@ -25,16 +27,39 @@ function parsePositiveInt(raw: string | null | undefined): number | undefined {
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
-/** Load intro windows from `/api/media/intro` (The Intro DB). */
+/** Load intro windows from session meta or `/api/media/intro` (The Intro DB). */
 export function useIntroSegments(query: IntroQuery): IntroSegment[] {
   const [segments, setSegments] = useState<IntroSegment[]>([]);
   const season = parsePositiveInt(query.season);
   const episode = parsePositiveInt(query.episodeNum);
   const imdbId = query.imdbId?.trim() || undefined;
   const tmdbId = query.tmdbId?.trim().match(/^\d{1,10}$/)?.[0];
+  const preloaded = query.preloaded;
+  const preloadedKey =
+    preloaded === undefined
+      ? "unset"
+      : preloaded === null
+        ? "null"
+        : JSON.stringify(preloaded);
 
   useEffect(() => {
-    if (!query.enabled || (!imdbId && !tmdbId)) {
+    if (!query.enabled) {
+      setSegments([]);
+      return;
+    }
+    if (preloaded !== undefined && preloaded !== null) {
+      setSegments(
+        preloaded.filter(
+          (row) =>
+            row &&
+            Number.isFinite(row.startMs) &&
+            Number.isFinite(row.endMs) &&
+            row.endMs > row.startMs,
+        ),
+      );
+      return;
+    }
+    if (!imdbId && !tmdbId) {
       setSegments([]);
       return;
     }
@@ -73,7 +98,7 @@ export function useIntroSegments(query: IntroQuery): IntroSegment[] {
     return () => {
       cancelled = true;
     };
-  }, [query.enabled, imdbId, tmdbId, season, episode]);
+  }, [query.enabled, imdbId, tmdbId, season, episode, preloaded, preloadedKey]);
 
   return segments;
 }

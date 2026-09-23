@@ -94,6 +94,7 @@ export function SeriesDetailView({
           imdbId: metadata?.imdbId,
           tmdbId: metadata?.tmdbId,
           year: metadata?.year,
+          allEpisodes: episodesBySeason.flat,
         });
         return {
           id: `episode-${episodeIndex}`,
@@ -137,6 +138,7 @@ export function SeriesDetailView({
         imdbId: metadata?.imdbId,
         tmdbId: metadata?.tmdbId,
         year: metadata?.year,
+        allEpisodes: episodesBySeason.flat,
       })
     : null;
   const favoriteSeriesChannel = {
@@ -162,6 +164,7 @@ export function SeriesDetailView({
           imdbId: metadata?.imdbId,
           tmdbId: metadata?.tmdbId,
           year: metadata?.year,
+          allEpisodes: episodesBySeason.flat,
         });
         openChannel(channel);
       } catch (err) {

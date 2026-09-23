@@ -22,6 +22,7 @@ export type RemotePlaybackState = {
     | "searchTitle"
     | "year"
     | "imdbId"
+    | "tmdbId"
   >;
 };
 

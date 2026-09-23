@@ -17,15 +17,23 @@ import type {
   XtreamVodInfo,
 } from "@/lib/iptv/xtream-types";
 import {
+  buildXtreamEpisodeUrl,
   parseXtreamCredentialsFromStreamUrl,
   parseXtreamEpisodeIdFromStreamUrl,
   parseXtreamVodIdFromStreamUrl,
 } from "@/lib/iptv/xtream-url";
-import { parseChannelLabel } from "@/lib/channel/channel-label";
+import { cleanMediaDisplayTitle, parseChannelLabel } from "@/lib/channel/channel-label";
+import {
+  applyEpisodeNeighbors,
+  applyPlaybackDisplayFields,
+  resolveSeriesEpisodeIndex,
+} from "@/lib/playback/play-episode";
 import {
   parseXtreamDurationSeconds,
   type PlaybackSessionMeta,
 } from "@/lib/playback/stream-session-meta";
+import type { SeriesEpisodeRow } from "@/app/api/xtream/series-info/route";
+import { lookupIntroSegments } from "@/lib/media/intro-db";
 
 function episodeDurationSeconds(ep: XtreamSeriesEpisode): number | undefined {
   const fromInfo = parseXtreamDurationSeconds(
@@ -149,7 +157,41 @@ async function idsFromMediaMetadataCache(
   };
 }
 
-/** Enrich VOD session metadata used for subtitle search and skip-intro. */
+function flattenSeriesEpisodes(
+  series: XtreamSeriesInfo | null,
+  creds: XtreamCredentials,
+): SeriesEpisodeRow[] {
+  if (!series?.episodes) return [];
+  const rows: SeriesEpisodeRow[] = [];
+  for (const [seasonKey, seasonEpisodes] of Object.entries(series.episodes)) {
+    for (const ep of seasonEpisodes ?? []) {
+      const playUrl = buildXtreamEpisodeUrl(creds, ep);
+      if (!playUrl) continue;
+      rows.push({
+        season: String(ep.season ?? seasonKey),
+        episodeNum: String(ep.episode_num ?? ""),
+        title: String(ep.title ?? `Episode ${ep.id}`),
+        playUrl,
+        ...(episodeDurationSeconds(ep) ? { durationSeconds: episodeDurationSeconds(ep) } : {}),
+      });
+    }
+  }
+  rows.sort((a, b) => {
+    const sa = Number.parseInt(a.season, 10) || 0;
+    const sb = Number.parseInt(b.season, 10) || 0;
+    if (sa !== sb) return sa - sb;
+    const ea = Number.parseInt(a.episodeNum, 10) || 0;
+    const eb = Number.parseInt(b.episodeNum, 10) || 0;
+    return ea - eb;
+  });
+  return rows;
+}
+
+function neighborsAlreadyPresent(meta: PlaybackSessionMeta): boolean {
+  return meta.hasPrevious != null && meta.hasNext != null;
+}
+
+/** Enrich VOD session metadata: titles, duration context, neighbors, subtitle IDs. */
 export async function enrichPlaybackSearchMeta(
   upstreamUrl: string,
   meta: PlaybackSessionMeta,
@@ -162,61 +204,92 @@ export async function enrichPlaybackSearchMeta(
     year: meta.year?.trim() || parsed.yearLabel,
   };
 
-  if (next.imdbId && next.tmdbId) return next;
-
-  const fromCache: { imdbId?: string; tmdbId?: string } = await idsFromMediaMetadataCache(
-    next,
-  ).catch(() => ({}));
-  next = {
-    ...next,
-    imdbId: next.imdbId ?? fromCache.imdbId,
-    tmdbId: next.tmdbId ?? fromCache.tmdbId,
-  };
-  if (next.imdbId && next.tmdbId) return next;
-
   const creds =
     (await loadXtreamPortalCredentials()) ??
     parseXtreamCredentialsFromStreamUrl(upstreamUrl);
-  if (!creds) return next;
 
-  const vodId = parseXtreamVodIdFromStreamUrl(upstreamUrl);
-  if (vodId) {
-    const vod = await loadVodInfo(creds, vodId);
-    const info = vod?.info as Record<string, unknown> | undefined;
+  if (!next.imdbId || !next.tmdbId) {
+    const fromCache: { imdbId?: string; tmdbId?: string } = await idsFromMediaMetadataCache(
+      next,
+    ).catch(() => ({}));
     next = {
       ...next,
+      imdbId: next.imdbId ?? fromCache.imdbId,
+      tmdbId: next.tmdbId ?? fromCache.tmdbId,
+    };
+  }
+
+  const vodId = parseXtreamVodIdFromStreamUrl(upstreamUrl);
+  if (vodId && creds) {
+    const vod = await loadVodInfo(creds, vodId);
+    const info = vod?.info as Record<string, unknown> | undefined;
+    const vodName =
+      (typeof info?.name === "string" ? info.name.trim() : undefined) ||
+      (typeof vod?.movie_data?.name === "string" ? vod.movie_data.name.trim() : undefined);
+    next = {
+      ...next,
+      contentKind: next.contentKind ?? "movie",
       imdbId: next.imdbId ?? extractImdbId(info),
       tmdbId: next.tmdbId ?? extractTmdbId(info),
       year: next.year ?? extractYear(info),
-      searchTitle:
-        next.searchTitle ??
-        (typeof info?.name === "string" ? info.name.trim() : undefined) ??
-        (typeof vod?.movie_data?.name === "string"
-          ? vod.movie_data.name.trim()
-          : undefined),
+      searchTitle: cleanMediaDisplayTitle(next.searchTitle || vodName || title) || next.searchTitle,
+      durationSeconds:
+        next.durationSeconds ??
+        parseXtreamDurationSeconds(info),
     };
-    return next;
+    return applyPlaybackDisplayFields(next, title);
   }
 
   const episodeId = parseXtreamEpisodeIdFromStreamUrl(upstreamUrl);
-  if (episodeId && meta.seriesId) {
-    const series = await loadSeriesInfo(creds, meta.seriesId);
-    const seriesInfo = series?.info as Record<string, unknown> | undefined;
-    next = {
-      ...next,
-      imdbId: next.imdbId ?? extractImdbId(seriesInfo),
-      tmdbId: next.tmdbId ?? extractTmdbId(seriesInfo),
-      year: next.year ?? extractYear(seriesInfo),
-      seriesTitle:
-        next.seriesTitle?.trim() ||
+  if ((episodeId || next.seriesId) && (next.contentKind === "episode" || next.seriesId)) {
+    if (creds && next.seriesId) {
+      const series = await loadSeriesInfo(creds, next.seriesId);
+      const seriesInfo = series?.info as Record<string, unknown> | undefined;
+      const seriesName =
         (typeof seriesInfo?.name === "string" ? seriesInfo.name.trim() : undefined) ||
-        next.seriesTitle,
-    };
+        next.seriesTitle;
+      next = {
+        ...next,
+        contentKind: "episode",
+        imdbId: next.imdbId ?? extractImdbId(seriesInfo),
+        tmdbId: next.tmdbId ?? extractTmdbId(seriesInfo),
+        year: next.year ?? extractYear(seriesInfo),
+        seriesTitle: next.seriesTitle?.trim() || seriesName,
+      };
+
+      if (!neighborsAlreadyPresent(next)) {
+        const flat = flattenSeriesEpisodes(series, creds);
+        let index = resolveSeriesEpisodeIndex(flat, next);
+        if (index < 0 && episodeId) {
+          index = flat.findIndex((row) => row.playUrl.includes(`/${episodeId}.`));
+        }
+        if (index < 0) {
+          index = flat.findIndex((row) => row.playUrl === upstreamUrl);
+        }
+        if (index >= 0) {
+          const current = flat[index]!;
+          next = {
+            ...next,
+            season: next.season || current.season,
+            episodeNum: next.episodeNum || current.episodeNum,
+            episodeTitle: next.episodeTitle || current.title,
+            durationSeconds: next.durationSeconds ?? current.durationSeconds,
+          };
+          next = applyEpisodeNeighbors(next, flat, index);
+        } else {
+          next = { ...next, hasPrevious: false, hasNext: false };
+        }
+      }
+    } else if (!neighborsAlreadyPresent(next)) {
+      next = { ...next, hasPrevious: Boolean(next.previous), hasNext: Boolean(next.next) };
+    }
+    return applyPlaybackDisplayFields(next, title);
   }
 
-  return next;
+  return applyPlaybackDisplayFields(next, title);
 }
 
+/** Load series info from disk TTL cache, then Xtream. */
 async function loadSeriesInfo(
   creds: XtreamCredentials,
   seriesId: string,
@@ -244,6 +317,36 @@ async function loadVodInfo(
     return fetched;
   }
   return cached?.info ?? null;
+}
+
+/** Attach The Intro DB skip windows onto session meta (idempotent). */
+export async function attachIntroToPlaybackMeta(
+  meta: PlaybackSessionMeta,
+): Promise<PlaybackSessionMeta> {
+  if (meta.contentKind === "live") return meta;
+  if (meta.intro !== undefined) return meta;
+  if (!meta.imdbId?.trim() && !meta.tmdbId?.trim()) {
+    return { ...meta, intro: [] };
+  }
+  const seasonRaw = meta.season?.trim();
+  const episodeRaw = meta.episodeNum?.trim();
+  const season =
+    seasonRaw && /^\d+$/.test(seasonRaw) ? Number.parseInt(seasonRaw, 10) : undefined;
+  const episode =
+    episodeRaw && /^\d+$/.test(episodeRaw) ? Number.parseInt(episodeRaw, 10) : undefined;
+  try {
+    const segments = await lookupIntroSegments({
+      imdbId: meta.imdbId,
+      tmdbId: meta.tmdbId,
+      ...(season != null && season > 0 && episode != null && episode > 0
+        ? { season, episode }
+        : {}),
+    });
+    return { ...meta, intro: segments };
+  } catch {
+    /* Leave unresolved so GET can retry. */
+    return meta;
+  }
 }
 
 export function inferContentKindFromUrl(url: string): PlaybackSessionMeta["contentKind"] {

@@ -147,17 +147,34 @@ fun VodPlayer(initialUrl: String, token: String?, cookies: String?, initial: Pla
         episodesOpen = false
         notice = null
         scope.launch {
+            val seriesTitle = current.seriesTitle?.let(PlaybackLaunch::cleanMediaDisplayTitle)
+                ?.ifBlank { current.seriesTitle }
+                ?: current.displayTitle
+            val episodeTitle = PlaybackLaunch.cleanMediaDisplayTitle(episode.title).ifBlank { episode.title }
+            val code = "S${episode.season}E${episode.episodeNum.ifBlank { "?" }}"
+            val previous = if (index > 0) PlaybackLaunch.neighborFrom(current.episodes, index - 1) else null
+            val nextNeighbor = if (index < current.episodes.lastIndex) {
+                PlaybackLaunch.neighborFrom(current.episodes, index + 1)
+            } else {
+                null
+            }
             val next = current.copy(
-                title = listOfNotNull(current.seriesTitle, "S${episode.season}E${episode.episodeNum}", episode.title).joinToString(" · "),
+                title = episodeTitle,
+                displayTitle = seriesTitle,
+                displaySubtitle = "$code · $episodeTitle",
                 upstreamUrl = episode.playUrl,
                 season = episode.season,
                 episodeNum = episode.episodeNum,
                 episodeIndex = index,
                 durationSeconds = episode.durationSeconds,
-                releaseName = listOfNotNull(current.seriesTitle, episode.title).joinToString(" "),
+                releaseName = listOfNotNull(seriesTitle, episode.title).joinToString(" "),
+                hasPrevious = previous != null,
+                hasNext = nextNeighbor != null,
+                previous = previous,
+                next = nextNeighbor,
             )
             runCatching {
-                api.open(StreamSessionRequest(url = next.upstreamUrl, title = next.title, meta = next.toMeta()))
+                api.open(StreamSessionRequest(url = next.upstreamUrl, title = next.chromeTitle, meta = next.toMeta()))
             }.onSuccess { session ->
                 val nextUrl = api.serverUrl.trimEnd('/') + "/api/stream/proxy/${session.id}"
                 videoUrl = nextUrl
@@ -265,19 +282,27 @@ fun VodPlayer(initialUrl: String, token: String?, cookies: String?, initial: Pla
             ) { Text("Skip intro", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
         }
         if (controls) {
-            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color(0xC0000000)).padding(horizontal = 48.dp, vertical = 22.dp)) {
-                Text(current.title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Column(modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color(0xC0000000)).padding(horizontal = 48.dp, vertical = 22.dp)) {
+                Text(current.chromeTitle, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                current.displaySubtitle?.takeIf { it.isNotBlank() }?.let {
+                    Text(it, color = Color.White.copy(alpha = .8f), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+                }
                 Text("${clock(position)}  /  ${clock(duration)}", color = Color.White.copy(alpha = .75f), fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (current.contentKind == "episode") {
-                        PlayerButton("Prev", current.episodeIndex > 0 && !switching) { switchEpisode(current.episodeIndex - 1) }
+                        PlayerButton("Prev", (current.hasPrevious || current.episodeIndex > 0) && !switching) {
+                            switchEpisode(current.previous?.episodeIndex ?: (current.episodeIndex - 1))
+                        }
                     }
                     PlayerButton(if (playing) "Pause" else "Play", true, playFocus) {
                         player.playWhenReady = !player.playWhenReady
                     }
                     if (current.contentKind == "episode") {
-                        PlayerButton("Next", current.episodeIndex >= 0 && current.episodeIndex < current.episodes.lastIndex && !switching) {
-                            switchEpisode(current.episodeIndex + 1)
+                        PlayerButton(
+                            "Next",
+                            (current.hasNext || (current.episodeIndex >= 0 && current.episodeIndex < current.episodes.lastIndex)) && !switching,
+                        ) {
+                            switchEpisode(current.next?.episodeIndex ?: (current.episodeIndex + 1))
                         }
                         PlayerButton("Episodes", current.episodes.isNotEmpty()) { episodesOpen = true }
                     }

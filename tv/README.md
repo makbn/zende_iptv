@@ -56,6 +56,18 @@ TIZEN_CERT_PROFILE=your-profile npm run tizen:package
 To test on a Samsung TV, enable Developer Mode, connect with Tizen Device Manager/SDB on port
 `26101`, then install the generated `.wgt` package.
 
+**Older Tizen TVs (≈2019–2021)** often cannot open Cloudflare HTTPS (`SSL error` /
+“took too long”). Point `ZENDE_TV_URL` at your LAN HTTP port instead, then rebuild and
+reinstall:
+
+```bash
+ZENDE_TV_URL=http://192.168.1.76:8077 npm run tizen:build
+TIZEN_CERT_PROFILE=zende-samsung npm run tizen:package
+tizen install -n Zende.wgt -t UN55TU8500FXZC -- tizen/.buildResult
+```
+
+Zende’s middleware still serves the `/legacy/` client automatically for those browsers.
+
 ## Shared frontend behavior
 
 TV spatial focus and platform Back handling live in the main frontend at

@@ -1,0 +1,11 @@
+<resources>
+    <style name="Theme.ZendeTV" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:colorAccent">@color/zende_accent</item>
+        <item name="android:navigationBarColor">@color/zende_background</item>
+        <item name="android:windowBackground">@color/zende_background</item>
+    </style>
+</resources>

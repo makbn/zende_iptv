@@ -589,6 +589,8 @@ export function TvSpatialNavigation() {
   useEffect(() => {
     if (!isTvEnvironment()) return;
     document.documentElement.dataset.tvInput = "remote";
+    const isSamsungTizen = /Tizen|SMART-TV.*Samsung/i.test(navigator.userAgent);
+    if (isSamsungTizen) document.documentElement.dataset.tvPlatform = "tizen";
     guardAllTextFields();
     const keyboardGuardObserver = new MutationObserver(() => guardAllTextFields());
     keyboardGuardObserver.observe(document.body, { childList: true, subtree: true });
@@ -764,6 +766,7 @@ export function TvSpatialNavigation() {
       }
       delete window.__zendeTvHandleBack;
       delete document.documentElement.dataset.tvInput;
+      if (isSamsungTizen) delete document.documentElement.dataset.tvPlatform;
       if (density > 1) {
         document.documentElement.style.removeProperty("zoom");
       }

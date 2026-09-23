@@ -167,8 +167,11 @@ button { -webkit-appearance: none; }
 .legacy-guide-row:focus,
 .legacy-recording-card:focus,
 .legacy-account-menu button:focus {
-  outline: 3px solid #d7ff3f;
-  outline-offset: 3px;
+  position: relative;
+  z-index: 10;
+  outline: 3px solid #ff5b9e;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px #08090c, 0 0 16px rgba(255, 77, 148, 0.48);
 }
 
 /* App chrome */
@@ -179,8 +182,8 @@ button { -webkit-appearance: none; }
   display: -webkit-flex;
   display: flex;
   width: 100%;
-  height: 70px;
-  padding: 0 42px;
+  height: 88px;
+  padding: 16px 48px 0;
   border-bottom: 1px solid #26272c;
   background: #0b0c10;
   -webkit-box-align: center;
@@ -206,24 +209,28 @@ button { -webkit-appearance: none; }
   display: -webkit-box;
   display: -webkit-flex;
   display: flex;
-  height: 70px;
+  height: 60px;
   margin: 0 auto;
   white-space: nowrap;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
 }
 .legacy-nav-btn {
   position: relative;
-  height: 70px;
-  margin: 0 12px;
-  padding: 0 3px;
-  border: 0;
-  border-bottom: 2px solid transparent;
+  height: 48px;
+  margin: 0 7px;
+  padding: 0 15px;
+  border: 1px solid transparent;
+  border-radius: 10px;
   background: transparent;
   color: #90939b;
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
 }
-.legacy-nav-btn.is-active { border-bottom-color: #f6f7f8; color: #fff; }
+.legacy-nav-btn.is-active { border-color: #3c3e46; background: #1b1c22; color: #fff; }
+.legacy-nav-btn:focus { background: #f6f7f8; color: #090a0c; }
 .legacy-top-actions { display: -webkit-box; display: -webkit-flex; display: flex; width: 185px; -webkit-box-pack: end; -webkit-justify-content: flex-end; justify-content: flex-end; }
 .legacy-icon-btn,
 .legacy-avatar {
@@ -243,8 +250,8 @@ button { -webkit-appearance: none; }
 .legacy-avatar { background: #d7ff3f; color: #0a0b0d; font-size: 14px; font-weight: 800; }
 .legacy-account-menu {
   position: absolute;
-  top: 61px;
-  right: 42px;
+  top: 82px;
+  right: 48px;
   width: 220px;
   overflow: hidden;
   border: 1px solid #33343b;
@@ -261,7 +268,7 @@ button { -webkit-appearance: none; }
   display: -webkit-box;
   display: -webkit-flex;
   display: flex;
-  height: calc(100% - 70px);
+  height: calc(100% - 88px);
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-box-direction: normal;
@@ -328,8 +335,8 @@ button { -webkit-appearance: none; }
 .legacy-section-head .legacy-eyebrow { margin-bottom: 4px; }
 .legacy-section-head h2 { display: inline; margin: 0; font-size: 22px; letter-spacing: -0.025em; }
 .legacy-section-head p { display: inline; margin: 0 0 0 12px; color: #858892; font-size: 13px; }
-.legacy-row { padding: 4px 48px 12px; overflow-x: auto; overflow-y: hidden; white-space: nowrap; -webkit-overflow-scrolling: touch; }
-.legacy-wrap-row { padding: 8px 48px 40px; white-space: normal; }
+.legacy-row { padding: 16px 48px 30px; overflow-x: auto; overflow-y: hidden; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+.legacy-wrap-row { padding: 16px 48px 40px; white-space: normal; }
 .legacy-tile {
   position: relative;
   display: inline-block;
@@ -422,7 +429,7 @@ button { -webkit-appearance: none; }
   font-size: 11px;
   font-weight: 750;
 }
-.legacy-guide-record:focus { outline: 3px solid #d7ff3f; outline-offset: 3px; }
+.legacy-guide-record:focus { outline: 3px solid #ff5b9e; outline-offset: 2px; }
 .legacy-guide-record:disabled { color: #a9acb4; }
 
 /* Recordings */
@@ -484,13 +491,15 @@ button { -webkit-appearance: none; }
 .legacy-live-pill { margin-left: auto; padding: 8px 10px; border-radius: 5px; background: rgba(10,11,13,0.74); color: #ff6a62; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; }
 
 @media (max-width: 1100px), (max-height: 740px) {
-  .legacy-topbar { height: 60px; padding: 0 30px; }
-  .legacy-main { height: calc(100% - 60px); }
+  .legacy-topbar { height: 76px; padding: 12px 36px 0; }
+  .legacy-main { height: calc(100% - 76px); }
   .legacy-home-logo, .legacy-top-actions { width: 155px; }
-  .legacy-nav, .legacy-nav-btn { height: 60px; }
-  .legacy-nav-btn { margin: 0 8px; font-size: 12px; }
+  .legacy-nav { height: 54px; }
+  .legacy-nav-btn { height: 44px; margin: 0 4px; padding: 0 11px; font-size: 12px; }
+  .legacy-account-menu { top: 71px; right: 36px; }
   .legacy-page-heading, .legacy-toolbar { padding-left: 36px; padding-right: 36px; }
   .legacy-filter-row, .legacy-row, .legacy-wrap-row, .legacy-guide-list, .legacy-recording-section { padding-left: 36px; padding-right: 36px; }
+  .legacy-row { padding-top: 14px; padding-bottom: 26px; }
   .legacy-section-head, .legacy-hero-copy { left: auto; padding-left: 36px; }
   .legacy-status { margin-left: 36px; margin-right: 36px; }
   .legacy-hero { height: 310px; }

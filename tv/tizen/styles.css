@@ -18,6 +18,8 @@ body {
   justify-content: center;
   margin: 0;
   min-height: 100vh;
+  padding: 5vh 5vw;
+  overflow: hidden;
 }
 
 .setup-card {
@@ -25,8 +27,11 @@ body {
   border: 2px solid rgba(255, 255, 255, 0.12);
   border-radius: 28px;
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
-  padding: 54px 64px 58px;
-  width: 720px;
+  max-height: 90vh;
+  max-width: 720px;
+  overflow-y: auto;
+  padding: 48px 58px 52px;
+  width: 100%;
 }
 
 .logo {
@@ -74,6 +79,7 @@ button {
   font: inherit;
   min-height: 64px;
   outline: none;
+  transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
   width: 100%;
 }
 
@@ -98,7 +104,19 @@ button {
 
 input:focus,
 button:focus {
-  box-shadow: 0 0 0 5px #f7faff;
+  outline: 3px solid #ff5b9e;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 2px #070a12, 0 0 18px 3px rgba(253, 54, 126, 0.42);
+}
+
+button:focus {
+  background: #ffffff;
+  color: #13030a;
+  transform: scale(1.02);
+}
+
+input:focus {
+  border-color: #ff5b9e;
 }
 
 .error {
@@ -112,4 +130,3 @@ button:focus {
   margin-bottom: 0;
   margin-top: 24px;
 }
-

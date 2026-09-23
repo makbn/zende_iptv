@@ -49,6 +49,7 @@ async function xtreamRequest<T>(
   creds: XtreamCredentials,
   action: string,
   extra?: Record<string, string | number>,
+  attempts = 1,
 ): Promise<T | null> {
   const base = playerApiBase(creds);
   const params = new URLSearchParams({ action });
@@ -58,47 +59,65 @@ async function xtreamRequest<T>(
     }
   }
   const url = `${base}&${params.toString()}`;
-  const started = Date.now();
-  try {
-    const res = await fetch(url, {
-      headers: { "User-Agent": "Zende/0.1 (xtream client)" },
-      cache: "no-store",
-    });
-    const text = await res.text();
-    if (!res.ok) {
-      log.warn("xtream upstream non-OK", {
+  const maxAttempts = Math.max(1, Math.min(3, Math.trunc(attempts)));
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const started = Date.now();
+    try {
+      const res = await fetch(url, {
+        headers: { "User-Agent": "Zende/0.1 (xtream client)" },
+        cache: "no-store",
+        signal: AbortSignal.timeout(12_000),
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        log.warn("xtream upstream non-OK", {
+          action,
+          attempt,
+          status: res.status,
+          elapsedMs: Date.now() - started,
+          url: redactXtreamUrl(url),
+          bodyPreview: text.slice(0, 200),
+        });
+        if (attempt < maxAttempts && (res.status === 429 || res.status >= 500)) {
+          await new Promise((resolve) => setTimeout(resolve, 300 * attempt));
+          continue;
+        }
+        return null;
+      }
+      if (!text.trim()) {
+        log.warn("xtream upstream empty body", {
+          action,
+          attempt,
+          elapsedMs: Date.now() - started,
+          url: redactXtreamUrl(url),
+        });
+        return null;
+      }
+      const parsed = JSON.parse(text) as T;
+      log.debug("xtream upstream ok", {
         action,
-        status: res.status,
+        attempt,
+        elapsedMs: Date.now() - started,
+        bytes: text.length,
+      });
+      return parsed;
+    } catch (err) {
+      const finalAttempt = attempt === maxAttempts;
+      const details = {
+        action,
+        attempt,
         elapsedMs: Date.now() - started,
         url: redactXtreamUrl(url),
-        bodyPreview: text.slice(0, 200),
-      });
-      return null;
+        message: err instanceof Error ? err.message : String(err),
+      };
+      if (finalAttempt) log.error("xtream upstream failed", details);
+      else log.warn("xtream upstream retrying", details);
+      if (!finalAttempt) {
+        await new Promise((resolve) => setTimeout(resolve, 300 * attempt));
+      }
     }
-    if (!text.trim()) {
-      log.warn("xtream upstream empty body", {
-        action,
-        elapsedMs: Date.now() - started,
-        url: redactXtreamUrl(url),
-      });
-      return null;
-    }
-    const parsed = JSON.parse(text) as T;
-    log.debug("xtream upstream ok", {
-      action,
-      elapsedMs: Date.now() - started,
-      bytes: text.length,
-    });
-    return parsed;
-  } catch (err) {
-    log.error("xtream upstream failed", {
-      action,
-      elapsedMs: Date.now() - started,
-      url: redactXtreamUrl(url),
-      message: err instanceof Error ? err.message : String(err),
-    });
-    return null;
   }
+  return null;
 }
 
 /** IPTVnator: XtreamApiService.getCategories */
@@ -147,7 +166,12 @@ export async function fetchXtreamSeriesInfo(
   creds: XtreamCredentials,
   seriesId: string | number,
 ): Promise<XtreamSeriesInfo | null> {
-  return xtreamRequest<XtreamSeriesInfo>(creds, "get_series_info", { series_id: seriesId });
+  return xtreamRequest<XtreamSeriesInfo>(
+    creds,
+    "get_series_info",
+    { series_id: seriesId },
+    2,
+  );
 }
 
 /** Provider-native programme rows. Many Xtream servers Base64-encode title/description. */

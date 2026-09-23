@@ -386,6 +386,13 @@ model SubtitleSettings {
   updatedAt   DateTime @updatedAt
 }
 
+/// Administrator-selected server directory for native/web internal VOD downloads.
+model InternalDownloadSettings {
+  id            Int      @id @default(1)
+  directoryPath String?
+  updatedAt     DateTime @updatedAt
+}
+
 enum RecordingScheduleStatus {
   SCHEDULED
   CANCELLED

@@ -12,6 +12,7 @@ import { TvSettingsAuthPanel } from "@/components/tv/tv-settings-auth-panel";
 import { TvSettingsIntegrationsPanel } from "@/components/tv/tv-settings-integrations-panel";
 import { TvSettingsProxiesPanel } from "@/components/tv/tv-settings-proxies-panel";
 import { TvSettingsCachePanel } from "@/components/tv/tv-settings-cache-panel";
+import { TvSettingsInternalDownloadsPanel } from "@/components/tv/tv-settings-internal-downloads-panel";
 import { Button } from "@appica/ui-react/button";
 import { Tabs, TabsList, TabsTrigger } from "@appica/ui-react/tabs";
 import { ZendeSpinner } from "@/components/loading/zende-spinner";
@@ -229,7 +230,10 @@ export function MobileSettingsPage() {
               Server tools
             </summary>
             <div className="border-t border-border p-4 pt-3">
+            <TvSettingsInternalDownloadsPanel />
+            <div className="mt-4">
             <TvSettingsCachePanel />
+            </div>
             <label className="mt-4 block">
               <span className="sr-only">Operator secret</span>
               <Input

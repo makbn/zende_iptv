@@ -85,7 +85,6 @@ import {
 } from "@/lib/navigation/watch-url";
 import { cn } from "@/lib/utils";
 import { FavoriteStarButton } from "@/components/tv/favorite-star-button";
-import { MovieDownloadButton } from "@/components/library/movie-download-button";
 import { ChannelResolutionBadge } from "@/components/tv/channel-resolution-badge";
 import { EpisodePlaybackControls } from "@/components/watch/episode-playback-controls";
 import { SubtitleSearchPanel } from "@/components/watch/subtitle-search-panel";
@@ -1909,16 +1908,6 @@ export function WatchView() {
               {watchFavoriteChannel ? (
                 <FavoriteStarButton
                   channel={watchFavoriteChannel}
-                  size="md"
-                  className="shrink-0"
-                />
-              ) : null}
-              {resolvedPlaybackKind === "movie" && watchFavoriteChannel ? (
-                <MovieDownloadButton
-                  channel={{
-                    ...watchFavoriteChannel,
-                    ...(playbackMeta ? { playback: playbackMeta } : {}),
-                  }}
                   size="md"
                   className="shrink-0"
                 />

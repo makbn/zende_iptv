@@ -4,6 +4,10 @@ import { z } from "zod";
 import { withApiLogging } from "@/core/logging/api-log";
 import { gateApiRequest } from "@/lib/auth/gate-api";
 import { fetchXtreamSeriesInfo } from "@/lib/iptv/xtream-client";
+import {
+  readCachedSeriesInfo,
+  writeCachedSeriesInfo,
+} from "@/lib/iptv/series-info-cache";
 import { loadXtreamPortalCredentials } from "@/lib/iptv/xtream-portal-store";
 import { prisma } from "@/lib/db/prisma";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
@@ -33,7 +37,34 @@ export type SeriesEpisodeRow = {
   title: string;
   playUrl: string;
   durationSeconds?: number;
+  artworkUrl?: string;
+  overview?: string;
+  airDate?: string;
+  rating?: number;
 };
+
+function firstText(source: Record<string, unknown> | undefined, keys: string[]): string | undefined {
+  if (!source) return undefined;
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (Array.isArray(value)) {
+      const first = value.find((candidate) => typeof candidate === "string" && candidate.trim());
+      if (typeof first === "string") return first.trim();
+    }
+  }
+  return undefined;
+}
+
+function episodeRating(info: Record<string, unknown> | undefined): number | undefined {
+  if (!info) return undefined;
+  for (const key of ["rating", "rating_5based", "vote_average"]) {
+    const value = info[key];
+    const parsed = typeof value === "number" ? value : Number.parseFloat(String(value ?? ""));
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return undefined;
+}
 
 function episodeDurationSeconds(ep: XtreamSeriesEpisode): number | undefined {
   const fromInfo = parseXtreamDurationSeconds(ep.info);
@@ -61,6 +92,16 @@ function flattenEpisodes(
         title: String(ep.title ?? `Episode ${ep.id}`),
         playUrl,
         ...(episodeDurationSeconds(ep) ? { durationSeconds: episodeDurationSeconds(ep) } : {}),
+        ...(firstText(ep.info, ["movie_image", "cover_big", "cover", "image", "thumbnail"])
+          ? { artworkUrl: firstText(ep.info, ["movie_image", "cover_big", "cover", "image", "thumbnail"]) }
+          : {}),
+        ...(firstText(ep.info, ["plot", "description", "overview"])
+          ? { overview: firstText(ep.info, ["plot", "description", "overview"]) }
+          : {}),
+        ...(firstText(ep.info, ["releasedate", "releaseDate", "air_date", "airDate"])
+          ? { airDate: firstText(ep.info, ["releasedate", "releaseDate", "air_date", "airDate"]) }
+          : {}),
+        ...(episodeRating(ep.info) ? { rating: episodeRating(ep.info) } : {}),
       });
     }
   }
@@ -148,10 +189,30 @@ export async function GET(request: Request) {
     }
 
     log.info("fetching series info", { seriesId, server: creds.serverUrl });
-    const info = await fetchXtreamSeriesInfo(creds, seriesId);
+    const providerKey = provider?.id ?? creds.serverUrl;
+    let info = await fetchXtreamSeriesInfo(creds, seriesId);
+    let stale = false;
+    let cachedAt: string | undefined;
     if (!info) {
-      log.error("get_series_info returned nothing", { seriesId });
-      return NextResponse.json({ error: "Could not load series from portal." }, { status: 502 });
+      const cached = await readCachedSeriesInfo(providerKey, seriesId);
+      if (!cached) {
+        log.error("get_series_info returned nothing and no cached copy exists", { seriesId });
+        return NextResponse.json(
+          { error: "The series provider is temporarily unreachable. Try again shortly." },
+          { status: 502 },
+        );
+      }
+      info = cached.info;
+      stale = true;
+      cachedAt = cached.cachedAt;
+      log.warn("serving cached series info after provider failure", { seriesId, cachedAt });
+    } else {
+      await writeCachedSeriesInfo(providerKey, seriesId, info).catch((error) => {
+        log.warn("could not persist series info cache", {
+          seriesId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
     }
 
     const episodes = flattenEpisodes(info.episodes, creds);
@@ -188,6 +249,8 @@ export async function GET(request: Request) {
       seasons: info.seasons ?? [],
       episodes,
       metadata,
+      stale,
+      ...(cachedAt ? { cachedAt } : {}),
     });
   });
 }

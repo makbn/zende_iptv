@@ -4,7 +4,7 @@ import { Button } from "@appica/ui-react/button";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronLeft, Play } from "lucide-react";
+import { CalendarDays, ChevronLeft, Clock3, Play, Star } from "lucide-react";
 
 import { Card } from "@appica/ui-react/card";
 import { MediaCastRail, MediaMetadataFacts } from "@/components/library/media-metadata-sections";
@@ -15,6 +15,8 @@ import {
 } from "@/components/layout/browse-page-shell";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import { ShareMediaButton } from "@/components/shares/share-media-button";
+import { MovieDownloadButton } from "@/components/library/movie-download-button";
+import { FavoriteStarButton } from "@/components/tv/favorite-star-button";
 import { ZendeLoadingState } from "@/components/loading/zende-spinner";
 import { useSeriesInfo } from "@/features/iptv/use-series-info";
 import { buildEpisodeWatchChannel, formatEpisodeCode } from "@/lib/playback/play-episode";
@@ -56,7 +58,7 @@ export function SeriesDetailView({
   providerChannelId,
 }: Props) {
   const { openChannel, navError: watchNavError, clearNavError } = useWatchNavigation();
-  const { data, loading, error, episodesBySeason, showTitle, showPlot, showCover, showBackdrop } =
+  const { data, loading, error, reload, episodesBySeason, showTitle, showPlot, showCover, showBackdrop } =
     useSeriesInfo(seriesId, { providerChannelId, title: fallbackTitle });
   const history = useViewingHistory();
   const [seasonTab, setSeasonTab] = useState<string | null>(null);
@@ -116,6 +118,27 @@ export function SeriesDetailView({
     }
     return best;
   }, [episodesBySeason, history]);
+
+  const primaryEpisode = continueTarget?.ep ?? episodesBySeason.flat[0] ?? null;
+  const primaryEpisodeIndex = primaryEpisode
+    ? episodesBySeason.flat.findIndex((episode) => episode.playUrl === primaryEpisode.playUrl)
+    : -1;
+  const primaryEpisodeChannel = primaryEpisode
+    ? buildEpisodeWatchChannel({
+        seriesId,
+        seriesTitle: title,
+        cover: cover || undefined,
+        groupTitle,
+        episode: primaryEpisode,
+        episodeIndex: Math.max(0, primaryEpisodeIndex),
+      })
+    : null;
+  const favoriteSeriesChannel = {
+    url: `zende://series/${encodeURIComponent(data?.seriesId ?? seriesId)}`,
+    name: title,
+    ...(cover ? { tvgLogo: cover } : {}),
+    ...(groupTitle ? { groupTitle } : {}),
+  };
 
   const playEpisode = useCallback(
     (episode: (typeof episodesBySeason.flat)[0], episodeIndex: number) => {
@@ -264,6 +287,17 @@ export function SeriesDetailView({
                 {seriesShareTarget ? (
                   <ShareMediaButton target={seriesShareTarget} size="lg" showLabel />
                 ) : null}
+                <FavoriteStarButton channel={favoriteSeriesChannel} size="md" showLabel />
+                {primaryEpisodeChannel ? (
+                  <MovieDownloadButton
+                    channel={{
+                      ...primaryEpisodeChannel,
+                      name: `${title} · ${formatEpisodeCode(primaryEpisode!.season, primaryEpisode!.episodeNum)} · ${primaryEpisode!.title}`,
+                    }}
+                    size="lg"
+                    showLabel
+                  />
+                ) : null}
               </div>
             </div>
           </div>
@@ -286,36 +320,52 @@ export function SeriesDetailView({
         {loading ? (
           <ZendeLoadingState className="py-12" size="large" label="Loading seasons…" />
         ) : error ? (
-          <p className="py-12 text-center text-[15px] text-error-strong">{error}</p>
+          <div className="flex flex-col items-center gap-4 py-12 text-center">
+            <p className="text-[15px] text-error-strong">{error}</p>
+            <Button variant="secondary" type="button" onClick={() => void reload()} className="rounded-full px-6">
+              Try again
+            </Button>
+          </div>
         ) : episodesBySeason.seasons.length === 0 ? (
           <p className="py-12 text-center text-[15px] text-foreground-intense">No episodes found.</p>
         ) : (
           <>
-            <div className="tv-season-tabs flex gap-2 overflow-x-auto pb-6 pt-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {episodesBySeason.seasons.map((season) => (
-                <Button
-                  variant={activeSeason === season ? "primary" : "secondary"}
-                  key={season}
-                  type="button"
-                  onClick={() => setSeasonTab(season)}
-                  className={cn(
-                    "shrink-0 rounded-full px-5 py-2.5 text-[14px] font-semibold transition-all",
-                    activeSeason === season ? "shadow-md scale-[1.02]" : "opacity-80 hover:opacity-100"
-                  )}
-                >
-                  Season {season}
-                </Button>
-              ))}
-            </div>
+            <section aria-labelledby="episodes-heading" className="mt-4">
+              <div className="mb-5 flex flex-wrap items-end justify-between gap-4 border-b border-white/10 pb-5">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-strong">Watch the series</p>
+                  <h2 id="episodes-heading" className="mt-1 text-3xl font-bold tracking-tight text-white">Episodes</h2>
+                  <p className="mt-1 text-sm text-white/55">
+                    Season {activeSeason} · {(episodesBySeason.map.get(activeSeason ?? "") ?? []).length} episodes
+                  </p>
+                </div>
+                <div className="tv-season-tabs flex max-w-full gap-2 overflow-x-auto p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Choose season">
+                  {episodesBySeason.seasons.map((season) => (
+                    <Button
+                      variant={activeSeason === season ? "primary" : "secondary"}
+                      key={season}
+                      type="button"
+                      aria-pressed={activeSeason === season}
+                      onClick={() => setSeasonTab(season)}
+                      className={cn(
+                        "shrink-0 rounded-full px-6 py-3 text-[14px] font-bold transition-all focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                        activeSeason === season ? "shadow-[0_0_28px_rgba(236,72,153,.24)]" : "border border-white/10 bg-white/5 text-white/75 hover:bg-white/10 hover:text-white"
+                      )}
+                    >
+                      Season {season}
+                    </Button>
+                  ))}
+                </div>
+              </div>
 
-            <ul className="tv-episode-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              <ul className="tv-episode-grid grid grid-cols-1 gap-4 xl:grid-cols-2">
               {(episodesBySeason.map.get(activeSeason ?? "") ?? []).map((ep) => {
                 const episodeIndex = episodesBySeason.flat.findIndex(
                   (candidate) => candidate.playUrl === ep.playUrl,
                 );
                 return (
                   <li key={ep.playUrl}>
-                    <Card frame="solid" className="tv-episode-card group h-full overflow-hidden border-white/10 bg-[#141925] transition-all hover:border-primary/50 hover:shadow-md">
+                    <Card frame="solid" className="tv-episode-card group h-full overflow-hidden border-white/10 bg-[#111722] transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-[0_18px_48px_rgba(0,0,0,.3)]">
                         <Button
                           variant="ghost"
                           data-tv-card
@@ -323,31 +373,42 @@ export function SeriesDetailView({
                           disabled={playBusy}
                           onClick={() => void playEpisode(ep, episodeIndex >= 0 ? episodeIndex : ep.index)}
                           aria-label={`Play ${formatEpisodeCode(ep.season, ep.episodeNum)}${ep.title ? `, ${ep.title}` : ""}`}
-                          className="tv-episode-play flex h-full min-h-[88px] w-full items-center gap-4 rounded-xl px-5 py-4 text-left text-white outline-none hover:bg-white/8 focus-visible:bg-white/10 focus-visible:ring-2 focus-visible:ring-primary"
+                          className="tv-episode-play grid h-full min-h-[150px] w-full grid-cols-[220px_minmax(0,1fr)_auto] items-center gap-5 rounded-xl p-3 text-left text-white outline-none hover:bg-white/[0.04] focus-visible:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-primary max-md:grid-cols-[132px_minmax(0,1fr)]"
                         >
-                          <div className="flex h-12 min-w-20 shrink-0 items-center justify-center rounded-lg bg-white/10 px-3 text-[15px] font-extrabold text-white transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                            {formatEpisodeCode(ep.season, ep.episodeNum)}
+                          <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-gradient-to-br from-slate-700 to-slate-950">
+                            {ep.artworkUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={secureImageUrl(ep.artworkUrl)} alt="" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+                            ) : cover ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={secureImageUrl(cover)} alt="" className="h-full w-full object-cover opacity-55" />
+                            ) : null}
+                            <span className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
+                            <span className="absolute bottom-2 left-2 rounded-md bg-black/75 px-2 py-1 text-xs font-extrabold tracking-wide">
+                              {formatEpisodeCode(ep.season, ep.episodeNum)}
+                            </span>
                           </div>
                           <div className="min-w-0 flex-1">
-                            <span className="block truncate text-[16px] font-bold text-white">
-                              {ep.title || `Episode ${ep.episodeNum || ""}`}
+                            <span className="block text-[18px] font-bold leading-tight text-white">
+                              {ep.episodeNum ? `${ep.episodeNum}. ` : ""}{ep.title || `Episode ${ep.episodeNum || ""}`}
                             </span>
-                            {ep.durationSeconds ? (
-                              <span className="mt-1 block text-[13px] font-medium text-white/60">
-                                {Math.round(ep.durationSeconds / 60)} min
-                              </span>
-                            ) : null}
+                            <span className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] font-medium text-white/55">
+                              {ep.durationSeconds ? <span className="flex items-center gap-1.5"><Clock3 className="size-3.5" aria-hidden />{Math.round(ep.durationSeconds / 60)} min</span> : null}
+                              {ep.airDate ? <span className="flex items-center gap-1.5"><CalendarDays className="size-3.5" aria-hidden />{ep.airDate}</span> : null}
+                              {ep.rating ? <span className="flex items-center gap-1.5"><Star className="size-3.5 fill-current" aria-hidden />{ep.rating.toFixed(1)}</span> : null}
+                            </span>
+                            {ep.overview ? <span className="mt-3 line-clamp-2 block text-[14px] leading-relaxed text-white/65">{ep.overview}</span> : null}
                           </div>
-                          <span className="flex shrink-0 items-center gap-2 rounded-full bg-white px-4 py-2 text-[13px] font-extrabold text-black">
-                            <Play className="h-4 w-4 fill-current" aria-hidden />
-                            Play
+                          <span className="mr-2 flex size-12 shrink-0 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform group-hover:scale-105 max-md:hidden">
+                            <Play className="size-5 fill-current" aria-hidden />
                           </span>
                         </Button>
                     </Card>
                   </li>
                 );
               })}
-            </ul>
+              </ul>
+            </section>
           </>
         )}
       </div>

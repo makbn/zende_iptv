@@ -1,15 +1,12 @@
 "use client";
 
 import { Button } from "@appica/ui-react/button";
-import { useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { type KeyboardEvent } from "react";
 import { Tv } from "lucide-react";
 
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 
 import { FavoriteStarButton } from "@/components/tv/favorite-star-button";
-import { TvCardActionMenu } from "@/components/tv/tv-card-action-menu";
-import { MovieDownloadButton } from "@/components/library/movie-download-button";
-import { ShareMediaButton } from "@/components/shares/share-media-button";
 import { ChannelHealthBadge } from "@/components/health/channel-health-badge";
 import {
   ChannelArtBadge,
@@ -21,7 +18,6 @@ import type { HealthScoreDto } from "@/features/health/use-channel-health";
 import { channelArtBadgeLabel, parseChannelLabel } from "@/lib/channel/channel-label";
 import { resolveLibraryContentType } from "@/lib/channels/content-type";
 import { cn } from "@/lib/utils";
-import { mediaShareTargetForChannel } from "@/lib/shares/share-target";
 
 export type TvChannelTileContextMenu = {
   onRemoveFromRecent: () => void;
@@ -62,42 +58,25 @@ export function TvChannelTile({
   const meta = channelMetaLine(channel.groupTitle);
   const sourceMeta = [channel.providerName, meta].filter(Boolean).join(" · ") || null;
   const contentType = resolveLibraryContentType(channel);
-  const shareTarget = mediaShareTargetForChannel(channel);
-  const [actionMenuOpen, setActionMenuOpen] = useState(false);
-  const tileRef = useRef<HTMLDivElement>(null);
-
   const open = () => onSelect?.(channel);
-  const setMenuOpen = (next: boolean) => {
-    setActionMenuOpen(next);
-    if (!next) window.requestAnimationFrame(() => tileRef.current?.focus());
-  };
 
   const onTileKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Enter" || e.key === " " || e.keyCode === 23 || e.keyCode === 66) {
       e.preventDefault();
       e.stopPropagation();
-      setMenuOpen(true);
+      open();
     }
-  };
-
-  const onTileContextMenu = (event: MouseEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setMenuOpen(true);
   };
 
 
   const tileContent = (
     <div
-      ref={tileRef}
       data-tv-card
       role="button"
       tabIndex={0}
       onClick={open}
       onKeyDown={onTileKeyDown}
-      onContextMenu={onTileContextMenu}
       aria-label={`Play ${label}`}
-      aria-haspopup="menu"
-      aria-expanded={actionMenuOpen}
       className={cn(
         "tv-media-card group relative flex cursor-pointer flex-col overflow-hidden rounded-xl border border-border bg-background-subtle text-left snap-start",
         "focus-visible:z-20 focus-visible:outline-none",
@@ -139,7 +118,7 @@ export function TvChannelTile({
         ) : null}
       </div>
 
-      {(channelArtBadgeLabel(parsed, contentType) || showFavoriteStar || contentType === "movie" || shareTarget) ? (
+      {(channelArtBadgeLabel(parsed, contentType) || (showFavoriteStar && contentType === "live")) ? (
         <div className="tv-media-card-actions pointer-events-none absolute right-2 top-2 z-20 flex flex-col items-end gap-1">
           {channelArtBadgeLabel(parsed, contentType) ? (
             <div className="pointer-events-auto">
@@ -147,9 +126,7 @@ export function TvChannelTile({
             </div>
           ) : null}
           <div className="pointer-events-auto flex items-center gap-1">
-            {shareTarget ? <ShareMediaButton target={shareTarget} /> : null}
-            {contentType === "movie" ? <MovieDownloadButton channel={channel} /> : null}
-            {showFavoriteStar ? <FavoriteStarButton channel={channel} /> : null}
+            {showFavoriteStar && contentType === "live" ? <FavoriteStarButton channel={channel} /> : null}
           </div>
         </div>
       ) : null}
@@ -176,17 +153,6 @@ export function TvChannelTile({
     </div>
   );
 
-  return (
-    <>
-      {tileContent}
-      <TvCardActionMenu
-        channel={channel}
-        contentType={contentType}
-        open={actionMenuOpen}
-        onOpenChange={setMenuOpen}
-        onPrimaryAction={open}
-        onRemoveFromRecent={contextMenu?.onRemoveFromRecent}
-      />
-    </>
-  );
+  void contextMenu;
+  return tileContent;
 }

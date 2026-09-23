@@ -1,0 +1,51 @@
+.env
+# ==========================================
+# Gradle and Build Artifacts
+# ==========================================
+.gradle/
+build/
+**/build/
+*.apk
+*.ap_
+*.aab
+
+# ==========================================
+# Local Configuration and Credentials (DO NOT COMMIT)
+# ==========================================
+local.properties
+*.jks
+*.keystore
+keystore.properties
+google-services.json
+
+# ==========================================
+# Android Studio / IntelliJ IDEA Files
+# ==========================================
+*.iml
+.idea/
+!.idea/codeStyles/
+!.idea/copyright/
+
+# Optional: Uncomment if you want to ignore user-specific layout/device cache
+# .idea/workspace.xml
+# .idea/tasks.xml
+# .idea/navEditor.xml
+
+# ==========================================
+# Kotlin Specific
+# ==========================================
+.kotlin/
+*.class
+
+# ==========================================
+# Logs, Profiling, and OS Files
+# ==========================================
+*.log
+*.hprof
+captures/
+.externalNativeBuild/
+.cxx/
+
+# OS-specific
+.DS_Store
+Thumbs.db

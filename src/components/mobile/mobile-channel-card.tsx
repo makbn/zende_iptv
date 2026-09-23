@@ -6,8 +6,6 @@ import { Play, Tv } from "lucide-react";
 
 import { ChannelHealthBadge } from "@/components/health/channel-health-badge";
 import { FavoriteStarButton } from "@/components/tv/favorite-star-button";
-import { MovieDownloadButton } from "@/components/library/movie-download-button";
-import { ShareMediaButton } from "@/components/shares/share-media-button";
 import {
   ChannelArtBadge,
   ChannelLogo,
@@ -19,7 +17,6 @@ import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
 import { resolveLibraryContentType } from "@/lib/channels/content-type";
 import { cn } from "@/lib/utils";
-import { mediaShareTargetForChannel } from "@/lib/shares/share-target";
 
 type Props = {
   channel: M3uChannel;
@@ -54,7 +51,6 @@ export function MobileChannelCard({
   const { displayName } = parsed;
   const meta = metaLine(channel.groupTitle);
   const contentType = resolveLibraryContentType(channel);
-  const shareTarget = mediaShareTargetForChannel(channel);
 
   return (
     <article className={cn("relative min-w-0", className)}>
@@ -143,11 +139,9 @@ export function MobileChannelCard({
         </span>
       </div>
 
-      {showFavoriteStar || contentType === "movie" || shareTarget ? (
+      {showFavoriteStar && contentType === "live" ? (
         <div className="absolute right-2.5 top-2.5 z-30 flex items-center gap-1 sm:right-3 sm:top-3">
-          {shareTarget ? <ShareMediaButton target={shareTarget} /> : null}
-          {contentType === "movie" ? <MovieDownloadButton channel={channel} /> : null}
-          {showFavoriteStar ? <FavoriteStarButton channel={channel} /> : null}
+          <FavoriteStarButton channel={channel} />
         </div>
       ) : null}
       {onPreview ? (

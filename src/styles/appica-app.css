@@ -97,7 +97,7 @@ html[data-tv-input="remote"] .tv-theme-toggle {
 
 /* Navigation is a persistent TV chrome bar, not a desktop website header. */
 html[data-tv-input="remote"] .tv-top-bar {
-  height: 88px;
+  height: 96px;
   border-bottom-color: rgb(255 255 255 / 0.07) !important;
   background: linear-gradient(180deg, rgb(5 7 12 / 0.98), rgb(8 10 16 / 0.92)) !important;
   box-shadow: 0 14px 36px rgb(0 0 0 / 0.25);
@@ -110,7 +110,8 @@ html[data-tv-input="remote"] .tv-top-bar-container {
 }
 
 html[data-tv-input="remote"] .tv-top-bar-row {
-  height: 88px !important;
+  height: 96px !important;
+  padding-top: 12px;
 }
 
 html[data-tv-input="remote"] .tv-brand-link {
@@ -136,6 +137,7 @@ html[data-tv-input="remote"] .tv-main-nav {
 }
 
 html[data-tv-input="remote"] .tv-nav-link {
+  flex: 0 0 auto;
   height: 54px !important;
   border: 0 !important;
   border-radius: 12px;
@@ -143,6 +145,7 @@ html[data-tv-input="remote"] .tv-nav-link {
   color: #a8aebe !important;
   font-size: 17px !important;
   font-weight: 600 !important;
+  white-space: nowrap;
   transition: color 150ms ease, background-color 150ms ease, transform 150ms ease;
 }
 
@@ -177,7 +180,7 @@ html[data-tv-input="remote"] .tv-top-bar-actions > div > button {
 
 /* Shared TV typography, spacing and content shelves. */
 html[data-tv-input="remote"] :is(.tv-page, .tv-browse-main, .tv-library-main) {
-  padding-top: 112px !important;
+  padding-top: 120px !important;
   padding-bottom: 72px !important;
   background: transparent !important;
 }
@@ -292,7 +295,7 @@ html[data-tv-input="remote"] .tv-library-header,
 html[data-tv-input="remote"] .tv-library-results,
 html[data-tv-input="remote"] .tv-library-filter-sticky > div {
   max-width: none !important;
-  padding-inline: 4vw !important;
+  padding-inline: var(--tv-safe-inline) !important;
 }
 
 html[data-tv-input="remote"] .tv-library-header {
@@ -336,7 +339,7 @@ html[data-tv-input="remote"] .tv-library-search input {
 }
 
 html[data-tv-input="remote"] .tv-library-filter-sticky {
-  top: 88px !important;
+  top: 96px !important;
   border-color: rgb(255 255 255 / 0.07) !important;
   background: rgb(8 10 16 / 0.94) !important;
   backdrop-filter: blur(26px) saturate(125%);
@@ -391,13 +394,13 @@ html[data-tv-input="remote"] .poster-grid {
 
 /* Media details open like a streaming-app title page, with play as the clear next action. */
 html[data-tv-input="remote"] .tv-media-detail {
-  padding-top: 88px !important;
+  padding-top: 96px !important;
   padding-bottom: 0 !important;
   background: #080a10 !important;
 }
 
 html[data-tv-input="remote"] .tv-media-detail-hero {
-  min-height: calc(100vh - 88px) !important;
+  min-height: calc(100vh - 96px) !important;
 }
 
 html[data-tv-input="remote"] .tv-media-detail-hero > [aria-hidden]:first-child img {
@@ -407,12 +410,12 @@ html[data-tv-input="remote"] .tv-media-detail-hero > [aria-hidden]:first-child i
 html[data-tv-input="remote"] .tv-media-detail-content,
 html[data-tv-input="remote"] .tv-series-content {
   max-width: none !important;
-  padding-inline: 4vw !important;
+  padding-inline: var(--tv-safe-inline) !important;
 }
 
 html[data-tv-input="remote"] .tv-media-detail-content {
   display: flex;
-  min-height: calc(100vh - 88px);
+  min-height: calc(100vh - 96px);
   flex-direction: column;
   justify-content: center;
   padding-top: 26px !important;
@@ -567,7 +570,7 @@ html[data-tv-input="remote"] .tv-player-control-row button svg {
 /* Settings, recordings, guide and overlays share comfortable remote targets. */
 html[data-tv-input="remote"] .tv-page-hero {
   max-width: none !important;
-  padding: 34px 4vw !important;
+  padding: 34px var(--tv-safe-inline) !important;
 }
 
 html[data-tv-input="remote"] .tv-page-hero h1 {
@@ -766,7 +769,7 @@ html[data-tv-input="remote"] .tv-login-pair-url {
   height: 100%;
   flex-direction: column;
   justify-content: center;
-  padding: 98px 0 88px 4.5vw;
+  padding: 108px 0 88px var(--tv-safe-inline, 4.5vw);
 }
 
 .tv-home-hero-eyebrow {
@@ -850,7 +853,7 @@ html[data-tv-input="remote"] .tv-login-pair-url {
 .tv-home-hero-dots {
   position: absolute;
   z-index: 3;
-  right: 4.5vw;
+  right: var(--tv-safe-inline, 4.5vw);
   bottom: 158px;
   display: flex;
   align-items: center;
@@ -882,7 +885,7 @@ html[data-tv-input="remote"] .tv-login-pair-url {
 }
 
 .tv-home-section {
-  padding-inline: 4.5vw;
+  padding-inline: var(--tv-safe-inline, 4.5vw);
   scroll-margin-top: 96px;
 }
 
@@ -898,11 +901,11 @@ html[data-tv-input="remote"] .tv-login-pair-url {
 .tv-home-rail {
   display: flex;
   gap: 16px;
-  margin-inline: -4.5vw;
+  margin-inline: calc(0px - var(--tv-safe-inline, 4.5vw));
   overflow-x: auto;
   overflow-y: visible;
-  padding: 8px 4.5vw 24px;
-  scroll-padding-inline: 4.5vw;
+  padding: 8px var(--tv-safe-inline, 4.5vw) 24px;
+  scroll-padding-inline: var(--tv-safe-inline, 4.5vw);
   scroll-snap-type: x proximity;
 }
 
@@ -1025,7 +1028,7 @@ html[data-tv-input="remote"] .tv-login-pair-url {
   align-items: center;
   justify-content: space-between;
   gap: 28px;
-  margin-inline: 4.5vw;
+  margin-inline: var(--tv-safe-inline, 4.5vw);
   border: 1px solid rgb(255 255 255 / 0.09);
   border-radius: 16px;
   padding: 26px 28px;
@@ -1050,7 +1053,7 @@ html[data-tv-input="remote"] .tv-login-pair-url {
 
 .tv-home-shelf-error {
   margin: 0;
-  padding: 0 4.5vw 36px;
+  padding: 0 var(--tv-safe-inline, 4.5vw) 36px;
   color: #a8aebe;
   font-size: 14px;
 }
@@ -1060,7 +1063,7 @@ html[data-tv-input="remote"] .tv-login-pair-url {
 }
 
 html[data-tv-input="remote"] .tv-top-bar.tv-top-bar--home {
-  height: 76px;
+  height: 96px;
   border-bottom-color: transparent !important;
   background: transparent !important;
   box-shadow: none;
@@ -1068,11 +1071,11 @@ html[data-tv-input="remote"] .tv-top-bar.tv-top-bar--home {
 }
 
 html[data-tv-input="remote"] .tv-top-bar--home .tv-top-bar-row {
-  height: 76px !important;
+  height: 96px !important;
 }
 
 html[data-tv-input="remote"] .tv-top-bar--home .tv-top-bar-container {
-  padding-inline: 4.5vw !important;
+  padding-inline: var(--tv-safe-inline) !important;
 }
 
 html[data-tv-input="remote"] .tv-top-bar--home .tv-brand-link {
@@ -1172,4 +1175,145 @@ html[data-tv-input="remote"] .tv-home-hero-secondary {
   .tv-home-card img { transition: none; }
   .tv-home-loading-cards span { animation: none; }
   html[data-tv-input="remote"] .tv-home-card:focus { transform: none; }
+}
+
+/*
+ * Remote-safe focus geometry. Horizontal overflow containers clip outlines on
+ * TV engines (notably Samsung Chromium) even when overflow-y is declared
+ * visible. Reserve the focused scale/glow inside each scroller and keep the
+ * compact header focus treatment inside its own chrome.
+ */
+html[data-tv-input="remote"] {
+  --tv-safe-inline: max(48px, 5vw);
+  --tv-safe-block: max(24px, 2.6vh);
+}
+
+html[data-tv-input="remote"] :is(
+  a[href],
+  button,
+  input,
+  select,
+  textarea,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="combobox"]
+) {
+  scroll-margin-block: 124px 48px;
+  scroll-margin-inline: var(--tv-safe-inline);
+}
+
+html[data-tv-input="remote"] .tv-top-bar,
+html[data-tv-input="remote"] .tv-top-bar-surface,
+html[data-tv-input="remote"] .tv-top-bar-row,
+html[data-tv-input="remote"] .tv-top-bar-actions {
+  overflow: visible !important;
+}
+
+html[data-tv-input="remote"] .tv-top-bar-container {
+  padding-inline: var(--tv-safe-inline) !important;
+}
+
+html[data-tv-input="remote"] .tv-main-nav {
+  max-width: min(62vw, 960px) !important;
+  margin: -10px -8px;
+  padding: 10px 8px;
+  overflow: visible !important;
+}
+
+html[data-tv-input="remote"] .tv-top-bar-actions {
+  margin: -10px;
+  padding: 10px;
+}
+
+html[data-tv-input="remote"] :is(
+  .tv-nav-link,
+  .tv-top-bar-actions > button,
+  .tv-top-bar-actions > a,
+  .tv-top-bar-actions > div > button
+):focus-visible {
+  z-index: 70;
+  outline: 3px solid #ff5b9e !important;
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 2px #080a10,
+    0 0 18px 3px rgb(255 77 148 / 0.44) !important;
+}
+
+html[data-tv-input="remote"] .tv-top-bar-actions > :is(button, a):focus-visible,
+html[data-tv-input="remote"] .tv-top-bar-actions > div > button:focus-visible {
+  background: #ffffff !important;
+  color: #080a10 !important;
+  transform: scale(1.05);
+}
+
+html[data-tv-input="remote"] :is(.tv-section, .tv-home-section) {
+  padding-inline: var(--tv-safe-inline) !important;
+}
+
+html[data-tv-input="remote"] .tv-rail {
+  margin-inline: calc(0px - var(--tv-safe-inline)) !important;
+  padding: 20px var(--tv-safe-inline) 46px !important;
+  scroll-padding-inline: var(--tv-safe-inline);
+}
+
+html[data-tv-input="remote"] .tv-home-rail {
+  margin-inline: calc(0px - var(--tv-safe-inline));
+  padding: 18px var(--tv-safe-inline) 36px;
+  scroll-padding-inline: var(--tv-safe-inline);
+}
+
+html[data-tv-input="remote"] :is(.tv-media-card, .tv-home-card-wrap) {
+  scroll-margin-inline: 22px;
+}
+
+html[data-tv-input="remote"] .tv-library-results [data-tv-layout="grid"] {
+  padding: 18px 12px 46px !important;
+}
+
+html[data-tv-input="remote"] .poster-grid {
+  column-gap: 1.25rem;
+  row-gap: 1.5rem;
+}
+
+/* Keep low-powered Samsung TV composition predictable during D-pad movement. */
+html[data-tv-platform="tizen"] .tv-top-bar,
+html[data-tv-platform="tizen"] .tv-library-filter-sticky,
+html[data-tv-platform="tizen"] .tv-home-hero-secondary {
+  backdrop-filter: none !important;
+}
+
+html[data-tv-platform="tizen"] :is(.tv-rail, .tv-home-rail) {
+  scroll-snap-type: none;
+  scroll-behavior: auto;
+  -webkit-overflow-scrolling: auto;
+}
+
+html[data-tv-platform="tizen"] [data-tv-card]:focus {
+  box-shadow:
+    0 0 0 3px #ffffff,
+    0 0 0 7px #ff4d94,
+    0 16px 36px rgb(0 0 0 / 0.68) !important;
+}
+
+/* Samsung can expose a narrower CSS viewport even on a 1080p panel. */
+@media (max-width: 1100px) {
+  html[data-tv-input="remote"] .tv-brand-link span {
+    display: none !important;
+  }
+
+  html[data-tv-input="remote"] .tv-main-nav {
+    gap: 4px !important;
+  }
+
+  html[data-tv-input="remote"] .tv-nav-link {
+    padding-inline: 12px !important;
+    font-size: 16px !important;
+  }
+
+  html[data-tv-input="remote"] .tv-top-bar-actions > :is(button, a, div > button),
+  html[data-tv-input="remote"] .tv-top-bar-actions > div > button {
+    width: 48px !important;
+    height: 48px !important;
+  }
 }

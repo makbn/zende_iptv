@@ -13,6 +13,7 @@ import { TvSettingsAuthPanel } from "@/components/tv/tv-settings-auth-panel";
 import { TvSettingsIntegrationsPanel } from "@/components/tv/tv-settings-integrations-panel";
 import { TvSettingsProxiesPanel } from "@/components/tv/tv-settings-proxies-panel";
 import { TvSettingsCachePanel } from "@/components/tv/tv-settings-cache-panel";
+import { TvSettingsInternalDownloadsPanel } from "@/components/tv/tv-settings-internal-downloads-panel";
 import { BROWSE_CONTAINER_CLASS } from "@/components/layout/browse-page-shell";
 import { Button } from "@appica/ui-react/button";
 import { Tabs, TabsList, TabsTrigger } from "@appica/ui-react/tabs";
@@ -230,6 +231,7 @@ export function TvSettingsPage() {
 
         {canManageSystem && activeTab === "server" ? (
           <div className={cn(BROWSE_CONTAINER_CLASS, "mt-8 space-y-8")}>
+          <TvSettingsInternalDownloadsPanel />
           <TvSettingsCachePanel />
           <section
             className={cn(

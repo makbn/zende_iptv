@@ -20,12 +20,14 @@ type Props = {
   channel: FavoriteStarChannel;
   className?: string;
   size?: "sm" | "md";
+  showLabel?: boolean;
 };
 
 export function FavoriteStarButton({
   channel,
   className,
   size = "sm",
+  showLabel = false,
 }: Props) {
   const active = useSyncExternalStore(
     (onChange) => subscribeFavoriteUrl(channel.url, onChange),
@@ -36,7 +38,7 @@ export function FavoriteStarButton({
     size === "md" ? "size-[22px]" : "size-[18px] stroke-[2.25px]";
 
   return (
-    <Button variant="ghost"
+    <Button variant={showLabel ? "secondary" : "ghost"}
       type="button"
       aria-label={active ? "Remove from favorites" : "Add to favorites"}
       aria-pressed={active}
@@ -46,7 +48,8 @@ export function FavoriteStarButton({
         toggleFavorite(channel);
       }}
       className={cn(
-        "rounded-xl outline-none transition-[transform,colors,background-color] duration-200",
+        showLabel ? "rounded-full" : "rounded-xl",
+        "outline-none transition-[transform,colors,background-color] duration-200",
         "focus-visible:ring-2 focus-visible:ring-border focus-visible:ring-offset-2 focus-visible:ring-offset-black/90",
         "hover:scale-105 active:scale-95",
         active
@@ -60,6 +63,7 @@ export function FavoriteStarButton({
         className={cn(iconClass, active && "fill-current text-warning-strong")}
         aria-hidden
       />
+      {showLabel ? (active ? "Favorited" : "Favorite") : null}
     </Button>
   );
 }

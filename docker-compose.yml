@@ -17,6 +17,10 @@ services:
       ZENDE_RECORDINGS_DIR: "/data/recordings"
       # Subtitle VTT + search cache (7-day TTL) — same volume so it survives rebuilds.
       ZENDE_SUBTITLES_DIR: "/data/subtitles"
+      # Series seasons/episodes — stale fallback when an Xtream portal is unavailable.
+      ZENDE_SERIES_CACHE_DIR: "/data/series-info-cache"
+      # Admin-selectable internal downloads are restricted to this persistent root.
+      ZENDE_INTERNAL_DOWNLOAD_ROOTS: "/data"
       LOG_LEVEL: "${LOG_LEVEL:-info}"
       LOG_PRETTY: "${LOG_PRETTY:-1}"
       # Dedicated, bounded JSONL error log exposed on the host at ./logs/.

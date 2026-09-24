@@ -289,6 +289,21 @@ export function updateViewingPosition(url: string, positionSeconds: number): voi
   notifyViewingStatsUpdated();
 }
 
+/** Latest saved position from viewing history for a provider URL. */
+export function getViewingEntryPosition(url: string): number | null {
+  if (!url) return null;
+  const entry = readStore().entries.find((e) => e.url === url);
+  if (
+    !entry ||
+    entry.positionSeconds == null ||
+    !Number.isFinite(entry.positionSeconds) ||
+    entry.positionSeconds <= 0
+  ) {
+    return null;
+  }
+  return entry.positionSeconds;
+}
+
 /** Add/update local Continue Watching only after meaningful VOD playback. */
 export function recordLocalPlaybackProgress(input: {
   url: string;

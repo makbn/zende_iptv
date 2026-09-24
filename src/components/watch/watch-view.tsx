@@ -93,6 +93,7 @@ import {
   useIntroSegments,
 } from "@/components/watch/skip-intro-button";
 import { AudioTrackPanel } from "@/components/watch/audio-track-panel";
+import { ResumePlaybackDialog } from "@/components/watch/resume-playback-dialog";
 import { SubtitleSearchPanel } from "@/components/watch/subtitle-search-panel";
 import { hintAudioTracksFromCatalog } from "@/lib/playback/audio-tracks-hint";
 import { queuePlaybackHealthProbe } from "@/features/health/queue-playback-health-probe";
@@ -106,9 +107,12 @@ import {
   subscribeViewingStats,
 } from "@/lib/watch/viewing-stats";
 import {
+  clearPlaybackPosition,
   createPlaybackPositionSaver,
-  getPlaybackPosition,
+  resolvePlaybackPosition,
+  shouldOfferResume,
 } from "@/lib/playback/playback-position";
+import { consumeResumeDecision } from "@/lib/playback/resume-decision";
 import {
   REMOTE_COMMAND_EVENT,
   useRemoteControl,
@@ -603,6 +607,8 @@ export function WatchView() {
     timeLeft: number;
   } | null>(null);
   const resumeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const resumePromptActiveRef = useRef(false);
+  const resumeHandledKeyRef = useRef<string | null>(null);
   const [pipActive, setPipActive] = useState(false);
   const [pipCapable, setPipCapable] = useState(false);
   const [chromeVisible, setChromeVisible] = useState(true);
@@ -1068,18 +1074,47 @@ export function WatchView() {
       }
       if (
         playbackPositionKey &&
-        resumedUrlRef.current !== playbackPositionKey &&
-        isVodContent &&
-        !sessionMeta?.transcoded
+        resumeHandledKeyRef.current !== playbackPositionKey &&
+        isVodContent
       ) {
-        const saved =
-          sessionMeta?.resumePositionSeconds ??
-          getPlaybackPosition(playbackPositionKey);
-        if (saved != null && saved > 5) {
-          v.pause();
-          setResumePrompt({ saved, url: playbackPositionKey, timeLeft: 10 });
-        }
+        resumeHandledKeyRef.current = playbackPositionKey;
         resumedUrlRef.current = playbackPositionKey;
+
+        const priorDecision = consumeResumeDecision();
+        if (priorDecision?.choice === "start-over") {
+          v.currentTime = 0;
+          if (chromeVisibleRef.current) syncChromeProgress(true);
+          return;
+        }
+        if (priorDecision?.choice === "continue") {
+          const saved =
+            priorDecision.positionSeconds ??
+            resolvePlaybackPosition(
+              [playbackPositionKey, canonicalUrl],
+              sessionMeta?.resumePositionSeconds,
+            );
+          if (saved != null && saved > 0) {
+            const cap = Number.isFinite(v.duration) && v.duration > 0 ? v.duration : saved;
+            v.currentTime = Math.min(saved, Math.max(0, cap - 1));
+            setCurrentTime(v.currentTime);
+          }
+          if (chromeVisibleRef.current) syncChromeProgress(true);
+          return;
+        }
+
+        const saved = resolvePlaybackPosition(
+          [playbackPositionKey, canonicalUrl],
+          sessionMeta?.resumePositionSeconds,
+        );
+        if (shouldOfferResume(saved)) {
+          v.pause();
+          resumePromptActiveRef.current = true;
+          setResumePrompt({
+            saved: saved!,
+            url: playbackPositionKey,
+            timeLeft: tvSurface ? 15 : 10,
+          });
+        }
       }
       if (chromeVisibleRef.current) syncChromeProgress(true);
     };
@@ -1130,7 +1165,14 @@ export function WatchView() {
       v.removeEventListener("ratechange", onRate);
       v.removeEventListener("progress", onProgress);
     };
-  }, [isVodContent, playbackPositionKey, sessionMeta?.resumePositionSeconds, sessionMeta?.transcoded, syncChromeProgress]);
+  }, [canonicalUrl, isVodContent, playbackPositionKey, sessionMeta?.resumePositionSeconds, syncChromeProgress, tvSurface]);
+
+  useEffect(() => {
+    resumeHandledKeyRef.current = null;
+    resumedUrlRef.current = null;
+    resumePromptActiveRef.current = false;
+    setResumePrompt(null);
+  }, [playbackPositionKey]);
 
   useEffect(() => {
     const saver = createPlaybackPositionSaver({
@@ -1183,6 +1225,7 @@ export function WatchView() {
     if (!v || !playbackSrc) return;
 
     const kickAutoplay = () => {
+      if (resumePromptActiveRef.current) return;
       if (!v.paused) {
         setAutoplayBlocked(false);
         return;
@@ -1202,20 +1245,23 @@ export function WatchView() {
 
   // ─── Resume Dialog Timer ──────────────────────────────────────────
   useEffect(() => {
+    resumePromptActiveRef.current = Boolean(resumePrompt);
     if (!resumePrompt) {
       if (resumeTimerRef.current) clearInterval(resumeTimerRef.current);
       return;
     }
+    // Keep the stream paused while the prompt is visible (autoplay can race).
+    videoRef.current?.pause();
     resumeTimerRef.current = setInterval(() => {
       setResumePrompt((prev) => {
         if (!prev) return null;
         if (prev.timeLeft <= 1) {
-          // Auto-continue
           const v = videoRef.current;
           if (v) {
             const cap = Number.isFinite(v.duration) && v.duration > 0 ? v.duration : prev.saved;
-            v.currentTime = Math.min(prev.saved, cap - 1);
+            v.currentTime = Math.min(prev.saved, Math.max(0, cap - 1));
             setCurrentTime(v.currentTime);
+            resumePromptActiveRef.current = false;
             void v.play().catch(() => {
               v.dispatchEvent(new Event("pause"));
             });
@@ -1234,21 +1280,24 @@ export function WatchView() {
     (choice: "continue" | "start-over") => {
       const v = videoRef.current;
       const prompt = resumePrompt;
+      resumePromptActiveRef.current = false;
       setResumePrompt(null);
       if (!v || !prompt) return;
 
       if (choice === "continue") {
         const cap = Number.isFinite(v.duration) && v.duration > 0 ? v.duration : prompt.saved;
-        v.currentTime = Math.min(prompt.saved, cap - 1);
+        v.currentTime = Math.min(prompt.saved, Math.max(0, cap - 1));
       } else {
         v.currentTime = 0;
+        if (prompt.url) clearPlaybackPosition(prompt.url);
+        if (canonicalUrl) clearPlaybackPosition(canonicalUrl);
       }
       setCurrentTime(v.currentTime);
       void v.play().catch(() => {
         v.dispatchEvent(new Event("pause"));
       });
     },
-    [resumePrompt],
+    [canonicalUrl, resumePrompt],
   );
 
   const togglePlay = useCallback(() => {
@@ -1779,18 +1828,16 @@ export function WatchView() {
         className="fixed inset-0 z-0 overflow-hidden bg-black text-foreground-intense"
       >
         {resumePrompt ? (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm">
-            <Card frame="solid" className="max-w-xs text-center">
-              <div className="px-5 py-6">
-                <p className="text-[14px] font-semibold text-foreground-intense">Resume playback?</p>
-                <p className="mt-2 text-[13px] text-foreground-muted">Continue from {formatClock(resumePrompt.saved)}?</p>
-                <div className="mt-6 flex gap-2">
-                  <Button variant="secondary" className="flex-1" onClick={() => handleResumeChoice("start-over")}>Start over</Button>
-                  <Button className="flex-1" onClick={() => handleResumeChoice("continue")}>Continue ({resumePrompt.timeLeft}s)</Button>
-                </div>
-              </div>
-            </Card>
-          </div>
+          <ResumePlaybackDialog
+            open
+            title={titleDisplay || title}
+            positionSeconds={resumePrompt.saved}
+            timeLeft={resumePrompt.timeLeft}
+            tvMode={tvSurface}
+            formatClock={formatClock}
+            onContinue={() => handleResumeChoice("continue")}
+            onStartOver={() => handleResumeChoice("start-over")}
+          />
         ) : null}
         <div className="absolute inset-0">
           <div

@@ -23,13 +23,29 @@ import { secureImageUrl } from "@/lib/media/secure-image-url";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
 import { createDownloadUrl } from "@/lib/navigation/watch-url";
 import {
-  getPlaybackPosition,
+  clearPlaybackPosition,
   playbackProgressRatio,
+  resolvePlaybackPosition,
+  shouldOfferResume,
 } from "@/lib/playback/playback-position";
-import { subscribeViewingStats } from "@/lib/watch/viewing-stats";
+import { stashResumeDecision } from "@/lib/playback/resume-decision";
+import {
+  getViewingEntryPosition,
+  subscribeViewingStats,
+} from "@/lib/watch/viewing-stats";
 import { cn } from "@/lib/utils";
 import { mediaShareTargetForChannel } from "@/lib/shares/share-target";
 import { isTvEnvironment } from "@/lib/tv/tv-environment";
+import { ResumePlaybackDialog } from "@/components/watch/resume-playback-dialog";
+
+function formatResumeClock(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
 
 type Props = {
   movieId: string;
@@ -44,7 +60,9 @@ export function MovieDetailView({ movieId, fallbackTitle, fallbackLogo, fallback
   const [historyRevision, setHistoryRevision] = useState(0);
   const [actionError, setActionError] = useState<string | null>(null);
   const [downloadBusy, setDownloadBusy] = useState(false);
+  const [resumeChoiceOpen, setResumeChoiceOpen] = useState(false);
   const startMovieButtonRef = useRef<HTMLButtonElement>(null);
+  const tvMode = isTvEnvironment();
 
   useEffect(() => subscribeViewingStats(() => setHistoryRevision((value) => value + 1)), []);
 
@@ -56,7 +74,12 @@ export function MovieDetailView({ movieId, fallbackTitle, fallbackLogo, fallback
     data?.durationSeconds ??
     (metadata?.runtimeMinutes ? metadata.runtimeMinutes * 60 : undefined);
   void historyRevision;
-  const position = data?.channel.url ? getPlaybackPosition(data.channel.url) : null;
+  const position = data?.channel.url
+    ? resolvePlaybackPosition(
+        [data.channel.url],
+        getViewingEntryPosition(data.channel.url),
+      )
+    : null;
   const progress = playbackProgressRatio(position, durationSeconds ?? undefined);
 
   const playbackChannel = data?.channel
@@ -81,18 +104,49 @@ export function MovieDetailView({ movieId, fallbackTitle, fallbackLogo, fallback
   const playbackUrl = playbackChannel?.url;
 
   useEffect(() => {
-    if (!playbackUrl || !isTvEnvironment()) return;
+    if (!playbackUrl || !tvMode) return;
     const frame = window.requestAnimationFrame(() => {
       startMovieButtonRef.current?.focus({ preventScroll: true });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [playbackUrl]);
+  }, [playbackUrl, tvMode]);
 
-  function startPlayback() {
+  function launchPlayback() {
     if (!playbackChannel) return;
     setActionError(null);
     clearNavError();
     playChannel(playbackChannel);
+  }
+
+  function startPlayback() {
+    if (!playbackChannel) return;
+    if (shouldOfferResume(position)) {
+      setResumeChoiceOpen(true);
+      return;
+    }
+    launchPlayback();
+  }
+
+  function handleResumeContinue() {
+    if (position != null) {
+      stashResumeDecision({
+        choice: "continue",
+        positionSeconds: position,
+        ...(playbackChannel?.url ? { url: playbackChannel.url } : {}),
+      });
+    }
+    setResumeChoiceOpen(false);
+    launchPlayback();
+  }
+
+  function handleResumeStartOver() {
+    if (playbackChannel?.url) clearPlaybackPosition(playbackChannel.url);
+    stashResumeDecision({
+      choice: "start-over",
+      ...(playbackChannel?.url ? { url: playbackChannel.url } : {}),
+    });
+    setResumeChoiceOpen(false);
+    launchPlayback();
   }
 
   async function downloadMovie() {
@@ -261,6 +315,18 @@ export function MovieDetailView({ movieId, fallbackTitle, fallbackLogo, fallback
         ) : null}
         {metadata ? <MediaCastRail metadata={metadata} /> : null}
       </div>
+
+      {resumeChoiceOpen && position != null ? (
+        <ResumePlaybackDialog
+          open
+          title={title}
+          positionSeconds={position}
+          tvMode={tvMode}
+          formatClock={formatResumeClock}
+          onContinue={handleResumeContinue}
+          onStartOver={handleResumeStartOver}
+        />
+      ) : null}
     </main>
   );
 }

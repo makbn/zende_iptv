@@ -21,19 +21,34 @@ import { ZendeLoadingState } from "@/components/loading/zende-spinner";
 import { useSeriesInfo } from "@/features/iptv/use-series-info";
 import { buildEpisodeWatchChannel, formatEpisodeCode } from "@/lib/playback/play-episode";
 import {
-  getPlaybackPosition,
+  clearPlaybackPosition,
   playbackProgressRatio,
+  resolvePlaybackPosition,
+  shouldOfferResume,
 } from "@/lib/playback/playback-position";
+import { stashResumeDecision } from "@/lib/playback/resume-decision";
 import { secureImageUrl } from "@/lib/media/secure-image-url";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
 import { createDownloadUrl } from "@/lib/navigation/watch-url";
 import {
+  getViewingEntryPosition,
   listTopFrequentChannels,
   subscribeViewingStats,
   type ViewingEntry,
 } from "@/lib/watch/viewing-stats";
 import { cn } from "@/lib/utils";
 import type { MediaShareTarget } from "@/lib/shares/media-share-types";
+import { isTvEnvironment } from "@/lib/tv/tv-environment";
+import { ResumePlaybackDialog } from "@/components/watch/resume-playback-dialog";
+
+function formatResumeClock(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
 
 type Props = {
   seriesId: string;
@@ -66,7 +81,13 @@ export function SeriesDetailView({
   const [playBusy, setPlayBusy] = useState(false);
   const [playError, setPlayError] = useState<string | null>(null);
   const [downloadBusy, setDownloadBusy] = useState(false);
+  const [pendingResume, setPendingResume] = useState<{
+    episode: (typeof episodesBySeason.flat)[0];
+    episodeIndex: number;
+    positionSeconds: number;
+  } | null>(null);
   const displayPlayError = playError ?? watchNavError;
+  const tvMode = isTvEnvironment();
 
   const metadata = data?.metadata;
   const title = metadata?.title ?? showTitle ?? fallbackTitle ?? "Show";
@@ -150,7 +171,7 @@ export function SeriesDetailView({
     ...(groupTitle ? { groupTitle } : {}),
   };
 
-  const playEpisode = useCallback(
+  const launchEpisode = useCallback(
     (episode: (typeof episodesBySeason.flat)[0], episodeIndex: number) => {
       setPlayBusy(true);
       setPlayError(null);
@@ -178,6 +199,49 @@ export function SeriesDetailView({
     [clearNavError, cover, episodesBySeason, groupTitle, metadata?.imdbId, metadata?.tmdbId, metadata?.year, openChannel, seriesId, title],
   );
 
+  const playEpisode = useCallback(
+    (episode: (typeof episodesBySeason.flat)[0], episodeIndex: number) => {
+      const saved = resolvePlaybackPosition(
+        [episode.playUrl],
+        getViewingEntryPosition(episode.playUrl),
+      );
+      if (shouldOfferResume(saved)) {
+        setPendingResume({
+          episode,
+          episodeIndex,
+          positionSeconds: saved!,
+        });
+        return;
+      }
+      launchEpisode(episode, episodeIndex);
+    },
+    [launchEpisode],
+  );
+
+  const handleResumeContinue = useCallback(() => {
+    if (!pendingResume) return;
+    stashResumeDecision({
+      choice: "continue",
+      positionSeconds: pendingResume.positionSeconds,
+      url: pendingResume.episode.playUrl,
+    });
+    const next = pendingResume;
+    setPendingResume(null);
+    launchEpisode(next.episode, next.episodeIndex);
+  }, [launchEpisode, pendingResume]);
+
+  const handleResumeStartOver = useCallback(() => {
+    if (!pendingResume) return;
+    clearPlaybackPosition(pendingResume.episode.playUrl);
+    stashResumeDecision({
+      choice: "start-over",
+      url: pendingResume.episode.playUrl,
+    });
+    const next = pendingResume;
+    setPendingResume(null);
+    launchEpisode(next.episode, next.episodeIndex);
+  }, [launchEpisode, pendingResume]);
+
   const downloadPrimaryEpisode = useCallback(async () => {
     if (!primaryEpisodeChannel || !primaryEpisode) return;
     setDownloadBusy(true);
@@ -202,7 +266,10 @@ export function SeriesDetailView({
 
   const continueProgress = continueTarget
     ? playbackProgressRatio(
-        getPlaybackPosition(continueTarget.ep.playUrl),
+        resolvePlaybackPosition(
+          [continueTarget.ep.playUrl],
+          getViewingEntryPosition(continueTarget.ep.playUrl),
+        ),
         continueTarget.ep.durationSeconds,
       )
     : null;
@@ -480,6 +547,21 @@ export function SeriesDetailView({
           </>
         )}
       </div>
+
+      {pendingResume ? (
+        <ResumePlaybackDialog
+          open
+          title={
+            pendingResume.episode.title ||
+            formatEpisodeCode(pendingResume.episode.season, pendingResume.episode.episodeNum)
+          }
+          positionSeconds={pendingResume.positionSeconds}
+          tvMode={tvMode}
+          formatClock={formatResumeClock}
+          onContinue={handleResumeContinue}
+          onStartOver={handleResumeStartOver}
+        />
+      ) : null}
     </main>
   );
 }

@@ -12,9 +12,6 @@ import { Card } from "@appica/ui-react/card";
 import { ZendeLoadingState, ZendeSpinner } from "@/components/loading/zende-spinner";
 import { Button, buttonVariants } from "@appica/ui-react/button";
 import { BROWSE_CONTAINER_CLASS } from "@/components/layout/browse-page-shell";
-import {
-  AppicaHero,
-} from "@/components/layout/appica-page";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
 import {
   TvRecordingRecentIssues,
@@ -482,41 +479,69 @@ export function TvRecordingsPage() {
   return (
     <div className="tv-recordings-page bg-background min-h-screen text-foreground">
       <main className={cn("tv-browse-main pb-28", TV_BROWSE_TOP_PAD_CLASS)}>
-        <AppicaHero
-          className="py-6"
-          eyebrow="Recorder"
-          title="Recordings"
-          description="Schedule, monitor, play, and download recordings."
-        >
+        <section className={cn(BROWSE_CONTAINER_CLASS, "tv-browse-chrome pb-3 pt-4")}>
           <div
             data-tv-layout="horizontal"
-            className="flex flex-wrap items-center gap-2"
+            data-tv-skip-initial
+            data-tv-nav-down="#rec-active,#rec-upcoming,#rec-library"
+            className="tv-browse-chrome-inner grid gap-4 rounded-lg border border-border bg-background p-4 shadow-sm xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-center"
           >
-            <span className="rounded-full border border-border bg-background-muted px-3 py-1.5 text-sm text-foreground-muted">
-              {(overview?.schedules.length ?? 0).toLocaleString()} scheduled
-            </span>
-            <span className="rounded-full border border-border bg-background-muted px-3 py-1.5 text-sm text-foreground-muted">
-              {(overview?.active.length ?? 0).toLocaleString()} active
-            </span>
-            <span className="rounded-full border border-border bg-background-muted px-3 py-1.5 text-sm text-foreground-muted">
-              {(overview?.library.length ?? 0).toLocaleString()} saved
-            </span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <Video className="size-3.5 text-primary-strong" aria-hidden />
+                <span className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">
+                  Recorder
+                </span>
+              </div>
+              <h1 className="tv-browse-chrome-title mt-1 text-[clamp(1.25rem,1.8vw,1.75rem)] font-semibold leading-none tracking-[-0.05em] text-foreground-intense">
+                Recordings
+              </h1>
+            </div>
+
+            <div className="tv-browse-metrics grid grid-cols-3 gap-2 xl:max-w-md">
+              <div className="rounded-lg border border-border bg-background px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground-intense">
+                  Scheduled
+                </p>
+                <p className="mt-0.5 text-[17px] font-semibold tracking-[-0.04em] text-foreground-intense">
+                  {(overview?.schedules.length ?? 0).toLocaleString()}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border bg-background px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground-intense">
+                  Active
+                </p>
+                <p className="mt-0.5 text-[17px] font-semibold tracking-[-0.04em] text-foreground-intense">
+                  {(overview?.active.length ?? 0).toLocaleString()}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border bg-background px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground-intense">
+                  Library
+                </p>
+                <p className="mt-0.5 text-[17px] font-semibold tracking-[-0.04em] text-foreground-intense">
+                  {(overview?.library.length ?? 0).toLocaleString()}
+                </p>
+              </div>
+            </div>
+
             <Button
               id="rec-start-cta"
               type="button"
               variant="primary"
-              size="md"
+              size="lg"
               data-tv-initial-focus=""
               data-tv-nav-down="#rec-active,#rec-upcoming,#rec-library"
               onClick={() => setStartRecordingDialogOpen(true)}
+              className="min-h-14 justify-self-start xl:justify-self-end"
             >
               <Plus className="size-4" aria-hidden />
-              Start a recording
+              Start recording
             </Button>
           </div>
-        </AppicaHero>
+        </section>
 
-        <div className={cn(BROWSE_CONTAINER_CLASS, "space-y-8")}>
+        <div className={cn(BROWSE_CONTAINER_CLASS, "mt-4 space-y-8")}>
           {overview && !overview.ffmpegAvailable ? (
             <div
               className="flex items-start gap-3 rounded-lg border border-warning bg-warning-subtle px-4 py-3.5 text-[15px] leading-snug text-warning-strong shadow-lg backdrop-blur-xl"

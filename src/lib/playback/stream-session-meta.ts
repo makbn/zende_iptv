@@ -63,6 +63,11 @@ export type PlaybackSessionMeta = {
    * Shown only when length > 1; populated from the stream (HLS/native) or upstream metadata.
    */
   audioTracks?: PlaybackAudioTrack[];
+  /**
+   * Preferred audio stream index for server remux/transcode when the browser
+   * cannot switch tracks live (MSE / single demuxed audio).
+   */
+  selectedAudioIndex?: number;
 };
 
 function parseNeighbor(raw: unknown): PlaybackNeighborRef | undefined {
@@ -159,10 +164,17 @@ export function parsePlaybackSessionMeta(raw: string | null | undefined): Playba
     const audioTracks = Object.prototype.hasOwnProperty.call(o, "audioTracks")
       ? parseAudioTracks(o.audioTracks) ?? []
       : undefined;
+    const selectedAudioIndex =
+      typeof o.selectedAudioIndex === "number" &&
+      Number.isFinite(o.selectedAudioIndex) &&
+      o.selectedAudioIndex >= 0
+        ? Math.floor(o.selectedAudioIndex)
+        : undefined;
     return {
       ...o,
       ...(intro !== undefined ? { intro } : {}),
       ...(audioTracks !== undefined ? { audioTracks } : {}),
+      ...(selectedAudioIndex !== undefined ? { selectedAudioIndex } : {}),
       ...(o.previous ? { previous: parseNeighbor(o.previous) } : {}),
       ...(o.next ? { next: parseNeighbor(o.next) } : {}),
     };
@@ -250,6 +262,13 @@ export function serializePlaybackSessionMeta(meta: PlaybackSessionMeta): string 
         label: t.label.trim(),
         ...(t.language?.trim() ? { language: t.language.trim() } : {}),
       }));
+  }
+  if (
+    meta.selectedAudioIndex != null &&
+    Number.isFinite(meta.selectedAudioIndex) &&
+    meta.selectedAudioIndex >= 0
+  ) {
+    clean.selectedAudioIndex = Math.floor(meta.selectedAudioIndex);
   }
   return JSON.stringify(clean);
 }

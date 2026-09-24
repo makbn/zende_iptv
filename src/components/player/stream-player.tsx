@@ -20,6 +20,10 @@ import { zendeFetch } from "@/lib/auth/zende-fetch";
 import type { PlaybackMode } from "@/lib/stream/playback-url";
 import { isTvEnvironment } from "@/lib/tv/tv-environment";
 import { cn } from "@/lib/utils";
+import {
+  formatAudioTrackLabel,
+  uniquifyAudioTrackLabels,
+} from "@/lib/playback/audio-track-label";
 
 /**
  * iPhone/iPad: prefer Safari's native HLS. hls.js ManagedMediaSource on iOS 17.1+
@@ -430,11 +434,17 @@ export function StreamPlayer(
         },
         getAudioTracks(): MediaTrackOption[] {
           if (hls?.audioTracks?.length) {
-            return hls.audioTracks.map((t, i) => ({
-              index: i,
-              label: t.name || t.lang || `Audio ${i + 1}`,
-              ...(t.lang ? { language: t.lang } : {}),
-            }));
+            return uniquifyAudioTrackLabels(
+              hls.audioTracks.map((t, i) => ({
+                index: i,
+                label: formatAudioTrackLabel({
+                  index: i,
+                  language: t.lang,
+                  title: t.name,
+                }),
+                ...(t.lang ? { language: t.lang } : {}),
+              })),
+            );
           }
           const list = nativeAudioTrackList(video);
           if (!list) return [];
@@ -443,11 +453,15 @@ export function StreamPlayer(
             const t = list[i]!;
             tracks.push({
               index: i,
-              label: t.label || t.language || `Audio ${i + 1}`,
+              label: formatAudioTrackLabel({
+                index: i,
+                language: t.language,
+                title: t.label,
+              }),
               ...(t.language ? { language: t.language } : {}),
             });
           }
-          return tracks;
+          return uniquifyAudioTrackLabels(tracks);
         },
         getCurrentAudioTrack(): number {
           if (hls?.audioTracks?.length) {

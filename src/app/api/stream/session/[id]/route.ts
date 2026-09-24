@@ -63,8 +63,12 @@ export async function GET(
   }
 
   if (
-    (!meta.audioTracks || meta.audioTracks.length <= 1) &&
-    meta.contentKind !== "live"
+    meta.contentKind !== "live" &&
+    (!meta.audioTracks ||
+      meta.audioTracks.length <= 1 ||
+      meta.audioTracks.every((t) =>
+        /^(?:audio\s*)?track\s*\d+$/i.test((t.label ?? "").trim()),
+      ))
   ) {
     const audioTracks = await resolvePlaybackAudioTracks({
       upstreamUrl: session.upstreamRootUrl,
@@ -104,7 +108,15 @@ export async function GET(
   if (mode === "progressive") ext = progressivePlaybackExtension(session.upstreamRootUrl);
   else if (mode === "hls") ext = ".m3u8";
   else if (mode === "mpegts") ext = ".ts";
-  const needsBrowserTranscode = mode === "progressive" && ext === ".mkv";
+  const selectedAudioIndex =
+    meta.selectedAudioIndex != null && Number.isFinite(meta.selectedAudioIndex)
+      ? Math.max(0, Math.floor(meta.selectedAudioIndex))
+      : null;
+  // When the user picks an alternate audio track that the browser cannot switch
+  // live, remux through the compatibility transcoder with `-map 0:a:N`.
+  const needsBrowserTranscode =
+    mode === "progressive" &&
+    (ext === ".mkv" || selectedAudioIndex != null);
   const historyKey = await hashStreamUrl(session.upstreamRootUrl);
   const resumePositionSeconds =
     !session.accessGrantHash &&
@@ -129,12 +141,78 @@ export async function GET(
       historyKey,
       resumePositionSeconds,
       playbackUrl: needsBrowserTranscode
-        ? `/api/stream/transcode/${id}.m3u8`
+        ? selectedAudioIndex != null
+          ? `/api/stream/transcode/${id}.m3u8?a=${selectedAudioIndex}`
+          : `/api/stream/transcode/${id}.m3u8`
         : `/api/stream/proxy/${id}${ext}`,
       playbackMode: needsBrowserTranscode ? "hls" : mode,
       transcoded: needsBrowserTranscode,
       playback: safeMeta,
     },
+    { headers: { "Cache-Control": "private, no-store" } },
+  );
+}
+
+/** Persist preferred audio track for server-side remux/transcode. */
+export async function PATCH(
+  request: Request,
+  context: { params: Promise<{ id: string }> },
+) {
+  const { id } = await context.params;
+  const session = await touchSession(id);
+  if (!session) {
+    return NextResponse.json({ error: "Unknown or expired session." }, { status: 404 });
+  }
+  const authorizationFailure = await authorizeStreamSession(request, session, id);
+  if (authorizationFailure) return authorizationFailure;
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+  const rawIndex =
+    body && typeof body === "object"
+      ? (body as { selectedAudioIndex?: unknown }).selectedAudioIndex
+      : undefined;
+  const selectedAudioIndex =
+    typeof rawIndex === "number" && Number.isFinite(rawIndex) && rawIndex >= 0
+      ? Math.floor(rawIndex)
+      : typeof rawIndex === "string" && /^\d+$/.test(rawIndex.trim())
+        ? Number.parseInt(rawIndex.trim(), 10)
+        : NaN;
+  if (!Number.isFinite(selectedAudioIndex) || selectedAudioIndex < 0) {
+    return NextResponse.json(
+      { error: "selectedAudioIndex must be a non-negative integer." },
+      { status: 400 },
+    );
+  }
+
+  const prevIndex = session.meta.selectedAudioIndex ?? null;
+  const meta = { ...session.meta, selectedAudioIndex };
+  await persistSessionPlaybackMeta(id, meta);
+  session.meta = meta;
+
+  if (prevIndex !== selectedAudioIndex) {
+    try {
+      const { stopHlsTranscodeJobsForSession } = await import(
+        "@/lib/stream/hls-transcode-manager"
+      );
+      stopHlsTranscodeJobsForSession(id);
+    } catch {
+      // Transcode manager unavailable in this runtime — safe to ignore.
+    }
+  }
+
+  log.info("Session audio track preference updated", {
+    sessionId: id,
+    selectedAudioIndex,
+    previous: prevIndex,
+  });
+
+  return NextResponse.json(
+    { ok: true, selectedAudioIndex, playback: clientSafePlaybackMeta(meta) },
     { headers: { "Cache-Control": "private, no-store" } },
   );
 }

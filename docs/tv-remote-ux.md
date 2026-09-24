@@ -113,8 +113,11 @@ No focusable element may sit visually between two regions without belonging to o
 - Guide detail portal (full-channel schedule) still relies mostly on geometric focus inside the overlay.
 - Settings panel bodies are dense forms — tabs + panel entry are wired; individual card fields may still need per-panel vertical layouts.
 - Recordings start-dialog internals (channel search → schedule form) need a deeper pass beyond backdrop + page sections.
-- Compact favorites list view lacks the same `data-tv-layout` treatment as the poster grid.
 - Manual `?tv=1` / device shell pass should be run before TV release.
+
+### Browse chrome (2026-09-23)
+
+Favorites, Discover (Guide), and Recordings use the compact **Library-style** header + sticky filter deck (`.tv-browse-chrome` / `.tv-browse-filter-deck`) instead of giant `AppicaHero` branding blocks. Category / sort / layout controls sit inside a single horizontal `data-tv-layout` graph.
 
 ## Debug
 

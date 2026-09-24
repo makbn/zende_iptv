@@ -121,6 +121,28 @@ export async function fetchWatchSessionMeta(
   };
 }
 
+/** Persist preferred audio track and return refreshed session playback URLs. */
+export async function patchWatchSessionAudioTrack(
+  sessionId: string,
+  selectedAudioIndex: number,
+): Promise<WatchSessionMeta> {
+  const res = await zendeFetch(
+    `/api/stream/session/${encodeURIComponent(sessionId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ selectedAudioIndex }),
+    },
+  );
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(
+      typeof body.error === "string" ? body.error : "Could not switch audio track.",
+    );
+  }
+  return fetchWatchSessionMeta(sessionId);
+}
+
 export async function fetchRecordingWatchMeta(
   recordingId: string,
 ): Promise<WatchSessionMeta> {

@@ -66,6 +66,10 @@ export async function GET(
     session.meta.durationSeconds > 0
       ? session.meta.durationSeconds
       : undefined;
+  const audioTrackIndex = Math.max(
+    0,
+    Math.floor(session.meta.selectedAudioIndex ?? 0),
+  );
 
   try {
     if (asset.kind === "playlist" && durationSeconds) {
@@ -78,6 +82,7 @@ export async function GET(
             "X-Accel-Buffering": "no",
             "X-Zende-Transcoded": "hevc-mkv-to-h264-hls-vod",
             "X-Zende-Duration-Seconds": String(durationSeconds),
+            "X-Zende-Audio-Track": String(audioTrackIndex),
           },
         },
       );
@@ -87,6 +92,7 @@ export async function GET(
       sessionId: asset.sessionId,
       inputUrl,
       internalHeaders: internalRelayFfmpegHeadersBlock(),
+      audioTrackIndex,
       ...(asset.kind === "segment" && durationSeconds
         ? {
             durationSeconds,

@@ -52,7 +52,6 @@ import {
   LayoutGrid,
   List,
   Search,
-  SlidersHorizontal,
   Star,
   X,
 } from "lucide-react";
@@ -184,244 +183,225 @@ export function TvFavoritesPage() {
 
   const favCount = enriched.length;
 
+
   return (
     <div className="tv-favorites-page bg-background min-h-screen text-foreground">
       <main className={cn("tv-browse-main pb-28", TV_BROWSE_TOP_PAD_CLASS)}>
+        <section className={cn(FAV_PAGE_GUTTER, "tv-browse-chrome pb-3 pt-4")}>
+          <div
+            data-tv-layout="horizontal"
+            data-tv-skip-initial
+            data-tv-nav-down="#fav-filter-deck"
+            className="tv-browse-chrome-inner grid gap-4 rounded-lg border border-border bg-background p-4 shadow-sm xl:grid-cols-[auto_minmax(18rem,1fr)_auto] xl:items-center"
+          >
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <Star className="size-3.5 fill-current text-warning-strong" aria-hidden />
+                <span className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">
+                  Favorites
+                </span>
+              </div>
+              <h1 className="tv-browse-chrome-title mt-1 text-[clamp(1.25rem,1.8vw,1.75rem)] font-semibold leading-none tracking-[-0.05em] text-foreground-intense">
+                Saved channels
+              </h1>
+            </div>
+
+            <label className="relative flex min-h-[48px] items-center">
+              <span className="sr-only">Search favorites</span>
+              <Search
+                className="pointer-events-none absolute left-4 size-[18px] text-foreground-intense"
+                aria-hidden
+              />
+              <Input
+                ref={searchInputRef}
+                id="fav-search"
+                type="search"
+                placeholder="Search saved channels…"
+                autoComplete="off"
+                value={query}
+                onValueChange={(value) => setQuery(value)}
+                onKeyDown={onSearchKeyDown}
+                disabled={favCount === 0}
+                data-tv-nav-input="spatial"
+                data-tv-nav-down="#fav-filter-deck,#fav-results,#favorites-epg-carousel"
+                className={cn(
+                  "h-12 w-full rounded-lg border border-border bg-background pl-11 pr-11",
+                  "text-[16px] font-semibold tracking-[-0.02em] text-foreground-intense placeholder:text-foreground-intense",
+                  "outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/45",
+                  favCount === 0 && "opacity-40",
+                )}
+              />
+              {query ? (
+                <Button
+                  variant="ghost"
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="absolute right-2 flex size-9 items-center justify-center rounded-xl text-foreground-intense outline-none hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-primary"
+                  aria-label="Clear search"
+                >
+                  <X className="size-[18px]" strokeWidth={2.25} />
+                </Button>
+              ) : null}
+            </label>
+
+            <div className="tv-browse-metrics grid grid-cols-3 gap-2 xl:w-[18rem]">
+              <div className="rounded-lg border border-border bg-background px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground-intense">Saved</p>
+                <p className="mt-0.5 text-[17px] font-semibold tracking-[-0.04em] text-foreground-intense">
+                  {favCount.toLocaleString()}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border bg-background px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground-intense">Shown</p>
+                <p className="mt-0.5 text-[17px] font-semibold tracking-[-0.04em] text-foreground-intense">
+                  {filtered.length.toLocaleString()}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border bg-background px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground-intense">Groups</p>
+                <p className="mt-0.5 text-[17px] font-semibold tracking-[-0.04em] text-foreground-intense">
+                  {groupOptions.length.toLocaleString()}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <div
           className={cn(
-            "sticky z-30 border-b border-border transition-[background-color,backdrop-filter] duration-300",
+            "tv-browse-filter-sticky sticky z-30 border-y border-border backdrop-blur-2xl",
             TV_BROWSE_STICKY_TOP_CLASS,
-            "bg-background-subtle backdrop-blur-xl backdrop-saturate-150",
+            "bg-background-subtle",
           )}
         >
-          <div className={cn("py-3.5 sm:py-4", FAV_PAGE_GUTTER)}>
-            <Card
-              frame="glass"
-              className={cn(
-                "shadow-lg",
-                "ring-1 ring-border",
-                "transition-[box-shadow,transform] duration-300 ease-out",
-              )}
+          <div className={cn(FAV_PAGE_GUTTER, "py-3")}>
+            <div
+              id="fav-filter-deck"
+              data-tv-layout="horizontal"
+              data-tv-skip-initial
+              data-tv-nav-up="#fav-search"
+              data-tv-nav-down="#fav-results,#favorites-epg-carousel"
+              className="tv-browse-filter-deck flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background-muted p-3 ring-1 ring-border"
             >
-              <div className="flex flex-col gap-3.5 px-4 py-4 sm:px-5 sm:py-5">
-                <div className="flex flex-col gap-4 border-b border-border pb-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 text-sm font-medium text-foreground-muted">
-                      <Star className="size-4 fill-current text-warning-strong" aria-hidden />
-                      Saved
-                    </div>
-                    <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground-intense sm:text-3xl">
-                      Favorites
-                    </h1>
-                    <p className="mt-1 text-sm text-foreground-muted">Search, sort, and open saved channels.</p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full border border-border bg-background-muted px-3 py-1.5 text-sm text-foreground-muted">
-                      {favCount.toLocaleString()} saved
-                    </span>
-                    <span className="rounded-full border border-border bg-background-muted px-3 py-1.5 text-sm text-foreground-muted">
-                      {groupOptions.length.toLocaleString()} groups
-                    </span>
-                    <span className="rounded-full border border-border bg-background-muted px-3 py-1.5 text-sm text-foreground-muted">
-                      {filtered.length.toLocaleString()} shown
-                    </span>
-                    <Link
-                      href="/guide"
-                      onClick={onNavigateClick("/guide")}
-                      className={buttonVariants({ variant: "secondary", size: "md" })}
-                    >
-                      Open TV guide
-                    </Link>
-                  </div>
-                </div>
-                <div
-                  id="fav-toolbar"
-                  data-tv-layout="horizontal"
-                  data-tv-nav-down="#fav-results,#favorites-epg-carousel"
-                  className="flex flex-col gap-4 xl:flex-row xl:items-center xl:gap-5"
+              <div
+                className="flex rounded-xl border border-border bg-background p-1"
+                role="group"
+                aria-label="Sort favorites"
+              >
+                {(
+                  [
+                    ["recent", "Recent"],
+                    ["name", "A–Z"],
+                    ["group", "Category"],
+                  ] as const
+                ).map(([id, label]) => (
+                  <Button
+                    variant="ghost"
+                    key={id}
+                    type="button"
+                    onClick={() => setSort(id)}
+                    disabled={favCount === 0}
+                    className={cn(
+                      "rounded-lg px-3.5 py-2 text-[13px] font-semibold outline-none sm:text-[14px]",
+                      sort === id
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-foreground-intense hover:bg-background-muted disabled:opacity-35",
+                    )}
+                    aria-pressed={sort === id}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+
+              <div
+                className="flex rounded-xl border border-border bg-background p-1"
+                role="group"
+                aria-label="Layout"
+              >
+                <Button
+                  variant="ghost"
+                  type="button"
+                  onClick={() => setView("posters")}
+                  disabled={favCount === 0}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-[14px] font-semibold outline-none",
+                    view === "posters"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-foreground-intense hover:bg-background-muted disabled:opacity-35",
+                  )}
+                  aria-pressed={view === "posters"}
                 >
-                  <label className="relative flex min-h-[52px] flex-1 items-center">
-                    <span className="sr-only">Search favorites</span>
-                    <Search
-                      className="pointer-events-none absolute left-4 size-[18px] text-foreground-intense"
-                      aria-hidden
-                    />
-                    <Input
-                      ref={searchInputRef}
-                      id="fav-search"
-                      type="search"
-                      placeholder="Search saved channels…"
-                      autoComplete="off"
-                      value={query}
-                      onValueChange={(value) => setQuery(value)}
-                      onKeyDown={onSearchKeyDown}
-                      disabled={favCount === 0}
-                      data-tv-nav-input="spatial"
-                      data-tv-nav-down="#fav-results,#favorites-epg-carousel"
-                      className={cn(
-                        "h-[52px] w-full rounded-2xl border border-border bg-background pl-12 pr-11",
-                        "text-[17px] text-foreground-intense placeholder:text-foreground-intense",
-                        "outline-none transition-shadow duration-200",
-                        "focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/45",
-                        favCount === 0 && "opacity-40",
-                      )}
-                    />
-                    {query ? (
-                      <Button variant="ghost"
-                        type="button"
-                        onClick={() => setQuery("")}
-                        className={cn(
-                          "absolute right-3 flex size-9 items-center justify-center rounded-xl",
-                          "text-foreground-intense outline-none transition-colors hover:bg-background-muted hover:text-foreground-intense",
-                          "focus-visible:ring-2 focus-visible:ring-primary",
-                        )}
-                        aria-label="Clear search"
-                      >
-                        <X className="size-[18px]" strokeWidth={2.25} />
-                      </Button>
-                    ) : null}
-                  </label>
+                  <LayoutGrid className="size-4" aria-hidden />
+                  Posters
+                </Button>
+                <Button
+                  variant="ghost"
+                  type="button"
+                  onClick={() => setView("compact")}
+                  disabled={favCount === 0}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-[14px] font-semibold outline-none",
+                    view === "compact"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-foreground-intense hover:bg-background-muted disabled:opacity-35",
+                  )}
+                  aria-pressed={view === "compact"}
+                >
+                  <List className="size-4" aria-hidden />
+                  List
+                </Button>
+              </div>
 
-                  <div className="flex flex-wrap items-center gap-2 xl:shrink-0">
-                    <div
-                      className="flex rounded-2xl border border-border bg-background p-1"
-                      role="group"
-                      aria-label="Sort favorites"
-                    >
-                      {(
-                        [
-                          ["recent", "Recent"],
-                          ["name", "A–Z"],
-                          ["group", "Category"],
-                        ] as const
-                      ).map(([id, label]) => (
-                        <Button variant="ghost"
-                          key={id}
-                          type="button"
-                          onClick={() => setSort(id)}
-                          disabled={favCount === 0}
-                          className={cn(
-                            "rounded-xl px-3.5 py-2 text-[13px] font-semibold outline-none transition-[color,background-color,transform,box-shadow] duration-200 ease-out sm:text-[14px]",
-                            "enabled:active:scale-[0.98]",
-                            sort === id
-                              ? "bg-primary text-primary-foreground shadow-sm"
-                              : "text-foreground-intense hover:bg-background-muted hover:text-foreground-intense disabled:opacity-35",
-                          )}
-                          aria-pressed={sort === id}
-                        >
-                          {label}
-                        </Button>
-                      ))}
-                    </div>
-
-                    <div className="hidden h-8 w-px bg-background-muted sm:block" aria-hidden />
-
-                    <div
-                      className="flex rounded-2xl border border-border bg-background p-1"
-                      role="group"
-                      aria-label="Layout"
-                    >
-                      <Button variant="ghost"
-                        type="button"
-                        onClick={() => setView("posters")}
-                        disabled={favCount === 0}
-                        className={cn(
-                          "inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-[14px] font-semibold outline-none transition-[color,background-color,transform,box-shadow] duration-200 ease-out",
-                          "enabled:active:scale-[0.98]",
-                          view === "posters"
-                            ? "bg-primary text-primary-foreground shadow-sm"
-                            : "text-foreground-intense hover:bg-background-muted hover:text-foreground-intense disabled:opacity-35",
-                        )}
-                        aria-pressed={view === "posters"}
-                      >
-                        <LayoutGrid className="size-4" aria-hidden />
-                        Posters
-                      </Button>
-                      <Button variant="ghost"
-                        type="button"
-                        onClick={() => setView("compact")}
-                        disabled={favCount === 0}
-                        className={cn(
-                          "inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-[14px] font-semibold outline-none transition-[color,background-color,transform,box-shadow] duration-200 ease-out",
-                          "enabled:active:scale-[0.98]",
-                          view === "compact"
-                            ? "bg-primary text-primary-foreground shadow-sm"
-                            : "text-foreground-intense hover:bg-background-muted hover:text-foreground-intense disabled:opacity-35",
-                        )}
-                        aria-pressed={view === "compact"}
-                      >
-                        <List className="size-4" aria-hidden />
-                        List
-                      </Button>
-                    </div>
-
-                    <div className="hidden h-8 w-px bg-background-muted lg:block" aria-hidden />
-
-                    <p className="flex items-center gap-2 text-[14px] tabular-nums text-foreground-intense">
-                      <SlidersHorizontal className="size-4 shrink-0 opacity-70" aria-hidden />
-                      <span>
-                        <span className="font-medium text-foreground-intense">
-                          {filtered.length.toLocaleString()}
-                        </span>
-                        <span className="text-foreground-intense"> shown</span>
-                      </span>
-                    </p>
-                  </div>
-                </div>
-
-                {favCount > 0 && groupOptions.length > 0 ? (
-                  <label className="grid gap-1.5 border-t border-border pt-3 sm:max-w-md">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-foreground-intense">
-                      Category
-                    </span>
-                    <Select
-                      value={groupFilter ?? ""}
-                      onValueChange={(value) => setGroupFilter(value ? String(value) : null)
-                      }
-                    >
-<SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
+              {favCount > 0 && groupOptions.length > 0 ? (
+                <label className="flex min-w-[12rem] flex-1 items-center gap-2 sm:max-w-xs">
+                  <span className="sr-only">Category</span>
+                  <Select
+                    value={groupFilter ?? ""}
+                    onValueChange={(value) => setGroupFilter(value ? String(value) : null)}
+                  >
+                    <SelectTrigger id="fav-category" className="min-h-12 w-full">
+                      <SelectValue placeholder="All categories" />
+                    </SelectTrigger>
+                    <SelectContent>
                       <SelectItem value="">All categories</SelectItem>
                       {groupOptions.map(([name, count]) => (
                         <SelectItem key={name} value={name}>
                           {name} ({count.toLocaleString()})
                         </SelectItem>
                       ))}
-                    </SelectContent></Select>
-                  </label>
-                ) : null}
+                    </SelectContent>
+                  </Select>
+                </label>
+              ) : null}
 
-                {activeFilters ? (
-                  <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
-                    <span className="text-[13px] text-foreground-intense">Active:</span>
-                    {query.trim() ? (
-                      <span className="rounded-full bg-background-muted px-3 py-1 text-[13px] text-foreground-intense">
-                        “{query.trim().slice(0, 48)}
-                        {query.trim().length > 48 ? "…" : ""}”
-                      </span>
-                    ) : null}
-                    {groupFilter ? (
-                      <span className="rounded-full bg-background-muted px-3 py-1 text-[13px] text-foreground-intense">
-                        {groupFilter}
-                      </span>
-                    ) : null}
-                    <Button variant="ghost"
-                      type="button"
-                      onClick={() => {
-                        setQuery("");
-                        setGroupFilter(null);
-                      }}
-                      className="text-[13px] font-semibold text-success-strong underline-offset-4 hover:underline"
-                    >
-                      Clear all
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-            </Card>
+              <Link
+                href="/guide"
+                onClick={onNavigateClick("/guide")}
+                className={cn(buttonVariants({ variant: "secondary", size: "md" }), "ml-auto")}
+              >
+                Discover
+                <ArrowRight className="size-4" aria-hidden />
+              </Link>
+
+              {activeFilters ? (
+                <Button
+                  variant="ghost"
+                  type="button"
+                  onClick={() => {
+                    setQuery("");
+                    setGroupFilter(null);
+                  }}
+                  className="text-[13px] font-semibold text-success-strong underline-offset-4 hover:underline"
+                >
+                  Clear filters
+                </Button>
+              ) : null}
+            </div>
           </div>
         </div>
 
-        <div className={cn("mt-4 lg:mt-6", FAV_PAGE_GUTTER)}>
+        <div className={cn("mt-4 lg:mt-5", FAV_PAGE_GUTTER)}>
           {favoritesLoading ? (
             <Card frame="solid" contentProps={{ className: "py-16" }}>
               <ZendeLoadingState
@@ -431,26 +411,23 @@ export function TvFavoritesPage() {
               />
             </Card>
           ) : favCount === 0 ? (
-            <div className="relative overflow-hidden rounded-lg border border-border bg-background px-8 py-20 text-center shadow-sm sm:px-14 sm:py-24">
-              <div className="pointer-events-none absolute inset-0 opacity-[0.45]" aria-hidden>
-                <div className="absolute left-1/2 top-1/2 size-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-background-subtle" />
-              </div>
+            <div className="relative overflow-hidden rounded-lg border border-border bg-background px-8 py-16 text-center shadow-sm sm:px-14">
               <Heart
-                className="relative mx-auto mb-6 size-14 text-warning-strong"
+                className="relative mx-auto mb-5 size-12 text-warning-strong"
                 strokeWidth={1.25}
                 aria-hidden
               />
-              <p className="relative text-[22px] font-semibold tracking-tight text-foreground-intense">
+              <p className="relative text-[20px] font-semibold tracking-tight text-foreground-intense">
                 No favorites yet
               </p>
-              <p className="relative mx-auto mt-3 max-w-lg text-[16px] leading-relaxed text-foreground-intense">
-                Browse the library or live shelves and tap the star on any channel.
-                Favorites stay on this device and sync across tabs instantly.
+              <p className="relative mx-auto mt-2 max-w-md text-[15px] leading-relaxed text-foreground-intense">
+                Star channels from Library or Home. Favorites stay on this device.
               </p>
-              <div className="relative mt-10 flex flex-wrap items-center justify-center gap-3">
+              <div className="relative mt-8 flex flex-wrap items-center justify-center gap-3">
                 <Link
                   href="/library"
                   onClick={onNavigateClick("/library")}
+                  data-tv-initial-focus=""
                   className={buttonVariants({ variant: "secondary", size: "lg" })}
                 >
                   Open Library
@@ -461,7 +438,7 @@ export function TvFavoritesPage() {
                   onClick={onNavigateClick("/")}
                   className={cn(
                     "inline-flex items-center gap-2 rounded-full border border-border bg-background-muted px-7 py-3 text-[15px] font-semibold text-foreground-intense",
-                    "outline-none transition-colors hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-primary",
+                    "outline-none hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-primary",
                   )}
                 >
                   Browse Home
@@ -469,7 +446,7 @@ export function TvFavoritesPage() {
               </div>
             </div>
           ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-3xl border border-border bg-background-muted px-8 py-20 text-center transition-opacity duration-300">
+            <div className="flex flex-col items-center justify-center rounded-3xl border border-border bg-background-muted px-8 py-16 text-center">
               <Search className="mb-4 size-10 text-foreground-intense" aria-hidden />
               <p className="text-[18px] font-semibold text-foreground-intense">No matches</p>
               <p className="mt-2 max-w-sm text-[15px] leading-relaxed text-foreground-intense">
@@ -488,25 +465,11 @@ export function TvFavoritesPage() {
               </Button>
             </div>
           ) : view === "posters" ? (
-            <div className="flex flex-col gap-8 lg:gap-10">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-foreground-intense">
-                    Library
-                  </p>
-                  <h2 className="text-4xl font-semibold tracking-tight text-foreground-intense mt-1 text-[clamp(1.55rem,3vw,2.2rem)]">
-                    Your channels
-                  </h2>
-                  <p className="mt-1 text-[14px] text-foreground-intense">
-                    {filtered.length.toLocaleString()} in view
-                    {activeFilters ? " · filtered" : ""}
-                  </p>
-                </div>
-              </div>
+            <div className="flex flex-col gap-6">
               <div
                 id="fav-results"
                 data-tv-layout="grid"
-                data-tv-nav-up="#fav-toolbar"
+                data-tv-nav-up="#fav-filter-deck"
                 data-tv-nav-down="#favorites-epg-carousel"
                 className={POSTER_GRID_CLASS}
               >
@@ -514,12 +477,8 @@ export function TvFavoritesPage() {
                   <div
                     key={`${ch.url}-${i}`}
                     data-tv-index={i}
-                    className={cn(
-                      "motion-safe:animate-fav-page-tile motion-reduce:animate-none motion-reduce:opacity-100",
-                    )}
-                    style={{
-                      animationDelay: `${Math.min(i, 28) * 38}ms`,
-                    }}
+                    className="motion-safe:animate-fav-page-tile motion-reduce:animate-none motion-reduce:opacity-100"
+                    style={{ animationDelay: `${Math.min(i, 28) * 38}ms` }}
                   >
                     <TvChannelTile
                       channel={ch}
@@ -535,15 +494,10 @@ export function TvFavoritesPage() {
                 <div className="flex justify-center pb-4">
                   <Button
                     type="button"
-                    onClick={() =>
-                      setVisibleCount((n) => n + PAGE_STEP)
-                    }
+                    onClick={() => setVisibleCount((n) => n + PAGE_STEP)}
                     size="lg"
                   >
-                    Load more ({(
-                      filtered.length - visible.length
-                    ).toLocaleString()}{" "}
-                    left)
+                    Load more ({(filtered.length - visible.length).toLocaleString()} left)
                   </Button>
                 </div>
               ) : filtered.length > PAGE_STEP ? (
@@ -553,48 +507,39 @@ export function TvFavoritesPage() {
               ) : null}
             </div>
           ) : (
-            <div className="flex flex-col gap-6">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-foreground-intense">
-                  Library
-                </p>
-                <h2 className="text-4xl font-semibold tracking-tight text-foreground-intense mt-1 text-[clamp(1.55rem,3vw,2.2rem)]">
-                  Your channels
-                </h2>
-                <p className="mt-1 text-[14px] text-foreground-intense">
-                  {filtered.length.toLocaleString()} in view
-                </p>
-              </div>
-              <ul className="flex flex-col gap-2" aria-label="Favorites compact list">
+            <div className="flex flex-col gap-4">
+              <ul
+                id="fav-results"
+                data-tv-layout="vertical"
+                data-tv-nav-up="#fav-filter-deck"
+                data-tv-nav-down="#favorites-epg-carousel"
+                className="flex flex-col gap-2"
+                aria-label="Favorites compact list"
+              >
                 {visible.map((ch, i) => {
                   const parsed = parseChannelLabel(ch.name ?? "");
                   const contentType = resolveLibraryContentType(ch);
                   return (
                     <li
                       key={`${ch.url}-${i}`}
-                      className={cn(
-                        "motion-safe:animate-fav-page-tile motion-reduce:animate-none motion-reduce:opacity-100",
-                      )}
-                      style={{
-                        animationDelay: `${Math.min(i, 28) * 32}ms`,
-                      }}
+                      data-tv-index={i}
+                      className="motion-safe:animate-fav-page-tile motion-reduce:animate-none motion-reduce:opacity-100"
+                      style={{ animationDelay: `${Math.min(i, 28) * 32}ms` }}
                     >
                       <div
                         className={cn(
                           "group flex w-full items-center gap-3 rounded-2xl border border-border",
                           "bg-background-muted p-3 ring-1 ring-border",
-                          "transition-[transform,background-color,box-shadow,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                          "hover:border-border-strong hover:bg-background-muted hover:shadow-lg",
-                          "motion-safe:hover:-translate-y-px",
                         )}
                       >
-                        <Button variant="ghost"
+                        <Button
+                          variant="ghost"
                           type="button"
+                          data-tv-card=""
                           onClick={() => openChannel(ch)}
                           className={cn(
-                            "flex min-w-0 flex-1 items-center gap-4 text-left outline-none",
+                            "flex min-h-14 min-w-0 flex-1 items-center gap-4 text-left outline-none",
                             "focus-visible:rounded-xl focus-visible:ring-2 focus-visible:ring-primary",
-                            "motion-safe:active:scale-[0.995]",
                           )}
                         >
                           <div
@@ -604,15 +549,13 @@ export function TvFavoritesPage() {
                             )}
                           >
                             {ch.tvgLogo ? (
-                              <>
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={secureImageUrl(ch.tvgLogo, undefined, "logo")}
-                                  alt=""
-                                  className="size-full object-contain p-1.5"
-                                  loading="lazy"
-                                />
-                              </>
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={secureImageUrl(ch.tvgLogo, undefined, "logo")}
+                                alt=""
+                                className="size-full object-contain p-1.5"
+                                loading="lazy"
+                              />
                             ) : (
                               <div className="flex size-full items-center justify-center bg-gradient-to-br from-background-muted to-background text-[11px] font-bold text-foreground-intense">
                                 {(parsed.displayName ?? "?").slice(0, 2).toUpperCase()}
@@ -640,12 +583,9 @@ export function TvFavoritesPage() {
                             score={getScoreForChannel(ch)}
                             className="hidden shrink-0 sm:flex"
                           />
-                          <span className="flex shrink-0 items-center gap-1 text-[14px] font-semibold text-foreground-intense group-hover:text-foreground-intense">
+                          <span className="flex shrink-0 items-center gap-1 text-[14px] font-semibold text-foreground-intense">
                             Play
-                            <ChevronRight
-                              className="size-4 opacity-70 transition-transform group-hover:translate-x-0.5"
-                              aria-hidden
-                            />
+                            <ChevronRight className="size-4 opacity-70" aria-hidden />
                           </span>
                         </Button>
                         <FavoriteStarButton channel={ch} size="md" />
@@ -658,9 +598,7 @@ export function TvFavoritesPage() {
                 <div className="flex justify-center pt-4">
                   <Button
                     type="button"
-                    onClick={() =>
-                      setVisibleCount((n) => n + PAGE_STEP)
-                    }
+                    onClick={() => setVisibleCount((n) => n + PAGE_STEP)}
                     size="lg"
                   >
                     Load more
@@ -674,7 +612,7 @@ export function TvFavoritesPage() {
             <FavoritesEpgTimeline
               channels={filtered}
               onSelectChannel={openChannel}
-              className="mt-10 lg:mt-14"
+              className="mt-10 lg:mt-12"
             />
           ) : null}
         </div>

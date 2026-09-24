@@ -243,7 +243,7 @@ export function FavoritesEpgTimeline({
         <div className="border-b border-border px-4 py-3.5 sm:px-6 sm:py-4">
           <div
             data-tv-layout="horizontal"
-            data-tv-nav-up="#fav-results,#fav-toolbar"
+            data-tv-nav-up="#fav-results,#fav-filter-deck"
             data-tv-nav-down="#favorites-epg-carousel"
             className="flex flex-wrap items-center justify-between gap-3"
           >
@@ -360,7 +360,7 @@ export function FavoritesEpgTimeline({
                     <ul
                       data-tv-layout="horizontal"
                       data-tv-item-count={rows.length}
-                      data-tv-nav-up="#fav-results,#fav-toolbar"
+                      data-tv-nav-up="#fav-results,#fav-filter-deck"
                       className={cn(
                         "flex snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden px-4 pb-2 pt-1 sm:gap-4 sm:px-6 sm:pb-3",
                         "scroll-px-4 sm:scroll-px-6",

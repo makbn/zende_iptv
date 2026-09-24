@@ -574,19 +574,61 @@ html[data-tv-input="remote"] .tv-player-control-row button svg {
 /* Settings, recordings, guide and overlays share comfortable remote targets. */
 html[data-tv-input="remote"] .tv-page-hero {
   max-width: none !important;
-  padding: 34px var(--tv-safe-inline) !important;
+  padding: 20px var(--tv-safe-inline) !important;
 }
 
 html[data-tv-input="remote"] .tv-page-hero h1 {
-  font-size: 46px !important;
+  font-size: 28px !important;
+  letter-spacing: -0.04em;
 }
 
 html[data-tv-input="remote"] .tv-page-hero p {
-  font-size: 17px !important;
+  font-size: 15px !important;
+  max-width: 42rem;
 }
 
-html[data-tv-input="remote"] :is(.tv-settings-page, .tv-recordings-page, .tv-favorites-page) main > div {
+/* Compact browse chrome shared by Favorites / Discover / Recordings / Library. */
+html[data-tv-input="remote"] .tv-browse-chrome {
+  padding-top: 12px !important;
+  padding-bottom: 10px !important;
+}
+
+html[data-tv-input="remote"] .tv-browse-chrome-title {
+  font-size: clamp(1.35rem, 2vw, 1.85rem) !important;
+}
+
+html[data-tv-input="remote"] .tv-browse-chrome-inner {
+  min-height: 72px;
+  gap: 14px !important;
+  padding: 14px 16px !important;
+  border-radius: 16px !important;
+}
+
+html[data-tv-input="remote"] .tv-browse-metrics > div {
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+html[data-tv-input="remote"] .tv-browse-filter-deck {
+  gap: 10px !important;
+  padding: 12px !important;
+  border-radius: 16px !important;
+}
+
+html[data-tv-input="remote"] .tv-browse-filter-deck :is(button, a[href], [role="combobox"]) {
+  min-height: 52px;
+}
+
+html[data-tv-input="remote"] :is(.tv-settings-page, .tv-recordings-page, .tv-favorites-page, .tv-guide-page) main > div {
   max-width: none;
+}
+
+/* Drop decorative page essays on the couch — controls and content first. */
+html[data-tv-input="remote"] .tv-browse-chrome .tv-browse-chrome-blurb,
+html[data-tv-input="remote"] .tv-page-hero > p {
+  display: none !important;
 }
 
 html[data-tv-input="remote"] :is(button, a[href], [role="button"], [role="tab"], [role="menuitem"], [role="combobox"]) {
@@ -726,12 +768,12 @@ html[data-tv-input="remote"] .tv-login-pair-url {
 .tv-home-hero-art {
   position: absolute;
   inset: 0;
+  z-index: 0;
   overflow: hidden;
   background: #07101c;
 }
 
 .tv-home-hero-art-fallback,
-.tv-home-hero-art-blur,
 .tv-home-hero-art-image {
   position: absolute;
   inset: 0;
@@ -743,36 +785,43 @@ html[data-tv-input="remote"] .tv-login-pair-url {
   opacity: 0.5;
 }
 
-.tv-home-hero-art-blur {
-  transform: scale(1.18);
-  object-fit: cover;
-  filter: blur(28px) saturate(1.22);
-  opacity: 0.48;
-}
-
 .tv-home-hero-art-image {
   left: 0;
+  z-index: 0;
   width: 100%;
   object-fit: cover;
   object-position: center 28%;
-  filter: saturate(0.92) contrast(1.04);
-  opacity: 0.84;
+  /* Prefer opacity dim over filter — filters force expensive paint on TV GPUs. */
+  opacity: 0;
+  transition: opacity 480ms cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.tv-home-hero-art-image.is-visible {
+  z-index: 1;
+  opacity: 0.55;
 }
 
 .tv-home-hero-copy {
   display: flex;
   min-width: 0;
   flex-direction: column;
+  opacity: 1;
+  transition: opacity 220ms ease;
+}
+
+.tv-home-hero-copy:not(.is-visible) {
+  opacity: 0;
 }
 
 .tv-home-hero-shade {
   position: absolute;
   inset: 0;
   z-index: 1;
+  pointer-events: none;
   background:
-    linear-gradient(90deg, #020914 0%, rgb(2 9 20 / 0.98) 27%, rgb(2 9 20 / 0.78) 43%, rgb(2 9 20 / 0.12) 72%, rgb(2 9 20 / 0.38) 100%),
-    linear-gradient(0deg, #020914 0%, rgb(2 9 20 / 0.96) 10%, transparent 46%),
-    linear-gradient(180deg, rgb(2 9 20 / 0.38), transparent 30%);
+    linear-gradient(90deg, #020914 0%, rgb(2 9 20 / 0.98) 30%, rgb(2 9 20 / 0.82) 48%, rgb(2 9 20 / 0.28) 72%, rgb(2 9 20 / 0.42) 100%),
+    linear-gradient(0deg, #020914 0%, rgb(2 9 20 / 0.96) 12%, transparent 48%),
+    linear-gradient(180deg, rgb(2 9 20 / 0.42), transparent 32%);
 }
 
 .tv-home-hero-content {
@@ -782,8 +831,8 @@ html[data-tv-input="remote"] .tv-login-pair-url {
   width: min(40vw, 680px);
   height: 100%;
   flex-direction: column;
-  justify-content: center;
-  padding: 108px 0 88px var(--tv-safe-inline, 4.5vw);
+  justify-content: flex-end;
+  padding: 108px 0 96px var(--tv-safe-inline, 4.5vw);
 }
 
 .tv-home-hero-eyebrow {
@@ -1148,7 +1197,7 @@ html[data-tv-input="remote"] .tv-home-hero {
 
 html[data-tv-input="remote"] .tv-home-hero-content {
   padding-top: 88px;
-  padding-bottom: 72px;
+  padding-bottom: 88px;
   justify-content: flex-end;
 }
 
@@ -1163,9 +1212,8 @@ html[data-tv-input="remote"] .tv-home-shelves-viewport {
 }
 
 html[data-tv-input="remote"] .tv-home-shelves-track {
-  will-change: transform;
-  /* Prime-like row slide — transform-only so Tizen can composite smoothly. */
-  transition: transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
+  /* Transform-only row slide. No permanent will-change — it burns TV GPU memory. */
+  transition: transform 420ms cubic-bezier(0.33, 1, 0.68, 1);
   /* Slack so the last rails can rise into the fixed focus band. */
   padding-bottom: min(48vh, 420px);
 }
@@ -1180,66 +1228,49 @@ html[data-tv-input="remote"] .tv-home-shelves > * + * {
   margin-top: 18px !important;
 }
 
-/* Hero art + copy crossfade when focus moves across titles. */
-html[data-tv-input="remote"] .tv-home-hero-art-image.is-exiting {
-  z-index: 1;
-  animation: tv-home-hero-art-out 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+/* Dual-layer hero crossfade — opacity only, no filters / remounts. */
+html[data-tv-input="remote"] .tv-home-hero-art-image {
+  filter: none;
+  backdrop-filter: none;
+  opacity: 0;
+  transition: opacity 480ms cubic-bezier(0.33, 1, 0.68, 1);
 }
 
-html[data-tv-input="remote"] .tv-home-hero-art-image.is-entering {
-  z-index: 2;
-  animation: tv-home-hero-art-in 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+html[data-tv-input="remote"] .tv-home-hero-art-image.is-visible {
+  opacity: 0.48;
 }
 
 html[data-tv-input="remote"] .tv-home-hero-copy {
-  animation: tv-home-hero-copy-in 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: opacity 200ms ease;
 }
 
-@keyframes tv-home-hero-art-out {
-  from { opacity: 0.84; }
-  to { opacity: 0; }
+html[data-tv-input="remote"] .tv-home-card img {
+  filter: none;
+  transform: none;
+  transition: none;
 }
 
-@keyframes tv-home-hero-art-in {
-  from { opacity: 0; }
-  to { opacity: 0.84; }
+html[data-tv-input="remote"] .tv-home-card:hover img {
+  transform: none;
 }
 
-@keyframes tv-home-hero-copy-in {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 14px, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
+/* Focus ring without scale/glow — concurrent transform+shadow with the shelf
+   slide is what makes D-pad motion skip on Tizen / TV Chromium. */
 html[data-tv-input="remote"] .tv-home-card:focus {
   z-index: 40;
   border-color: #ff4d99 !important;
   outline: 3px solid #ff4d99 !important;
-  outline-offset: 1px;
-  box-shadow:
-    0 0 0 2px rgb(255 255 255 / 0.56),
-    0 0 24px 5px rgb(255 54 145 / 0.56),
-    0 18px 42px rgb(0 0 0 / 0.7) !important;
-  transform: scale(1.035) translateY(-2px);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px rgb(255 255 255 / 0.5) !important;
+  transform: none;
 }
 
 html[data-tv-input="remote"] .tv-home-card:focus img {
   filter: none;
-  transform: scale(1.035);
+  transform: none;
 }
 
-/* Full-screen image filters are expensive on TV WebViews and Tizen. Keep one
-   clean composited hero layer so a backdrop swap cannot stall D-pad focus. */
-html[data-tv-input="remote"] .tv-home-hero-art-blur {
-  display: none;
-}
-
-html[data-tv-input="remote"] .tv-home-hero-art-image,
+/* Dim hero art for title contrast. Prefer opacity over filters on TV GPUs. */
 html[data-tv-input="remote"] .tv-home-hero-secondary {
   filter: none;
   backdrop-filter: none;
@@ -1265,13 +1296,12 @@ html[data-tv-input="remote"] .tv-home-hero-secondary {
   .tv-home-loading-cards span { animation: none; }
   html[data-tv-input="remote"] .tv-home-card:focus { transform: none; }
   html[data-tv-input="remote"] .tv-home-shelves-track { transition: none; }
-  html[data-tv-input="remote"] .tv-home-hero-art-image.is-exiting,
-  html[data-tv-input="remote"] .tv-home-hero-art-image.is-entering,
+  html[data-tv-input="remote"] .tv-home-hero-art-image,
   html[data-tv-input="remote"] .tv-home-hero-copy {
-    animation: none !important;
     transition: none !important;
-    opacity: 0.84;
-    transform: none;
+  }
+  html[data-tv-input="remote"] .tv-home-hero-art-image.is-visible {
+    opacity: 0.48;
   }
   html[data-tv-input="remote"] .tv-home-hero-copy {
     opacity: 1;
@@ -1391,10 +1421,16 @@ html[data-tv-platform="tizen"] :is(.tv-rail, .tv-home-rail) {
 }
 
 html[data-tv-platform="tizen"] [data-tv-card]:focus {
+  /* Outline rings only — drop the soft blur shadow; it forces expensive paints
+     while the home shelf is translating under fixed focus. */
   box-shadow:
     0 0 0 3px #ffffff,
-    0 0 0 7px #ff4d94,
-    0 16px 36px rgb(0 0 0 / 0.68) !important;
+    0 0 0 7px #ff4d94 !important;
+  transform: none;
+}
+
+html[data-tv-input="remote"] .tv-home-card {
+  transition: border-color 120ms ease;
 }
 
 /* Samsung can expose a narrower CSS viewport even on a 1080p panel. */

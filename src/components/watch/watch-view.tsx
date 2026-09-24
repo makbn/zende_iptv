@@ -81,6 +81,7 @@ import {
   createWatchUrl,
   fetchRecordingWatchMeta,
   fetchWatchSessionMeta,
+  patchWatchSessionAudioTrack,
   type WatchSessionMeta,
 } from "@/lib/navigation/watch-url";
 import { cn } from "@/lib/utils";
@@ -588,6 +589,8 @@ export function WatchView() {
   const [subtitleSearchOpen, setSubtitleSearchOpen] = useState(false);
   const [audioTrackOpen, setAudioTrackOpen] = useState(false);
   const [selectedAudioIndex, setSelectedAudioIndex] = useState(0);
+  const audioReselectSeekRef = useRef<number | null>(null);
+  const audioSwitchingRef = useRef(false);
   const externalSubtitles = useExternalSubtitles(playerSession?.video ?? null);
   const [playerFatalError, setPlayerFatalError] = useState<PlayerError | null>(null);
   const [playerRetryEpoch, setPlayerRetryEpoch] = useState(0);
@@ -1050,6 +1053,19 @@ export function WatchView() {
     const flushPosition = () => positionSaverRef.current?.flush(v.currentTime);
     const onMeta = () => {
       setDuration(v.duration);
+      const pendingAudioSeek = audioReselectSeekRef.current;
+      if (pendingAudioSeek != null) {
+        audioReselectSeekRef.current = null;
+        const target = Math.max(0, pendingAudioSeek);
+        if (Number.isFinite(v.duration) && v.duration > 0) {
+          v.currentTime = Math.min(target, Math.max(0, v.duration - 1));
+        } else if (target > 0) {
+          v.currentTime = target;
+        }
+        void v.play().catch(() => undefined);
+        if (chromeVisibleRef.current) syncChromeProgress(true);
+        return;
+      }
       if (
         playbackPositionKey &&
         resumedUrlRef.current !== playbackPositionKey &&
@@ -1557,12 +1573,17 @@ export function WatchView() {
   const currentAudioTrack =
     liveAudioTracks.length > 1
       ? (playerSession?.getCurrentAudioTrack() ?? 0)
-      : selectedAudioIndex;
+      : (playbackMeta?.selectedAudioIndex ?? selectedAudioIndex);
   const showAudioTrackButton = audioTracks.length > 1;
   const showSubtitleControls = isVodPlayback;
   const liveAudioTracksKey = liveAudioTracks
     .map((t) => `${t.index}:${t.label}:${t.language ?? ""}`)
     .join("|");
+
+  useEffect(() => {
+    if (playbackMeta?.selectedAudioIndex == null) return;
+    setSelectedAudioIndex(playbackMeta.selectedAudioIndex);
+  }, [playbackMeta?.selectedAudioIndex]);
 
   useEffect(() => {
     if (liveAudioTracks.length <= 1) return;
@@ -1603,11 +1624,13 @@ export function WatchView() {
   const selectAudioTrack = useCallback(
     (index: number) => {
       setSelectedAudioIndex(index);
+
+      // HLS alternate-audio groups / native AudioTrackList — switch in place.
       if (liveAudioTracks.length > 1) {
         playerSession?.setAudioTrack(index);
         return;
       }
-      // Progressive / native: try the HTMLMediaElement AudioTrackList when present.
+      playerSession?.setAudioTrack(index);
       const video = playerSession?.video;
       const list = (
         video as (HTMLVideoElement & {
@@ -1618,9 +1641,29 @@ export function WatchView() {
         for (let i = 0; i < list.length; i++) {
           list[i]!.enabled = i === index;
         }
+        return;
       }
+
+      // Meta / ffprobe tracks without a live switcher — remux on the server.
+      if (!sessionId || audioSwitchingRef.current) return;
+      if (!(playbackMeta?.audioTracks && playbackMeta.audioTracks.length > 1)) {
+        return;
+      }
+      const resumeAt = video?.currentTime ?? 0;
+      audioSwitchingRef.current = true;
+      audioReselectSeekRef.current = resumeAt > 1 ? resumeAt : null;
+      void patchWatchSessionAudioTrack(sessionId, index)
+        .then((next) => {
+          setSessionMeta(next);
+        })
+        .catch(() => {
+          audioReselectSeekRef.current = null;
+        })
+        .finally(() => {
+          audioSwitchingRef.current = false;
+        });
     },
-    [liveAudioTracks.length, playerSession],
+    [liveAudioTracks.length, playbackMeta?.audioTracks, playerSession, sessionId],
   );
 
   const introSegments = useIntroSegments({

@@ -3,6 +3,10 @@ import "server-only";
 import { spawn } from "node:child_process";
 
 import {
+  formatAudioTrackLabel,
+  uniquifyAudioTrackLabels,
+} from "@/lib/playback/audio-track-label";
+import {
   hintAudioTracksFromCatalog,
   isMultiLangCatalogHint,
 } from "@/lib/playback/audio-tracks-hint";
@@ -21,51 +25,16 @@ function ffprobeCommand(): string {
 type FfprobeStream = {
   index?: number;
   codec_type?: string;
-  tags?: { language?: string; title?: string; LANGUAGE?: string; TITLE?: string };
-};
-
-function languageLabel(code: string | undefined, fallbackIndex: number): string {
-  const raw = (code ?? "").trim().toLowerCase();
-  if (!raw || raw === "und" || raw === "unknown") return `Audio track ${fallbackIndex + 1}`;
-  const map: Record<string, string> = {
-    eng: "English",
-    en: "English",
-    fra: "French",
-    fre: "French",
-    fr: "French",
-    deu: "German",
-    ger: "German",
-    de: "German",
-    spa: "Spanish",
-    es: "Spanish",
-    ita: "Italian",
-    it: "Italian",
-    por: "Portuguese",
-    pt: "Portuguese",
-    ara: "Arabic",
-    ar: "Arabic",
-    fas: "Persian",
-    per: "Persian",
-    fa: "Persian",
-    tur: "Turkish",
-    tr: "Turkish",
-    rus: "Russian",
-    ru: "Russian",
-    zho: "Chinese",
-    chi: "Chinese",
-    zh: "Chinese",
-    jpn: "Japanese",
-    ja: "Japanese",
-    kor: "Korean",
-    ko: "Korean",
-    hin: "Hindi",
-    hi: "Hindi",
-    nld: "Dutch",
-    dut: "Dutch",
-    nl: "Dutch",
+  channels?: number;
+  channel_layout?: string;
+  tags?: {
+    language?: string;
+    title?: string;
+    LANGUAGE?: string;
+    TITLE?: string;
+    lang?: string;
   };
-  return map[raw] ?? raw.toUpperCase();
-}
+};
 
 /**
  * Best-effort ffprobe of audio streams. Times out quickly so session create
@@ -121,25 +90,38 @@ export async function probeUpstreamAudioTracks(
           resolve([]);
           return;
         }
-        resolve(
-          audio.map((stream, i) => {
-            const language =
-              stream.tags?.language?.trim() ||
-              stream.tags?.LANGUAGE?.trim() ||
-              undefined;
-            const title = stream.tags?.title?.trim() || stream.tags?.TITLE?.trim();
-            return {
+        const tracks = audio.map((stream, i) => {
+          const language =
+            stream.tags?.language?.trim() ||
+            stream.tags?.LANGUAGE?.trim() ||
+            stream.tags?.lang?.trim() ||
+            undefined;
+          const title = stream.tags?.title?.trim() || stream.tags?.TITLE?.trim();
+          return {
+            index: i,
+            label: formatAudioTrackLabel({
               index: i,
-              label: title || languageLabel(language, i),
-              ...(language ? { language: language.toLowerCase() } : {}),
-            };
-          }),
-        );
+              language,
+              title,
+              channels: stream.channels,
+              channelLayout: stream.channel_layout,
+            }),
+            ...(language ? { language: language.toLowerCase() } : {}),
+          };
+        });
+        resolve(uniquifyAudioTrackLabels(tracks));
       } catch {
         resolve([]);
       }
     });
   });
+}
+
+function tracksNeedBetterLabels(tracks?: PlaybackAudioTrack[]): boolean {
+  if (!tracks || tracks.length <= 1) return true;
+  return tracks.every((t) =>
+    /^(?:audio\s*)?track\s*\d+$/i.test((t.label ?? "").trim()),
+  );
 }
 
 /** Prefer probed tracks; fall back to MULTI-LANG catalog hints. */
@@ -150,11 +132,14 @@ export async function resolvePlaybackAudioTracks(input: {
   existing?: PlaybackAudioTrack[];
   headers?: string;
 }): Promise<PlaybackAudioTrack[] | undefined> {
-  if (input.existing && input.existing.length > 1) return input.existing;
+  if (input.existing && input.existing.length > 1 && !tracksNeedBetterLabels(input.existing)) {
+    return input.existing;
+  }
 
   const shouldProbe =
     isMultiLangCatalogHint(input.group, input.title) ||
-    /\/movie\/|\/series\//i.test(input.upstreamUrl);
+    /\/movie\/|\/series\//i.test(input.upstreamUrl) ||
+    tracksNeedBetterLabels(input.existing);
 
   if (shouldProbe) {
     const probed = await probeUpstreamAudioTracks(input.upstreamUrl, {
@@ -164,5 +149,6 @@ export async function resolvePlaybackAudioTracks(input: {
     if (probed.length > 1) return probed;
   }
 
+  if (input.existing && input.existing.length > 1) return input.existing;
   return hintAudioTracksFromCatalog(input.group, input.title);
 }

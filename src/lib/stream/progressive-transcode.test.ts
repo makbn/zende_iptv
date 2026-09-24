@@ -49,6 +49,19 @@ describe("progressive browser transcode", () => {
       .toEqual(["-start_number", "750"]);
   });
 
+  it("maps the selected upstream audio stream index", () => {
+    const args = buildProgressiveTranscodeArgs(
+      "http://127.0.0.1:8077/api/stream/proxy/session.mkv",
+      "X-Zende-Internal-Relay: 1\r\n",
+      "/tmp/session/playlist.m3u8",
+      "/tmp/session/segment-%06d.ts",
+      { audioTrackIndex: 2 },
+    );
+
+    expect(args).toContain("0:a:2?");
+    expect(args).not.toContain("0:a:0?");
+  });
+
   it("advertises the complete movie as finite VOD immediately", () => {
     const playlist = buildProgressiveVodPlaylist("session_123", 10.5);
 

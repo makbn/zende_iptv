@@ -1,12 +1,10 @@
 "use client";
 
 import { Button, buttonVariants } from "@appica/ui-react/button";
-import { Info, Play } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   memo,
-  startTransition,
   useCallback,
   useEffect,
   useMemo,
@@ -31,9 +29,9 @@ import { parseChannelLabel } from "@/lib/channel/channel-label";
 import { resolveLibraryContentType } from "@/lib/channels/content-type";
 import { secureImageUrl } from "@/lib/media/secure-image-url";
 import type { MediaMetadata } from "@/lib/media/media-metadata";
-import { buildShowPageHref } from "@/lib/navigation/show-page";
 import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
+import { cn } from "@/lib/utils";
 import {
   listRecentPlayback,
   listTopByPlayCount,
@@ -159,15 +157,9 @@ function artworkUrl(channel: M3uChannel): string | undefined {
 function HomeHero({
   feature,
   metadata,
-  onPrimary,
-  onMoreInfo,
-  onFocusCapture,
 }: {
   feature: HomeFeature | null;
   metadata: MediaMetadata | null;
-  onPrimary: () => void;
-  onMoreInfo: () => void;
-  onFocusCapture?: () => void;
 }) {
   const art = secureImageUrl(
     metadata?.backdropUrl || feature?.channel.tvgLogo,
@@ -187,93 +179,136 @@ function HomeHero({
     : "Your Zende library becomes a cinematic, couch-first experience.";
   const featureKey = feature?.channel.url ?? "empty";
 
-  const shownArtRef = useRef<string | null>(art ?? null);
-  const [shownArt, setShownArt] = useState<string | null>(art ?? null);
-  const [exitingArt, setExitingArt] = useState<string | null>(null);
+  // Two permanent image layers — swap active after the hidden layer finishes loading.
+  // Avoids remounting <img> nodes mid-navigation (the main source of skipped fades on TV).
+  const [layerA, setLayerA] = useState<string | null>(art ?? null);
+  const [layerB, setLayerB] = useState<string | null>(null);
+  const [activeLayer, setActiveLayer] = useState<"a" | "b">("a");
+  const [copyVisible, setCopyVisible] = useState(true);
+  const [displayCopy, setDisplayCopy] = useState({
+    featureKey,
+    eyebrow: feature?.source === "continue" ? "Continue Watching" : "Featured on Zende",
+    title,
+    meta,
+    description,
+  });
+  const activeSrcRef = useRef<string | null>(art ?? null);
+  const pendingSrcRef = useRef<string | null>(null);
+  const copyKeyRef = useRef(featureKey);
+  const copyFieldsRef = useRef({
+    eyebrow: feature?.source === "continue" ? "Continue Watching" : "Featured on Zende",
+    title,
+    meta,
+    description,
+  });
+  copyFieldsRef.current = {
+    eyebrow: feature?.source === "continue" ? "Continue Watching" : "Featured on Zende",
+    title,
+    meta,
+    description,
+  };
 
   useEffect(() => {
     const next = art ?? null;
-    if (next === shownArtRef.current) return;
-    const previous = shownArtRef.current;
-    shownArtRef.current = next;
-    if (previous) setExitingArt(previous);
-    setShownArt(next);
-    if (!previous) return;
-    const timer = window.setTimeout(() => setExitingArt(null), 420);
-    return () => window.clearTimeout(timer);
-  }, [art]);
+    if (!next || next === activeSrcRef.current || next === pendingSrcRef.current) return;
+    pendingSrcRef.current = next;
+    if (activeLayer === "a") setLayerB(next);
+    else setLayerA(next);
+  }, [art, activeLayer]);
+
+  useEffect(() => {
+    if (featureKey === copyKeyRef.current) return;
+
+    let cancelled = false;
+    setCopyVisible(false);
+    const timer = window.setTimeout(() => {
+      if (cancelled) return;
+      copyKeyRef.current = featureKey;
+      setDisplayCopy({ featureKey, ...copyFieldsRef.current });
+      setCopyVisible(true);
+    }, 140);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [featureKey]);
+
+  // Keep copy fields fresh while the same card is focused (metadata fetch).
+  useEffect(() => {
+    if (featureKey !== copyKeyRef.current || !copyVisible) return;
+    setDisplayCopy({
+      featureKey,
+      ...copyFieldsRef.current,
+    });
+  }, [copyVisible, description, feature?.source, featureKey, meta, title]);
+
+  const promoteLayer = useCallback(
+    (layer: "a" | "b", src: string) => {
+      if (pendingSrcRef.current !== src) return;
+      pendingSrcRef.current = null;
+      activeSrcRef.current = src;
+      setActiveLayer(layer);
+    },
+    [],
+  );
 
   return (
     <section
       className="tv-home-hero"
       aria-labelledby="tv-home-hero-title"
-      onFocusCapture={onFocusCapture}
     >
       <div className="tv-home-hero-art" aria-hidden>
-        {exitingArt ? (
+        {layerA ? (
           <img
-            className="tv-home-hero-art-image is-exiting"
-            src={exitingArt}
+            className={cn(
+              "tv-home-hero-art-image",
+              activeLayer === "a" && "is-visible",
+            )}
+            src={layerA}
             alt=""
             decoding="async"
+            fetchPriority={activeLayer === "a" ? "high" : "low"}
+            ref={(el) => {
+              // Cached images often skip onLoad; promote as soon as decode is ready.
+              if (el?.complete && el.naturalWidth > 0) promoteLayer("a", layerA);
+            }}
+            onLoad={() => promoteLayer("a", layerA)}
           />
         ) : null}
-        {shownArt ? (
-          <>
-            <img className="tv-home-hero-art-blur" src={shownArt} alt="" decoding="async" />
-            <img
-              key={shownArt}
-              className="tv-home-hero-art-image is-entering"
-              src={shownArt}
-              alt=""
-              decoding="async"
-              fetchPriority="high"
-            />
-          </>
-        ) : (
+        {layerB ? (
+          <img
+            className={cn(
+              "tv-home-hero-art-image",
+              activeLayer === "b" && "is-visible",
+            )}
+            src={layerB}
+            alt=""
+            decoding="async"
+            fetchPriority={activeLayer === "b" ? "high" : "low"}
+            ref={(el) => {
+              if (el?.complete && el.naturalWidth > 0) promoteLayer("b", layerB);
+            }}
+            onLoad={() => promoteLayer("b", layerB)}
+          />
+        ) : null}
+        {!layerA && !layerB ? (
           <div
             className="tv-home-hero-art-fallback"
             style={{ background: gradientFromChannelName(title) }}
           />
-        )}
+        ) : null}
       </div>
       <div className="tv-home-hero-shade" aria-hidden />
 
       <div className="tv-home-hero-content">
-        <div key={featureKey} className="tv-home-hero-copy">
-          <p className="tv-home-hero-eyebrow">
-            {feature?.source === "continue" ? "Continue Watching" : "Featured on Zende"}
-          </p>
-          <h1 id="tv-home-hero-title">{title}</h1>
-          <p className="tv-home-hero-meta">{meta}</p>
-          <p className="tv-home-hero-description">{description}</p>
-        </div>
         <div
-          className="tv-home-hero-actions"
-          data-tv-layout="horizontal"
-          data-tv-skip-initial
+          className={cn("tv-home-hero-copy", copyVisible && "is-visible")}
         >
-          <Button
-            type="button"
-            size="lg"
-            className="tv-home-hero-primary"
-            onClick={onPrimary}
-            disabled={!feature}
-          >
-            <Play aria-hidden fill="currentColor" />
-            {feature?.source === "continue" ? "Resume" : "Watch Now"}
-          </Button>
-          <Button
-            type="button"
-            size="lg"
-            variant="secondary"
-            className="tv-home-hero-secondary"
-            onClick={onMoreInfo}
-            disabled={!feature}
-          >
-            <Info aria-hidden />
-            More Info
-          </Button>
+          <p className="tv-home-hero-eyebrow">{displayCopy.eyebrow}</p>
+          <h1 id="tv-home-hero-title">{displayCopy.title}</h1>
+          <p className="tv-home-hero-meta">{displayCopy.meta}</p>
+          <p className="tv-home-hero-description">{displayCopy.description}</p>
         </div>
       </div>
 
@@ -429,47 +464,51 @@ export function TvHome() {
   const [statsEpoch, setStatsEpoch] = useState(0);
   const [focusedFeature, setFocusedFeature] = useState<HomeFeature | null>(null);
   const pendingFocusedFeatureRef = useRef<HomeFeature | null>(null);
-  const heroCommitFrameRef = useRef<number | null>(null);
+  const heroCommitTimerRef = useRef<number | null>(null);
   const shelvesTrackRef = useRef<HTMLDivElement>(null);
+  const shelvesOffsetRef = useRef<number | null>(null);
 
   /** Prime-style fixed focus lane: slide rails under a locked hero (TV remote only). */
   const alignShelvesToSection = useCallback((section: HTMLElement | null) => {
     const track = shelvesTrackRef.current;
     if (!track) return;
     if (document.documentElement.dataset.tvInput !== "remote") {
-      track.style.transform = "";
+      if (shelvesOffsetRef.current !== 0) {
+        shelvesOffsetRef.current = 0;
+        track.style.transform = "translate3d(0,0,0)";
+      }
       return;
     }
     const offset = section ? Math.max(0, section.offsetTop) : 0;
-    track.style.transform = offset > 0 ? `translate3d(0, ${-offset}px, 0)` : "";
+    // Re-setting the same transform restarts the CSS transition on TV WebViews
+    // and makes row slides feel like they "skip" while moving within a rail.
+    if (shelvesOffsetRef.current === offset) return;
+    shelvesOffsetRef.current = offset;
+    track.style.transform = `translate3d(0, ${-offset}px, 0)`;
   }, []);
-
-  const resetShelvesAlign = useCallback(() => {
-    alignShelvesToSection(null);
-  }, [alignShelvesToSection]);
 
   const scheduleFocusedFeature = useCallback((feature: HomeFeature) => {
     pendingFocusedFeatureRef.current = feature;
-    if (heroCommitFrameRef.current !== null) return;
-    // Let the browser paint the native focus ring first and coalesce a burst of
-    // remote key presses into one hero update for the final focused card.
-    heroCommitFrameRef.current = window.requestAnimationFrame(() => {
-      heroCommitFrameRef.current = null;
+    if (heroCommitTimerRef.current != null) {
+      window.clearTimeout(heroCommitTimerRef.current);
+    }
+    // Wait for D-pad bursts to settle before swapping hero art/copy so
+    // in-flight opacity transitions are not cancelled mid-way.
+    heroCommitTimerRef.current = window.setTimeout(() => {
+      heroCommitTimerRef.current = null;
       const next = pendingFocusedFeatureRef.current;
       if (!next) return;
-      startTransition(() => {
-        setFocusedFeature((current) =>
-          current?.channel.url === next.channel.url && current.source === next.source
-            ? current
-            : next,
-        );
-      });
-    });
+      setFocusedFeature((current) =>
+        current?.channel.url === next.channel.url && current.source === next.source
+          ? current
+          : next,
+      );
+    }, 180);
   }, []);
 
   useEffect(() => () => {
-    if (heroCommitFrameRef.current !== null) {
-      window.cancelAnimationFrame(heroCommitFrameRef.current);
+    if (heroCommitTimerRef.current != null) {
+      window.clearTimeout(heroCommitTimerRef.current);
     }
   }, []);
 
@@ -633,15 +672,6 @@ export function TvHome() {
     openChannel(feature.channel);
   }, [openChannel, playChannel]);
 
-  const openFeatureInfo = useCallback((feature: HomeFeature | null) => {
-    if (!feature) return;
-    if (feature.playback?.seriesId) {
-      router.push(buildShowPageHref(feature.playback.seriesId, feature.channel));
-      return;
-    }
-    openChannel(feature.channel);
-  }, [openChannel, router]);
-
   if (metaFailed) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-6 pt-20 text-center text-foreground-intense">
@@ -669,9 +699,6 @@ export function TvHome() {
       <HomeHero
         feature={heroFeature}
         metadata={heroMetadata}
-        onPrimary={() => playFeature(heroFeature)}
-        onMoreInfo={() => openFeatureInfo(heroFeature)}
-        onFocusCapture={resetShelvesAlign}
       />
 
       <div className="tv-home-shelves-viewport">

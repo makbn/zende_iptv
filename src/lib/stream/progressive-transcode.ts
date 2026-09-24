@@ -7,6 +7,8 @@ export const TRANSCODE_HLS_CHUNK_SEGMENTS = 30;
 type ProgressiveTranscodeWindow = {
   startSegment?: number;
   segmentCount?: number;
+  /** Upstream audio stream index (`0:a:N`). Defaults to 0. */
+  audioTrackIndex?: number;
 };
 
 function finitePositive(value: number | undefined): value is number {
@@ -66,6 +68,7 @@ export function buildProgressiveTranscodeArgs(
 ): string[] {
   const startSegment = Math.max(0, Math.floor(window?.startSegment ?? 0));
   const segmentCount = Math.max(0, Math.floor(window?.segmentCount ?? 0));
+  const audioTrackIndex = Math.max(0, Math.floor(window?.audioTrackIndex ?? 0));
   const startSeconds = startSegment * TRANSCODE_HLS_SEGMENT_SECONDS;
   const args = [
     "-hide_banner",
@@ -95,7 +98,7 @@ export function buildProgressiveTranscodeArgs(
   if (segmentCount > 0) {
     args.push("-t", String(segmentCount * TRANSCODE_HLS_SEGMENT_SECONDS));
   }
-  args.push("-map", "0:v:0", "-map", "0:a:0?", "-sn", "-dn");
+  args.push("-map", "0:v:0", `-map`, `0:a:${audioTrackIndex}?`, "-sn", "-dn");
   args.push(
     "-c:v",
     "libx264",

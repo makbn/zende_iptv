@@ -25,6 +25,7 @@ type HlsJob = {
   playlistPath: string;
   startSegment: number;
   endSegmentExclusive?: number;
+  audioTrackIndex: number;
   process: ReturnType<typeof spawn> | null;
   idleTimer: ReturnType<typeof setTimeout> | null;
   stderrTail: string;
@@ -88,13 +89,15 @@ async function startJob(
   inputUrl: string,
   internalHeaders: string,
   startSegment: number,
-  segmentCount?: number,
+  segmentCount: number | undefined,
+  audioTrackIndex: number,
 ): Promise<HlsJob> {
   assertSessionId(sessionId);
   await mkdir(ROOT, { recursive: true });
   const directory = join(
     ROOT,
     sessionId,
+    `a${audioTrackIndex}`,
     segmentCount ? `chunk-${String(startSegment).padStart(6, "0")}` : "event",
   );
   await rm(directory, { recursive: true, force: true });
@@ -108,7 +111,10 @@ async function startJob(
       internalHeaders,
       playlistPath,
       segmentPattern,
-      segmentCount ? { startSegment, segmentCount } : undefined,
+      {
+        ...(segmentCount ? { startSegment, segmentCount } : { startSegment }),
+        audioTrackIndex,
+      },
     ),
     { stdio: ["ignore", "ignore", "pipe"], detached: false },
   );
@@ -121,6 +127,7 @@ async function startJob(
     ...(segmentCount
       ? { endSegmentExclusive: startSegment + segmentCount }
       : {}),
+    audioTrackIndex,
     process: proc,
     idleTimer: null,
     stderrTail: "",
@@ -131,6 +138,7 @@ async function startJob(
   proc.once("spawn", () => {
     log.info("segmented compatibility transcode started", {
       sessionId,
+      audioTrackIndex,
       outputVideo: "h264",
       outputAudio: "aac-stereo",
       segmentSeconds: TRANSCODE_HLS_SEGMENT_SECONDS,
@@ -139,10 +147,11 @@ async function startJob(
     });
   });
   proc.once("error", (error) => {
-    job.stderrTail = error.message;
     job.process = null;
+    job.stderrTail = error.message;
     log.error("segmented compatibility transcode failed to start", {
       sessionId,
+      audioTrackIndex,
       message: error.message,
     });
   });
@@ -150,6 +159,7 @@ async function startJob(
     job.process = null;
     log.info("segmented compatibility transcode stopped", {
       sessionId,
+      audioTrackIndex,
       code,
       signal,
       stderr: job.stderrTail.trim().slice(-1200) || undefined,
@@ -160,6 +170,22 @@ async function startJob(
   return job;
 }
 
+/** Stop all compatibility jobs for a session (e.g. after audio track change). */
+export function stopHlsTranscodeJobsForSession(sessionId: string): void {
+  assertSessionId(sessionId);
+  for (const [key, pending] of [...jobs.entries()]) {
+    if (!key.includes(sessionId)) continue;
+    jobs.delete(key);
+    void pending
+      .then((job) => {
+        if (job.idleTimer) clearTimeout(job.idleTimer);
+        if (job.process && !job.process.killed) job.process.kill("SIGTERM");
+        void rm(job.directory, { recursive: true, force: true }).catch(() => undefined);
+      })
+      .catch(() => undefined);
+  }
+}
+
 export async function ensureHlsTranscodeJob(input: {
   sessionId: string;
   inputUrl: string;
@@ -167,8 +193,11 @@ export async function ensureHlsTranscodeJob(input: {
   /** Known VOD duration plus requested segment enables seek-window encoding. */
   durationSeconds?: number;
   targetSegment?: number;
+  /** Upstream audio stream index to map (`0:a:N`). */
+  audioTrackIndex?: number;
 }): Promise<HlsJob> {
   assertSessionId(input.sessionId);
+  const audioTrackIndex = Math.max(0, Math.floor(input.audioTrackIndex ?? 0));
   const finiteVod =
     input.durationSeconds != null &&
     Number.isFinite(input.durationSeconds) &&
@@ -179,7 +208,7 @@ export async function ensureHlsTranscodeJob(input: {
 
   let startSegment = 0;
   let segmentCount: number | undefined;
-  let key = `event:${input.sessionId}`;
+  let key = `event:${input.sessionId}:a${audioTrackIndex}`;
   if (finiteVod) {
     const totalSegments = Math.ceil(
       input.durationSeconds! / TRANSCODE_HLS_SEGMENT_SECONDS,
@@ -187,7 +216,7 @@ export async function ensureHlsTranscodeJob(input: {
     if (input.targetSegment! >= totalSegments) {
       throw new Error("Requested compatibility segment is outside the VOD duration.");
     }
-    const prefix = `vod:${input.sessionId}:`;
+    const prefix = `vod:${input.sessionId}:a${audioTrackIndex}:`;
     for (const [existingKey, existingJob] of jobs) {
       if (!existingKey.startsWith(prefix)) continue;
       const existingStart = Number(existingKey.slice(prefix.length));
@@ -210,7 +239,7 @@ export async function ensureHlsTranscodeJob(input: {
       TRANSCODE_HLS_CHUNK_SEGMENTS,
       totalSegments - startSegment,
     );
-    key = `vod:${input.sessionId}:${startSegment}`;
+    key = `vod:${input.sessionId}:a${audioTrackIndex}:${startSegment}`;
   }
 
   let pending = jobs.get(key);
@@ -222,6 +251,7 @@ export async function ensureHlsTranscodeJob(input: {
       input.internalHeaders,
       startSegment,
       segmentCount,
+      audioTrackIndex,
     );
     jobs.set(key, pending);
     pending.catch(() => jobs.delete(key));

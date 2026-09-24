@@ -349,16 +349,11 @@ export function FullGuideBrowser({
             searchPending && "opacity-45",
           )}
         >
-          <div className="flex shrink-0 flex-col gap-2 border-b border-border px-4 py-4 sm:flex-row sm:items-end sm:justify-between sm:px-5">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-foreground-intense">
-                Channels
-              </p>
-              <p className="mt-1 text-[12px] text-foreground-muted">
-                Now and next for every result. Open a row for the live preview and complete schedule.
-              </p>
-            </div>
-            <span className="w-fit rounded-full border border-border bg-background-muted px-3 py-1.5 text-[11px] font-medium text-foreground-muted">
+          <div className="flex shrink-0 flex-col gap-1 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-foreground-muted">
+              Channels
+            </p>
+            <span className="w-fit rounded-full border border-border bg-background-muted px-3 py-1 text-[11px] font-medium text-foreground-muted">
               {results.length.toLocaleString()} shown
             </span>
           </div>

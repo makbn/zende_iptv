@@ -149,4 +149,6 @@ export async function persistSessionPlaybackMeta(
     where: { id: sessionId },
     data: { metaJson: serializePlaybackSessionMeta(meta) },
   });
+  const { evictSessionCache } = await import("@/lib/stream/stream-session-store");
+  evictSessionCache(sessionId);
 }

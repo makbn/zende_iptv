@@ -260,7 +260,10 @@ export function FullGuideBrowser({
     <>
     <section aria-label="Full TV guide" className="flex flex-col flex-1 min-h-0 space-y-5">
       <Card frame="solid" className="shrink-0" contentProps={{ className: "p-3 sm:p-4" }}>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div
+          data-tv-layout="horizontal"
+          className="flex flex-col gap-3 sm:flex-row sm:items-center"
+        >
           <label className="relative block min-w-0 flex-1">
             <Search
               className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-foreground-intense"
@@ -268,10 +271,14 @@ export function FullGuideBrowser({
             />
             <span className="sr-only">Search channels and programme guide</span>
             <Input
+              id="guide-search"
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search channels or programmes — TSN, tennis, US Open…"
+              data-tv-initial-focus=""
+              data-tv-nav-input="spatial"
+              data-tv-nav-down="#guide-results"
               className="h-12 w-full rounded-full border border-border bg-background pl-11 pr-11 text-[14px] text-foreground-intense outline-none placeholder:text-foreground-intense focus:border-primary focus:ring-2 focus:ring-primary/20"
             />
             {query ? (
@@ -356,8 +363,13 @@ export function FullGuideBrowser({
             </span>
           </div>
 
-          <div className="flex-1 space-y-2 overflow-y-auto p-2 sm:p-3">
-            {results.map((result) => {
+          <div
+            id="guide-results"
+            data-tv-layout="vertical"
+            data-tv-nav-up="#guide-search"
+            className="flex-1 space-y-2 overflow-y-auto p-2 sm:p-3"
+          >
+            {results.map((result, resultIndex) => {
               const summaries = summaryProgrammes(result, now);
               const currentSummaryIndex = summaries.findIndex(
                 (programme) => programme.startMs <= now && programme.stopMs > now,
@@ -367,6 +379,7 @@ export function FullGuideBrowser({
                   variant="ghost"
                   key={`${result.channel.tvgId ?? result.channel.url}:${result.channel.url}`}
                   type="button"
+                  data-tv-index={resultIndex}
                   onClick={() => selectChannel(result.channel.url)}
                   className={cn(
                     "group h-auto min-h-[7.25rem] w-full justify-start rounded-lg border border-border bg-background-muted p-4 text-left",

@@ -130,9 +130,11 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
       className="fixed inset-0 z-[200] flex items-start justify-center px-4 pt-[min(10vh,80px)] sm:px-6"
       role="presentation"
     >
-      {/* Backdrop */}
-      <Button variant="ghost"
+      {/* Backdrop — not in remote focus order */}
+      <button
         type="button"
+        tabIndex={-1}
+        data-tv-backdrop=""
         aria-label="Dismiss"
         className="absolute inset-0 bg-background backdrop-blur-md motion-safe:animate-[glass-backdrop-in_0.28s_ease-out_both]"
         onClick={onClose}
@@ -151,7 +153,10 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
           className="flex flex-col overflow-hidden shadow-lg"
         >
           {/* Header */}
-          <div className="flex items-start justify-between border-b border-border px-5 pb-3 pt-5">
+          <div
+            data-tv-layout="horizontal"
+            className="flex items-start justify-between border-b border-border px-5 pb-3 pt-5"
+          >
             <div>
               <p
                 id={labelId}
@@ -177,6 +182,7 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
           <div className="border-b border-border px-5 py-3">
             <Input
               ref={inputRef}
+              id="tv-watch-together-search"
               type="search"
               placeholder="Search channels…"
               value={q}
@@ -184,6 +190,9 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
                 setQ(e.target.value);
                 setOffset(0);
               }}
+              data-tv-initial-focus=""
+              data-tv-nav-input="spatial"
+              data-tv-nav-down="#tv-watch-together-list"
               className={cn(
                 "w-full rounded-xl bg-background-muted px-4 py-2.5 text-[15px] text-foreground-intense placeholder:text-foreground-intense",
                 "border border-border outline-none transition-colors",
@@ -193,7 +202,12 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
           </div>
 
           {/* Channel list */}
-          <div className="flex-1 overflow-y-auto overscroll-contain">
+          <div
+            id="tv-watch-together-list"
+            data-tv-layout="vertical"
+            data-tv-nav-up="#tv-watch-together-search"
+            className="flex-1 overflow-y-auto overscroll-contain"
+          >
             {visibleChannels.length > 0 ? (
               <ul className="divide-y divide-border">
                 {visibleChannels.map((ch) => {
@@ -314,6 +328,7 @@ export function WatchTogetherDialog({ open, onClose }: Props) {
 
             <Button
               type="button"
+              id="tv-watch-together-start"
               disabled={selected.length === 0 || launching}
               onClick={() => void handleWatch()}
               variant="primary"

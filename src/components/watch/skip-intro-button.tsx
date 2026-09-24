@@ -140,6 +140,7 @@ type SkipIntroButtonProps = {
 /**
  * Floating Skip intro control — visible only while playback is inside an intro
  * window. On TV it auto-focuses so the remote OK key works without a pointer.
+ * Declares an explicit focus graph so D-pad never has to hunt geometrically.
  */
 export function SkipIntroButton({
   segments,
@@ -217,19 +218,28 @@ export function SkipIntroButton({
         type="button"
         id="tv-skip-intro"
         aria-label="Skip intro"
+        data-tv-focus-group="player"
         data-tv-nav-down="#tv-player-play"
         data-tv-nav-up="#tv-player-back"
+        data-tv-nav-left="#tv-player-play"
+        data-tv-nav-right="#tv-player-play"
         onClick={skip}
         onKeyDown={(event) => {
-          if (event.key !== "ArrowDown" && event.key !== "Down") return;
-          event.preventDefault();
-          event.stopPropagation();
+          // Spatial nav runs in capture phase; this is a backup if a key
+          // reaches the button (e.g. non-TV desktop testing).
+          if (
+            event.key !== "ArrowDown" &&
+            event.key !== "Down" &&
+            event.key !== "ArrowUp" &&
+            event.key !== "Up" &&
+            event.key !== "ArrowLeft" &&
+            event.key !== "Left" &&
+            event.key !== "ArrowRight" &&
+            event.key !== "Right"
+          ) {
+            return;
+          }
           onRevealChrome?.();
-          window.requestAnimationFrame(() => {
-            document
-              .getElementById("tv-player-play")
-              ?.focus({ preventScroll: true });
-          });
         }}
         className={cn(
           "h-12 min-w-[9rem] rounded-full border-2 border-border bg-foreground px-6 text-[15px] font-semibold text-background",

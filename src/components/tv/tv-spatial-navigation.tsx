@@ -75,6 +75,22 @@ function focusAndReveal(
   pendingRevealFrame = window.requestAnimationFrame(() => {
     pendingRevealFrame = null;
     if (document.activeElement !== element || !element.isConnected) return;
+
+    // Home (and similar) keep a fixed hero + focus lane. Vertical reveal is
+    // owned by that root via translateY — scrollIntoView would push the hero
+    // off-screen. Only nudge horizontal rails when the card is clipped.
+    if (element.closest("[data-tv-fixed-focus-root]")) {
+      const rail = element.closest<HTMLElement>("[data-tv-layout='horizontal']");
+      if (rail) {
+        const railRect = rail.getBoundingClientRect();
+        const elRect = element.getBoundingClientRect();
+        if (elRect.left < railRect.left + 4 || elRect.right > railRect.right - 4) {
+          element.scrollIntoView({ behavior: "auto", block: "nearest", inline });
+        }
+      }
+      return;
+    }
+
     element.scrollIntoView({ behavior: "auto", block: "nearest", inline });
   });
 }
@@ -91,6 +107,13 @@ function isVisible(element: HTMLElement): boolean {
   return rect.width > 0 && rect.height > 0;
 }
 
+function isBackdropDismiss(element: HTMLElement): boolean {
+  return (
+    element.hasAttribute("data-tv-backdrop") ||
+    Boolean(element.closest("[data-tv-backdrop]"))
+  );
+}
+
 function focusableElements(): HTMLElement[] {
   const modal = Array.from(
     document.querySelectorAll<HTMLElement>("[role='dialog'][aria-modal='true'], dialog[open]"),
@@ -98,6 +121,8 @@ function focusableElements(): HTMLElement[] {
   return Array.from(document.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
     (element) => {
       if (modal && !modal.contains(element)) return false;
+      // Full-viewport dismiss layers must never steal remote focus.
+      if (isBackdropDismiss(element)) return false;
       if (element.hasAttribute("disabled") || element.getAttribute("aria-disabled") === "true" || !isVisible(element)) {
         return false;
       }
@@ -107,6 +132,42 @@ function focusableElements(): HTMLElement[] {
       return !element.parentElement?.closest(FOCUSABLE_SELECTOR);
     },
   );
+}
+
+function focusDebugEnabled(): boolean {
+  try {
+    return window.localStorage.getItem("zendeTvFocusDebug") === "1";
+  } catch {
+    return false;
+  }
+}
+
+function logFocusMove(
+  from: HTMLElement | null,
+  direction: Direction,
+  to: HTMLElement | null,
+  via: string,
+): void {
+  if (!focusDebugEnabled()) return;
+  const label = (el: HTMLElement | null) =>
+    el
+      ? `${el.id || el.tagName.toLowerCase()}${el.getAttribute("aria-label") ? `[${el.getAttribute("aria-label")}]` : ""}`
+      : "(none)";
+  console.debug(`[tv-focus] ${label(from)} → ${direction} → ${label(to)} (${via})`);
+}
+
+/** Wake player chrome (or other registered reveal hooks) when a bridge target is inert. */
+function wakeHiddenDestination(destination: HTMLElement): boolean {
+  if (isVisible(destination) && isQuickFocusable(destination)) return false;
+  // Player chrome is toggled inert; waking clears inert so the bridge can resolve.
+  if (destination.closest("#tv-player-chrome-top, #tv-player-chrome-bottom, [data-tv-player-chrome]")) {
+    return window.__zendeTvWakePlayer?.() ?? false;
+  }
+  // Generic: any inert ancestor that a wake hook might clear.
+  if (destination.closest("[inert]")) {
+    return window.__zendeTvWakePlayer?.() ?? false;
+  }
+  return false;
 }
 
 function isQuickFocusable(element: HTMLElement): boolean {
@@ -327,28 +388,99 @@ function firstMemberOfAdjacentLayout(
   return null;
 }
 
+function resolveFocusableIn(
+  destination: HTMLElement,
+  candidates: HTMLElement[],
+): HTMLElement | null {
+  return (
+    candidates.find(
+      (candidate) => candidate === destination || destination.contains(candidate),
+    ) ?? null
+  );
+}
+
+/**
+ * Resolve `data-tv-nav-*` bridges. Selectors may be comma-separated; the first
+ * reachable (or wakeable) destination wins. If a destination exists but is
+ * inert/hidden (e.g. player chrome), wake it and re-query candidates.
+ *
+ * @param allowAncestor — when false, only attributes on `active` itself count
+ *   (used for early passes so parent region bridges cannot steal mid-list keys).
+ */
 function explicitDirectionalTarget(
   active: HTMLElement,
   direction: Direction,
   candidates: HTMLElement[],
+  allowAncestor = true,
 ): LayoutMove {
-  const owner = active.closest<HTMLElement>(`[data-tv-nav-${direction}]`);
+  const attr = `data-tv-nav-${direction}`;
+  const owner = allowAncestor
+    ? active.closest<HTMLElement>(`[${attr}]`)
+    : active.hasAttribute(attr)
+      ? active
+      : null;
   if (!owner) return { handled: false, target: null };
 
-  const selector = owner.dataset[`tvNav${direction[0]!.toUpperCase()}${direction.slice(1)}`];
-  if (!selector) return { handled: true, target: null };
+  const raw = owner.dataset[`tvNav${direction[0]!.toUpperCase()}${direction.slice(1)}`];
+  if (!raw?.trim()) return { handled: false, target: null };
+  const selectors = raw.split(",").map((part) => part.trim()).filter(Boolean);
 
   try {
-    const destination = document.querySelector<HTMLElement>(selector);
-    if (!destination) return { handled: true, target: null };
-    const target = candidates.find(
-      (candidate) => candidate === destination || destination.contains(candidate),
-    );
-    return { handled: true, target: target ?? null };
+    for (const selector of selectors) {
+      const destination = document.querySelector<HTMLElement>(selector);
+      if (!destination) continue;
+
+      let target = resolveFocusableIn(destination, candidates);
+      if (target) return { handled: true, target };
+
+      if (wakeHiddenDestination(destination)) {
+        const refreshed = focusableElements();
+        target = resolveFocusableIn(destination, refreshed);
+        if (target) return { handled: true, target };
+        if (isVisible(destination) && isQuickFocusable(destination)) {
+          return { handled: true, target: destination };
+        }
+        const nested = Array.from(destination.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).find(
+          (el) => isQuickFocusable(el) && isVisible(el),
+        );
+        if (nested) return { handled: true, target: nested };
+      }
+    }
+
+    // Selectors pointed at something temporarily unreachable — do not dead-key;
+    // let layout / geometric strategies continue.
+    return { handled: false, target: null };
   } catch {
     // A malformed page-level selector must not break global remote navigation.
-    return { handled: true, target: null };
+    return { handled: false, target: null };
   }
+}
+
+/**
+ * Transient focus groups (e.g. Skip Intro ↔ Play) without relying on geometry.
+ * Members share `data-tv-focus-group="name"`. Left/right walk DOM order within
+ * the group; up/down are left to explicit bridges.
+ */
+function focusGroupNeighbor(
+  active: HTMLElement,
+  direction: Direction,
+  candidates: HTMLElement[],
+): LayoutMove {
+  const groupName = active.closest<HTMLElement>("[data-tv-focus-group]")?.dataset.tvFocusGroup;
+  if (!groupName) return { handled: false, target: null };
+  if (direction !== "left" && direction !== "right") {
+    return { handled: false, target: null };
+  }
+
+  const members = candidates.filter(
+    (el) => el.closest<HTMLElement>("[data-tv-focus-group]")?.dataset.tvFocusGroup === groupName,
+  );
+  const current = members.indexOf(active);
+  if (current < 0) return { handled: false, target: null };
+  const step = direction === "right" ? 1 : -1;
+  const target = members[current + step] ?? null;
+  // Edge of group: fall through so bridges / geometry can run.
+  return { handled: Boolean(target), target };
 }
 
 function firstContentLayoutElement(candidates: HTMLElement[]): HTMLElement | null {
@@ -391,13 +523,37 @@ function moveFocus(direction: Direction): boolean {
     ? document.activeElement
     : null;
 
+  const commit = (target: HTMLElement, via: string, inline: ScrollLogicalPosition = "nearest") => {
+    logFocusMove(active, direction, target, via);
+    focusAndReveal(target, inline);
+    return true;
+  };
+
   // The top bar is itself a horizontal layout. Handle its vertical exit before
   // the fast layout path so ArrowDown cannot be consumed by header navigation.
   if (active?.closest(".tv-top-bar") && direction === "down") {
     const pageEntry = firstFocusableInMain();
     if (!pageEntry) return false;
-    focusAndReveal(pageEntry, "start");
-    return true;
+    return commit(pageEntry, "top-bar→main", "start");
+  }
+
+  // Explicit bridges on the focused control itself (Skip Intro, Play, search).
+  // Ancestor region bridges wait until after layout so mid-list Down is not stolen.
+  if (active) {
+    const earlyBridge = explicitDirectionalTarget(
+      active,
+      direction,
+      focusableElements(),
+      false,
+    );
+    if (earlyBridge.handled && earlyBridge.target) {
+      return commit(earlyBridge.target, "explicit-bridge", "start");
+    }
+
+    const groupMove = focusGroupNeighbor(active, direction, focusableElements());
+    if (groupMove.handled && groupMove.target) {
+      return commit(groupMove.target, "focus-group");
+    }
   }
 
   // The common TV path stays inside a declared rail/grid. Resolve only that
@@ -407,16 +563,15 @@ function moveFocus(direction: Direction): boolean {
     const indexedMove = indexedRailNeighbor(active, direction);
     if (indexedMove.handled) {
       if (indexedMove.target) {
-        focusAndReveal(indexedMove.target);
-        return true;
+        return commit(indexedMove.target, "indexed-rail");
       }
+      // True list edge — stop (Samsung: focus does not loop).
       return false;
     }
     if (direction === "up" || direction === "down") {
       const indexedAdjacent = indexedAdjacentRailMember(active, direction);
       if (indexedAdjacent) {
-        focusAndReveal(indexedAdjacent, "start");
-        return true;
+        return commit(indexedAdjacent, "indexed-adjacent-rail", "start");
       }
     }
 
@@ -425,8 +580,7 @@ function moveFocus(direction: Direction): boolean {
       const localMove = layoutNeighbor(active, direction, quickLayoutMembers(layout));
       if (localMove.handled) {
         if (localMove.target) {
-          focusAndReveal(localMove.target);
-          return true;
+          return commit(localMove.target, "layout");
         }
         // Edge of a rail: allow explicit bridges (e.g. header nav → actions)
         // and geometric search instead of trapping the remote here.
@@ -437,8 +591,7 @@ function moveFocus(direction: Direction): boolean {
             focusableElements(),
           );
           if (bridged.handled && bridged.target) {
-            focusAndReveal(bridged.target, "start");
-            return true;
+            return commit(bridged.target, "layout-edge-bridge", "start");
           }
           // Fall through to document-wide geometric focus below.
         }
@@ -446,10 +599,10 @@ function moveFocus(direction: Direction): boolean {
       if (direction === "up" || direction === "down") {
         const adjacent = adjacentLayoutMember(active, direction);
         if (adjacent) {
-          focusAndReveal(adjacent, "start");
-          return true;
+          return commit(adjacent, "adjacent-layout", "start");
         }
-        if (localMove.handled && localMove.target) return false;
+        // Only stop if vertical layout truly has no further member and no adjacent layout.
+        // Fall through so bridges / geometry can still run (dead-key ban).
       }
     }
   }
@@ -459,35 +612,27 @@ function moveFocus(direction: Direction): boolean {
 
   if (!active || !candidates.includes(active)) {
     const initial = firstContentLayoutElement(candidates) ?? candidates.find((element) => element.closest("main")) ?? candidates[0];
-    if (initial) focusAndReveal(initial);
-    return true;
+    if (initial) return commit(initial, "recover-initial");
+    return false;
   }
 
   const explicitNeighbor = layoutNeighbor(active, direction, candidates);
-  if (explicitNeighbor.handled) {
-    if (explicitNeighbor.target) {
-      focusAndReveal(explicitNeighbor.target);
-      return true;
-    }
-    // At the edge of a declared layout — keep going so bridges / geometry can run.
+  if (explicitNeighbor.handled && explicitNeighbor.target) {
+    return commit(explicitNeighbor.target, "layout-global");
   }
 
   // Page authors can connect distinct decks explicitly. This runs after
   // movement inside the active grid/list, so only an edge item exits it.
   const explicitTarget = explicitDirectionalTarget(active, direction, candidates);
-  if (explicitTarget.handled) {
-    if (!explicitTarget.target) return false;
-    focusAndReveal(explicitTarget.target, "start");
-    return true;
+  if (explicitTarget.handled && explicitTarget.target) {
+    return commit(explicitTarget.target, "explicit-bridge-late", "start");
   }
 
   if (direction === "up" || direction === "down") {
     const adjacentStart = firstMemberOfAdjacentLayout(active, direction, candidates);
     if (adjacentStart) {
-      focusAndReveal(adjacentStart, "start");
-      return true;
+      return commit(adjacentStart, "adjacent-layout-late", "start");
     }
-    if (explicitNeighbor.handled) return false;
   }
 
   const source = active.getBoundingClientRect();
@@ -517,9 +662,11 @@ function moveFocus(direction: Direction): boolean {
     if (!best || score < best.score) best = { element, score };
   }
 
-  if (!best) return false;
-  focusAndReveal(best.element);
-  return true;
+  if (!best) {
+    logFocusMove(active, direction, null, "no-target");
+    return false;
+  }
+  return commit(best.element, "geometric");
 }
 
 function hasOpenOverlay(): boolean {
@@ -696,11 +843,27 @@ export function TvSpatialNavigation() {
         return;
       }
 
+      // Wake hidden player chrome, but do not swallow the key when focus is
+      // already on a live control (Skip Intro, overlays). Let moveFocus run so
+      // bridges can land on Play/Back after inert is cleared.
       const wokePlayer = window.__zendeTvWakePlayer?.() ?? false;
       if (wokePlayer && (isRemoteOk(event) || directionForEvent(event))) {
-        event.preventDefault();
-        event.stopPropagation();
-        return;
+        const active = document.activeElement;
+        const alreadyOnLiveControl =
+          active instanceof HTMLElement &&
+          active !== document.body &&
+          !active.closest("[inert]") &&
+          active.matches(FOCUSABLE_SELECTOR) &&
+          isVisible(active);
+        if (!alreadyOnLiveControl) {
+          event.preventDefault();
+          event.stopPropagation();
+          // Focus Play after wake when nothing else held focus.
+          window.requestAnimationFrame(() => {
+            document.getElementById("tv-player-play")?.focus({ preventScroll: true });
+          });
+          return;
+        }
       }
 
       if (isRemoteOk(event)) {

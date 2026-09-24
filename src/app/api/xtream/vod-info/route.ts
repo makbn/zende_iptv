@@ -18,6 +18,8 @@ import {
   buildXtreamMovieUrlFromVodInfo,
   parseXtreamCredentialsFromStreamUrl,
   parseXtreamVodIdFromStreamUrl,
+  resolveXtreamPlayUrl,
+  xtreamPathSegments,
 } from "@/lib/iptv/xtream-url";
 import { getCachedMediaMetadata } from "@/lib/media/media-metadata-service";
 import { parseXtreamDurationSeconds } from "@/lib/playback/stream-session-meta";
@@ -154,12 +156,25 @@ export async function GET(request: Request) {
       return null;
     });
 
+    const playUrlFromCatalog = (() => {
+      if (!providerChannel?.url?.trim()) return "";
+      const stored = providerChannel.url.trim();
+      // Host-free Xtream paths must be joined to the active portal host before
+      // the client can open a stream session (`new URL("/movie/…")` fails).
+      if (activeServer && xtreamPathSegments(stored)) {
+        return resolveXtreamPlayUrl(activeServer, stored, [
+          provider?.serverUrl,
+          provider?.backupServerUrl,
+        ]);
+      }
+      return stored;
+    })();
     const playUrl =
-      providerChannel?.url ||
+      playUrlFromCatalog ||
       (vod && creds ? buildXtreamMovieUrlFromVodInfo(creds, vod) : "") ||
       parsed.data.url ||
       "";
-    if (!playUrl) {
+    if (!playUrl || !/^https?:\/\//i.test(playUrl)) {
       return NextResponse.json({ error: "Movie stream URL is unavailable." }, { status: 502 });
     }
 

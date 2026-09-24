@@ -69,10 +69,15 @@ export function TvSetupPage() {
             onRefresh={() => void refreshCatalog()}
           />
 
-          <div className="mt-10 flex flex-col items-center gap-4">
+          <div
+            data-tv-layout="vertical"
+            className="mt-10 flex flex-col items-center gap-4"
+          >
             <Link
+              id="setup-advanced"
               href="/settings"
               onClick={onNavigateClick("/settings")}
+              data-tv-nav-up="#setup-catalog-cta"
               className="outline-none"
             >
               <Card frame="solid" className="inline-block">

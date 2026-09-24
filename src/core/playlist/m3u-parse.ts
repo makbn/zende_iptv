@@ -26,6 +26,11 @@ export type M3uChannel = {
   /** Nightly-refreshed IMDb score for movies and series. */
   imdbRating?: number;
   imdbVotes?: number;
+  /**
+   * Release year from enriched MediaMetadataCache (preferred) or playlist title.
+   * Used by Library year facets/filters.
+   */
+  year?: string;
   /** Pre-enriched Home hero/details payload, serialized with discovery shelves. */
   homeMetadata?: MediaMetadata;
 };

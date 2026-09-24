@@ -98,9 +98,13 @@ function PairLoginForm() {
             <span className="font-semibold text-foreground-intense">{user.username}</span>.
             Approve this request to sign in the TV with the same account.
           </p>
-          <div className="mt-6 grid gap-2 sm:grid-cols-2">
+          <div
+            data-tv-layout="horizontal"
+            className="mt-6 grid gap-2 sm:grid-cols-2"
+          >
             <Button
               type="button"
+              data-tv-initial-focus=""
               disabled={busy}
               onClick={() => void approveCurrentSession()}
               variant="primary"

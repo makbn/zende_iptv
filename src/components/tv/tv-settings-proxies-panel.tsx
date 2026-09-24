@@ -940,8 +940,10 @@ function ProxyFormDialog({
       className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto px-4 py-8 sm:px-6"
       role="presentation"
     >
-      <Button variant="ghost"
+      <button
         type="button"
+        tabIndex={-1}
+        data-tv-backdrop=""
         aria-label="Dismiss"
         className="fixed inset-0 bg-background backdrop-blur-md motion-safe:animate-[glass-backdrop-in_0.28s_ease-out_both]"
         onClick={onClose}
@@ -1165,8 +1167,10 @@ function ChannelAssignmentDialog({
       role="presentation"
     >
       {/* Backdrop */}
-      <Button variant="ghost"
+      <button
         type="button"
+        tabIndex={-1}
+        data-tv-backdrop=""
         aria-label="Dismiss"
         className="absolute inset-0 bg-background backdrop-blur-md motion-safe:animate-[glass-backdrop-in_0.28s_ease-out_both]"
         onClick={onClose}

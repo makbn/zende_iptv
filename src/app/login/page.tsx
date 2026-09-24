@@ -142,7 +142,7 @@ function LoginForm() {
         </>
       ) : (
         <Link
-          data-tv-initial-focus
+          data-tv-initial-focus=""
           href="/"
           className={buttonVariants({ variant: "secondary", size: "lg", className: "mt-8 self-start" })}
         >

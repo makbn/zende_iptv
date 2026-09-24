@@ -234,7 +234,12 @@ export function TvFavoritesPage() {
                     </Link>
                   </div>
                 </div>
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:gap-5">
+                <div
+                  id="fav-toolbar"
+                  data-tv-layout="horizontal"
+                  data-tv-nav-down="#fav-results,#favorites-epg-carousel"
+                  className="flex flex-col gap-4 xl:flex-row xl:items-center xl:gap-5"
+                >
                   <label className="relative flex min-h-[52px] flex-1 items-center">
                     <span className="sr-only">Search favorites</span>
                     <Search
@@ -243,6 +248,7 @@ export function TvFavoritesPage() {
                     />
                     <Input
                       ref={searchInputRef}
+                      id="fav-search"
                       type="search"
                       placeholder="Search saved channels…"
                       autoComplete="off"
@@ -250,6 +256,8 @@ export function TvFavoritesPage() {
                       onValueChange={(value) => setQuery(value)}
                       onKeyDown={onSearchKeyDown}
                       disabled={favCount === 0}
+                      data-tv-nav-input="spatial"
+                      data-tv-nav-down="#fav-results,#favorites-epg-carousel"
                       className={cn(
                         "h-[52px] w-full rounded-2xl border border-border bg-background pl-12 pr-11",
                         "text-[17px] text-foreground-intense placeholder:text-foreground-intense",
@@ -495,7 +503,13 @@ export function TvFavoritesPage() {
                   </p>
                 </div>
               </div>
-              <div data-tv-layout="grid" className={POSTER_GRID_CLASS}>
+              <div
+                id="fav-results"
+                data-tv-layout="grid"
+                data-tv-nav-up="#fav-toolbar"
+                data-tv-nav-down="#favorites-epg-carousel"
+                className={POSTER_GRID_CLASS}
+              >
                 {visible.map((ch, i) => (
                   <div
                     key={`${ch.url}-${i}`}

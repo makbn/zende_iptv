@@ -34,7 +34,11 @@ function prefersNativeAppleHls(): boolean {
 }
 
 export type QualityOption = { index: number; label: string };
-export type MediaTrackOption = { index: number; label: string };
+export type MediaTrackOption = {
+  index: number;
+  label: string;
+  language?: string;
+};
 
 export type PlayerSession = {
   video: HTMLVideoElement;
@@ -43,10 +47,25 @@ export type PlayerSession = {
   getQualityOptions(): QualityOption[];
   setQualityLevel(levelIndex: number): void;
   getAudioTracks(): MediaTrackOption[];
+  getCurrentAudioTrack(): number;
   setAudioTrack(index: number): void;
   getSubtitleTracks(): MediaTrackOption[];
   setSubtitleTrack(index: number): void;
 };
+
+type NativeAudioTrackList = {
+  length: number;
+  [index: number]: { label?: string; language?: string; enabled: boolean };
+};
+
+function nativeAudioTrackList(
+  video: HTMLVideoElement,
+): NativeAudioTrackList | null {
+  const list = (
+    video as HTMLVideoElement & { audioTracks?: NativeAudioTrackList }
+  ).audioTracks;
+  return list && list.length > 0 ? list : null;
+}
 
 export type PlayerError = {
   type: string;
@@ -217,6 +236,7 @@ export function StreamPlayer(
       let networkRetryTimer: ReturnType<typeof setTimeout> | null = null;
       let mediaHardResetTimer: ReturnType<typeof setTimeout> | null = null;
       let nativeErrorListener: (() => void) | null = null;
+      let nativeAudioTracksListener: (() => void) | null = null;
       let hlsRecreateAttempt = 0;
       const hlsMode = shouldUseHls(activeSrc, activePlaybackMode);
       const mpegtsMode = activePlaybackMode === "mpegts";
@@ -413,13 +433,44 @@ export function StreamPlayer(
             return hls.audioTracks.map((t, i) => ({
               index: i,
               label: t.name || t.lang || `Audio ${i + 1}`,
+              ...(t.lang ? { language: t.lang } : {}),
             }));
           }
-          return [];
+          const list = nativeAudioTrackList(video);
+          if (!list) return [];
+          const tracks: MediaTrackOption[] = [];
+          for (let i = 0; i < list.length; i++) {
+            const t = list[i]!;
+            tracks.push({
+              index: i,
+              label: t.label || t.language || `Audio ${i + 1}`,
+              ...(t.language ? { language: t.language } : {}),
+            });
+          }
+          return tracks;
+        },
+        getCurrentAudioTrack(): number {
+          if (hls?.audioTracks?.length) {
+            return hls.audioTrack ?? 0;
+          }
+          const list = nativeAudioTrackList(video);
+          if (!list) return 0;
+          for (let i = 0; i < list.length; i++) {
+            if (list[i]?.enabled) return i;
+          }
+          return 0;
         },
         setAudioTrack(index: number) {
-          if (!hls?.audioTracks?.length) return;
-          hls.audioTrack = index;
+          if (hls?.audioTracks?.length) {
+            hls.audioTrack = index;
+            bumpSession();
+            return;
+          }
+          const list = nativeAudioTrackList(video);
+          if (!list) return;
+          for (let i = 0; i < list.length; i++) {
+            list[i]!.enabled = i === index;
+          }
           bumpSession();
         },
         getSubtitleTracks(): MediaTrackOption[] {
@@ -456,6 +507,14 @@ export function StreamPlayer(
 
       const startPlayback = () => {
         if (cancelled) return;
+
+        if (!nativeAudioTracksListener) {
+          nativeAudioTracksListener = () => bumpSession();
+          video.addEventListener(
+            "audiotrackschange" as keyof HTMLElementEventMap,
+            nativeAudioTracksListener as EventListener,
+          );
+        }
 
         if (mpegtsMode && mpegtsPlayer) {
           mpegtsPlayer.attachMediaElement(video);
@@ -909,6 +968,12 @@ export function StreamPlayer(
         if (deferredRafId !== null) cancelAnimationFrame(deferredRafId);
         if (nativeErrorListener) {
           video.removeEventListener("error", nativeErrorListener);
+        }
+        if (nativeAudioTracksListener) {
+          video.removeEventListener(
+            "audiotrackschange" as keyof HTMLElementEventMap,
+            nativeAudioTracksListener as EventListener,
+          );
         }
         if (hls) {
           try {

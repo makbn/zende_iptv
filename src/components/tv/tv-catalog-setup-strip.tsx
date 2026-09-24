@@ -62,6 +62,9 @@ export function TvCatalogSetupStrip({
               ) : null}
             </div>
             <Button variant="secondary"
+              id="setup-catalog-cta"
+              data-tv-initial-focus=""
+              data-tv-nav-down="#setup-advanced"
               size="lg"
               type="button"
               disabled={busy}

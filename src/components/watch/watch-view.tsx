@@ -91,7 +91,9 @@ import {
   SkipIntroButton,
   useIntroSegments,
 } from "@/components/watch/skip-intro-button";
+import { AudioTrackPanel } from "@/components/watch/audio-track-panel";
 import { SubtitleSearchPanel } from "@/components/watch/subtitle-search-panel";
+import { hintAudioTracksFromCatalog } from "@/lib/playback/audio-tracks-hint";
 import { queuePlaybackHealthProbe } from "@/features/health/queue-playback-health-probe";
 import { useExternalSubtitles } from "@/lib/player/use-external-subtitles";
 import type { ViewingEntry } from "@/lib/watch/viewing-stats";
@@ -584,6 +586,8 @@ export function WatchView() {
     null,
   );
   const [subtitleSearchOpen, setSubtitleSearchOpen] = useState(false);
+  const [audioTrackOpen, setAudioTrackOpen] = useState(false);
+  const [selectedAudioIndex, setSelectedAudioIndex] = useState(0);
   const externalSubtitles = useExternalSubtitles(playerSession?.video ?? null);
   const [playerFatalError, setPlayerFatalError] = useState<PlayerError | null>(null);
   const [playerRetryEpoch, setPlayerRetryEpoch] = useState(0);
@@ -898,24 +902,42 @@ export function WatchView() {
     }, tvSurface ? TV_CHROME_IDLE_MS : CHROME_IDLE_MS);
   }, [clearChromeIdleTimer, tvSurface]);
 
-  const revealChrome = useCallback(() => {
+  const revealChrome = useCallback((opts?: { focusPlay?: boolean }) => {
     const wasHidden = !chromeVisibleRef.current;
     chromeVisibleRef.current = true;
     if (wasHidden) syncChromeProgress(true);
     setChromeVisible(true);
     scheduleChromeHide();
-    if (wasHidden && isTvEnvironment()) {
-      window.requestAnimationFrame(() => {
-        playPauseButtonRef.current?.focus({ preventScroll: true });
-      });
+    const shouldFocusPlay = opts?.focusPlay !== false;
+    if (wasHidden && shouldFocusPlay && isTvEnvironment()) {
+      const active = document.activeElement;
+      // Do not steal focus from a live control outside chrome (e.g. Skip Intro).
+      const keepExternalFocus =
+        active instanceof HTMLElement &&
+        active !== document.body &&
+        active !== document.documentElement &&
+        !active.closest("[inert]") &&
+        active.matches(
+          "a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex='-1']), [role='button']",
+        );
+      if (!keepExternalFocus) {
+        window.requestAnimationFrame(() => {
+          playPauseButtonRef.current?.focus({ preventScroll: true });
+        });
+      }
     }
   }, [scheduleChromeHide, syncChromeProgress]);
+
+  const onChromeFocusCapture = useCallback(() => {
+    revealChrome();
+  }, [revealChrome]);
 
   useEffect(() => {
     if (!tvSurface) return;
     window.__zendeTvWakePlayer = () => {
       const wasHidden = !chromeVisibleRef.current;
-      revealChrome();
+      // Reveal only — spatial nav / Skip bridges decide the next focus target.
+      revealChrome({ focusPlay: false });
       return wasHidden;
     };
     window.__zendeTvPageBack = () => {
@@ -1514,9 +1536,92 @@ export function WatchView() {
   }, [qualityEnabled, playerSession, currentLoadLevel]);
 
   const qualityOptions = playerSession?.getQualityOptions() ?? [];
-  const audioTracks = playerSession?.getAudioTracks() ?? [];
-  const currentAudioTrack = playerSession?.hls?.audioTrack ?? 0;
+  const liveAudioTracks = playerSession?.getAudioTracks() ?? [];
+  const catalogHintTracks = hintAudioTracksFromCatalog(group, titleDisplay || title);
+  const metaAudioTracks =
+    playbackMeta?.audioTracks && playbackMeta.audioTracks.length > 0
+      ? playbackMeta.audioTracks
+      : catalogHintTracks ?? [];
+  // Prefer live multi-track lists; otherwise keep session/catalog MULTI-LANG hints.
+  // A single live track must not hide a multi-track session meta.
+  const audioTracks =
+    liveAudioTracks.length > 1
+      ? liveAudioTracks
+      : metaAudioTracks.length > 1
+        ? metaAudioTracks.map((t) => ({
+            index: t.index,
+            label: t.label,
+            ...(t.language ? { language: t.language } : {}),
+          }))
+        : liveAudioTracks;
+  const currentAudioTrack =
+    liveAudioTracks.length > 1
+      ? (playerSession?.getCurrentAudioTrack() ?? 0)
+      : selectedAudioIndex;
+  const showAudioTrackButton = audioTracks.length > 1;
   const showSubtitleControls = isVodPlayback;
+  const liveAudioTracksKey = liveAudioTracks
+    .map((t) => `${t.index}:${t.label}:${t.language ?? ""}`)
+    .join("|");
+
+  useEffect(() => {
+    if (liveAudioTracks.length <= 1) return;
+    setSessionMeta((prev) => {
+      if (!prev) return prev;
+      const existing = prev.playback?.audioTracks;
+      const nextTracks = liveAudioTracks.map((t) => ({
+        index: t.index,
+        label: t.label,
+        ...(t.language ? { language: t.language } : {}),
+      }));
+      const same =
+        existing &&
+        existing.length === nextTracks.length &&
+        existing.every(
+          (t, i) =>
+            t.index === nextTracks[i]!.index &&
+            t.label === nextTracks[i]!.label &&
+            (t.language ?? "") === (nextTracks[i]!.language ?? ""),
+        );
+      if (same) return prev;
+      return {
+        ...prev,
+        playback: {
+          ...(prev.playback ?? {}),
+          audioTracks: nextTracks,
+        },
+      };
+    });
+  }, [liveAudioTracks, liveAudioTracksKey]);
+
+  useEffect(() => {
+    if (!showAudioTrackButton && audioTrackOpen) {
+      setAudioTrackOpen(false);
+    }
+  }, [showAudioTrackButton, audioTrackOpen]);
+
+  const selectAudioTrack = useCallback(
+    (index: number) => {
+      setSelectedAudioIndex(index);
+      if (liveAudioTracks.length > 1) {
+        playerSession?.setAudioTrack(index);
+        return;
+      }
+      // Progressive / native: try the HTMLMediaElement AudioTrackList when present.
+      const video = playerSession?.video;
+      const list = (
+        video as (HTMLVideoElement & {
+          audioTracks?: { length: number; [i: number]: { enabled: boolean } };
+        }) | null | undefined
+      )?.audioTracks;
+      if (list && list.length > 1) {
+        for (let i = 0; i < list.length; i++) {
+          list[i]!.enabled = i === index;
+        }
+      }
+    },
+    [liveAudioTracks.length, playerSession],
+  );
 
   const introSegments = useIntroSegments({
     enabled: isVodPlayback && !isRecordedPlayback,
@@ -1905,6 +2010,8 @@ export function WatchView() {
           ) : null}
 
           <div
+            id="tv-player-chrome-top"
+            data-tv-player-chrome=""
             inert={!chromeVisible ? true : undefined}
             className={cn(
               "tv-player-top-chrome absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 transition-opacity duration-300 ease-out motion-reduce:transition-none",
@@ -1914,13 +2021,17 @@ export function WatchView() {
             )}
             onMouseEnter={onChromePointerEnter}
             onMouseLeave={onChromePointerLeave}
-            onFocusCapture={revealChrome}
+            onFocusCapture={onChromeFocusCapture}
           >
-            <div className="pointer-events-auto flex min-w-0 flex-1 items-center gap-2">
+            <div
+              data-tv-layout="horizontal"
+              data-tv-focus-group="player"
+              className="pointer-events-auto flex min-w-0 flex-1 items-center gap-2"
+            >
               <GlassTextButton
                 onClick={() => router.replace(getWatchReturnHref())}
                 id="tv-player-back"
-                data-tv-nav-down="#tv-player-seekbar"
+                data-tv-nav-down="#tv-skip-intro,#tv-player-seekbar,#tv-player-play"
               >
                 ← Back
               </GlassTextButton>
@@ -1971,9 +2082,9 @@ export function WatchView() {
               >
                 <Info className="h-4 w-4" />
               </GlassIconButton>
-            </div>
             <Link
               href="/library"
+              id="tv-player-library"
               className={cn(
                 "pointer-events-auto hidden min-h-9 shrink-0 items-center rounded-full px-2.5 py-1.5 text-[13px] font-medium sm:flex",
                 "text-foreground-intense outline-none hover:bg-background-muted hover:text-foreground-intense focus-visible:ring-2 focus-visible:ring-primary",
@@ -1981,6 +2092,7 @@ export function WatchView() {
             >
               Library
             </Link>
+            </div>
           </div>
 
         <SkipIntroButton
@@ -1992,14 +2104,16 @@ export function WatchView() {
         />
 
         <div
-          inert={!chromeVisible ? true : undefined}
-          className={cn(
+            id="tv-player-chrome-bottom"
+            data-tv-player-chrome=""
+            inert={!chromeVisible ? true : undefined}
+            className={cn(
             "tv-player-bottom-chrome absolute inset-x-0 bottom-0 z-30 w-full transition-opacity duration-300 ease-out motion-reduce:transition-none",
             chromeVisible ? "opacity-100" : "pointer-events-none opacity-0",
           )}
           onMouseEnter={onChromePointerEnter}
           onMouseLeave={onChromePointerLeave}
-          onFocusCapture={revealChrome}
+          onFocusCapture={onChromeFocusCapture}
         >
           <div className="tv-player-bottom-inner mx-auto flex w-full max-w-[min(100vw,1920px)] flex-col gap-1.5 px-2 sm:px-3">
             <div
@@ -2056,6 +2170,7 @@ export function WatchView() {
 
                 <div
                   data-tv-layout="horizontal"
+                  data-tv-focus-group="player"
                   className="tv-player-control-row mt-2 flex items-center gap-2 sm:mt-1.5 sm:gap-1.5"
                 >
                   <div className="flex shrink-0 items-center gap-1.5 sm:gap-1">
@@ -2077,7 +2192,8 @@ export function WatchView() {
                       aria-label={playing ? "Pause" : "Play"}
                       onClick={remoteAwareTogglePlay}
                       id="tv-player-play"
-                      data-tv-nav-up="#tv-player-seekbar"
+                      data-tv-focus-group="player"
+                      data-tv-nav-up="#tv-skip-intro,#tv-player-seekbar,#tv-player-back"
                       className="h-[3.25rem] min-w-[3.25rem] touch-manipulation sm:h-11 sm:min-w-11"
                     >
                       {playing ? (
@@ -2122,6 +2238,16 @@ export function WatchView() {
                       <RotateCcw className="h-4 w-4" aria-hidden />
                       Start over
                     </Button>
+                  ) : null}
+
+                  {showAudioTrackButton ? (
+                    <GlassIconButton
+                      aria-label="Audio track"
+                      onClick={() => setAudioTrackOpen(true)}
+                      className="h-12 min-w-12 touch-manipulation sm:h-10 sm:min-w-10"
+                    >
+                      <Languages className="h-4 w-4" />
+                    </GlassIconButton>
                   ) : null}
 
                   {showSubtitleControls ? (
@@ -2249,39 +2375,6 @@ export function WatchView() {
                   </DropdownMenu>
                   ) : null}
 
-                  {audioTracks.length > 1 ? (
-                    <DropdownMenu modal={false}>
-                      <GlassIconMenuTrigger aria-label="Audio track">
-                        <Languages className="h-4 w-4" />
-                      </GlassIconMenuTrigger>
-                      <>
-                        <DropdownMenuContent side="top" align="end" sideOffset={10} className="z-[100]">
-                          <div className="min-w-[180px] origin-bottom rounded-2xl border border-border bg-background p-1 shadow-2xl outline-none">
-                            <div>
-                              <DropdownMenuGroup>
-                                <DropdownMenuGroupLabel className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-foreground-intense">
-                                  Audio
-                                </DropdownMenuGroupLabel>
-                                {audioTracks.map((t) => (
-                                  <DropdownMenuItem
-                                    key={t.index}
-                                    className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[14px] text-foreground-intense outline-none data-[highlighted]:bg-background-muted"
-                                    onClick={() => playerSession?.setAudioTrack(t.index)}
-                                  >
-                                    {t.label}
-                                    {currentAudioTrack === t.index ? (
-                                      <span className="text-success-strong">✓</span>
-                                    ) : null}
-                                  </DropdownMenuItem>
-                                ))}
-                              </DropdownMenuGroup>
-                            </div>
-                          </div>
-                        </DropdownMenuContent>
-                      </>
-                    </DropdownMenu>
-                  ) : null}
-
                   <div data-tv-hide-control className="hidden md:contents">
                     <div className="flex items-center gap-1.5">
                       <span className="text-[11px] text-foreground-intense">Vol</span>
@@ -2331,6 +2424,17 @@ export function WatchView() {
         </div>
         </div>
       </div>
+      {showAudioTrackButton ? (
+        <AudioTrackPanel
+          open={audioTrackOpen}
+          onClose={() => setAudioTrackOpen(false)}
+          title={titleDisplay || title}
+          tracks={audioTracks}
+          activeIndex={currentAudioTrack}
+          tvMode={tvSurface}
+          onSelect={selectAudioTrack}
+        />
+      ) : null}
       {isVodPlayback ? (
         <SubtitleSearchPanel
           open={subtitleSearchOpen}
@@ -2418,6 +2522,7 @@ function GlassPrimaryButton({
   onClick,
   id,
   "data-tv-nav-up": tvNavUp,
+  "data-tv-focus-group": tvFocusGroup,
   "aria-label": ariaLabel,
 }: {
   children: ReactNode;
@@ -2426,6 +2531,7 @@ function GlassPrimaryButton({
   onClick: () => void;
   id?: string;
   "data-tv-nav-up"?: string;
+  "data-tv-focus-group"?: string;
   "aria-label": string;
 }) {
   return (
@@ -2436,6 +2542,7 @@ function GlassPrimaryButton({
       onClick={onClick}
       id={id}
       data-tv-nav-up={tvNavUp}
+      data-tv-focus-group={tvFocusGroup}
       className={cn(
         "inline-flex h-10 min-w-10 items-center justify-center rounded-full border border-border bg-primary text-primary-foreground outline-none sm:h-11 sm:min-w-11",
         "shadow-lg focus-visible:ring-2 focus-visible:ring-primary",
@@ -2598,7 +2705,7 @@ function SeekBar({
     <div
       ref={barRef}
       id={tvNavigation ? "tv-player-seekbar" : undefined}
-      data-tv-nav-up={tvNavigation ? "#tv-player-back" : undefined}
+      data-tv-nav-up={tvNavigation ? "#tv-skip-intro,#tv-player-back" : undefined}
       data-tv-nav-down={tvNavigation ? "#tv-player-play" : undefined}
       role="slider"
       tabIndex={disabled ? -1 : 0}

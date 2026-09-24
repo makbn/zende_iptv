@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 
 import { BROWSE_CONTAINER_CLASS } from "@/components/layout/browse-page-shell";
 import { Button } from "@appica/ui-react/button";
@@ -9,12 +9,13 @@ type AppicaPageProps = {
   children: ReactNode;
   className?: string;
   id?: string;
-};
+} & Omit<HTMLAttributes<HTMLElement>, "id" | "children" | "className">;
 
 export function AppicaPage({
   children,
   className,
   id = "main",
+  ...rest
 }: AppicaPageProps) {
   return (
     <main
@@ -24,6 +25,7 @@ export function AppicaPage({
         "tv-page relative min-h-screen bg-background-subtle text-foreground-intense outline-none",
         className,
       )}
+      {...rest}
     >
       
       {children}

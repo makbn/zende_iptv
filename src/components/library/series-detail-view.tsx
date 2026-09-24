@@ -4,7 +4,7 @@ import { Button } from "@appica/ui-react/button";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, ChevronLeft, Clock3, Play, Star } from "lucide-react";
+import { CalendarDays, ChevronLeft, Clock3, Download, Play, Star } from "lucide-react";
 
 import { Card } from "@appica/ui-react/card";
 import { MediaCastRail, MediaMetadataFacts } from "@/components/library/media-metadata-sections";
@@ -26,6 +26,7 @@ import {
 } from "@/lib/playback/playback-position";
 import { secureImageUrl } from "@/lib/media/secure-image-url";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
+import { createDownloadUrl } from "@/lib/navigation/watch-url";
 import {
   listTopFrequentChannels,
   subscribeViewingStats,
@@ -64,6 +65,7 @@ export function SeriesDetailView({
   const [seasonTab, setSeasonTab] = useState<string | null>(null);
   const [playBusy, setPlayBusy] = useState(false);
   const [playError, setPlayError] = useState<string | null>(null);
+  const [downloadBusy, setDownloadBusy] = useState(false);
   const displayPlayError = playError ?? watchNavError;
 
   const metadata = data?.metadata;
@@ -176,6 +178,28 @@ export function SeriesDetailView({
     [clearNavError, cover, episodesBySeason, groupTitle, metadata?.imdbId, metadata?.tmdbId, metadata?.year, openChannel, seriesId, title],
   );
 
+  const downloadPrimaryEpisode = useCallback(async () => {
+    if (!primaryEpisodeChannel || !primaryEpisode) return;
+    setDownloadBusy(true);
+    setPlayError(null);
+    try {
+      const href = await createDownloadUrl({
+        ...primaryEpisodeChannel,
+        name: `${title} · ${formatEpisodeCode(primaryEpisode.season, primaryEpisode.episodeNum)} · ${primaryEpisode.title}`,
+      });
+      const anchor = document.createElement("a");
+      anchor.href = href;
+      anchor.rel = "noopener";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+    } catch (reason) {
+      setPlayError(reason instanceof Error ? reason.message : "Could not prepare download.");
+    } finally {
+      setDownloadBusy(false);
+    }
+  }, [primaryEpisode, primaryEpisodeChannel, title]);
+
   const continueProgress = continueTarget
     ? playbackProgressRatio(
         getPlaybackPosition(continueTarget.ep.playUrl),
@@ -250,7 +274,12 @@ export function SeriesDetailView({
                 </p>
               ) : null}
 
-              <div className="tv-media-detail-actions mt-6 flex flex-wrap items-center justify-center gap-3 sm:justify-start">
+              <div
+                id="media-detail-actions"
+                data-tv-layout="horizontal"
+                data-tv-nav-down="#series-season-tabs"
+                className="tv-media-detail-actions mt-6 flex flex-wrap items-center justify-center gap-3 sm:justify-start"
+              >
                 {continueTarget ? (
                   <Button variant="primary"
                     data-tv-initial-focus
@@ -300,6 +329,20 @@ export function SeriesDetailView({
                   <ShareMediaButton target={seriesShareTarget} size="lg" showLabel />
                 ) : null}
                 <FavoriteStarButton channel={favoriteSeriesChannel} size="md" showLabel />
+                {primaryEpisodeChannel ? (
+                  <Button
+                    data-tv-download
+                    variant="secondary"
+                    size="lg"
+                    type="button"
+                    disabled={downloadBusy}
+                    onClick={() => void downloadPrimaryEpisode()}
+                    className="h-auto rounded-full py-3 px-6"
+                  >
+                    <Download className="h-4 w-4" aria-hidden />
+                    {downloadBusy ? "Preparing…" : "Download"}
+                  </Button>
+                ) : null}
                 {primaryEpisodeChannel ? (
                   <MovieDownloadButton
                     channel={{
@@ -351,7 +394,14 @@ export function SeriesDetailView({
                     Season {activeSeason} · {(episodesBySeason.map.get(activeSeason ?? "") ?? []).length} episodes
                   </p>
                 </div>
-                <div className="tv-season-tabs flex max-w-full gap-2 overflow-x-auto p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Choose season">
+                <div
+                  id="series-season-tabs"
+                  data-tv-layout="horizontal"
+                  data-tv-nav-up="#media-detail-actions"
+                  data-tv-nav-down="#series-episode-grid"
+                  className="tv-season-tabs flex max-w-full gap-2 overflow-x-auto p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  aria-label="Choose season"
+                >
                   {episodesBySeason.seasons.map((season) => (
                     <Button
                       variant={activeSeason === season ? "primary" : "secondary"}
@@ -370,13 +420,19 @@ export function SeriesDetailView({
                 </div>
               </div>
 
-              <ul className="tv-episode-grid grid grid-cols-1 gap-4 xl:grid-cols-2">
-              {(episodesBySeason.map.get(activeSeason ?? "") ?? []).map((ep) => {
+              <ul
+                id="series-episode-grid"
+                data-tv-layout="grid"
+                data-tv-columns="1"
+                data-tv-nav-up="#series-season-tabs"
+                className="tv-episode-grid grid grid-cols-1 gap-4 xl:grid-cols-2"
+              >
+              {(episodesBySeason.map.get(activeSeason ?? "") ?? []).map((ep, episodeUiIndex) => {
                 const episodeIndex = episodesBySeason.flat.findIndex(
                   (candidate) => candidate.playUrl === ep.playUrl,
                 );
                 return (
-                  <li key={ep.playUrl}>
+                  <li key={ep.playUrl} data-tv-index={episodeUiIndex}>
                     <Card frame="solid" className="tv-episode-card group h-full overflow-hidden border-white/10 bg-[#111722] transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-[0_18px_48px_rgba(0,0,0,.3)]">
                         <Button
                           variant="ghost"

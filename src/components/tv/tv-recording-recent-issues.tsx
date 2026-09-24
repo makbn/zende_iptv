@@ -193,8 +193,10 @@ export function TvRecordingRecentIssues({
           className="fixed inset-0 z-[200] flex items-center justify-center px-4 py-10 sm:px-6"
           role="presentation"
         >
-          <Button variant="ghost"
+          <button
             type="button"
+            tabIndex={-1}
+            data-tv-backdrop=""
             aria-label="Close dialog"
             className="absolute inset-0 bg-background backdrop-blur-md motion-safe:animate-[glass-backdrop-in_0.25s_ease-out_both]"
             onClick={() => setDetail(null)}

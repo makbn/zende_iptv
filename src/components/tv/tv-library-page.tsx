@@ -28,6 +28,7 @@ import { useLibraryCatalog } from "@/features/iptv/use-library-catalog";
 import { useLibraryContentTab } from "@/features/iptv/use-library-content-tab";
 import { useLibrarySearch } from "@/features/iptv/use-library-search";
 import { LibraryResultsShell } from "@/components/library/library-results-shell";
+import { LibraryResultsSkeleton } from "@/components/library/library-results-skeleton";
 import { VirtualChannelList, VirtualChannelGrid } from "@/components/library/virtual-channel-list";
 import { parseChannelLabel } from "@/lib/channel/channel-label";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
@@ -641,7 +642,9 @@ export function TvLibraryPage() {
           className={cn(BROWSE_CONTAINER_CLASS, "tv-library-results mt-4 lg:mt-5")}
         >
           <div data-tv-nav-up="#library-filter-deck">
-            {!resultsBusy && catalogTotal === 0 && contentTab === "movie" ? (
+            {resultsBusy && visible.length === 0 ? (
+              <LibraryResultsSkeleton view={view} count={24} />
+            ) : !resultsBusy && catalogTotal === 0 && contentTab === "movie" ? (
             <div className="rounded-3xl border border-dashed border-border bg-background-muted px-8 py-16 text-center ring-1 ring-border">
               <p className="text-[18px] font-semibold text-foreground-intense">No movies yet</p>
               <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-foreground-intense">

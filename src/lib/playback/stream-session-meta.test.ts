@@ -46,6 +46,24 @@ describe("playback session meta", () => {
     });
   });
 
+  it("persists audio tracks for the player chrome", () => {
+    const restored = parsePlaybackSessionMeta(
+      serializePlaybackSessionMeta({
+        contentKind: "movie",
+        displayTitle: "Dune",
+        audioTracks: [
+          { index: 0, label: "English", language: "en" },
+          { index: 1, label: " Français ", language: " fr " },
+        ],
+      }),
+    );
+
+    expect(restored.audioTracks).toEqual([
+      { index: 0, label: "English", language: "en" },
+      { index: 1, label: "Français", language: "fr" },
+    ]);
+  });
+
   it("persists intro windows and neighbor watchIds without requiring playUrl", () => {
     const restored = parsePlaybackSessionMeta(
       serializePlaybackSessionMeta({

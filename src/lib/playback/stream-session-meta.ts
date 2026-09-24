@@ -2,6 +2,13 @@ import "server-only";
 
 export type PlaybackContentKind = "live" | "movie" | "episode";
 
+/** Alternate audio language / track advertised to the watch player. */
+export type PlaybackAudioTrack = {
+  index: number;
+  label: string;
+  language?: string;
+};
+
 /** Adjacent episode the player can jump to without re-listing the whole series. */
 export type PlaybackNeighborRef = {
   season: string;
@@ -51,6 +58,11 @@ export type PlaybackSessionMeta = {
   hasNext?: boolean;
   previous?: PlaybackNeighborRef;
   next?: PlaybackNeighborRef;
+  /**
+   * Alternate audio tracks for the player chrome.
+   * Shown only when length > 1; populated from the stream (HLS/native) or upstream metadata.
+   */
+  audioTracks?: PlaybackAudioTrack[];
 };
 
 function parseNeighbor(raw: unknown): PlaybackNeighborRef | undefined {
@@ -100,6 +112,42 @@ function parseIntroSegments(
   return segments;
 }
 
+function parseAudioTracks(raw: unknown): PlaybackAudioTrack[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const tracks: PlaybackAudioTrack[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    const index =
+      typeof o.index === "number" && Number.isFinite(o.index)
+        ? Math.floor(o.index)
+        : typeof o.index === "string" && /^\d+$/.test(o.index.trim())
+          ? Number.parseInt(o.index.trim(), 10)
+          : NaN;
+    if (!Number.isFinite(index) || index < 0) continue;
+    const label =
+      typeof o.label === "string" && o.label.trim()
+        ? o.label.trim()
+        : typeof o.name === "string" && o.name.trim()
+          ? o.name.trim()
+          : typeof o.language === "string" && o.language.trim()
+            ? o.language.trim()
+            : `Audio ${index + 1}`;
+    const language =
+      typeof o.language === "string" && o.language.trim()
+        ? o.language.trim()
+        : typeof o.lang === "string" && o.lang.trim()
+          ? o.lang.trim()
+          : undefined;
+    tracks.push({
+      index,
+      label,
+      ...(language ? { language } : {}),
+    });
+  }
+  return tracks;
+}
+
 export function parsePlaybackSessionMeta(raw: string | null | undefined): PlaybackSessionMeta {
   if (!raw?.trim()) return {};
   try {
@@ -108,9 +156,13 @@ export function parsePlaybackSessionMeta(raw: string | null | undefined): Playba
     const intro = Object.prototype.hasOwnProperty.call(o, "intro")
       ? parseIntroSegments(o.intro) ?? []
       : undefined;
+    const audioTracks = Object.prototype.hasOwnProperty.call(o, "audioTracks")
+      ? parseAudioTracks(o.audioTracks) ?? []
+      : undefined;
     return {
       ...o,
       ...(intro !== undefined ? { intro } : {}),
+      ...(audioTracks !== undefined ? { audioTracks } : {}),
       ...(o.previous ? { previous: parseNeighbor(o.previous) } : {}),
       ...(o.next ? { next: parseNeighbor(o.next) } : {}),
     };
@@ -182,6 +234,23 @@ export function serializePlaybackSessionMeta(meta: PlaybackSessionMeta): string 
   const next = serializeNeighbor(meta.next);
   if (previous) clean.previous = previous;
   if (next) clean.next = next;
+  if (meta.audioTracks !== undefined) {
+    clean.audioTracks = meta.audioTracks
+      .filter(
+        (t) =>
+          t &&
+          typeof t.index === "number" &&
+          Number.isFinite(t.index) &&
+          t.index >= 0 &&
+          typeof t.label === "string" &&
+          t.label.trim(),
+      )
+      .map((t) => ({
+        index: Math.floor(t.index),
+        label: t.label.trim(),
+        ...(t.language?.trim() ? { language: t.language.trim() } : {}),
+      }));
+  }
   return JSON.stringify(clean);
 }
 

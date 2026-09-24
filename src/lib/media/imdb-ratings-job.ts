@@ -350,6 +350,15 @@ async function runJob(): Promise<ImdbRatingsJobResult> {
       let metadata: MediaMetadata = existingPayload ?? minimalMetadata(candidate, now);
       if (imdbId) metadata = { ...metadata, imdbId };
       if (rating) metadata = withImdbRating(metadata, rating.rating, rating.votes);
+      // Prefer IMDb basics year when the playlist title omitted `(YYYY)`.
+      if (!metadata.year) {
+        const matchedBasics = (titleMatches.get(candidate.id) ?? []).find((row) => row.imdbId === imdbId);
+        if (matchedBasics?.year && /^\d{4}$/.test(String(matchedBasics.year))) {
+          metadata = { ...metadata, year: String(matchedBasics.year) };
+        } else if (candidate.year) {
+          metadata = { ...metadata, year: candidate.year };
+        }
+      }
       updated += 1;
       return [prisma.mediaMetadataCache.upsert({
         where: { mediaKey: `channel:${candidate.id}` },

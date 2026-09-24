@@ -58,8 +58,10 @@ export function AppicaSearchDialog({ open, onClose }: Props) {
       className="fixed inset-0 z-[200] flex items-start justify-center px-4 pt-[min(12vh,104px)] sm:px-6"
       role="presentation"
     >
-      <Button variant="ghost"
+      <button
         type="button"
+        tabIndex={-1}
+        data-tv-backdrop=""
         aria-label="Dismiss"
         className={cn(
           "absolute inset-0 bg-background backdrop-blur-xl",
@@ -97,6 +99,7 @@ export function AppicaSearchDialog({ open, onClose }: Props) {
             </div>
             <form
               className="p-5 sm:p-6"
+              data-tv-layout="vertical"
               onSubmit={(e) => {
                 e.preventDefault();
                 submit();
@@ -115,6 +118,8 @@ export function AppicaSearchDialog({ open, onClose }: Props) {
                   placeholder="Channel, country, language, number…"
                   inputMode="search"
                   aria-label="Search channels"
+                  data-tv-initial-focus=""
+                  data-tv-nav-input="spatial"
                   className={cn(
                     "h-14 w-full rounded-lg border border-border bg-background pl-12 pr-4",
                     "text-lg font-semibold tracking-tight text-foreground-intense placeholder:text-foreground-muted",
@@ -135,7 +140,10 @@ export function AppicaSearchDialog({ open, onClose }: Props) {
                   English
                 </span>
               </div>
-              <div className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto]">
+              <div
+                data-tv-layout="horizontal"
+                className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto]"
+              >
                 <Button
                   type="submit"
                   variant="primary"

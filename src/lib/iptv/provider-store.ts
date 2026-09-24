@@ -44,8 +44,29 @@ type ProviderChannelRow = IptvProviderChannel & {
   mediaMetadata?: {
     imdbRating: number | null;
     imdbVotes: number | null;
+    payloadJson?: string | null;
   } | null;
 };
+
+function yearFromMetadataPayload(payloadJson: string | null | undefined): string | null {
+  if (!payloadJson?.trim()) return null;
+  try {
+    const payload = JSON.parse(payloadJson) as { year?: unknown; releaseDate?: unknown };
+    if (typeof payload.year === "string" && /^\d{4}$/.test(payload.year.trim())) {
+      return payload.year.trim();
+    }
+    if (typeof payload.year === "number" && payload.year >= 1900 && payload.year <= 2099) {
+      return String(Math.trunc(payload.year));
+    }
+    if (typeof payload.releaseDate === "string") {
+      const match = /^(\d{4})/.exec(payload.releaseDate.trim());
+      if (match) return match[1]!;
+    }
+  } catch {
+    /* ignore malformed cache payloads */
+  }
+  return null;
+}
 
 function resolveStoredChannelUrl(row: ProviderChannelRow): string {
   const rawSeriesId =
@@ -64,6 +85,7 @@ function providerChannelFromRow(row: ProviderChannelRow): M3uChannel {
   const rawSeriesId =
     row.contentType === "series" ? parseXtreamSeriesIdFromContainerUrl(row.url) : null;
   const scopedSeriesId = rawSeriesId ? `${row.provider.id}:${rawSeriesId}` : null;
+  const metadataYear = yearFromMetadataPayload(row.mediaMetadata?.payloadJson);
   return {
     name: row.name,
     url: resolveStoredChannelUrl(row),
@@ -89,6 +111,7 @@ function providerChannelFromRow(row: ProviderChannelRow): M3uChannel {
     ...(row.mediaMetadata?.imdbVotes != null
       ? { imdbVotes: row.mediaMetadata.imdbVotes }
       : {}),
+    ...(metadataYear ? { year: metadataYear } : {}),
   };
 }
 
@@ -146,7 +169,9 @@ export async function loadEnabledProviderChannels(): Promise<M3uChannel[]> {
     where: { provider: { enabled: true } },
     include: {
       provider: { select: providerSelect },
-      mediaMetadata: { select: { imdbRating: true, imdbVotes: true } },
+      mediaMetadata: {
+        select: { imdbRating: true, imdbVotes: true, payloadJson: true },
+      },
     },
     orderBy: { name: "asc" },
   });

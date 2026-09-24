@@ -328,7 +328,12 @@ function filterIndexedRows(
 }
 
 function yearFacetFor(channel: M3uChannel) {
-  const year = yearFromChannelName(channel.name);
+  // Prefer enriched DB metadata year (detail pages already show this) so Library
+  // filters match titles that omit `(YYYY)` in the playlist name.
+  const year =
+    (channel.year?.trim() && /^\d{4}$/.test(channel.year.trim())
+      ? channel.year.trim()
+      : null) ?? yearFromChannelName(channel.name);
   if (!year) return null;
   return { key: year, label: year };
 }

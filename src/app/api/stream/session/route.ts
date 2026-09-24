@@ -20,6 +20,7 @@ import {
   inferContentKindFromUrl,
   resolvePlaybackDurationSeconds,
 } from "@/lib/playback/resolve-duration";
+import { resolvePlaybackAudioTracks } from "@/lib/playback/audio-tracks";
 import {
   clientSafePlaybackMeta,
   materializeNeighborWatchIds,
@@ -85,6 +86,16 @@ const bodySchema = z.object({
       hasNext: z.boolean().optional(),
       previous: neighborSchema.optional(),
       next: neighborSchema.optional(),
+      audioTracks: z
+        .array(
+          z.object({
+            index: z.number().int().min(0),
+            label: z.string().max(128),
+            language: z.string().max(32).optional(),
+          }),
+        )
+        .max(32)
+        .optional(),
     })
     .optional(),
 });
@@ -143,6 +154,13 @@ export async function POST(request: Request) {
     providerMatches.get(rawUrl) ??
     providerMatches.get(resolvedUrl) ??
     providerMatches.get(normalizedUrl);
+  // Prefer the catalog's absolute play URL when the client sent a host-free
+  // Xtream path (`/movie/…`) after the host-free storage migration.
+  const catalogPlayUrl = providerChannel?.url?.trim() || "";
+  const sessionUrl =
+    catalogPlayUrl && /^https?:\/\//i.test(catalogPlayUrl)
+      ? catalogPlayUrl
+      : normalizedUrl;
   if (parental.blockedPatterns.length > 0) {
     if (
       providerChannel &&
@@ -163,10 +181,11 @@ export async function POST(request: Request) {
 
   let upstream: URL;
   try {
-    upstream = new URL(normalizedUrl);
+    upstream = new URL(sessionUrl);
   } catch {
     log.warn("Session create rejected: invalid stream URL", {
       rawUrlPreview: redactStreamUrlForLog(rawUrl),
+      sessionUrlPreview: redactStreamUrlForLog(sessionUrl),
     });
     return NextResponse.json({ error: "Invalid stream URL." }, { status: 400 });
   }
@@ -232,6 +251,17 @@ export async function POST(request: Request) {
       ...meta,
       displayTitle,
     };
+    if (meta.contentKind === "movie" || meta.contentKind === "episode" || !meta.contentKind) {
+      const audioTracks = await resolvePlaybackAudioTracks({
+        upstreamUrl: upstream.href,
+        group: parsed.data.group,
+        title: displayTitle,
+        existing: meta.audioTracks,
+      });
+      if (audioTracks && audioTracks.length > 1) {
+        meta = { ...meta, audioTracks };
+      }
+    }
     meta = await materializeNeighborWatchIds(meta, {
       ownerUserId: gate.authEnabled ? gate.user.id : undefined,
       proxyConfig: proxyConfig ?? undefined,

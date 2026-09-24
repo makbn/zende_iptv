@@ -161,11 +161,13 @@ function HomeHero({
   metadata,
   onPrimary,
   onMoreInfo,
+  onFocusCapture,
 }: {
   feature: HomeFeature | null;
   metadata: MediaMetadata | null;
   onPrimary: () => void;
   onMoreInfo: () => void;
+  onFocusCapture?: () => void;
 }) {
   const art = secureImageUrl(
     metadata?.backdropUrl || feature?.channel.tvgLogo,
@@ -183,16 +185,46 @@ function HomeHero({
   const description = feature
     ? metadata?.overview || featureDescription(feature)
     : "Your Zende library becomes a cinematic, couch-first experience.";
+  const featureKey = feature?.channel.url ?? "empty";
+
+  const shownArtRef = useRef<string | null>(art ?? null);
+  const [shownArt, setShownArt] = useState<string | null>(art ?? null);
+  const [exitingArt, setExitingArt] = useState<string | null>(null);
+
+  useEffect(() => {
+    const next = art ?? null;
+    if (next === shownArtRef.current) return;
+    const previous = shownArtRef.current;
+    shownArtRef.current = next;
+    if (previous) setExitingArt(previous);
+    setShownArt(next);
+    if (!previous) return;
+    const timer = window.setTimeout(() => setExitingArt(null), 420);
+    return () => window.clearTimeout(timer);
+  }, [art]);
 
   return (
-    <section className="tv-home-hero" aria-labelledby="tv-home-hero-title">
+    <section
+      className="tv-home-hero"
+      aria-labelledby="tv-home-hero-title"
+      onFocusCapture={onFocusCapture}
+    >
       <div className="tv-home-hero-art" aria-hidden>
-        {art ? (
+        {exitingArt ? (
+          <img
+            className="tv-home-hero-art-image is-exiting"
+            src={exitingArt}
+            alt=""
+            decoding="async"
+          />
+        ) : null}
+        {shownArt ? (
           <>
-            <img className="tv-home-hero-art-blur" src={art} alt="" decoding="async" />
+            <img className="tv-home-hero-art-blur" src={shownArt} alt="" decoding="async" />
             <img
-              className="tv-home-hero-art-image"
-              src={art}
+              key={shownArt}
+              className="tv-home-hero-art-image is-entering"
+              src={shownArt}
               alt=""
               decoding="async"
               fetchPriority="high"
@@ -208,12 +240,14 @@ function HomeHero({
       <div className="tv-home-hero-shade" aria-hidden />
 
       <div className="tv-home-hero-content">
-        <p className="tv-home-hero-eyebrow">
-          {feature?.source === "continue" ? "Continue Watching" : "Featured on Zende"}
-        </p>
-        <h1 id="tv-home-hero-title">{title}</h1>
-        <p className="tv-home-hero-meta">{meta}</p>
-        <p className="tv-home-hero-description">{description}</p>
+        <div key={featureKey} className="tv-home-hero-copy">
+          <p className="tv-home-hero-eyebrow">
+            {feature?.source === "continue" ? "Continue Watching" : "Featured on Zende"}
+          </p>
+          <h1 id="tv-home-hero-title">{title}</h1>
+          <p className="tv-home-hero-meta">{meta}</p>
+          <p className="tv-home-hero-description">{description}</p>
+        </div>
         <div
           className="tv-home-hero-actions"
           data-tv-layout="horizontal"
@@ -320,6 +354,7 @@ function HomeRailSection({
   items,
   onFocus,
   onSelect,
+  onAlignSection,
 }: {
   id: string;
   title: string;
@@ -327,6 +362,7 @@ function HomeRailSection({
   items: HomeRailItem[];
   onFocus: (feature: HomeFeature) => void;
   onSelect: (feature: HomeFeature) => void;
+  onAlignSection?: (section: HTMLElement) => void;
 }) {
   const itemFromTarget = useCallback((target: EventTarget | null) => {
     if (!(target instanceof Element)) return null;
@@ -345,6 +381,10 @@ function HomeRailSection({
         onFocusCapture={(event) => {
           const item = itemFromTarget(event.target);
           if (item) onFocus(item.feature);
+          if (event.target instanceof HTMLElement) {
+            const section = event.target.closest<HTMLElement>(".tv-home-section");
+            if (section) onAlignSection?.(section);
+          }
         }}
         onMouseOver={(event) => {
           const item = itemFromTarget(event.target);
@@ -390,6 +430,23 @@ export function TvHome() {
   const [focusedFeature, setFocusedFeature] = useState<HomeFeature | null>(null);
   const pendingFocusedFeatureRef = useRef<HomeFeature | null>(null);
   const heroCommitFrameRef = useRef<number | null>(null);
+  const shelvesTrackRef = useRef<HTMLDivElement>(null);
+
+  /** Prime-style fixed focus lane: slide rails under a locked hero (TV remote only). */
+  const alignShelvesToSection = useCallback((section: HTMLElement | null) => {
+    const track = shelvesTrackRef.current;
+    if (!track) return;
+    if (document.documentElement.dataset.tvInput !== "remote") {
+      track.style.transform = "";
+      return;
+    }
+    const offset = section ? Math.max(0, section.offsetTop) : 0;
+    track.style.transform = offset > 0 ? `translate3d(0, ${-offset}px, 0)` : "";
+  }, []);
+
+  const resetShelvesAlign = useCallback(() => {
+    alignShelvesToSection(null);
+  }, [alignShelvesToSection]);
 
   const scheduleFocusedFeature = useCallback((feature: HomeFeature) => {
     pendingFocusedFeatureRef.current = feature;
@@ -608,15 +665,17 @@ export function TvHome() {
   }
 
   return (
-    <AppicaPage className="tv-home-page">
+    <AppicaPage className="tv-home-page" data-tv-fixed-focus-root="">
       <HomeHero
         feature={heroFeature}
         metadata={heroMetadata}
         onPrimary={() => playFeature(heroFeature)}
         onMoreInfo={() => openFeatureInfo(heroFeature)}
+        onFocusCapture={resetShelvesAlign}
       />
 
-      <div className="tv-home-shelves">
+      <div className="tv-home-shelves-viewport">
+        <div className="tv-home-shelves tv-home-shelves-track" ref={shelvesTrackRef}>
         {continueWatching.length > 0 ? (
           <MemoizedHomeRailSection
             id="continue"
@@ -624,6 +683,7 @@ export function TvHome() {
             items={continueRailItems}
             onFocus={scheduleFocusedFeature}
             onSelect={playFeature}
+            onAlignSection={alignShelvesToSection}
           />
         ) : continueWatchingLoading ? (
           <section className="tv-home-section tv-home-loading" aria-label="Loading continue watching">
@@ -642,6 +702,7 @@ export function TvHome() {
             items={trendingRailItems}
             onFocus={scheduleFocusedFeature}
             onSelect={playFeature}
+            onAlignSection={alignShelvesToSection}
           />
         ) : null}
 
@@ -653,6 +714,7 @@ export function TvHome() {
             items={popularRailItems}
             onFocus={scheduleFocusedFeature}
             onSelect={playFeature}
+            onAlignSection={alignShelvesToSection}
           />
         ) : null}
 
@@ -664,6 +726,7 @@ export function TvHome() {
             items={movieRailItems}
             onFocus={scheduleFocusedFeature}
             onSelect={playFeature}
+            onAlignSection={alignShelvesToSection}
           />
         ) : null}
 
@@ -675,10 +738,18 @@ export function TvHome() {
             items={seriesRailItems}
             onFocus={scheduleFocusedFeature}
             onSelect={playFeature}
+            onAlignSection={alignShelvesToSection}
           />
         ) : null}
 
-        <section className="tv-home-library-cta">
+        <section
+          className="tv-home-library-cta"
+          onFocusCapture={(event) => {
+            if (event.target instanceof HTMLElement) {
+              alignShelvesToSection(event.currentTarget);
+            }
+          }}
+        >
           <div>
             <p>Keep exploring</p>
             <h2>Your complete catalog is waiting.</h2>
@@ -696,6 +767,7 @@ export function TvHome() {
             </Button>
           </div>
         </section>
+        </div>
       </div>
 
       {homeShelves.error ? (

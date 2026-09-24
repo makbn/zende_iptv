@@ -488,7 +488,10 @@ export function TvRecordingsPage() {
           title="Recordings"
           description="Schedule, monitor, play, and download recordings."
         >
-          <div className="flex flex-wrap items-center gap-2">
+          <div
+            data-tv-layout="horizontal"
+            className="flex flex-wrap items-center gap-2"
+          >
             <span className="rounded-full border border-border bg-background-muted px-3 py-1.5 text-sm text-foreground-muted">
               {(overview?.schedules.length ?? 0).toLocaleString()} scheduled
             </span>
@@ -499,9 +502,12 @@ export function TvRecordingsPage() {
               {(overview?.library.length ?? 0).toLocaleString()} saved
             </span>
             <Button
+              id="rec-start-cta"
               type="button"
               variant="primary"
               size="md"
+              data-tv-initial-focus=""
+              data-tv-nav-down="#rec-active,#rec-upcoming,#rec-library"
               onClick={() => setStartRecordingDialogOpen(true)}
             >
               <Plus className="size-4" aria-hidden />
@@ -544,8 +550,10 @@ export function TvRecordingsPage() {
               className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto px-4 py-8 sm:px-6 sm:py-10"
               role="presentation"
             >
-              <Button variant="ghost"
+              <button
                 type="button"
+                tabIndex={-1}
+                data-tv-backdrop=""
                 aria-label="Close dialog"
                 className="fixed inset-0 bg-background backdrop-blur-md motion-safe:animate-[glass-backdrop-in_0.25s_ease-out_both]"
                 onClick={() => setStartRecordingDialogOpen(false)}
@@ -858,14 +866,23 @@ export function TvRecordingsPage() {
           ) : null}
 
           {overview && overview.active.length > 0 ? (
-            <section aria-labelledby="rec-active-heading">
+            <section
+              id="rec-active"
+              data-tv-nav-up="#rec-start-cta"
+              data-tv-nav-down="#rec-upcoming,#rec-library"
+              aria-labelledby="rec-active-heading"
+            >
               <h2
                 id="rec-active-heading"
                 className="text-lg font-semibold tracking-tight text-foreground-intense"
               >
                 Recording now
               </h2>
-              <ul className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <ul
+                data-tv-layout="grid"
+                data-tv-columns="2"
+                className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+              >
                 {overview.active.map((r) => {
                   const start = r.startedAt
                     ? new Date(r.startedAt).getTime()
@@ -938,14 +955,19 @@ export function TvRecordingsPage() {
           ) : null}
 
           {overview && overview.schedules.length > 0 ? (
-            <section aria-labelledby="rec-upcoming-heading">
+            <section
+              id="rec-upcoming"
+              data-tv-nav-up="#rec-active,#rec-start-cta"
+              data-tv-nav-down="#rec-library"
+              aria-labelledby="rec-upcoming-heading"
+            >
               <h2
                 id="rec-upcoming-heading"
                 className="text-lg font-semibold tracking-tight text-foreground-intense"
               >
                 Upcoming
               </h2>
-              <ul className="mt-4 space-y-3">
+              <ul data-tv-layout="vertical" className="mt-4 space-y-3">
                 {overview.schedules.map((s) => (
                   <li key={s.id}>
                     <Card
@@ -1076,7 +1098,11 @@ export function TvRecordingsPage() {
             </section>
           ) : null}
 
-          <section aria-labelledby="rec-library-heading">
+          <section
+            id="rec-library"
+            data-tv-nav-up="#rec-upcoming,#rec-active,#rec-start-cta"
+            aria-labelledby="rec-library-heading"
+          >
             <h2
               id="rec-library-heading"
               className="text-lg font-semibold tracking-tight text-foreground-intense"
@@ -1091,7 +1117,11 @@ export function TvRecordingsPage() {
                 show the server error and cannot be played or downloaded.
               </p>
             ) : (
-              <ul className="mt-4 grid gap-4 lg:grid-cols-2">
+              <ul
+                data-tv-layout="grid"
+                data-tv-columns="2"
+                className="mt-4 grid gap-4 lg:grid-cols-2"
+              >
                 {overview.library.map((item) => {
                   const isFailed = item.status === "FAILED";
                   return (
@@ -1226,8 +1256,10 @@ export function TvRecordingsPage() {
             className="fixed inset-0 z-[200] flex items-center justify-center px-4 py-10 sm:px-6"
             role="presentation"
           >
-            <Button variant="ghost"
+            <button
               type="button"
+              tabIndex={-1}
+              data-tv-backdrop=""
               aria-label="Dismiss"
               className="absolute inset-0 bg-background backdrop-blur-md"
               onClick={() => {
@@ -1304,8 +1336,10 @@ export function TvRecordingsPage() {
             className="fixed inset-0 z-[200] flex items-center justify-center px-4 py-10 sm:px-6"
             role="presentation"
           >
-            <Button variant="ghost"
+            <button
               type="button"
+              tabIndex={-1}
+              data-tv-backdrop=""
               aria-label="Dismiss"
               className="absolute inset-0 bg-background backdrop-blur-md"
               onClick={() => {

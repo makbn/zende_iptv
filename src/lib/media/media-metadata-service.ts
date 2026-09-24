@@ -273,6 +273,10 @@ async function refreshMetadata(input: MediaMetadataInput): Promise<MediaMetadata
       fetchedAt,
     },
   });
+  // Year/genre facets read this cache — drop the in-memory library index so
+  // filters include titles enriched after the last catalog warm.
+  const { invalidateLibraryCatalogCache } = await import("@/lib/library/catalog");
+  invalidateLibraryCatalogCache();
   return metadata;
 }
 

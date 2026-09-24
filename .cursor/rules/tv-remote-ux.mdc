@@ -1,0 +1,20 @@
+---
+description: TV remote / D-pad focus rules for Zende IPTV TV shells
+globs: src/components/tv/**/*.{ts,tsx},src/components/watch/**/*.{ts,tsx},src/components/library/**/*.{ts,tsx},src/styles/appica-app.css
+alwaysApply: false
+---
+
+# TV Remote UX
+
+When editing TV browse, player, library, or remote CSS, follow [`docs/tv-remote-ux.md`](docs/tv-remote-ux.md).
+
+## Hard rules
+
+1. Every interactive control must be reachable with Up/Down/Left/Right + Select + Back only.
+2. Focusables must sit in orthogonal grids/rails (`data-tv-layout`), not diagonal or floating islands.
+3. Floating actions (Skip Intro, FABs) need bidirectional `data-tv-nav-*` bridges into the player/page graph. Never rely on geometric search alone.
+4. Dialog backdrops must not be focusable — use `data-tv-backdrop` and/or `tabIndex={-1}`.
+5. Do not return a silent dead key mid-screen: if an explicit bridge target is `inert`/hidden, wake it (`__zendeTvWakePlayer`) then focus.
+6. Prefer `data-tv-initial-focus` / `data-tv-page-entry` for page entry; hide desktop-only controls with `data-tv-hide-control`.
+7. Do not introduce mouse-only or hover-only primary actions on TV surfaces.
+8. Keep the single pink remote focus ring in `html[data-tv-input="remote"]`; do not invent alternate focus patterns.

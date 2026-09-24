@@ -3,7 +3,7 @@
 import { Button } from "@appica/ui-react/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@appica/ui-react/card";
 import { Progress } from "@appica/ui-react/progress";
-import { ChevronLeft, Play } from "lucide-react";
+import { ChevronLeft, Download, Play } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
@@ -21,6 +21,7 @@ import { ZendeLoadingState } from "@/components/loading/zende-spinner";
 import { useMovieInfo } from "@/features/iptv/use-movie-info";
 import { secureImageUrl } from "@/lib/media/secure-image-url";
 import { useWatchNavigation } from "@/lib/navigation/use-watch-navigation";
+import { createDownloadUrl } from "@/lib/navigation/watch-url";
 import {
   getPlaybackPosition,
   playbackProgressRatio,
@@ -42,6 +43,7 @@ export function MovieDetailView({ movieId, fallbackTitle, fallbackLogo, fallback
   const { playChannel, navError, clearNavError } = useWatchNavigation();
   const [historyRevision, setHistoryRevision] = useState(0);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [downloadBusy, setDownloadBusy] = useState(false);
   const startMovieButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => subscribeViewingStats(() => setHistoryRevision((value) => value + 1)), []);
@@ -91,6 +93,25 @@ export function MovieDetailView({ movieId, fallbackTitle, fallbackLogo, fallback
     setActionError(null);
     clearNavError();
     playChannel(playbackChannel);
+  }
+
+  async function downloadMovie() {
+    if (!playbackChannel) return;
+    setDownloadBusy(true);
+    setActionError(null);
+    try {
+      const href = await createDownloadUrl(playbackChannel);
+      const anchor = document.createElement("a");
+      anchor.href = href;
+      anchor.rel = "noopener";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+    } catch (reason) {
+      setActionError(reason instanceof Error ? reason.message : "Could not prepare download.");
+    } finally {
+      setDownloadBusy(false);
+    }
   }
 
   if (loading && !data) {
@@ -179,7 +200,11 @@ export function MovieDetailView({ movieId, fallbackTitle, fallbackLogo, fallback
                 </p>
               ) : null}
 
-              <div className="tv-media-detail-actions mt-7 flex flex-wrap justify-center gap-3 md:justify-start">
+              <div
+                id="media-detail-actions"
+                data-tv-layout="horizontal"
+                className="tv-media-detail-actions mt-7 flex flex-wrap justify-center gap-3 md:justify-start"
+              >
                 <Button
                   ref={startMovieButtonRef}
                   data-tv-initial-focus
@@ -194,6 +219,19 @@ export function MovieDetailView({ movieId, fallbackTitle, fallbackLogo, fallback
                 {playbackChannel ? <FavoriteStarButton channel={playbackChannel} size="md" showLabel /> : null}
                 {shareTarget ? (
                   <ShareMediaButton target={shareTarget} size="lg" showLabel />
+                ) : null}
+                {playbackChannel ? (
+                  <Button
+                    data-tv-download
+                    size="lg"
+                    variant="secondary"
+                    onClick={() => void downloadMovie()}
+                    disabled={downloadBusy}
+                    className="min-w-44 rounded-full"
+                  >
+                    <Download className="size-4" aria-hidden />
+                    {downloadBusy ? "Preparing…" : "Download"}
+                  </Button>
                 ) : null}
                 {playbackChannel ? <MovieDownloadButton channel={playbackChannel} size="lg" showLabel /> : null}
               </div>

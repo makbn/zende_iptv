@@ -164,7 +164,13 @@ export function TvSettingsPage() {
             className="gap-0"
           >
             <div className="overflow-x-auto border-b border-border">
-              <TabsList aria-label="Settings sections" className="min-w-max">
+              <TabsList
+                id="settings-tabs"
+                data-tv-layout="horizontal"
+                data-tv-nav-down="#settings-panel"
+                aria-label="Settings sections"
+                className="min-w-max"
+              >
                 {(
                   (canManageSystem ? [
                     ["catalog", "Catalog"],
@@ -173,8 +179,12 @@ export function TvSettingsPage() {
                     ["proxies", "VPN Proxies"],
                     ["server", "Server & reliability"],
                   ] : [["authentication", "My account"]]) as readonly (readonly [SettingsTab, string])[]
-                ).map(([id, label]) => (
-                  <TabsTrigger key={id} value={id}>
+                ).map(([id, label], index) => (
+                  <TabsTrigger
+                    key={id}
+                    value={id}
+                    data-tv-initial-focus={index === 0 ? "" : undefined}
+                  >
                     {label}
                   </TabsTrigger>
                 ))}
@@ -183,6 +193,7 @@ export function TvSettingsPage() {
           </Tabs>
         </div>
 
+        <div id="settings-panel" data-tv-nav-up="#settings-tabs">
         {canManageSystem && activeTab === "catalog" ? (
           <>
             <div className={cn(BROWSE_CONTAINER_CLASS, "mt-8")}>
@@ -325,6 +336,7 @@ export function TvSettingsPage() {
           </section>
         </div>
         ) : null}
+        </div>
 
         <div className={cn(BROWSE_CONTAINER_CLASS, "mt-12")}>
           <p className="text-[15px]">

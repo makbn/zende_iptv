@@ -15,6 +15,7 @@ import {
   materializeNeighborWatchIds,
   persistSessionPlaybackMeta,
 } from "@/lib/playback/neighbor-watch-sessions";
+import { resolvePlaybackAudioTracks } from "@/lib/playback/audio-tracks";
 import { attachIntroToPlaybackMeta } from "@/lib/playback/resolve-duration";
 
 export const runtime = "nodejs";
@@ -57,6 +58,22 @@ export async function GET(
     const withIntro = await attachIntroToPlaybackMeta(meta);
     if (withIntro.intro !== undefined) {
       meta = withIntro;
+      metaDirty = true;
+    }
+  }
+
+  if (
+    (!meta.audioTracks || meta.audioTracks.length <= 1) &&
+    meta.contentKind !== "live"
+  ) {
+    const audioTracks = await resolvePlaybackAudioTracks({
+      upstreamUrl: session.upstreamRootUrl,
+      group: session.group,
+      title: session.title,
+      existing: meta.audioTracks,
+    });
+    if (audioTracks && audioTracks.length > 1) {
+      meta = { ...meta, audioTracks };
       metaDirty = true;
     }
   }

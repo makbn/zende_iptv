@@ -1985,8 +1985,9 @@ export function WatchView() {
 
         <SkipIntroButton
           segments={introSegments}
-          currentTimeSeconds={currentTime}
+          videoRef={videoRef}
           onSkipTo={remoteAwareSeekTo}
+          onRevealChrome={revealChrome}
           chromeVisible={chromeVisible}
         />
 

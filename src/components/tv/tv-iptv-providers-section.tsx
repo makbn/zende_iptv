@@ -14,6 +14,8 @@ type Provider = {
   name: string;
   kind: string;
   serverUrl: string | null;
+  backupServerUrl: string | null;
+  useBackupServer: boolean;
   playlistUrl: string | null;
   username: string | null;
   hasPassword: boolean;
@@ -40,7 +42,15 @@ export function TvIptvProvidersSection() {
   const [channelTotal, setChannelTotal] = useState(0);
   const [query, setQuery] = useState("");
   const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
-  const [providerDraft, setProviderDraft] = useState({ name: "", serverUrl: "", playlistUrl: "", username: "", password: "" });
+  const [providerDraft, setProviderDraft] = useState({
+    name: "",
+    serverUrl: "",
+    backupServerUrl: "",
+    useBackupServer: false,
+    playlistUrl: "",
+    username: "",
+    password: "",
+  });
   const [editingChannel, setEditingChannel] = useState<ProviderChannel | null>(null);
   const [channelDraft, setChannelDraft] = useState({ name: "", url: "", groupTitle: "", tvgId: "", tvgLogo: "" });
   const [status, setStatus] = useState<string | null>(null);
@@ -77,6 +87,8 @@ export function TvIptvProvidersSection() {
     setProviderDraft({
       name: provider.name,
       serverUrl: provider.serverUrl ?? "",
+      backupServerUrl: provider.backupServerUrl ?? "",
+      useBackupServer: provider.useBackupServer === true,
       playlistUrl: provider.playlistUrl ?? "",
       username: provider.username ?? "",
       password: "",
@@ -90,9 +102,35 @@ export function TvIptvProvidersSection() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(providerDraft),
     });
-    if (!response.ok) return setStatus("Could not update provider.");
+    if (!response.ok) {
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      return setStatus(body.error?.trim() || "Could not update provider.");
+    }
     setEditingProvider(null);
     setStatus("Provider updated.");
+    await loadProviders();
+  };
+
+  const toggleBackupServer = async (provider: Provider) => {
+    if (!provider.useBackupServer && !provider.backupServerUrl?.trim()) {
+      setStatus("Add a backup server URL first (Edit), then switch.");
+      beginProviderEdit(provider);
+      return;
+    }
+    const response = await zendeFetch(`/api/providers/${provider.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ useBackupServer: !provider.useBackupServer }),
+    });
+    if (!response.ok) {
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      return setStatus(body.error?.trim() || "Could not switch server.");
+    }
+    setStatus(
+      !provider.useBackupServer
+        ? "Using backup server for playback."
+        : "Using primary server for playback.",
+    );
     await loadProviders();
   };
 
@@ -130,7 +168,8 @@ export function TvIptvProvidersSection() {
           <div className="min-w-0 flex-1">
             <h2 className="text-lg font-semibold text-foreground-intense">IPTV providers</h2>
             <p className="mt-1 text-sm leading-relaxed text-foreground-muted">
-              Providers and streams use database IDs. Duplicate channel names remain separate and retain their provider-owned playback URL.
+              Providers keep stream paths host-free (e.g. <span className="font-mono text-xs">/movie/…/….mkv</span>).
+              Set a backup portal URL and switch hosts without rewriting the library.
             </p>
           </div>
         </div>
@@ -160,7 +199,14 @@ export function TvIptvProvidersSection() {
                   <span className="rounded-full border border-border bg-background-muted px-2.5 py-1 text-xs text-foreground-muted">{provider.channelCount.toLocaleString()} streams</span>
                   {!provider.enabled ? <span className="rounded-full border border-warning bg-warning-subtle px-2.5 py-1 text-xs text-warning-strong">Disabled</span> : null}
                 </div>
-                <p className="mt-1 truncate text-xs text-foreground-muted">{provider.serverUrl ?? provider.playlistUrl ?? "Provider source"}</p>
+                <p className="mt-1 truncate text-xs text-foreground-muted">
+                  {provider.useBackupServer
+                    ? `Backup: ${provider.backupServerUrl ?? "not set"}`
+                    : (provider.serverUrl ?? provider.playlistUrl ?? "Provider source")}
+                  {provider.backupServerUrl && !provider.useBackupServer
+                    ? ` · backup ready`
+                    : null}
+                </p>
                 <p className="mt-1 font-mono text-xs text-foreground-muted">ID: {provider.id}</p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -176,6 +222,15 @@ export function TvIptvProvidersSection() {
                 <Button variant="secondary" size="sm" onClick={() => beginProviderEdit(provider)}>
                   <Pencil className="size-4" aria-hidden /> Edit
                 </Button>
+                {provider.kind === "xtream" ? (
+                  <Button
+                    variant={provider.useBackupServer ? "primary" : "secondary"}
+                    size="sm"
+                    onClick={() => void toggleBackupServer(provider)}
+                  >
+                    {provider.useBackupServer ? "Using backup" : "Use backup"}
+                  </Button>
+                ) : null}
                 <Button variant="secondary" size="sm" onClick={async () => {
                   await zendeFetch(`/api/providers/${provider.id}`, {
                     method: "PATCH",
@@ -196,7 +251,22 @@ export function TvIptvProvidersSection() {
             {editingProvider?.id === provider.id ? (
               <div className="mt-4 grid gap-3 border-t border-border pt-4 md:grid-cols-2">
                 <Input value={providerDraft.name} onValueChange={(name) => setProviderDraft((draft) => ({ ...draft, name }))} placeholder="Provider name" />
-                <Input value={providerDraft.serverUrl} onValueChange={(serverUrl) => setProviderDraft((draft) => ({ ...draft, serverUrl }))} placeholder="Server URL" />
+                <Input value={providerDraft.serverUrl} onValueChange={(serverUrl) => setProviderDraft((draft) => ({ ...draft, serverUrl }))} placeholder="Primary server URL" />
+                <Input value={providerDraft.backupServerUrl} onValueChange={(backupServerUrl) => setProviderDraft((draft) => ({ ...draft, backupServerUrl }))} placeholder="Backup server URL" />
+                <label className="flex items-center gap-2 rounded-lg border border-border bg-background-muted px-3 py-2 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-primary"
+                    checked={providerDraft.useBackupServer}
+                    onChange={(event) =>
+                      setProviderDraft((draft) => ({
+                        ...draft,
+                        useBackupServer: event.target.checked,
+                      }))
+                    }
+                  />
+                  Use backup server for playback
+                </label>
                 <Input value={providerDraft.playlistUrl} onValueChange={(playlistUrl) => setProviderDraft((draft) => ({ ...draft, playlistUrl }))} placeholder="Playlist URL" />
                 <Input value={providerDraft.username} onValueChange={(username) => setProviderDraft((draft) => ({ ...draft, username }))} placeholder="Username" />
                 <Input type="password" value={providerDraft.password} onValueChange={(password) => setProviderDraft((draft) => ({ ...draft, password }))} placeholder={provider.hasPassword ? "Leave blank to keep password" : "Password"} />

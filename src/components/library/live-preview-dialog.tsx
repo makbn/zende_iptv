@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { CalendarClock, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
@@ -11,6 +11,8 @@ import { Button } from "@appica/ui-react/button";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
 import { createWatchUrl } from "@/lib/navigation/watch-url";
 import { zendeFetch } from "@/lib/auth/zende-fetch";
+import { isTvEnvironment } from "@/lib/tv/tv-environment";
+import { cn } from "@/lib/utils";
 
 type Props = {
   channel: M3uChannel | null;
@@ -42,6 +44,8 @@ function formatSlotTime(slot: EpgSlot): string {
 
 export function LivePreviewDialog({ channel, onClose, presentation = "dialog" }: Props) {
   const router = useRouter();
+  const titleId = useId();
+  const primaryActionRef = useRef<HTMLButtonElement>(null);
   const [src, setSrc] = useState<string | null>(null);
   const [watchHref, setWatchHref] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -125,7 +129,10 @@ export function LivePreviewDialog({ channel, onClose, presentation = "dialog" }:
   useEffect(() => {
     if (!channel) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -139,6 +146,15 @@ export function LivePreviewDialog({ channel, onClose, presentation = "dialog" }:
       document.body.style.overflow = prev;
     };
   }, [channel, presentation]);
+
+  // Move remote focus into the dialog so D-pad cannot stay on the list behind it.
+  useEffect(() => {
+    if (!channel || presentation === "embedded") return;
+    const frame = window.requestAnimationFrame(() => {
+      primaryActionRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [channel, presentation, watchHref]);
 
   if (!channel || !mounted) return null;
 
@@ -191,115 +207,138 @@ export function LivePreviewDialog({ channel, onClose, presentation = "dialog" }:
     );
   }
 
+  const openFullPlayer = () => {
+    if (!watchHref) return;
+    onClose();
+    router.push(watchHref);
+  };
+
   return createPortal(
-    <div className="fixed inset-0 z-[210] flex items-center justify-center bg-background p-4 backdrop-blur-xl">
-      <Button variant="ghost"
-        type="button"
+    <div className="fixed inset-0 z-[210] flex items-center justify-center bg-background/95 p-4 backdrop-blur-xl">
+      {/* Non-focusable backdrop — a full-screen <button> steals the first remote stop. */}
+      <div
         className="absolute inset-0"
-        aria-label="Close preview"
+        aria-hidden
         onClick={onClose}
       />
-      <div className="relative z-10 max-h-[92vh] w-full max-w-[980px] overflow-y-auto rounded-lg border border-border bg-background shadow-lg ring-1 ring-border">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className={cn(
+          "relative z-10 flex max-h-[92vh] w-full max-w-[980px] flex-col overflow-hidden rounded-lg border border-border bg-background shadow-lg ring-1 ring-border",
+          isTvEnvironment() && "max-h-[88vh] max-w-[860px]",
+        )}
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
           <div className="min-w-0">
-            <p className="truncate text-[16px] font-semibold tracking-[-0.02em] text-foreground-intense">
+            <p
+              id={titleId}
+              className="truncate text-[16px] font-semibold tracking-[-0.02em] text-foreground-intense"
+            >
               Live Preview: {channel.name}
             </p>
             {channel.groupTitle ? (
               <p className="truncate text-[12px] text-foreground-intense">{channel.groupTitle}</p>
             ) : null}
           </div>
-          <Button variant="ghost"
+          <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-1.5 text-foreground-intense hover:bg-background-muted hover:text-foreground-intense focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="rounded-full p-2 text-foreground-intense outline-none hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-primary"
             aria-label="Close preview"
           >
-            <X className="h-4 w-4" />
-          </Button>
+            <X className="h-5 w-5" />
+          </button>
         </div>
-        <div className="relative aspect-video w-full bg-background">
-          {src ? (
-            <StreamPlayer
-              src={src}
-              controls
-              className="h-full w-full"
-              onError={(playerError) => {
-                if (!playerError.fatal) return;
-                setSrc(null);
-                setError("This provider rejected the live preview. You can still inspect its programme guide.");
-              }}
-            />
-          ) : error ? (
-            <div className="flex h-full items-center justify-center px-6 text-center text-[14px] text-warning-strong">
-              {error}
-            </div>
-          ) : (
-            <div className="flex h-full items-center justify-center gap-3 text-foreground-intense">
-              <ZendeSpinner size="small" label="Loading programme guide" />
-              <span className="text-[14px]">Starting live preview…</span>
-            </div>
-          )}
-        </div>
-        <div className="border-t border-border bg-background-muted px-4 py-3">
-          <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground-intense">
-            <CalendarClock className="size-3.5 text-primary-strong/80" aria-hidden />
-            Programme guide
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="relative aspect-video w-full bg-background">
+            {src ? (
+              <StreamPlayer
+                src={src}
+                controls
+                className="h-full w-full"
+                onError={(playerError) => {
+                  if (!playerError.fatal) return;
+                  setSrc(null);
+                  setError(
+                    "This provider rejected the live preview. You can still inspect its programme guide.",
+                  );
+                }}
+              />
+            ) : error ? (
+              <div className="flex h-full items-center justify-center px-6 text-center text-[14px] text-warning-strong">
+                {error}
+              </div>
+            ) : (
+              <div className="flex h-full items-center justify-center gap-3 text-foreground-intense">
+                <ZendeSpinner size="small" label="Loading programme guide" />
+                <span className="text-[14px]">Starting live preview…</span>
+              </div>
+            )}
           </div>
-          {epgLoading ? (
-            <div className="grid grid-cols-2 gap-2" aria-label="Loading programme guide">
-              <div className="h-[54px] animate-pulse rounded-xl bg-background-muted" />
-              <div className="h-[54px] animate-pulse rounded-xl bg-background-muted" />
+          <div className="border-t border-border bg-background-muted px-4 py-3">
+            <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground-intense">
+              <CalendarClock className="size-3.5 text-primary-strong/80" aria-hidden />
+              Programme guide
             </div>
-          ) : epg?.current || epg?.next ? (
-            <div className="grid grid-cols-2 gap-2">
-              {(["current", "next"] as const).map((kind) => {
-                const slot = epg?.[kind] ?? null;
-                return (
-                  <div
-                    key={kind}
-                    className="min-w-0 rounded-xl border border-border bg-background px-3 py-2"
-                  >
-                    <p className="text-[9px] font-semibold uppercase tracking-[0.13em] text-foreground-intense">
-                      {kind === "current" ? "Now" : "Next"}
-                    </p>
-                    <p className="mt-0.5 truncate text-[12px] font-semibold text-foreground-intense">
-                      {slot?.title ?? "—"}
-                    </p>
-                    <p className="mt-0.5 text-[10px] tabular-nums text-foreground-intense">
-                      {slot ? formatSlotTime(slot) : "No listing"}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="rounded-xl border border-border bg-background px-3 py-2 text-[12px] text-foreground-intense">
-              {channel.tvgId?.trim() ? "No current programme data." : "This channel has no EPG ID."}
-            </p>
-          )}
+            {epgLoading ? (
+              <div className="grid grid-cols-2 gap-2" aria-label="Loading programme guide">
+                <div className="h-[54px] animate-pulse rounded-xl bg-background-muted" />
+                <div className="h-[54px] animate-pulse rounded-xl bg-background-muted" />
+              </div>
+            ) : epg?.current || epg?.next ? (
+              <div className="grid grid-cols-2 gap-2">
+                {(["current", "next"] as const).map((kind) => {
+                  const slot = epg?.[kind] ?? null;
+                  return (
+                    <div
+                      key={kind}
+                      className="min-w-0 rounded-xl border border-border bg-background px-3 py-2"
+                    >
+                      <p className="text-[9px] font-semibold uppercase tracking-[0.13em] text-foreground-intense">
+                        {kind === "current" ? "Now" : "Next"}
+                      </p>
+                      <p className="mt-0.5 truncate text-[12px] font-semibold text-foreground-intense">
+                        {slot?.title ?? "—"}
+                      </p>
+                      <p className="mt-0.5 text-[10px] tabular-nums text-foreground-intense">
+                        {slot ? formatSlotTime(slot) : "No listing"}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="rounded-xl border border-border bg-background px-3 py-2 text-[12px] text-foreground-intense">
+                {channel.tvgId?.trim()
+                  ? "No current programme data."
+                  : "This channel has no EPG ID."}
+              </p>
+            )}
+          </div>
         </div>
-        <div className="flex items-center justify-end gap-2 border-t border-border px-4 py-3">
-          <Button
+        <div
+          data-tv-layout="horizontal"
+          className="flex shrink-0 items-center justify-end gap-3 border-t border-border px-4 py-3"
+        >
+          <button
             type="button"
             onClick={onClose}
-            size="sm"
+            className="min-h-12 rounded-full border border-border bg-background-muted px-5 text-[15px] font-semibold text-foreground-intense outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             Close
-          </Button>
-          <Button
+          </button>
+          <button
+            ref={primaryActionRef}
             type="button"
+            data-tv-initial-focus
             disabled={!watchHref}
-            onClick={() => {
-              if (!watchHref) return;
-              onClose();
-              router.push(watchHref);
-            }}
-            variant="primary"
-            size="sm"
+            onClick={openFullPlayer}
+            className="min-h-12 rounded-full bg-foreground px-5 text-[15px] font-semibold text-background outline-none enabled:hover:bg-foreground/90 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
           >
             Open full player
-          </Button>
+          </button>
         </div>
       </div>
     </div>,

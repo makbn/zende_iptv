@@ -18,6 +18,8 @@ export async function GET(request: Request) {
       name: provider.name,
       kind: provider.kind,
       serverUrl: provider.serverUrl,
+      backupServerUrl: provider.backupServerUrl,
+      useBackupServer: provider.useBackupServer,
       playlistUrl: provider.playlistUrl,
       username: provider.username,
       hasPassword: Boolean(provider.password),

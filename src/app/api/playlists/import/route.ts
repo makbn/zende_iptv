@@ -23,8 +23,8 @@ import type {
   XtreamVodStream,
 } from "@/lib/iptv/xtream-types";
 import {
-  buildXtreamLiveUrl,
-  buildXtreamMovieUrl,
+  buildXtreamLivePath,
+  buildXtreamMoviePath,
   buildXtreamSeriesContainerUrl,
 } from "@/lib/iptv/xtream-url";
 
@@ -169,7 +169,7 @@ async function buildChannelsFromXtreamApi(creds: XtreamCreds): Promise<M3uChanne
     const categoryId = `${row.category_id ?? ""}`.trim();
     out.push({
       name: safeName(row.name, `Live ${streamId}`),
-      url: buildXtreamLiveUrl(portal, streamId, "m3u8"),
+      url: buildXtreamLivePath(portal, streamId, "m3u8"),
       duration: -1,
       contentType: "live",
       ...(row.stream_icon ? { tvgLogo: row.stream_icon } : {}),
@@ -188,7 +188,7 @@ async function buildChannelsFromXtreamApi(creds: XtreamCreds): Promise<M3uChanne
         : "mp4";
     out.push({
       name: safeName(row.name, `Movie ${streamId}`),
-      url: buildXtreamMovieUrl(portal, streamId, ext),
+      url: buildXtreamMoviePath(portal, streamId, ext),
       duration: -1,
       contentType: "movie",
       ...(row.stream_icon ? { tvgLogo: row.stream_icon } : {}),

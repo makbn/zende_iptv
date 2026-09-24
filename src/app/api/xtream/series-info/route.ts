@@ -16,6 +16,7 @@ import { getCachedMediaMetadata } from "@/lib/media/media-metadata-service";
 import { parseXtreamDurationSeconds } from "@/lib/playback/stream-session-meta";
 import type { XtreamSeriesEpisode } from "@/lib/iptv/xtream-types";
 import {
+  activeXtreamServerUrl,
   buildXtreamEpisodeUrl,
   parseXtreamCredentialsFromStreamUrl,
   parseXtreamSeriesIdFromContainerUrl,
@@ -174,8 +175,9 @@ export async function GET(request: Request) {
         include: { provider: true },
       });
     }
-    const providerCreds = provider?.serverUrl && provider.username && provider.password
-      ? { serverUrl: provider.serverUrl, username: provider.username, password: provider.password }
+    const activeServer = provider ? activeXtreamServerUrl(provider) : null;
+    const providerCreds = activeServer && provider?.username && provider.password
+      ? { serverUrl: activeServer, username: provider.username, password: provider.password }
       : null;
     const creds =
       providerCreds ??

@@ -81,6 +81,10 @@ fi
 # into ManualChannelsStore JSON. Non-provider manual URLs stay in that store.
 su-exec nextjs node scripts/migrate-legacy-provider-channels.mjs
 
+# Strip portal hosts from Xtream channel URLs so primary/backup hosts can swap
+# without rewriting the catalog.
+su-exec nextjs node scripts/migrate-xtream-host-free-paths.mjs
+
 # One lightweight timer process invokes the protected IMDb refresh route at
 # 03:15 in the configured TZ. The route owns de-duplication and job logging.
 IMDB_SCHEDULER_ENABLED=$(printf '%s' "${ZENDE_IMDB_NIGHTLY_ENABLED:-1}" | tr '[:upper:]' '[:lower:]')

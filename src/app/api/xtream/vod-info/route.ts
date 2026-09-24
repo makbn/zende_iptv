@@ -14,6 +14,7 @@ import {
 import { loadXtreamPortalCredentials } from "@/lib/iptv/xtream-portal-store";
 import type { XtreamVodInfo } from "@/lib/iptv/xtream-types";
 import {
+  activeXtreamServerUrl,
   buildXtreamMovieUrlFromVodInfo,
   parseXtreamCredentialsFromStreamUrl,
   parseXtreamVodIdFromStreamUrl,
@@ -78,9 +79,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "vodId required" }, { status: 400 });
     }
 
+    const activeServer = provider ? activeXtreamServerUrl(provider) : null;
     const providerCreds =
-      provider?.serverUrl && provider.username && provider.password
-        ? { serverUrl: provider.serverUrl, username: provider.username, password: provider.password }
+      activeServer && provider?.username && provider.password
+        ? { serverUrl: activeServer, username: provider.username, password: provider.password }
         : null;
     const creds =
       providerCreds ??

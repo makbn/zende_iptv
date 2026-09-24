@@ -298,17 +298,21 @@ model XtreamPortalConfig {
 /// An upstream IPTV source. Multiple providers can coexist and may expose
 /// channels with identical display names without being merged.
 model IptvProvider {
-  id          String                @id @default(cuid())
-  name        String
-  kind        String
-  serverUrl   String?
-  username    String?
-  password    String?
-  playlistUrl String?
-  enabled     Boolean               @default(true)
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
-  channels    IptvProviderChannel[]
+  id               String                @id @default(cuid())
+  name             String
+  kind             String
+  serverUrl        String?
+  /// Alternate portal host (same user/pass). Catalog paths stay host-free.
+  backupServerUrl  String?
+  /// When true, playback and Xtream API calls use backupServerUrl.
+  useBackupServer  Boolean               @default(false)
+  username         String?
+  password         String?
+  playlistUrl      String?
+  enabled          Boolean               @default(true)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  channels         IptvProviderChannel[]
 }
 
 /// A provider-owned playable source. Identity is provider + external key, not

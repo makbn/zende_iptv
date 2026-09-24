@@ -127,7 +127,8 @@ function quickLayoutMembers(layout: HTMLElement): HTMLElement[] {
   return Array.from(layout.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
     (element) =>
       element.closest<HTMLElement>("[data-tv-layout]") === layout &&
-      isQuickFocusable(element),
+      isQuickFocusable(element) &&
+      isVisible(element),
   );
 }
 
@@ -427,7 +428,20 @@ function moveFocus(direction: Direction): boolean {
           focusAndReveal(localMove.target);
           return true;
         }
-        if (direction === "left" || direction === "right") return false;
+        // Edge of a rail: allow explicit bridges (e.g. header nav → actions)
+        // and geometric search instead of trapping the remote here.
+        if (direction === "left" || direction === "right") {
+          const bridged = explicitDirectionalTarget(
+            active,
+            direction,
+            focusableElements(),
+          );
+          if (bridged.handled && bridged.target) {
+            focusAndReveal(bridged.target, "start");
+            return true;
+          }
+          // Fall through to document-wide geometric focus below.
+        }
       }
       if (direction === "up" || direction === "down") {
         const adjacent = adjacentLayoutMember(active, direction);
@@ -435,7 +449,7 @@ function moveFocus(direction: Direction): boolean {
           focusAndReveal(adjacent, "start");
           return true;
         }
-        if (localMove.handled) return false;
+        if (localMove.handled && localMove.target) return false;
       }
     }
   }
@@ -455,7 +469,7 @@ function moveFocus(direction: Direction): boolean {
       focusAndReveal(explicitNeighbor.target);
       return true;
     }
-    if (direction === "left" || direction === "right") return false;
+    // At the edge of a declared layout — keep going so bridges / geometry can run.
   }
 
   // Page authors can connect distinct decks explicitly. This runs after
@@ -533,10 +547,19 @@ function isInsideOpenOverlay(element: Element | null): boolean {
 function focusOpenOverlay(): boolean {
   const overlays = Array.from(document.querySelectorAll<HTMLElement>(OVERLAY_SELECTOR)).filter(isVisible);
   const overlay = overlays.at(-1);
-  const first = overlay?.querySelector<HTMLElement>(
-    "[role='menuitem'], button:not([disabled]), a[href], [tabindex]:not([tabindex='-1'])",
-  );
-  if (!first) return false;
+  if (!overlay) return false;
+  const preferred = overlay.querySelector<HTMLElement>("[data-tv-initial-focus]");
+  const first =
+    (preferred &&
+    preferred.matches(FOCUSABLE_SELECTOR) &&
+    !preferred.hasAttribute("disabled") &&
+    isVisible(preferred)
+      ? preferred
+      : null) ??
+    overlay.querySelector<HTMLElement>(
+      "button:not([disabled]), a[href], [tabindex]:not([tabindex='-1'])",
+    );
+  if (!first || !isVisible(first)) return false;
   focusTvElement(first);
   return true;
 }

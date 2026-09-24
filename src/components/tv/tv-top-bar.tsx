@@ -14,6 +14,7 @@ import { LayoutGrid, LogOut, Search, Settings, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BROWSE_CONTAINER_CLASS } from "@/components/layout/browse-page-shell";
 import { useRemoteNavigation } from "@/lib/navigation/use-remote-navigation";
+import { isTvEnvironment } from "@/lib/tv/tv-environment";
 
 export {
   BROWSE_TOP_PAD as TV_BROWSE_TOP_PAD_CLASS,
@@ -180,9 +181,13 @@ export function TvTopBar() {
   ) => (
     <Link
       key={id ?? href}
+      id={id}
       href={href}
       onClick={onNavigateClick(href)}
       aria-current={active ? "page" : undefined}
+      {...(id === "tv-nav-recordings"
+        ? { "data-tv-nav-right": "#tv-header-search" }
+        : {})}
       className={cn(
         "tv-nav-link relative flex h-16 items-center border-b-2 border-transparent px-1 text-sm font-medium text-foreground-muted outline-none",
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
@@ -244,23 +249,32 @@ export function TvTopBar() {
                 style={{ scrollbarWidth: "none" }}
                 aria-label="Main"
               >
-                {navLink("Home", homeActive, "/", "nav-home")}
-                {navLink("Library", libraryActive, "/library", "nav-library")}
-                {navLink("Favorites", favoritesActive, "/favorites", "nav-favorites")}
-                {navLink("Discover", guideActive, "/guide", "nav-guide")}
-                {navLink("Recordings", recordingsActive, "/recordings", "nav-recordings")}
+                {navLink("Home", homeActive, "/", "tv-nav-home")}
+                {navLink("Library", libraryActive, "/library", "tv-nav-library")}
+                {navLink("Favorites", favoritesActive, "/favorites", "tv-nav-favorites")}
+                {navLink("Discover", guideActive, "/guide", "tv-nav-guide")}
+                {navLink("Recordings", recordingsActive, "/recordings", "tv-nav-recordings")}
               </nav>
               <div className="tv-top-bar-actions flex shrink-0 items-center gap-2">
-                <span className="tv-theme-toggle"><ThemeToggle /></span>
-                <Button variant="ghost"
+                {!isTvEnvironment() ? (
+                  <span className="tv-theme-toggle">
+                    <ThemeToggle />
+                  </span>
+                ) : null}
+                <Button
+                  id="tv-header-search"
+                  variant="ghost"
                   size="icon-md"
                   type="button"
                   onClick={() => setSearchOpen(true)}
                   aria-label="Search channels"
+                  data-tv-nav-left="#tv-nav-recordings"
                 >
                   <Search aria-hidden />
                 </Button>
-                <Button variant="ghost"
+                <Button
+                  id="tv-header-watch-together"
+                  variant="ghost"
                   size="icon-md"
                   type="button"
                   onClick={() => setBoardOpen(true)}

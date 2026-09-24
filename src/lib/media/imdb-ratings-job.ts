@@ -10,6 +10,7 @@ import { resolveLibraryContentType } from "@/lib/channels/content-type";
 import { prisma } from "@/lib/db/prisma";
 import { fetchXtreamStreams } from "@/lib/iptv/xtream-client";
 import {
+  activeXtreamServerUrl,
   parseXtreamSeriesIdFromContainerUrl,
   parseXtreamVodIdFromStreamUrl,
 } from "@/lib/iptv/xtream-url";
@@ -80,6 +81,8 @@ type Candidate = {
     id: string;
     kind: string;
     serverUrl: string | null;
+    backupServerUrl: string | null;
+    useBackupServer: boolean;
     username: string | null;
     password: string | null;
   };
@@ -131,12 +134,17 @@ function cleanProviderTitle(value: string): string {
 
 async function loadXtreamMetadataHints(candidates: Candidate[]) {
   const providers = [...new Map(candidates.map((item) => item.provider).filter((provider) =>
-    provider.kind === "xtream" && provider.serverUrl && provider.username && provider.password,
+    provider.kind === "xtream" &&
+    (provider.serverUrl || provider.backupServerUrl) &&
+    provider.username &&
+    provider.password,
   ).map((provider) => [provider.id, provider])).values()];
   const hints = new Map<string, Record<string, unknown>>();
   await mapConcurrent(providers, 2, async (provider) => {
+    const serverUrl = activeXtreamServerUrl(provider);
+    if (!serverUrl) return;
     const credentials = {
-      serverUrl: provider.serverUrl!, username: provider.username!, password: provider.password!,
+      serverUrl, username: provider.username!, password: provider.password!,
     };
     const [movies, series] = await Promise.all([
       fetchXtreamStreams(credentials, "movie"), fetchXtreamStreams(credentials, "series"),
@@ -258,7 +266,17 @@ async function runJob(): Promise<ImdbRatingsJobResult> {
     where: { provider: { enabled: true } },
     select: {
       id: true, name: true, url: true, duration: true, contentType: true, groupTitle: true,
-      provider: { select: { id: true, kind: true, serverUrl: true, username: true, password: true } },
+      provider: {
+        select: {
+          id: true,
+          kind: true,
+          serverUrl: true,
+          backupServerUrl: true,
+          useBackupServer: true,
+          username: true,
+          password: true,
+        },
+      },
       mediaMetadata: { select: { imdbId: true, imdbMatchAttemptedAt: true, payloadJson: true, fetchedAt: true } },
     },
   });

@@ -4,12 +4,14 @@ import { z } from "zod";
 
 import { forbidCustomerSystemMutation, gateApiRequest } from "@/lib/auth/gate-api";
 import { prisma } from "@/lib/db/prisma";
+import { toXtreamStoragePath, toXtreamStorageUrl } from "@/lib/iptv/xtream-url";
 
 export const runtime = "nodejs";
 
 const schema = z.object({
   name: z.string().trim().min(1).optional(),
-  url: z.string().url().optional(),
+  /** Absolute URL or host-free Xtream path (`/movie/...`). */
+  url: z.string().trim().min(1).optional(),
   groupTitle: z.string().optional(),
   tvgId: z.string().optional(),
   tvgLogo: z.string().optional(),
@@ -23,10 +25,21 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid channel update." }, { status: 400 });
   const { id, channelId } = await context.params;
-  const data = parsed.data.url
+  const provider = await prisma.iptvProvider.findUnique({
+    where: { id },
+    select: { serverUrl: true, backupServerUrl: true },
+  });
+  if (!provider) return NextResponse.json({ error: "Provider not found." }, { status: 404 });
+  const storedUrl = parsed.data.url
+    ? toXtreamStorageUrl(parsed.data.url, [provider.serverUrl, provider.backupServerUrl])
+    : undefined;
+  const data = storedUrl
     ? {
         ...parsed.data,
-        externalKey: createHash("sha256").update(parsed.data.url.trim()).digest("hex"),
+        url: storedUrl,
+        externalKey: createHash("sha256")
+          .update(toXtreamStoragePath(storedUrl).trim())
+          .digest("hex"),
       }
     : parsed.data;
   const result = await prisma.iptvProviderChannel.updateMany({

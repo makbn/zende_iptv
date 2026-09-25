@@ -9,7 +9,37 @@ type ProgressiveTranscodeWindow = {
   segmentCount?: number;
   /** Upstream audio stream index (`0:a:N`). Defaults to 0. */
   audioTrackIndex?: number;
+  /**
+   * When set, convert HDR (PQ/HLG/BT.2020) into Rec.709 SDR before H.264.
+   * Leave unset/null for ordinary SDR so colors are not remapped.
+   */
+  hdrToneMapKind?: "pq" | "hlg" | "bt2020" | null;
 };
+
+/** Plain downscale for SDR sources — no color remapping. */
+export const SDR_COMPAT_VF = "scale=w='min(1920,iw)':h=-2:flags=fast_bilinear";
+
+/**
+ * Realtime-safe HDR → Rec.709 for the compatibility transcoder.
+ * Scale to ≤1080p first so 4K HDR never starves segment pacing, then a fast
+ * colorspace convert. Note: stock FFmpeg `colorspace` has no PQ/HLG enums
+ * (`smpte2084` / `arib-std-b67`) — those abort the filter graph — so we use
+ * `bt2020-10` which this build accepts and keeps encodes realtime.
+ */
+export function buildHdrToneMapVf(kind: "pq" | "hlg" | "bt2020"): string {
+  // HLG and PQ both land on BT.2020-family transfers that FFmpeg's colorspace
+  // filter can parse. Kind is retained for logging / future libzimg builds.
+  void kind;
+  return [
+    "scale=w='min(1920,iw)':h=-2:flags=fast_bilinear",
+    "colorspace=all=bt709:space=bt709:trc=bt709:primaries=bt709:range=tv:ispace=bt2020nc:itrc=bt2020-10:iprimaries=bt2020:irange=tv:fast=1",
+    "format=yuv420p",
+  ].join(",");
+}
+
+/** @deprecated Kept for callers/tests that referenced the old zscale graph. */
+export const HDR_TO_SDR_VF = buildHdrToneMapVf("pq");
+export const HDR_TO_SDR_VF_ZSCALE = HDR_TO_SDR_VF;
 
 function finitePositive(value: number | undefined): value is number {
   return value != null && Number.isFinite(value) && value > 0;
@@ -69,7 +99,9 @@ export function buildProgressiveTranscodeArgs(
   const startSegment = Math.max(0, Math.floor(window?.startSegment ?? 0));
   const segmentCount = Math.max(0, Math.floor(window?.segmentCount ?? 0));
   const audioTrackIndex = Math.max(0, Math.floor(window?.audioTrackIndex ?? 0));
+  const hdrKind = window?.hdrToneMapKind ?? null;
   const startSeconds = startSegment * TRANSCODE_HLS_SEGMENT_SECONDS;
+  const videoFilter = hdrKind ? buildHdrToneMapVf(hdrKind) : SDR_COMPAT_VF;
   const args = [
     "-hide_banner",
     "-loglevel",
@@ -113,13 +145,22 @@ export function buildProgressiveTranscodeArgs(
     "-crf",
     "25",
     "-vf",
-    "scale=w='min(1920,iw)':h=-2",
+    videoFilter,
     "-maxrate",
     "10M",
     "-bufsize",
     "20M",
     "-pix_fmt",
     "yuv420p",
+    // Tag Rec.709 limited so TV WebViews do not guess BT.601 / full-range.
+    "-color_primaries",
+    "bt709",
+    "-color_trc",
+    "bt709",
+    "-colorspace",
+    "bt709",
+    "-color_range",
+    "tv",
     // Do not let FFmpeg's automatic CFR mode manufacture duplicate frames
     // for variable- or fractional-rate movie sources.
     "-fps_mode:v",

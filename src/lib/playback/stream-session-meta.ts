@@ -68,6 +68,11 @@ export type PlaybackSessionMeta = {
    * cannot switch tracks live (MSE / single demuxed audio).
    */
   selectedAudioIndex?: number;
+  /**
+   * When true, the compatibility transcoder may apply HDR→SDR color conversion.
+   * Default / unset = off (relay-friendly, no extra CPU color grade).
+   */
+  hdrToneMap?: boolean;
 };
 
 function parseNeighbor(raw: unknown): PlaybackNeighborRef | undefined {
@@ -170,11 +175,21 @@ export function parsePlaybackSessionMeta(raw: string | null | undefined): Playba
       o.selectedAudioIndex >= 0
         ? Math.floor(o.selectedAudioIndex)
         : undefined;
+    const hdrRaw = (o as { hdrToneMap?: unknown }).hdrToneMap;
+    const hdrToneMap =
+      typeof hdrRaw === "boolean"
+        ? hdrRaw
+        : hdrRaw === 1 || hdrRaw === "1" || hdrRaw === "true"
+          ? true
+          : hdrRaw === 0 || hdrRaw === "0" || hdrRaw === "false"
+            ? false
+            : undefined;
     return {
       ...o,
       ...(intro !== undefined ? { intro } : {}),
       ...(audioTracks !== undefined ? { audioTracks } : {}),
       ...(selectedAudioIndex !== undefined ? { selectedAudioIndex } : {}),
+      ...(hdrToneMap !== undefined ? { hdrToneMap } : {}),
       ...(o.previous ? { previous: parseNeighbor(o.previous) } : {}),
       ...(o.next ? { next: parseNeighbor(o.next) } : {}),
     };
@@ -270,6 +285,7 @@ export function serializePlaybackSessionMeta(meta: PlaybackSessionMeta): string 
   ) {
     clean.selectedAudioIndex = Math.floor(meta.selectedAudioIndex);
   }
+  if (meta.hdrToneMap != null) clean.hdrToneMap = Boolean(meta.hdrToneMap);
   return JSON.stringify(clean);
 }
 

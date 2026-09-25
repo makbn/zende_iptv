@@ -316,8 +316,10 @@ html[data-tv-input="remote"] .tv-library-header-inner {
 
 html[data-tv-input="remote"] .tv-library-header-inner h1 {
   margin-top: 4px !important;
-  font-size: 38px !important;
+  font-size: clamp(1.75rem, 2.4vw, 2.35rem) !important;
+  font-weight: 700 !important;
   letter-spacing: -0.045em !important;
+  color: #ffffff !important;
 }
 
 html[data-tv-input="remote"] :is(.tv-library-metrics, .tv-library-spotlight) {
@@ -396,15 +398,39 @@ html[data-tv-input="remote"] .poster-grid {
 html[data-tv-input="remote"] .tv-media-detail {
   padding-top: 80px !important;
   padding-bottom: 0 !important;
-  background: #080a10 !important;
+  background: transparent !important;
 }
 
 html[data-tv-input="remote"] .tv-media-detail-hero {
-  min-height: auto !important;
+  position: relative;
+  min-height: min(58vh, 620px) !important;
+  overflow: hidden;
 }
 
 html[data-tv-input="remote"] .tv-media-detail-hero > [aria-hidden]:first-child img {
-  opacity: 0.55 !important;
+  opacity: 0.62 !important;
+  filter: none !important;
+  image-rendering: auto !important;
+  transform: none !important;
+}
+
+/* Kill the solid wash overlays that flattened series heroes into a CRM card. */
+html[data-tv-input="remote"] .tv-series-detail .tv-media-detail-hero > [aria-hidden] > div,
+html[data-tv-input="remote"] .tv-series-detail .tv-media-detail-hero > .absolute.inset-0:not([aria-hidden]) {
+  background: transparent !important;
+  backdrop-filter: none !important;
+}
+
+html[data-tv-input="remote"] .tv-media-detail-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, #020914 0%, rgb(2 9 20 / 0.92) 34%, rgb(2 9 20 / 0.35) 62%, transparent 82%),
+    linear-gradient(0deg, #020914 0%, rgb(2 9 20 / 0.88) 22%, transparent 58%),
+    linear-gradient(180deg, rgb(2 9 20 / 0.35), transparent 28%);
 }
 
 html[data-tv-input="remote"] .tv-media-detail-content,
@@ -414,12 +440,14 @@ html[data-tv-input="remote"] .tv-series-content {
 }
 
 html[data-tv-input="remote"] .tv-media-detail-content {
+  position: relative;
+  z-index: 1;
   display: flex;
   min-height: 0;
   flex-direction: column;
-  justify-content: flex-start;
-  padding-top: 18px !important;
-  padding-bottom: 28px !important;
+  justify-content: flex-end;
+  padding-top: 48px !important;
+  padding-bottom: 36px !important;
 }
 
 html[data-tv-input="remote"] .tv-media-detail-content > a,
@@ -476,11 +504,17 @@ html[data-tv-input="remote"] .tv-media-detail-actions {
 
 html[data-tv-input="remote"] .tv-media-detail-actions button {
   min-width: 160px;
-  min-height: 48px;
-  border-radius: 12px !important;
-  padding-inline: 20px !important;
+  min-height: 52px;
+  border-radius: 999px !important;
+  padding-inline: 22px !important;
   font-size: 15px !important;
   font-weight: 700 !important;
+}
+
+html[data-tv-input="remote"] .tv-media-detail-actions button:first-child {
+  background: #ff3f91 !important;
+  border-color: transparent !important;
+  color: #ffffff !important;
 }
 
 html[data-tv-input="remote"] .tv-series-content {
@@ -505,8 +539,15 @@ html[data-tv-input="remote"] .tv-episode-grid {
 
 html[data-tv-input="remote"] .tv-episode-card {
   min-height: 92px;
-  border-radius: 14px !important;
-  background: #141925 !important;
+  border: 1px solid rgb(255 255 255 / 0.08) !important;
+  border-radius: 16px !important;
+  background: linear-gradient(145deg, rgb(26 32 48 / 0.96), rgb(14 18 28 / 0.94)) !important;
+  box-shadow: none !important;
+}
+
+html[data-tv-input="remote"] .tv-episode-card:focus-within,
+html[data-tv-input="remote"] .tv-episode-card:has(button:focus) {
+  border-color: rgb(255 77 148 / 0.55) !important;
 }
 
 html[data-tv-input="remote"] .tv-episode-card button {
@@ -587,38 +628,124 @@ html[data-tv-input="remote"] .tv-page-hero p {
   max-width: 42rem;
 }
 
-/* Compact browse chrome shared by Favorites / Discover / Recordings / Library. */
+/* Compact browse chrome shared by Favorites / Discover / Recordings.
+   Match Library: strip the CRM panel chrome so the page reads like a
+   streaming catalog, not an admin dashboard. */
 html[data-tv-input="remote"] .tv-browse-chrome {
-  padding-top: 12px !important;
-  padding-bottom: 10px !important;
+  padding-top: 18px !important;
+  padding-bottom: 8px !important;
+  padding-inline: var(--tv-safe-inline) !important;
+  max-width: none !important;
 }
 
 html[data-tv-input="remote"] .tv-browse-chrome-title {
-  font-size: clamp(1.35rem, 2vw, 1.85rem) !important;
+  margin-top: 6px !important;
+  font-size: clamp(1.75rem, 2.4vw, 2.35rem) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.045em !important;
+  color: #ffffff !important;
 }
 
 html[data-tv-input="remote"] .tv-browse-chrome-inner {
-  min-height: 72px;
-  gap: 14px !important;
-  padding: 14px 16px !important;
-  border-radius: 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 28px !important;
+  min-height: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 8px 0 14px !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
-html[data-tv-input="remote"] .tv-browse-metrics > div {
-  min-height: 56px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+html[data-tv-input="remote"] .tv-browse-chrome-inner > .min-w-0 {
+  flex: 0 1 auto;
+}
+
+html[data-tv-input="remote"] .tv-browse-chrome-inner label {
+  flex: 1 1 28rem;
+  max-width: 40rem;
+}
+
+html[data-tv-input="remote"] .tv-browse-metrics {
+  display: none !important;
+}
+
+html[data-tv-input="remote"] .tv-browse-filter-sticky {
+  border-color: rgb(255 255 255 / 0.07) !important;
+  background: rgb(8 10 16 / 0.94) !important;
+  backdrop-filter: blur(26px) saturate(125%);
 }
 
 html[data-tv-input="remote"] .tv-browse-filter-deck {
-  gap: 10px !important;
-  padding: 12px !important;
-  border-radius: 16px !important;
+  gap: 12px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 12px 0 !important;
+  background: transparent !important;
+  /* Kill Tailwind ring utilities that survived specificity wars. */
+  --tw-ring-shadow: 0 0 #0000 !important;
+  box-shadow: none !important;
 }
 
 html[data-tv-input="remote"] .tv-browse-filter-deck :is(button, a[href], [role="combobox"]) {
   min-height: 52px;
+  border-radius: 12px !important;
+}
+
+html[data-tv-input="remote"] .tv-browse-chrome-inner input[type="search"] {
+  height: 56px !important;
+  border-color: rgb(255 255 255 / 0.12) !important;
+  border-radius: 14px !important;
+  background: #141925 !important;
+  color: #ffffff !important;
+  font-size: 17px !important;
+}
+
+/* Guide grid cells — quieter frames, denser cinema shelf energy. */
+html[data-tv-input="remote"] .tv-guide-page .rounded-lg.border {
+  border-color: rgb(255 255 255 / 0.08) !important;
+  border-radius: 14px !important;
+  background: rgb(16 20 32 / 0.85) !important;
+  box-shadow: none !important;
+}
+
+/* Cinematic page wash — same night navy as Home, without locking a hero layout. */
+html[data-tv-input="remote"] :is(
+  .tv-favorites-page,
+  .tv-guide-page,
+  .tv-recordings-page,
+  .tv-library-page,
+  .tv-media-detail
+) {
+  background:
+    radial-gradient(ellipse 80% 50% at 12% -10%, rgb(255 63 145 / 0.1), transparent 42%),
+    radial-gradient(ellipse 70% 45% at 88% 0%, rgb(56 120 220 / 0.08), transparent 40%),
+    #020914 !important;
+  color: #e8eaf0;
+}
+
+html[data-tv-input="remote"] :is(.tv-favorites-page, .tv-guide-page, .tv-recordings-page, .tv-library-page)
+  .tv-browse-chrome
+  .text-xs.font-semibold.uppercase {
+  color: rgb(255 255 255 / 0.45) !important;
+  letter-spacing: 0.16em !important;
+}
+
+/* Soften catalog / favorites list rows — less bank-statement, more shelf. */
+html[data-tv-input="remote"] :is(.tv-favorites-page, .tv-library-page, .tv-recordings-page)
+  [data-tv-card]:not(.tv-home-card):not(.tv-episode-card) {
+  border-color: rgb(255 255 255 / 0.08) !important;
+  background: rgb(20 25 37 / 0.72) !important;
+  box-shadow: none !important;
+}
+
+html[data-tv-input="remote"] :is(.tv-favorites-page, .tv-library-page)
+  [data-tv-layout="grid"]
+  [data-tv-card] {
+  border-radius: 14px !important;
+  overflow: hidden;
+  transition: transform 160ms ease, border-color 160ms ease;
 }
 
 html[data-tv-input="remote"] :is(.tv-settings-page, .tv-recordings-page, .tv-favorites-page, .tv-guide-page) main > div {
@@ -832,7 +959,8 @@ html[data-tv-input="remote"] .tv-login-pair-url {
   height: 100%;
   flex-direction: column;
   justify-content: flex-end;
-  padding: 108px 0 96px var(--tv-safe-inline, 4.5vw);
+  /* Extra bottom pad so copy sits above the overlapping shelves on desktop. */
+  padding: 108px 0 200px var(--tv-safe-inline, 4.5vw);
 }
 
 .tv-home-hero-eyebrow {
@@ -913,33 +1041,11 @@ html[data-tv-input="remote"] .tv-login-pair-url {
   backdrop-filter: blur(14px);
 }
 
-.tv-home-hero-dots {
-  position: absolute;
-  z-index: 3;
-  right: var(--tv-safe-inline, 4.5vw);
-  bottom: 158px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.tv-home-hero-dots span {
-  width: 10px;
-  height: 5px;
-  border-radius: 999px;
-  background: rgb(167 177 196 / 0.38);
-}
-
-.tv-home-hero-dots span.is-active {
-  width: 20px;
-  background: #ff3f91;
-  box-shadow: 0 0 14px rgb(255 63 145 / 0.55);
-}
-
 .tv-home-shelves {
   position: relative;
   z-index: 5;
-  margin-top: -142px;
+  /* Gentler pull-up on desktop so the first rail title clears hero copy. */
+  margin-top: -96px;
   padding-bottom: 72px;
 }
 
@@ -970,6 +1076,14 @@ html[data-tv-input="remote"] .tv-login-pair-url {
   padding: 8px var(--tv-safe-inline, 4.5vw) 24px;
   scroll-padding-inline: var(--tv-safe-inline, 4.5vw);
   scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.tv-home-rail::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .tv-home-card-wrap {
@@ -1284,8 +1398,8 @@ html[data-tv-input="remote"] .tv-home-hero-secondary {
 
 @media (max-height: 760px) {
   .tv-home-hero { height: 520px; min-height: 520px; }
-  .tv-home-hero-content { padding-bottom: 88px; }
-  .tv-home-shelves { margin-top: -116px; }
+  .tv-home-hero-content { padding-bottom: 160px; }
+  .tv-home-shelves { margin-top: -80px; }
   .tv-home-section h2 { margin-bottom: 8px; }
   .tv-home-rail { padding-bottom: 20px; }
 }
@@ -1410,6 +1524,7 @@ html[data-tv-input="remote"] .poster-grid {
 /* Keep low-powered Samsung TV composition predictable during D-pad movement. */
 html[data-tv-platform="tizen"] .tv-top-bar,
 html[data-tv-platform="tizen"] .tv-library-filter-sticky,
+html[data-tv-platform="tizen"] .tv-browse-filter-sticky,
 html[data-tv-platform="tizen"] .tv-home-hero-secondary {
   backdrop-filter: none !important;
 }
@@ -1452,5 +1567,601 @@ html[data-tv-input="remote"] .tv-home-card {
   html[data-tv-input="remote"] .tv-top-bar-actions > div > button {
     width: 48px !important;
     height: 48px !important;
+  }
+}
+
+/* ─── Streaming browse pages (Favorites / Discover / Recordings / Detail) ─── */
+
+.stream-page {
+  background: #020914;
+}
+
+.stream-page-atmosphere {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 90% 55% at 8% -8%, rgb(255 63 145 / 0.14), transparent 46%),
+    radial-gradient(ellipse 70% 50% at 92% 4%, rgb(64 120 220 / 0.1), transparent 42%),
+    radial-gradient(ellipse 50% 40% at 50% 100%, rgb(255 63 145 / 0.05), transparent 50%),
+    #020914;
+}
+
+.stream-page-hero {
+  position: relative;
+  isolation: isolate;
+  min-height: clamp(220px, 32vh, 360px);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.stream-page-hero-art {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.stream-page-hero-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 28%;
+  opacity: 0.42;
+  transform: scale(1.04);
+}
+
+.stream-page-hero-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(90deg, #020914 0%, rgb(2 9 20 / 0.94) 38%, rgb(2 9 20 / 0.45) 68%, transparent 88%),
+    linear-gradient(0deg, #020914 0%, rgb(2 9 20 / 0.88) 28%, transparent 62%),
+    linear-gradient(180deg, rgb(2 9 20 / 0.55), transparent 36%);
+}
+
+.stream-page-hero-inner {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  min-height: inherit;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 22px;
+  padding: 28px var(--tv-safe-inline, max(48px, 5vw)) 36px;
+}
+
+.stream-page-hero-eyebrow {
+  margin: 0;
+  color: rgb(255 255 255 / 0.5);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.stream-page-hero-title {
+  margin: 8px 0 0;
+  max-width: 16ch;
+  color: #fff;
+  font-size: clamp(2.4rem, 5vw, 4.2rem);
+  font-weight: 750;
+  line-height: 0.96;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+
+.stream-page-hero-subtitle {
+  margin: 12px 0 0;
+  max-width: 36rem;
+  color: rgb(210 216 230 / 0.78);
+  font-size: clamp(15px, 1.1vw, 18px);
+  line-height: 1.45;
+}
+
+.stream-page-hero-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  max-width: 920px;
+}
+
+.stream-page-hero-tools .stream-search {
+  position: relative;
+  flex: 1 1 280px;
+  min-width: 220px;
+  max-width: 420px;
+}
+
+.stream-page-hero-tools .stream-search input {
+  width: 100%;
+  height: 56px;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  border-radius: 999px;
+  background: rgb(12 16 28 / 0.72);
+  padding: 0 48px 0 48px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 560;
+  outline: none;
+  backdrop-filter: blur(16px);
+}
+
+.stream-page-hero-tools .stream-search input::placeholder {
+  color: rgb(255 255 255 / 0.38);
+}
+
+.stream-page-hero-tools .stream-search input:focus {
+  border-color: rgb(255 63 145 / 0.55);
+  box-shadow: 0 0 0 3px rgb(255 63 145 / 0.18);
+}
+
+.stream-page-hero-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.stream-chip {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.05);
+  padding: 0 16px;
+  color: rgb(230 234 244 / 0.82);
+  font-size: 14px;
+  font-weight: 620;
+  outline: none;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.stream-chip:hover {
+  background: rgb(255 255 255 / 0.1);
+  color: #fff;
+}
+
+.stream-chip.is-active {
+  border-color: transparent;
+  background: #ff3f91;
+  color: #fff;
+  box-shadow: 0 8px 28px rgb(255 63 145 / 0.35);
+}
+
+.stream-chip:disabled {
+  opacity: 0.35;
+}
+
+.stream-cta {
+  display: inline-flex;
+  min-height: 56px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 999px;
+  background: #ff3f91;
+  padding: 0 26px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 720;
+  outline: none;
+  box-shadow: 0 12px 36px rgb(255 63 145 / 0.32);
+}
+
+.stream-cta-secondary {
+  display: inline-flex;
+  min-height: 56px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgb(255 255 255 / 0.16);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.08);
+  padding: 0 22px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 650;
+  outline: none;
+  backdrop-filter: blur(12px);
+}
+
+.stream-rail {
+  padding: 8px 0 28px;
+}
+
+.stream-rail-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-inline: var(--tv-safe-inline, max(48px, 5vw));
+  margin-bottom: 14px;
+}
+
+.stream-rail-title {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(1.25rem, 1.8vw, 1.75rem);
+  font-weight: 720;
+  letter-spacing: -0.03em;
+}
+
+.stream-rail-meta {
+  margin: 4px 0 0;
+  color: rgb(255 255 255 / 0.45);
+  font-size: 13px;
+  font-weight: 560;
+}
+
+.stream-rail-track {
+  display: flex;
+  gap: 14px;
+  margin-inline: calc(0px - var(--tv-safe-inline, max(48px, 5vw)));
+  overflow-x: auto;
+  padding: 6px var(--tv-safe-inline, max(48px, 5vw)) 18px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.stream-rail-track::-webkit-scrollbar {
+  display: none;
+}
+
+.stream-poster-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
+  gap: 1.15rem 1rem;
+  padding: 4px 2px 28px;
+}
+
+html[data-tv-input="remote"] .stream-poster-grid {
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 1.35rem 1.15rem;
+  padding: 8px 4px 40px;
+}
+
+.stream-empty {
+  margin: 24px var(--tv-safe-inline, max(48px, 5vw));
+  border: 1px solid rgb(255 255 255 / 0.08);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 20% 0%, rgb(255 63 145 / 0.12), transparent 40%),
+    rgb(12 16 28 / 0.65);
+  padding: 64px 32px;
+  text-align: center;
+}
+
+.stream-empty h2 {
+  margin: 12px 0 0;
+  color: #fff;
+  font-size: 1.75rem;
+  font-weight: 720;
+  letter-spacing: -0.03em;
+}
+
+.stream-empty p {
+  margin: 10px auto 0;
+  max-width: 28rem;
+  color: rgb(255 255 255 / 0.55);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* Movie title page — full-bleed cinema, not a CMR card with a poster. */
+.tv-movie-detail.stream-title-page {
+  background: #020914 !important;
+}
+
+.stream-title-hero {
+  position: relative;
+  min-height: min(78vh, 820px);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.stream-title-hero-art {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.stream-title-hero-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 22%;
+  opacity: 0.55;
+}
+
+.stream-title-hero-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(90deg, #020914 0%, rgb(2 9 20 / 0.95) 36%, rgb(2 9 20 / 0.42) 62%, rgb(2 9 20 / 0.2) 100%),
+    linear-gradient(0deg, #020914 0%, rgb(2 9 20 / 0.92) 18%, transparent 52%),
+    linear-gradient(180deg, rgb(2 9 20 / 0.5), transparent 30%);
+}
+
+.stream-title-hero-body {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  min-height: inherit;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 100px var(--tv-safe-inline, max(48px, 5vw)) 56px;
+}
+
+.stream-title-kicker {
+  margin: 0;
+  color: #ff77b0;
+  font-size: 12px;
+  font-weight: 720;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.stream-title-name {
+  margin: 10px 0 0;
+  max-width: 14ch;
+  color: #fff;
+  font-size: clamp(2.8rem, 6vw, 5.5rem);
+  font-weight: 780;
+  line-height: 0.94;
+  letter-spacing: -0.05em;
+  text-wrap: balance;
+}
+
+.stream-title-tagline {
+  margin: 14px 0 0;
+  max-width: 34rem;
+  color: rgb(230 234 244 / 0.78);
+  font-size: clamp(16px, 1.2vw, 20px);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.stream-title-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.stream-title-fact {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.28);
+  padding: 0 14px;
+  color: rgb(230 234 244 / 0.88);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.stream-title-overview {
+  margin: 18px 0 0;
+  max-width: 40rem;
+  color: rgb(210 216 228 / 0.82);
+  font-size: clamp(15px, 1.05vw, 18px);
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.stream-title-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.stream-title-progress {
+  margin-top: 22px;
+  max-width: 28rem;
+}
+
+.stream-title-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  color: rgb(255 255 255 / 0.5);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.stream-title-progress-bar {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.16);
+}
+
+.stream-title-progress-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ff3f91, #ff77b0);
+  box-shadow: 0 0 16px rgb(255 63 145 / 0.55);
+}
+
+.stream-title-below {
+  padding: 8px var(--tv-safe-inline, max(48px, 5vw)) 80px;
+}
+
+html[data-tv-input="remote"] .stream-page-hero {
+  min-height: clamp(240px, 36vh, 400px);
+}
+
+html[data-tv-input="remote"] .stream-page-hero-title {
+  font-size: clamp(2.6rem, 4vw, 3.6rem);
+}
+
+html[data-tv-input="remote"] .stream-chip {
+  min-height: 52px;
+  padding-inline: 20px;
+  font-size: 16px;
+}
+
+html[data-tv-input="remote"] .stream-title-hero {
+  min-height: min(72vh, 760px);
+}
+
+html[data-tv-input="remote"] .stream-title-name {
+  font-size: clamp(2.6rem, 4.2vw, 4.4rem);
+}
+
+/* Guide channel rows — cinema list, not spreadsheet. */
+.guide-channel-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid rgb(255 255 255 / 0.08);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgb(22 28 42 / 0.92), rgb(12 16 26 / 0.88));
+  padding: 14px 16px;
+  text-align: left;
+  transition: border-color 140ms ease, transform 140ms ease, background 140ms ease;
+}
+
+.guide-channel-row:hover,
+.guide-channel-row:focus-visible {
+  border-color: rgb(255 63 145 / 0.45);
+  background: linear-gradient(135deg, rgb(28 34 52 / 0.95), rgb(16 20 32 / 0.92));
+}
+
+.guide-programme-chip {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.05);
+  padding: 10px 12px;
+}
+
+.guide-programme-chip strong {
+  overflow: hidden;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guide-programme-chip span {
+  color: rgb(255 255 255 / 0.45);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.rec-spotlight-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  border-radius: 24px;
+  background: rgb(14 18 30 / 0.85);
+  min-width: 280px;
+  max-width: 360px;
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.rec-spotlight-card:hover {
+  border-color: rgb(255 63 145 / 0.4);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 0.35);
+  transform: translateY(-2px);
+}
+
+.rec-spotlight-card img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  opacity: 0.85;
+}
+
+.rec-spotlight-card-body {
+  padding: 14px 16px 16px;
+}
+
+.rec-spotlight-card-body h3 {
+  margin: 0;
+  overflow: hidden;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rec-spotlight-card-body p {
+  margin: 6px 0 0;
+  color: rgb(255 255 255 / 0.5);
+  font-size: 13px;
+}
+
+.rec-live-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #ff5b9e;
+  font-size: 11px;
+  font-weight: 720;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.rec-live-dot::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #ff3f91;
+  box-shadow: 0 0 10px rgb(255 63 145 / 0.8);
+}
+
+/* Soft entrance for stream pages */
+@keyframes stream-hero-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.stream-page-hero-copy,
+.stream-title-hero-body > :not(.stream-title-hero-art) {
+  animation: stream-hero-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stream-page-hero-copy,
+  .stream-title-hero-body > :not(.stream-title-hero-art),
+  .rec-spotlight-card {
+    animation: none;
+    transition: none;
+  }
+
+  .rec-spotlight-card:hover {
+    transform: none;
   }
 }

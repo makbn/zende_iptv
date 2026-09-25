@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildHdrToneMapVf,
   buildProgressiveTranscodeArgs,
   buildProgressiveVodPlaylist,
+  SDR_COMPAT_VF,
 } from "@/lib/stream/progressive-transcode";
+import { videoStreamNeedsHdrToneMap } from "@/lib/stream/video-color-probe";
 
 describe("progressive browser transcode", () => {
   it("converts MKV/HEVC video to segmented H.264/AAC HLS", () => {
@@ -18,9 +21,11 @@ describe("progressive browser transcode", () => {
     expect(args).toContain("superfast");
     expect(args).toContain("zerolatency");
     expect(args).toContain("passthrough");
-    expect(args).toContain("scale=w='min(1920,iw)':h=-2");
+    expect(args).toContain(SDR_COMPAT_VF);
+    expect(args[args.indexOf("-vf") + 1]).toBe(SDR_COMPAT_VF);
     expect(args).toContain("10M");
     expect(args).toContain("yuv420p");
+    expect(args).toContain("bt709");
     expect(args).toContain("aac");
     expect(args).toContain("independent_segments+temp_file");
     expect(args).toContain("/tmp/session/segment-%06d.ts");
@@ -28,6 +33,31 @@ describe("progressive browser transcode", () => {
       "/tmp/session/segment-%06d.ts",
       "/tmp/session/playlist.m3u8",
     ]);
+  });
+
+  it("tone-maps HDR sources into Rec.709 SDR without touching SDR defaults", () => {
+    const args = buildProgressiveTranscodeArgs(
+      "http://127.0.0.1:8077/api/stream/proxy/session.mkv",
+      "X-Zende-Internal-Relay: 1\r\n",
+      "/tmp/session/playlist.m3u8",
+      "/tmp/session/segment-%06d.ts",
+      { hdrToneMapKind: "pq" },
+    );
+    const vf = args[args.indexOf("-vf") + 1]!;
+    expect(vf.startsWith("scale=w='min(1920,iw)'")).toBe(true);
+    expect(vf).toContain("colorspace=");
+    expect(vf).toContain("bt2020-10");
+    expect(vf.indexOf("scale=")).toBeLessThan(vf.indexOf("colorspace="));
+    expect(args).not.toContain(SDR_COMPAT_VF);
+  });
+
+  it("keeps HDR filter graphs parseable by stock FFmpeg colorspace", () => {
+    const pq = buildHdrToneMapVf("pq");
+    const hlg = buildHdrToneMapVf("hlg");
+    expect(pq).toContain("bt2020-10");
+    expect(hlg).toContain("bt2020-10");
+    expect(pq).not.toContain("smpte2084");
+    expect(hlg).not.toContain("arib-std-b67");
   });
 
   it("starts seek windows at aligned input, timestamp, and segment offsets", () => {
@@ -72,5 +102,42 @@ describe("progressive browser transcode", () => {
     expect(playlist).toContain(
       "/api/stream/transcode/session_123-000002.ts",
     );
+  });
+});
+
+describe("videoStreamNeedsHdrToneMap", () => {
+  it("detects PQ / HLG transfer characteristics", () => {
+    expect(
+      videoStreamNeedsHdrToneMap({
+        codec_type: "video",
+        color_transfer: "smpte2084",
+        color_primaries: "bt2020",
+        pix_fmt: "yuv420p10le",
+      }),
+    ).toBe(true);
+    expect(
+      videoStreamNeedsHdrToneMap({
+        codec_type: "video",
+        color_transfer: "arib-std-b67",
+        pix_fmt: "yuv420p10le",
+      }),
+    ).toBe(true);
+  });
+
+  it("leaves ordinary SDR Rec.709 alone", () => {
+    expect(
+      videoStreamNeedsHdrToneMap({
+        codec_type: "video",
+        color_transfer: "bt709",
+        color_primaries: "bt709",
+        pix_fmt: "yuv420p",
+      }),
+    ).toBe(false);
+    expect(
+      videoStreamNeedsHdrToneMap({
+        codec_type: "video",
+        pix_fmt: "yuv420p",
+      }),
+    ).toBe(false);
   });
 });

@@ -1,4 +1,8 @@
 import type { PlaybackMode } from "@/lib/stream/playback-url";
+import {
+  readHdrToneMapPref,
+  withHdrToneMapQuery,
+} from "@/lib/playback/hdr-tone-map-pref";
 
 import { streamSessionIdFromUrl } from "./playback-telemetry";
 
@@ -23,7 +27,7 @@ export function progressiveCompatibilityUrl(input: {
   }
 
   const sessionId = streamSessionIdFromUrl(input.src);
-  return sessionId
-    ? `/api/stream/transcode/${encodeURIComponent(sessionId)}.m3u8`
-    : null;
+  if (!sessionId) return null;
+  const base = `/api/stream/transcode/${encodeURIComponent(sessionId)}.m3u8`;
+  return withHdrToneMapQuery(base, readHdrToneMapPref());
 }

@@ -1,4 +1,5 @@
 import { createServerLogger } from "@/core/logging/server";
+import { persistSessionPlaybackMeta } from "@/lib/playback/neighbor-watch-sessions";
 import {
   ensureHlsTranscodeJob,
   readHlsPlaylist,
@@ -70,6 +71,19 @@ export async function GET(
     0,
     Math.floor(session.meta.selectedAudioIndex ?? 0),
   );
+  const requestUrl = new URL(request.url);
+  const hdrQuery = requestUrl.searchParams.get("hdr");
+  let enableHdrToneMap = session.meta.hdrToneMap === true;
+  if (hdrQuery === "1" || hdrQuery === "true") enableHdrToneMap = true;
+  else if (hdrQuery === "0" || hdrQuery === "false") enableHdrToneMap = false;
+
+  // Remember the client preference on the session so relative segment URLs
+  // (without ?hdr=) still use the same encode path for this watch.
+  if (hdrQuery != null && session.meta.hdrToneMap !== enableHdrToneMap) {
+    const meta = { ...session.meta, hdrToneMap: enableHdrToneMap };
+    session.meta = meta;
+    await persistSessionPlaybackMeta(asset.sessionId, meta).catch(() => undefined);
+  }
 
   try {
     if (asset.kind === "playlist" && durationSeconds) {
@@ -83,6 +97,7 @@ export async function GET(
             "X-Zende-Transcoded": "hevc-mkv-to-h264-hls-vod",
             "X-Zende-Duration-Seconds": String(durationSeconds),
             "X-Zende-Audio-Track": String(audioTrackIndex),
+            "X-Zende-Hdr-Tone-Map": enableHdrToneMap ? "1" : "0",
           },
         },
       );
@@ -93,6 +108,7 @@ export async function GET(
       inputUrl,
       internalHeaders: internalRelayFfmpegHeadersBlock(),
       audioTrackIndex,
+      enableHdrToneMap,
       ...(asset.kind === "segment" && durationSeconds
         ? {
             durationSeconds,

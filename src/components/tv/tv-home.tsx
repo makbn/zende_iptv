@@ -311,12 +311,6 @@ function HomeHero({
           <p className="tv-home-hero-description">{displayCopy.description}</p>
         </div>
       </div>
-
-      <div className="tv-home-hero-dots" aria-hidden>
-        {[0, 1, 2, 3].map((dot) => (
-          <span key={dot} className={dot === 0 ? "is-active" : undefined} />
-        ))}
-      </div>
     </section>
   );
 }

@@ -1,10 +1,13 @@
 "use client";
 
-import { Input } from "@appica/ui-react/input";
 import { Checkbox } from "@appica/ui-react/checkbox";
 
 import { useCallback, useEffect, useState } from "react";
 
+import {
+  readHdrToneMapPref,
+  writeHdrToneMapPref,
+} from "@/lib/playback/hdr-tone-map-pref";
 import {
   readUnwrapPublicCorsProxyUrlsPref,
   writeUnwrapPublicCorsProxyUrlsPref,
@@ -17,16 +20,23 @@ import { cn } from "@/lib/utils";
  */
 export function TvPlaybackPrefsCard() {
   const [unwrap, setUnwrap] = useState(true);
+  const [hdrToneMap, setHdrToneMap] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setUnwrap(readUnwrapPublicCorsProxyUrlsPref());
+    setHdrToneMap(readHdrToneMapPref());
     setMounted(true);
   }, []);
 
-  const onToggle = useCallback((next: boolean) => {
+  const onToggleUnwrap = useCallback((next: boolean) => {
     setUnwrap(next);
     writeUnwrapPublicCorsProxyUrlsPref(next);
+  }, []);
+
+  const onToggleHdr = useCallback((next: boolean) => {
+    setHdrToneMap(next);
+    writeHdrToneMapPref(next);
   }, []);
 
   return (
@@ -42,23 +52,18 @@ export function TvPlaybackPrefsCard() {
         id="playback-prefs-heading"
         className="text-[18px] font-semibold text-foreground-intense"
       >
-        Stream URL handling
+        Playback &amp; relay
       </h2>
       <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-foreground-intense">
-        Some catalogs wrap the real playlist in a public CORS proxy (for example{" "}
-        <span className="font-mono text-[13px] text-foreground-intense">
-          https://cors-proxy…/http://…/playlist.m3u8
-        </span>
-        ). Zende fetches streams on the server, so that wrapper is usually unnecessary and can
-        be stripped to the direct URL. Turn this off only if your server must load the wrapper
-        URL itself.
+        Zende is primarily a relay: provider → your server → device. Prefer the lightest path
+        so home hardware stays responsive. Heavier options are opt-in.
       </p>
 
       <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-background px-4 py-3.5 transition-colors hover:border-border">
         <Checkbox
           className="mt-1 shrink-0"
           checked={unwrap}
-          onCheckedChange={(checked) => onToggle(checked === true)}
+          onCheckedChange={(checked) => onToggleUnwrap(checked === true)}
         />
         <span className="min-w-0">
           <span className="block text-[15px] font-medium text-foreground-intense">
@@ -79,6 +84,32 @@ export function TvPlaybackPrefsCard() {
           any public CORS proxy prefix.
         </div>
       )}
+
+      <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-background px-4 py-3.5 transition-colors hover:border-border">
+        <Checkbox
+          className="mt-1 shrink-0"
+          checked={hdrToneMap}
+          onCheckedChange={(checked) => onToggleHdr(checked === true)}
+        />
+        <span className="min-w-0">
+          <span className="block text-[15px] font-medium text-foreground-intense">
+            HDR color correction on compatibility remux (CPU)
+          </span>
+          <span className="mt-1 block text-[13px] leading-relaxed text-foreground-intense">
+            Off by default. Only applies when a device cannot play progressive HEVC/MKV and the
+            server already remuxes to H.264 HLS. Enabling runs a light Rec.709 color convert for
+            HDR titles — helpful on some TVs, but uses extra CPU and can buffer on modest home
+            servers. Leave off to stay as close to a pure relay as possible.
+          </span>
+        </span>
+      </label>
+
+      {hdrToneMap ? (
+        <div className="mt-4 rounded-xl border border-warning bg-warning-subtle px-4 py-3 text-[13px] leading-relaxed text-warning-strong">
+          HDR correction is on for this device. Restart playback after changing this so a fresh
+          compatibility encode can start. Live HLS/MPEG-TS channels are unaffected.
+        </div>
+      ) : null}
     </section>
   );
 }

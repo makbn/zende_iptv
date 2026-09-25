@@ -12,6 +12,8 @@ import {
   TRANSCODE_HLS_CHUNK_SEGMENTS,
   TRANSCODE_HLS_SEGMENT_SECONDS,
 } from "@/lib/stream/progressive-transcode";
+import { probeUpstreamVideoColor } from "@/lib/stream/video-color-probe";
+import type { HdrToneMapKind } from "@/lib/stream/video-color-probe";
 
 const log = createServerLogger("lib.stream.hls-transcode");
 const ROOT = join(tmpdir(), "zende-hls-transcode");
@@ -26,6 +28,7 @@ type HlsJob = {
   startSegment: number;
   endSegmentExclusive?: number;
   audioTrackIndex: number;
+  hdrToneMapKind: HdrToneMapKind | null;
   process: ReturnType<typeof spawn> | null;
   idleTimer: ReturnType<typeof setTimeout> | null;
   stderrTail: string;
@@ -33,14 +36,39 @@ type HlsJob = {
 
 const globalJobs = globalThis as typeof globalThis & {
   __zendeHlsTranscodeJobs?: Map<string, Promise<HlsJob>>;
+  __zendeHlsHdrProbeCache?: Map<string, Promise<HdrToneMapKind | null>>;
 };
 const jobs = globalJobs.__zendeHlsTranscodeJobs ?? new Map<string, Promise<HlsJob>>();
 globalJobs.__zendeHlsTranscodeJobs = jobs;
+const hdrProbeCache =
+  globalJobs.__zendeHlsHdrProbeCache ?? new Map<string, Promise<HdrToneMapKind | null>>();
+globalJobs.__zendeHlsHdrProbeCache = hdrProbeCache;
 
 function assertSessionId(sessionId: string) {
   if (!/^[A-Za-z0-9_-]{8,128}$/.test(sessionId)) {
     throw new Error("Invalid transcode session ID.");
   }
+}
+
+function resolveHdrToneMapKind(
+  sessionId: string,
+  inputUrl: string,
+  internalHeaders: string,
+  enabled: boolean,
+): Promise<HdrToneMapKind | null> {
+  if (!enabled) return Promise.resolve(null);
+  let pending = hdrProbeCache.get(sessionId);
+  if (!pending) {
+    pending = probeUpstreamVideoColor(inputUrl, {
+      headers: internalHeaders,
+      // Keep probe short — startup delay here is dead air before the first segment.
+      timeoutMs: 1800,
+    })
+      .then((probe) => (probe.needsToneMap ? probe.kind : null))
+      .catch(() => null);
+    hdrProbeCache.set(sessionId, pending);
+  }
+  return pending;
 }
 
 function armIdleTimer(job: HlsJob) {
@@ -91,8 +119,15 @@ async function startJob(
   startSegment: number,
   segmentCount: number | undefined,
   audioTrackIndex: number,
+  enableHdrToneMap: boolean,
 ): Promise<HlsJob> {
   assertSessionId(sessionId);
+  const hdrToneMapKind = await resolveHdrToneMapKind(
+    sessionId,
+    inputUrl,
+    internalHeaders,
+    enableHdrToneMap,
+  );
   await mkdir(ROOT, { recursive: true });
   const directory = join(
     ROOT,
@@ -114,6 +149,7 @@ async function startJob(
       {
         ...(segmentCount ? { startSegment, segmentCount } : { startSegment }),
         audioTrackIndex,
+        hdrToneMapKind,
       },
     ),
     { stdio: ["ignore", "ignore", "pipe"], detached: false },
@@ -128,6 +164,7 @@ async function startJob(
       ? { endSegmentExclusive: startSegment + segmentCount }
       : {}),
     audioTrackIndex,
+    hdrToneMapKind,
     process: proc,
     idleTimer: null,
     stderrTail: "",
@@ -141,6 +178,7 @@ async function startJob(
       audioTrackIndex,
       outputVideo: "h264",
       outputAudio: "aac-stereo",
+      hdrToneMapKind,
       segmentSeconds: TRANSCODE_HLS_SEGMENT_SECONDS,
       startSegment,
       segmentCount,
@@ -173,6 +211,7 @@ async function startJob(
 /** Stop all compatibility jobs for a session (e.g. after audio track change). */
 export function stopHlsTranscodeJobsForSession(sessionId: string): void {
   assertSessionId(sessionId);
+  hdrProbeCache.delete(sessionId);
   for (const [key, pending] of [...jobs.entries()]) {
     if (!key.includes(sessionId)) continue;
     jobs.delete(key);
@@ -195,9 +234,16 @@ export async function ensureHlsTranscodeJob(input: {
   targetSegment?: number;
   /** Upstream audio stream index to map (`0:a:N`). */
   audioTrackIndex?: number;
+  /**
+   * Opt-in HDR→SDR color conversion. Default false — home relays stay on the
+   * fast scale-only compatibility path unless the client enables it.
+   */
+  enableHdrToneMap?: boolean;
 }): Promise<HlsJob> {
   assertSessionId(input.sessionId);
   const audioTrackIndex = Math.max(0, Math.floor(input.audioTrackIndex ?? 0));
+  const enableHdrToneMap = Boolean(input.enableHdrToneMap);
+  const hdrKey = enableHdrToneMap ? "hdr" : "fast";
   const finiteVod =
     input.durationSeconds != null &&
     Number.isFinite(input.durationSeconds) &&
@@ -208,7 +254,7 @@ export async function ensureHlsTranscodeJob(input: {
 
   let startSegment = 0;
   let segmentCount: number | undefined;
-  let key = `event:${input.sessionId}:a${audioTrackIndex}`;
+  let key = `event:${input.sessionId}:a${audioTrackIndex}:${hdrKey}`;
   if (finiteVod) {
     const totalSegments = Math.ceil(
       input.durationSeconds! / TRANSCODE_HLS_SEGMENT_SECONDS,
@@ -216,7 +262,7 @@ export async function ensureHlsTranscodeJob(input: {
     if (input.targetSegment! >= totalSegments) {
       throw new Error("Requested compatibility segment is outside the VOD duration.");
     }
-    const prefix = `vod:${input.sessionId}:a${audioTrackIndex}:`;
+    const prefix = `vod:${input.sessionId}:a${audioTrackIndex}:${hdrKey}:`;
     for (const [existingKey, existingJob] of jobs) {
       if (!existingKey.startsWith(prefix)) continue;
       const existingStart = Number(existingKey.slice(prefix.length));
@@ -239,7 +285,7 @@ export async function ensureHlsTranscodeJob(input: {
       TRANSCODE_HLS_CHUNK_SEGMENTS,
       totalSegments - startSegment,
     );
-    key = `vod:${input.sessionId}:a${audioTrackIndex}:${startSegment}`;
+    key = `vod:${input.sessionId}:a${audioTrackIndex}:${hdrKey}:${startSegment}`;
   }
 
   let pending = jobs.get(key);
@@ -252,6 +298,7 @@ export async function ensureHlsTranscodeJob(input: {
       startSegment,
       segmentCount,
       audioTrackIndex,
+      enableHdrToneMap,
     );
     jobs.set(key, pending);
     pending.catch(() => jobs.delete(key));

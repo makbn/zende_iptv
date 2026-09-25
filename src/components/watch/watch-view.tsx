@@ -112,6 +112,10 @@ import {
   resolvePlaybackPosition,
   shouldOfferResume,
 } from "@/lib/playback/playback-position";
+import {
+  readHdrToneMapPref,
+  withHdrToneMapQuery,
+} from "@/lib/playback/hdr-tone-map-pref";
 import { consumeResumeDecision } from "@/lib/playback/resume-decision";
 import {
   REMOTE_COMMAND_EVENT,
@@ -400,7 +404,9 @@ export function WatchView() {
 
   const playbackSrc = useMemo(() => {
     if (legacyBridge === "working") return null;
-    if (sessionMeta?.playbackUrl) return sessionMeta.playbackUrl;
+    if (sessionMeta?.playbackUrl) {
+      return withHdrToneMapQuery(sessionMeta.playbackUrl, readHdrToneMapPref());
+    }
     if ((sessionId || recordingId) && sessionLoading) return null;
     if (decodedLegacyUrl) return decodedLegacyUrl;
     return null;

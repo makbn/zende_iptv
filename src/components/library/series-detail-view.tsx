@@ -10,7 +10,6 @@ import { Card } from "@appica/ui-react/card";
 import { MediaCastRail, MediaMetadataFacts } from "@/components/library/media-metadata-sections";
 import {
   BROWSE_BOTTOM_PAD_MOBILE,
-  BROWSE_CONTAINER_CLASS,
   BROWSE_TOP_PAD,
 } from "@/components/layout/browse-page-shell";
 import { NavErrorBanner } from "@/components/nav/nav-error-banner";
@@ -278,155 +277,127 @@ export function SeriesDetailView({
     <main
       id="main"
       className={cn(
-        "tv-media-detail tv-series-detail bg-background min-h-screen text-foreground-intense",
+        "tv-media-detail tv-series-detail stream-title-page min-h-screen text-white",
         BROWSE_TOP_PAD,
         BROWSE_BOTTOM_PAD_MOBILE,
         "md:pb-16",
       )}
     >
-      <div className="tv-media-detail-hero relative overflow-hidden">
+      <section className="stream-title-hero tv-media-detail-hero">
         {heroArt ? (
-          <div className="absolute inset-0 overflow-hidden" aria-hidden>
-            {/* Fallback treatment for low-res artwork: enlarged, desaturated and pixel-emphasized */}
-            {/* so compression artifacts are less distracting at hero scale. */}
+          <div className="stream-title-hero-art" aria-hidden>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={secureImageUrl(heroArt)}
-              alt=""
-              className="h-full w-full scale-[1.18] object-cover opacity-45 grayscale saturate-0 [image-rendering:pixelated]"
-            />
-            <div className="absolute inset-0 bg-background backdrop-blur-[2px]" />
+            <img src={secureImageUrl(heroArt)} alt="" />
           </div>
         ) : null}
-        <div className="absolute inset-0 bg-gradient-to-b from-background via-background to-background" />
+        <div className="stream-title-hero-shade" aria-hidden />
 
-        <div className={cn(BROWSE_CONTAINER_CLASS, "tv-media-detail-content relative pb-8 pt-4 sm:pt-8")}>
+        <div className="stream-title-hero-body tv-media-detail-content">
           <Button
             variant="ghost"
             render={<Link href="/library?tab=series" />}
-            className="mb-6 rounded-full"
+            className="mb-8 w-fit rounded-full bg-white/8 text-white hover:bg-white/14"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden />
             Library
           </Button>
 
-          <div className="tv-media-detail-layout flex flex-col gap-6 sm:flex-row sm:items-end">
-            <div className="tv-media-detail-poster mx-auto w-40 shrink-0 overflow-hidden rounded-lg border border-border bg-background shadow-lg sm:mx-0 sm:w-52">
-              {cover ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={secureImageUrl(cover, undefined, "poster")} alt="" className="aspect-[2/3] w-full object-cover" />
-              ) : (
-                <div className="flex aspect-[2/3] items-center justify-center bg-background-muted text-[13px] text-foreground-intense">
-                  No art
-                </div>
-              )}
-            </div>
+          <p className="stream-title-kicker">TV Show</p>
+          <h1 className="stream-title-name">{title}</h1>
+          {groupTitle ? (
+            <p className="mt-3 text-[15px] font-medium text-white/55">{groupTitle}</p>
+          ) : null}
+          {metadata ? (
+            <div className="mt-5"><MediaMetadataFacts metadata={metadata} /></div>
+          ) : null}
+          {overview ? (
+            <p className="stream-title-overview tv-media-detail-overview">{overview}</p>
+          ) : null}
 
-            <div className="tv-media-detail-copy min-w-0 flex-1 text-center sm:text-left">
-              <p className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">
-                TV Show
-              </p>
-              <h1 className="text-4xl font-semibold tracking-tight text-foreground-intense mt-3">
-                {title}
-              </h1>
-              {groupTitle ? (
-                <p className="mt-2 text-[14px] text-foreground-intense">{groupTitle}</p>
-              ) : null}
-              {metadata ? (
-                <div className="mt-4"><MediaMetadataFacts metadata={metadata} /></div>
-              ) : null}
-              {overview ? (
-                <p className="tv-media-detail-overview text-sm text-foreground-muted mt-4 max-w-3xl">
-                  {overview}
-                </p>
-              ) : null}
-
-              <div
-                id="media-detail-actions"
-                data-tv-layout="horizontal"
-                data-tv-nav-down="#series-season-tabs"
-                className="tv-media-detail-actions mt-6 flex flex-wrap items-center justify-center gap-3 sm:justify-start"
+          <div
+            id="media-detail-actions"
+            data-tv-layout="horizontal"
+            data-tv-nav-down="#series-season-tabs"
+            className="stream-title-actions tv-media-detail-actions"
+          >
+            {continueTarget ? (
+              <Button
+                variant="primary"
+                data-tv-initial-focus
+                type="button"
+                disabled={playBusy}
+                onClick={() => void playEpisode(continueTarget.ep, continueTarget.index)}
+                className="stream-cta h-auto !min-h-14 py-3"
               >
-                {continueTarget ? (
-                  <Button variant="primary"
-                    data-tv-initial-focus
-                    type="button"
-                    disabled={playBusy}
-                    onClick={() => void playEpisode(continueTarget.ep, continueTarget.index)}
-                    className="h-auto rounded-full py-3 px-6 shadow-md transition-all hover:scale-[1.02]"
-                  >
-                    <span className="flex min-w-[10rem] flex-col items-start gap-1 text-left">
-                      <span className="flex items-center gap-2 text-[15px] font-bold">
-                        <Play className="h-4 w-4 fill-current" aria-hidden />
-                        Continue
-                      </span>
-                      <span className="text-[13px] font-medium opacity-90">
-                        {formatEpisodeCode(
-                          continueTarget.ep.season,
-                          continueTarget.ep.episodeNum,
-                        )}
-                        {continueTarget.ep.title ? ` · ${continueTarget.ep.title}` : ""}
-                      </span>
-                      {continueProgress != null ? (
-                        <span className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-black/20">
-                          <span
-                            className="block h-full rounded-full bg-white"
-                            style={{ width: `${continueProgress * 100}%` }}
-                          />
-                        </span>
-                      ) : null}
+                <span className="flex min-w-[10rem] flex-col items-start gap-1 text-left">
+                  <span className="flex items-center gap-2 text-[15px] font-bold">
+                    <Play className="h-4 w-4 fill-current" aria-hidden />
+                    Continue
+                  </span>
+                  <span className="text-[13px] font-medium opacity-90">
+                    {formatEpisodeCode(
+                      continueTarget.ep.season,
+                      continueTarget.ep.episodeNum,
+                    )}
+                    {continueTarget.ep.title ? ` · ${continueTarget.ep.title}` : ""}
+                  </span>
+                  {continueProgress != null ? (
+                    <span className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-black/20">
+                      <span
+                        className="block h-full rounded-full bg-white"
+                        style={{ width: `${continueProgress * 100}%` }}
+                      />
                     </span>
-                  </Button>
-                ) : episodesBySeason.flat[0] ? (
-                  <Button variant="primary"
-                    data-tv-initial-focus
-                    type="button"
-                    disabled={playBusy || loading}
-                    onClick={() => void playEpisode(episodesBySeason.flat[0]!, 0)}
-                    className="h-auto rounded-full py-3 px-6 shadow-md transition-all hover:scale-[1.02]"
-                  >
-                    <span className="flex items-center gap-2 text-[15px] font-bold">
-                      <Play className="h-4 w-4 fill-current" aria-hidden />
-                      Play S{episodesBySeason.flat[0]!.season}E
-                      {episodesBySeason.flat[0]!.episodeNum || "1"}
-                    </span>
-                  </Button>
-                ) : null}
-                {seriesShareTarget ? (
-                  <ShareMediaButton target={seriesShareTarget} size="lg" showLabel />
-                ) : null}
-                <FavoriteStarButton channel={favoriteSeriesChannel} size="md" showLabel />
-                {primaryEpisodeChannel ? (
-                  <Button
-                    data-tv-download
-                    variant="secondary"
-                    size="lg"
-                    type="button"
-                    disabled={downloadBusy}
-                    onClick={() => void downloadPrimaryEpisode()}
-                    className="h-auto rounded-full py-3 px-6"
-                  >
-                    <Download className="h-4 w-4" aria-hidden />
-                    {downloadBusy ? "Preparing…" : "Download"}
-                  </Button>
-                ) : null}
-                {primaryEpisodeChannel ? (
-                  <MovieDownloadButton
-                    channel={{
-                      ...primaryEpisodeChannel,
-                      name: `${title} · ${formatEpisodeCode(primaryEpisode!.season, primaryEpisode!.episodeNum)} · ${primaryEpisode!.title}`,
-                    }}
-                    size="lg"
-                    showLabel
-                  />
-                ) : null}
-              </div>
-            </div>
+                  ) : null}
+                </span>
+              </Button>
+            ) : episodesBySeason.flat[0] ? (
+              <Button
+                variant="primary"
+                data-tv-initial-focus
+                type="button"
+                disabled={playBusy || loading}
+                onClick={() => void playEpisode(episodesBySeason.flat[0]!, 0)}
+                className="stream-cta"
+              >
+                <Play className="h-4 w-4 fill-current" aria-hidden />
+                Play S{episodesBySeason.flat[0]!.season}E
+                {episodesBySeason.flat[0]!.episodeNum || "1"}
+              </Button>
+            ) : null}
+            {seriesShareTarget ? (
+              <ShareMediaButton target={seriesShareTarget} size="lg" showLabel />
+            ) : null}
+            <FavoriteStarButton channel={favoriteSeriesChannel} size="md" showLabel />
+            {primaryEpisodeChannel ? (
+              <Button
+                data-tv-download
+                variant="secondary"
+                size="lg"
+                type="button"
+                disabled={downloadBusy}
+                onClick={() => void downloadPrimaryEpisode()}
+                className="stream-cta-secondary"
+              >
+                <Download className="h-4 w-4" aria-hidden />
+                {downloadBusy ? "Preparing…" : "Download"}
+              </Button>
+            ) : null}
+            {primaryEpisodeChannel ? (
+              <MovieDownloadButton
+                channel={{
+                  ...primaryEpisodeChannel,
+                  name: `${title} · ${formatEpisodeCode(primaryEpisode!.season, primaryEpisode!.episodeNum)} · ${primaryEpisode!.title}`,
+                }}
+                size="lg"
+                showLabel
+              />
+            ) : null}
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className={cn(BROWSE_CONTAINER_CLASS, "tv-series-content pb-28 md:pb-16")}>
+      <div className="stream-title-below tv-series-content">
         {displayPlayError ? (
           <NavErrorBanner
             message={displayPlayError}
@@ -443,19 +414,19 @@ export function SeriesDetailView({
           <ZendeLoadingState className="py-12" size="large" label="Loading seasons…" />
         ) : error ? (
           <div className="flex flex-col items-center gap-4 py-12 text-center">
-            <p className="text-[15px] text-error-strong">{error}</p>
-            <Button variant="secondary" type="button" onClick={() => void reload()} className="rounded-full px-6">
+            <p className="text-[15px] text-red-300">{error}</p>
+            <Button variant="secondary" type="button" onClick={() => void reload()} className="stream-cta-secondary">
               Try again
             </Button>
           </div>
         ) : episodesBySeason.seasons.length === 0 ? (
-          <p className="py-12 text-center text-[15px] text-foreground-intense">No episodes found.</p>
+          <p className="py-12 text-center text-[15px] text-white/50">No episodes found.</p>
         ) : (
           <>
             <section aria-labelledby="episodes-heading" className="mt-4">
               <div className="mb-5 flex flex-wrap items-end justify-between gap-4 border-b border-white/10 pb-5">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-strong">Watch the series</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#ff77b0]">Watch the series</p>
                   <h2 id="episodes-heading" className="mt-1 text-3xl font-bold tracking-tight text-white">Episodes</h2>
                   <p className="mt-1 text-sm text-white/55">
                     Season {activeSeason} · {(episodesBySeason.map.get(activeSeason ?? "") ?? []).length} episodes
@@ -470,19 +441,15 @@ export function SeriesDetailView({
                   aria-label="Choose season"
                 >
                   {episodesBySeason.seasons.map((season) => (
-                    <Button
-                      variant={activeSeason === season ? "primary" : "secondary"}
+                    <button
                       key={season}
                       type="button"
                       aria-pressed={activeSeason === season}
                       onClick={() => setSeasonTab(season)}
-                      className={cn(
-                        "shrink-0 rounded-full px-6 py-3 text-[14px] font-bold transition-all focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                        activeSeason === season ? "shadow-[0_0_28px_rgba(236,72,153,.24)]" : "border border-white/10 bg-white/5 text-white/75 hover:bg-white/10 hover:text-white"
-                      )}
+                      className={cn("stream-chip", activeSeason === season && "is-active")}
                     >
                       Season {season}
-                    </Button>
+                    </button>
                   ))}
                 </div>
               </div>

@@ -18,9 +18,10 @@ import {
   type RecordingIssueItem,
 } from "@/components/tv/tv-recording-recent-issues";
 import {
-  TV_BROWSE_STICKY_TOP_CLASS,
-  TV_BROWSE_TOP_PAD_CLASS,
-} from "@/components/tv/tv-top-bar";
+  StreamPageHero,
+  StreamPageShell,
+} from "@/components/tv/stream-page-shell";
+import { TV_BROWSE_TOP_PAD_CLASS } from "@/components/tv/tv-top-bar";
 import { BUILTIN_PLAYLIST_SOURCES } from "@/config/builtin-playlist-sources";
 import { createClientLogger } from "@/core/logging/client";
 import type { M3uChannel } from "@/core/playlist/m3u-parse";
@@ -470,92 +471,76 @@ export function TvRecordingsPage() {
 
   if (!catalogLoaded) {
     return (
-      <div className="bg-background flex min-h-screen items-center justify-center pt-20 text-foreground-intense">
-        <ZendeLoadingState size="full" label="Loading recordings…" />
-      </div>
+      <StreamPageShell pageClassName={cn("tv-recordings-page", TV_BROWSE_TOP_PAD_CLASS)}>
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <ZendeLoadingState size="full" label="Loading recordings…" />
+        </div>
+      </StreamPageShell>
     );
   }
 
+  const heroArt =
+    overview?.active.find((r) => r.channelLogo)?.channelLogo ??
+    overview?.library.find((r) => r.channelLogo)?.channelLogo ??
+    null;
+  const scheduledCount = overview?.schedules.length ?? 0;
+  const activeCount = overview?.active.length ?? 0;
+  const libraryCount = overview?.library.length ?? 0;
+
   return (
-    <div className="tv-recordings-page bg-background min-h-screen text-foreground">
-      <main className={cn("tv-browse-main pb-28", TV_BROWSE_TOP_PAD_CLASS)}>
-        <section className={cn(BROWSE_CONTAINER_CLASS, "tv-browse-chrome pb-3 pt-4")}>
-          <div
-            data-tv-layout="horizontal"
-            data-tv-skip-initial
-            data-tv-nav-down="#rec-active,#rec-upcoming,#rec-library"
-            className="tv-browse-chrome-inner grid gap-4 rounded-lg border border-border bg-background p-4 shadow-sm xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-center"
-          >
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <Video className="size-3.5 text-primary-strong" aria-hidden />
-                <span className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">
-                  Recorder
-                </span>
-              </div>
-              <h1 className="tv-browse-chrome-title mt-1 text-[clamp(1.25rem,1.8vw,1.75rem)] font-semibold leading-none tracking-[-0.05em] text-foreground-intense">
-                Recordings
-              </h1>
-            </div>
-
-            <div className="tv-browse-metrics grid grid-cols-3 gap-2 xl:max-w-md">
-              <div className="rounded-lg border border-border bg-background px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground-intense">
-                  Scheduled
-                </p>
-                <p className="mt-0.5 text-[17px] font-semibold tracking-[-0.04em] text-foreground-intense">
-                  {(overview?.schedules.length ?? 0).toLocaleString()}
-                </p>
-              </div>
-              <div className="rounded-lg border border-border bg-background px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground-intense">
-                  Active
-                </p>
-                <p className="mt-0.5 text-[17px] font-semibold tracking-[-0.04em] text-foreground-intense">
-                  {(overview?.active.length ?? 0).toLocaleString()}
-                </p>
-              </div>
-              <div className="rounded-lg border border-border bg-background px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground-intense">
-                  Library
-                </p>
-                <p className="mt-0.5 text-[17px] font-semibold tracking-[-0.04em] text-foreground-intense">
-                  {(overview?.library.length ?? 0).toLocaleString()}
-                </p>
-              </div>
-            </div>
-
-            <Button
+    <StreamPageShell pageClassName={cn("tv-recordings-page pb-28", TV_BROWSE_TOP_PAD_CLASS)}>
+      <main>
+        <StreamPageHero
+          eyebrow="My Library"
+          title="Recordings"
+          subtitle={
+            overview
+              ? `${activeCount} live · ${scheduledCount} upcoming · ${libraryCount} saved`
+              : "Capture live TV, schedule ahead, and play back from your library."
+          }
+          artUrl={heroArt ? secureImageUrl(heroArt, undefined, "poster") : null}
+          actions={
+            <button
               id="rec-start-cta"
               type="button"
-              variant="primary"
-              size="lg"
               data-tv-initial-focus=""
               data-tv-nav-down="#rec-active,#rec-upcoming,#rec-library"
               onClick={() => setStartRecordingDialogOpen(true)}
-              className="min-h-14 justify-self-start xl:justify-self-end"
+              className="stream-cta"
             >
               <Plus className="size-4" aria-hidden />
               Start recording
-            </Button>
-          </div>
-        </section>
+            </button>
+          }
+          chips={
+            <div
+              data-tv-layout="horizontal"
+              data-tv-skip-initial
+              data-tv-nav-down="#rec-active,#rec-upcoming,#rec-library"
+              className="flex flex-wrap gap-2"
+            >
+              <span className="stream-chip is-active">{activeCount} recording now</span>
+              <span className="stream-chip">{scheduledCount} scheduled</span>
+              <span className="stream-chip">{libraryCount} in library</span>
+            </div>
+          }
+        />
 
-        <div className={cn(BROWSE_CONTAINER_CLASS, "mt-4 space-y-8")}>
+        <div className={cn(BROWSE_CONTAINER_CLASS, "mt-2 space-y-10")}>
           {overview && !overview.ffmpegAvailable ? (
             <div
-              className="flex items-start gap-3 rounded-lg border border-warning bg-warning-subtle px-4 py-3.5 text-[15px] leading-snug text-warning-strong shadow-lg backdrop-blur-xl"
+              className="flex items-start gap-3 rounded-2xl border border-amber-400/25 bg-amber-500/10 px-4 py-3.5 text-[15px] leading-snug text-amber-100"
               role="status"
             >
               <AlertTriangle
-                className="mt-0.5 size-5 shrink-0 text-warning-strong"
+                className="mt-0.5 size-5 shrink-0 text-amber-300"
                 aria-hidden
               />
               <div>
-                <p className="font-semibold text-warning-strong">ffmpeg not detected</p>
-                <p className="mt-1 text-[14px] text-warning-strong">
+                <p className="font-semibold text-amber-50">ffmpeg not detected</p>
+                <p className="mt-1 text-[14px] text-amber-100/80">
                   Install ffmpeg on the host and ensure it is on{" "}
-                  <code className="rounded bg-background px-1.5 py-0.5 font-mono text-[13px]">
+                  <code className="rounded bg-black/30 px-1.5 py-0.5 font-mono text-[13px]">
                     PATH
                   </code>{" "}
                   so scheduled and manual recordings can start.
@@ -565,7 +550,7 @@ export function TvRecordingsPage() {
           ) : null}
 
           {loadError ? (
-            <div className="rounded-lg border border-error bg-error-subtle px-4 py-3 text-[15px] text-error-strong backdrop-blur-xl">
+            <div className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-[15px] text-red-100">
               {loadError}
             </div>
           ) : null}
@@ -897,16 +882,20 @@ export function TvRecordingsPage() {
               data-tv-nav-down="#rec-upcoming,#rec-library"
               aria-labelledby="rec-active-heading"
             >
-              <h2
-                id="rec-active-heading"
-                className="text-lg font-semibold tracking-tight text-foreground-intense"
-              >
-                Recording now
-              </h2>
-              <ul
-                data-tv-layout="grid"
-                data-tv-columns="2"
-                className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+              <div className="mb-4 flex items-baseline justify-between gap-3">
+                <h2
+                  id="rec-active-heading"
+                  className="text-[clamp(1.25rem,1.8vw,1.75rem)] font-bold tracking-[-0.03em] text-white"
+                >
+                  Recording now
+                </h2>
+                <p className="text-[13px] text-white/40">
+                  {overview.active.length} live
+                </p>
+              </div>
+              <div
+                data-tv-layout="horizontal"
+                className="flex gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
                 {overview.active.map((r) => {
                   const start = r.startedAt
@@ -925,57 +914,55 @@ export function TvRecordingsPage() {
                         )
                       : 0;
                   return (
-                    <li key={r.id}>
-                      <Card
-                        frame="glass"
-                        className="relative overflow-hidden rounded-lg border border-error bg-error-subtle p-4"
-                      >
-                        <div
-                          className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-background-muted"
-                          aria-hidden
-                        >
+                    <article key={r.id} className="rec-spotlight-card !border-[#ff3f91]/35">
+                      <div className="relative aspect-video overflow-hidden bg-[#0c101c]">
+                        {r.channelLogo ? (
+                          <Image
+                            src={secureImageUrl(r.channelLogo, undefined, "logo")!}
+                            alt=""
+                            fill
+                            className="object-cover opacity-80"
+                            sizes="360px"
+                            unoptimized
+                          />
+                        ) : (
+                          <div className="flex size-full items-center justify-center">
+                            <Radio className="size-10 text-white/30" aria-hidden />
+                          </div>
+                        )}
+                        <div className="absolute inset-x-0 bottom-0 h-1 bg-white/15">
                           <div
-                            className="h-full bg-error-subtle transition-[width] duration-700 ease-out"
+                            className="h-full bg-[#ff3f91] transition-[width] duration-700 ease-out"
                             style={{ width: `${Math.round(t * 100)}%` }}
                           />
                         </div>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.14em] text-error-strong">
-                              <span className="relative flex size-2">
-                                <span className="absolute inline-flex size-full animate-ping rounded-full bg-error-subtle opacity-60" />
-                                <span className="relative inline-flex size-2 rounded-full bg-error-subtle" />
-                              </span>
-                              Live
-                            </p>
-                            <p className="mt-2 truncate text-[16px] font-semibold text-foreground-intense">
-                              {r.channelName}
-                            </p>
-                            <p className="mt-1 text-[13px] text-foreground-intense">
-                              Until{" "}
-                              {new Intl.DateTimeFormat(undefined, {
-                                hour: "numeric",
-                                minute: "2-digit",
-                              }).format(new Date(r.plannedEndsAt))}
-                            </p>
-                          </div>
-                          <Button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => void stopRecording(r.id)}
-                            variant="destructive"
-                            size="sm"
-                            className="shrink-0"
-                          >
-                            <CircleStop className="size-4" aria-hidden />
-                            Stop &amp; save
-                          </Button>
-                        </div>
-                      </Card>
-                    </li>
+                      </div>
+                      <div className="rec-spotlight-card-body">
+                        <p className="rec-live-dot">Live</p>
+                        <h3>{r.channelName}</h3>
+                        <p>
+                          Until{" "}
+                          {new Intl.DateTimeFormat(undefined, {
+                            hour: "numeric",
+                            minute: "2-digit",
+                          }).format(new Date(r.plannedEndsAt))}
+                        </p>
+                        <Button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void stopRecording(r.id)}
+                          variant="destructive"
+                          size="sm"
+                          className="mt-3"
+                        >
+                          <CircleStop className="size-4" aria-hidden />
+                          Stop &amp; save
+                        </Button>
+                      </div>
+                    </article>
                   );
                 })}
-              </ul>
+              </div>
             </section>
           ) : null}
 
@@ -985,24 +972,27 @@ export function TvRecordingsPage() {
               data-tv-nav-up="#rec-active,#rec-start-cta"
               data-tv-nav-down="#rec-library"
               aria-labelledby="rec-upcoming-heading"
+              className="!px-0"
             >
-              <h2
-                id="rec-upcoming-heading"
-                className="text-lg font-semibold tracking-tight text-foreground-intense"
-              >
-                Upcoming
-              </h2>
-              <ul data-tv-layout="vertical" className="mt-4 space-y-3">
+              <div className="mb-4 flex items-baseline justify-between gap-3">
+                <h2
+                  id="rec-upcoming-heading"
+                  className="text-[clamp(1.25rem,1.8vw,1.75rem)] font-bold tracking-[-0.03em] text-white"
+                >
+                  Upcoming
+                </h2>
+                <p className="text-[13px] text-white/40">
+                  {overview.schedules.length} scheduled
+                </p>
+              </div>
+              <ul data-tv-layout="vertical" className="space-y-3">
                 {overview.schedules.map((s) => (
                   <li key={s.id}>
-                    <Card
-                      frame="glass"
-                      className="rounded-lg border border-border p-4 sm:p-5"
-                    >
+                    <div className="guide-channel-row !items-stretch sm:!items-center">
                       {editingId === s.id ? (
-                        <div className="grid gap-4 md:grid-cols-2">
+                        <div className="grid w-full gap-4 md:grid-cols-2">
                           <div>
-                            <p className="text-[13px] font-medium text-foreground-intense">
+                            <p className="text-[13px] font-medium text-white/70">
                               Start
                             </p>
                             <Input
@@ -1010,21 +1000,21 @@ export function TvRecordingsPage() {
                               value={editStart}
                               onChange={(e) => setEditStart(e.target.value)}
                               className={cn(
-                                "mt-1 h-10 w-full rounded-lg border border-border bg-background px-2.5 text-[14px] text-foreground-intense outline-none",
-                                "focus:border-border",
+                                "mt-1 h-10 w-full rounded-xl border border-white/12 bg-[#0c101c] px-2.5 text-[14px] text-white outline-none",
+                                "focus:border-[#ff3f91]/50",
                               )}
                             />
                           </div>
                           <div>
-                            <p className="text-[13px] font-medium text-foreground-intense">
+                            <p className="text-[13px] font-medium text-white/70">
                               End
                             </p>
                             <RadioGroup value={editEndMode} onValueChange={(value) => setEditEndMode(value as "end" | "duration")} orientation="horizontal" className="mt-1 flex flex-wrap gap-2">
-                              <label className="inline-flex items-center gap-1.5 text-[13px] text-foreground-intense">
+                              <label className="inline-flex items-center gap-1.5 text-[13px] text-white/70">
                                 <AppicaRadio value="end" />
                                 Time
                               </label>
-                              <label className="inline-flex items-center gap-1.5 text-[13px] text-foreground-intense">
+                              <label className="inline-flex items-center gap-1.5 text-[13px] text-white/70">
                                 <AppicaRadio value="duration" />
                                 Minutes from start
                               </label>
@@ -1035,8 +1025,8 @@ export function TvRecordingsPage() {
                                 value={editEnd}
                                 onChange={(e) => setEditEnd(e.target.value)}
                                 className={cn(
-                                  "mt-2 h-10 w-full rounded-lg border border-border bg-background px-2.5 text-[14px] text-foreground-intense outline-none",
-                                  "focus:border-border",
+                                  "mt-2 h-10 w-full rounded-xl border border-white/12 bg-[#0c101c] px-2.5 text-[14px] text-white outline-none",
+                                  "focus:border-[#ff3f91]/50",
                                 )}
                               />
                             ) : (
@@ -1049,8 +1039,8 @@ export function TvRecordingsPage() {
                                   setEditDuration(Number(e.target.value) || 1)
                                 }
                                 className={cn(
-                                  "mt-2 h-10 w-28 rounded-lg border border-border bg-background px-2.5 text-[14px] text-foreground-intense outline-none",
-                                  "focus:border-border",
+                                  "mt-2 h-10 w-28 rounded-xl border border-white/12 bg-[#0c101c] px-2.5 text-[14px] text-white outline-none",
+                                  "focus:border-[#ff3f91]/50",
                                 )}
                               />
                             )}
@@ -1076,19 +1066,19 @@ export function TvRecordingsPage() {
                           </div>
                         </div>
                       ) : (
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex min-w-0 items-center gap-3">
-                            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-background-muted ring-1 ring-border">
+                            <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-white/8 ring-1 ring-white/10">
                               <CalendarClock
-                                className="size-5 text-foreground-intense"
+                                className="size-5 text-[#ff3f91]"
                                 aria-hidden
                               />
                             </span>
                             <div className="min-w-0">
-                              <p className="truncate text-[16px] font-semibold text-foreground-intense">
+                              <p className="truncate text-[16px] font-semibold text-white">
                                 {s.channelName}
                               </p>
-                              <p className="mt-0.5 text-[14px] text-foreground-intense">
+                              <p className="mt-0.5 text-[14px] text-white/45">
                                 {formatRange(s.startsAt, s.endsAt)}
                               </p>
                             </div>
@@ -1099,6 +1089,7 @@ export function TvRecordingsPage() {
                               disabled={busy}
                               onClick={() => beginEdit(s)}
                               size="sm"
+                              className="stream-cta-secondary !min-h-10"
                             >
                               <Pencil className="size-3.5" aria-hidden />
                               Edit
@@ -1116,7 +1107,7 @@ export function TvRecordingsPage() {
                           </div>
                         </div>
                       )}
-                    </Card>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -1128,131 +1119,150 @@ export function TvRecordingsPage() {
             data-tv-nav-up="#rec-upcoming,#rec-active,#rec-start-cta"
             aria-labelledby="rec-library-heading"
           >
-            <h2
-              id="rec-library-heading"
-              className="text-lg font-semibold tracking-tight text-foreground-intense"
-            >
-              Finished recordings
-            </h2>
+            <div className="mb-4 flex items-baseline justify-between gap-3">
+              <h2
+                id="rec-library-heading"
+                className="text-[clamp(1.25rem,1.8vw,1.75rem)] font-bold tracking-[-0.03em] text-white"
+              >
+                Finished recordings
+              </h2>
+              {overview ? (
+                <p className="text-[13px] text-white/40">
+                  {overview.library.length} saved
+                </p>
+              ) : null}
+            </div>
             {!overview ? (
               <ZendeLoadingState className="mt-4 items-start text-left" size="small" label="Loading recording library…" />
             ) : overview.library.length === 0 ? (
-              <p className="mt-4 text-[15px] text-foreground-intense">
-                Finished recordings and failed captures appear here. Failed rows
-                show the server error and cannot be played or downloaded.
-              </p>
+              <div className="stream-empty !mx-0 !py-12">
+                <Video className="mx-auto size-10 text-[#ff3f91]" strokeWidth={1.25} aria-hidden />
+                <h2>Nothing saved yet</h2>
+                <p>
+                  Start a live capture or schedule ahead — finished and failed captures show up here.
+                </p>
+                <button
+                  type="button"
+                  className="stream-cta mt-8"
+                  onClick={() => setStartRecordingDialogOpen(true)}
+                >
+                  <Plus className="size-4" aria-hidden />
+                  Start recording
+                </button>
+              </div>
             ) : (
               <ul
                 data-tv-layout="grid"
                 data-tv-columns="2"
-                className="mt-4 grid gap-4 lg:grid-cols-2"
+                className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
               >
                 {overview.library.map((item) => {
                   const isFailed = item.status === "FAILED";
                   return (
                   <li key={item.id}>
-                    <Card
-                      frame="glass"
+                    <article
                       className={cn(
-                        "flex flex-col gap-4 rounded-lg border border-border p-4 sm:flex-row sm:items-stretch sm:justify-between sm:gap-6 sm:p-5",
-                        isFailed && "border-error bg-error-subtle",
+                        "rec-spotlight-card !max-w-none !min-w-0 flex flex-col",
+                        isFailed && "!border-red-400/35",
                       )}
                     >
-                      <div className="flex min-w-0 flex-1 items-center gap-3">
-                        <span className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-background-muted ring-1 ring-border">
-                          {item.channelLogo ? (
-                            <Image
-                              src={secureImageUrl(item.channelLogo, undefined, "logo")!}
-                              alt=""
-                              fill
-                              className="object-cover"
-                              sizes="56px"
-                              unoptimized
-                            />
-                          ) : (
-                            <span className="flex size-full items-center justify-center text-foreground-intense">
-                              <Video className="size-6" aria-hidden />
-                            </span>
-                          )}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="truncate text-[16px] font-semibold text-foreground-intense">
-                            {item.channelName}
-                          </p>
-                          <p className="mt-1 text-[13px] text-foreground-intense">
-                            {item.endedAt
-                              ? new Intl.DateTimeFormat(undefined, {
-                                  dateStyle: "medium",
-                                  timeStyle: "short",
-                                }).format(new Date(item.endedAt))
-                              : "—"}{" "}
-                            · {formatBytes(item.sizeBytes)} ·{" "}
-                            <span
-                              className={cn(
-                                isFailed ? "text-error-strong" : "text-foreground-intense",
-                              )}
-                            >
-                              {isFailed
-                                ? "Failed"
-                                : item.status === "STOPPED_EARLY"
-                                  ? "Stopped early"
-                                  : "Complete"}
-                            </span>
-                          </p>
-                          {isFailed ? (
-                            <p
-                              className="mt-2 line-clamp-3 text-[12px] leading-snug text-error-strong"
-                              title={item.error ?? undefined}
-                            >
-                              {libraryFailSummary(item.error)}
-                            </p>
-                          ) : null}
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 flex-col gap-2 sm:min-w-[11rem]">
-                        {isFailed ? (
+                      <div className="relative aspect-video overflow-hidden bg-[#0c101c]">
+                        {item.channelLogo ? (
+                          <Image
+                            src={secureImageUrl(item.channelLogo, undefined, "logo")!}
+                            alt=""
+                            fill
+                            className="object-cover opacity-85"
+                            sizes="360px"
+                            unoptimized
+                          />
+                        ) : (
+                          <span className="flex size-full items-center justify-center text-white/35">
+                            <Video className="size-10" aria-hidden />
+                          </span>
+                        )}
+                        <div className="absolute left-3 top-3">
                           <span
                             className={cn(
-                              "inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-error bg-error-subtle px-4 text-[14px] font-semibold text-error-strong",
+                              "rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.08em]",
+                              isFailed
+                                ? "bg-red-500/90 text-white"
+                                : item.status === "STOPPED_EARLY"
+                                  ? "bg-amber-500/90 text-black"
+                                  : "bg-white/90 text-black",
                             )}
-                            role="status"
                           >
-                            <AlertTriangle className="size-4 shrink-0" aria-hidden />
-                            Encode failed
+                            {isFailed
+                              ? "Failed"
+                              : item.status === "STOPPED_EARLY"
+                                ? "Early stop"
+                                : "Ready"}
                           </span>
-                        ) : (
-                          <Link
-                            href={`/watch?recording=${encodeURIComponent(item.id)}`}
-                            className={buttonVariants({ variant: "primary", size: "sm" })}
-                          >
-                            <Play className="size-4" aria-hidden />
-                            Play
-                          </Link>
-                        )}
-                        <Button
-                          type="button"
-                          disabled={busy || isFailed}
-                          onClick={() => void downloadRecording(item)}
-                          size="sm"
-                        >
-                          <Download className="size-4" aria-hidden />
-                          Download MP4
-                        </Button>
-                        <Button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => {
-                            setLibraryDeleteError(null);
-                            setLibraryDeleteTarget(item);
-                          }}
-                          variant="destructive"
-                          size="sm"
-                        >
-                          <Trash2 className="size-4" aria-hidden />
-                          Remove
-                        </Button>
+                        </div>
                       </div>
-                    </Card>
+                      <div className="rec-spotlight-card-body flex flex-1 flex-col">
+                        <h3>{item.channelName}</h3>
+                        <p>
+                          {item.endedAt
+                            ? new Intl.DateTimeFormat(undefined, {
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              }).format(new Date(item.endedAt))
+                            : "—"}{" "}
+                          · {formatBytes(item.sizeBytes)}
+                        </p>
+                        {isFailed ? (
+                          <p
+                            className="mt-2 line-clamp-3 text-[12px] leading-snug text-red-300"
+                            title={item.error ?? undefined}
+                          >
+                            {libraryFailSummary(item.error)}
+                          </p>
+                        ) : null}
+                        <div className="mt-auto flex flex-col gap-2 pt-4">
+                          {isFailed ? (
+                            <span
+                              className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-red-400/30 bg-red-500/15 px-4 text-[14px] font-semibold text-red-200"
+                              role="status"
+                            >
+                              <AlertTriangle className="size-4 shrink-0" aria-hidden />
+                              Encode failed
+                            </span>
+                          ) : (
+                            <Link
+                              href={`/watch?recording=${encodeURIComponent(item.id)}`}
+                              className={cn(buttonVariants({ variant: "primary", size: "sm" }), "stream-cta !min-h-11")}
+                            >
+                              <Play className="size-4" aria-hidden />
+                              Play
+                            </Link>
+                          )}
+                          <Button
+                            type="button"
+                            disabled={busy || isFailed}
+                            onClick={() => void downloadRecording(item)}
+                            size="sm"
+                            className="stream-cta-secondary !min-h-11"
+                          >
+                            <Download className="size-4" aria-hidden />
+                            Download MP4
+                          </Button>
+                          <Button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => {
+                              setLibraryDeleteError(null);
+                              setLibraryDeleteTarget(item);
+                            }}
+                            variant="destructive"
+                            size="sm"
+                          >
+                            <Trash2 className="size-4" aria-hidden />
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    </article>
                   </li>
                   );
                 })}
@@ -1267,14 +1277,6 @@ export function TvRecordingsPage() {
             />
           ) : null}
         </div>
-
-        <div
-          className={cn(
-            "pointer-events-none fixed inset-x-0 z-40 h-px bg-border",
-            TV_BROWSE_STICKY_TOP_CLASS,
-          )}
-          aria-hidden
-        />
 
         {libraryDeleteTarget ? (
           <div
@@ -1449,6 +1451,6 @@ export function TvRecordingsPage() {
       {actionError ? (
         <NavErrorBanner message={actionError} onDismiss={() => setActionError(null)} />
       ) : null}
-    </div>
+    </StreamPageShell>
   );
 }

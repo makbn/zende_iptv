@@ -8,7 +8,7 @@ describe("progressive playback compatibility", () => {
       src: "/api/stream/proxy/wdQsEzl_nz2aqq4VqF5Yu7Hv.mp4",
       playbackMode: "progressive",
       mediaErrorCode: 4,
-    })).toBe("/api/stream/transcode/wdQsEzl_nz2aqq4VqF5Yu7Hv.m3u8");
+    })).toBe("/api/stream/transcode/wdQsEzl_nz2aqq4VqF5Yu7Hv.m3u8?hdr=0");
   });
 
   it("does not transcode other media errors or playback modes", () => {
